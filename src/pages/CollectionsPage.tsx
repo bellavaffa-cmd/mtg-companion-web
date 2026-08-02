@@ -1,62 +1,116 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
-import type { CollectionType } from '../types/models'
+import { TopBar } from '../components/TopBar'
+import { Icon } from '../components/Icon'
+import { Dialog } from '../components/Dialog'
+import { ContextMenu } from '../components/ContextMenu'
+import { useLongPress } from '../components/useLongPress'
+import type { Collection, CollectionType } from '../types/models'
 
 export function CollectionsPage() {
-  const { collections, createCollection, deleteCollection } = useSync()
+  const { collections, deleteCollection } = useSync()
+  const navigate = useNavigate()
+  const [showCreate, setShowCreate] = useState(false)
+  const [menu, setMenu] = useState<{ x: number; y: number; collection: Collection } | null>(null)
+
+  return (
+    <>
+      <TopBar
+        title="COLLECTION"
+        actions={
+          <button className="top-bar-icon" onClick={() => setShowCreate(true)} aria-label="New binder">
+            <Icon name="add" />
+          </button>
+        }
+      />
+      <div className="content-scroll">
+        {collections.length === 0 ? (
+          <div className="empty-state">No binders yet. Tap + to create one.</div>
+        ) : (
+          collections.map((c) => (
+            <CollectionRow
+              key={c.id}
+              collection={c}
+              onClick={() => navigate(`/collections/${c.id}`)}
+              onLongPress={(x, y) => setMenu({ x, y, collection: c })}
+            />
+          ))
+        )}
+      </div>
+
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          actions={[
+            { label: 'Delete binder', icon: 'delete', destructive: true, onClick: () => deleteCollection(menu.collection.id) },
+          ]}
+        />
+      )}
+
+      {showCreate && <CreateCollectionDialog onDismiss={() => setShowCreate(false)} />}
+    </>
+  )
+}
+
+function CollectionRow({
+  collection,
+  onClick,
+  onLongPress,
+}: {
+  collection: Collection
+  onClick: () => void
+  onLongPress: (x: number, y: number) => void
+}) {
+  const longPress = useLongPress({ onLongPress, onClick })
+  const total = collection.entries.reduce((s, e) => s + e.quantity + e.foilQuantity, 0)
+  const label = collection.type === 'WISHLIST' ? 'WISHLIST · ' : ''
+
+  return (
+    <div className="card-row" {...longPress} style={{ cursor: 'pointer' }}>
+      <Icon name={collection.type === 'WISHLIST' ? 'star' : 'collections'} style={{ fontSize: 32, color: 'var(--accent-dim)' }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="name" style={{ whiteSpace: 'normal' }}>{collection.name}</div>
+        <div className="type-line">{label}{total} cards · {collection.entries.length} unique</div>
+      </div>
+    </div>
+  )
+}
+
+function CreateCollectionDialog({ onDismiss }: { onDismiss: () => void }) {
+  const { createCollection } = useSync()
   const [name, setName] = useState('')
   const [type, setType] = useState<CollectionType>('OWNED')
 
   return (
-    <div>
-      <h1 className="page-title">COLLECTION</h1>
-      <div className="card-panel" style={{ marginBottom: 20 }}>
-        <div className="row">
-          <input
-            className="input"
-            placeholder="New binder name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={{ flex: 1 }}
-          />
-          <select className="input" style={{ width: 140 }} value={type} onChange={(e) => setType(e.target.value as CollectionType)}>
-            <option value="OWNED">Owned</option>
-            <option value="WISHLIST">Wishlist</option>
-          </select>
+    <Dialog
+      title="New binder"
+      onDismiss={onDismiss}
+      actions={
+        <>
+          <button className="btn" onClick={onDismiss}>CANCEL</button>
           <button
             className="btn btn-primary"
             disabled={!name.trim()}
             onClick={() => {
               createCollection(name.trim(), type)
-              setName('')
+              onDismiss()
             }}
           >
-            Create
+            CREATE
           </button>
-        </div>
-      </div>
-
-      {collections.length === 0 ? (
-        <div className="empty-state">No binders yet. Create one above.</div>
-      ) : (
-        collections.map((c) => {
-          const totalCards = c.entries.reduce((s, e) => s + e.quantity + e.foilQuantity, 0)
-          return (
-            <div key={c.id} className="card-row" style={{ padding: '14px 16px' }}>
-              <Link to={`/collections/${c.id}`} className="name" style={{ color: 'var(--text-primary)' }}>
-                <div style={{ fontSize: 15 }}>{c.name}</div>
-                <div className="dim">
-                  {c.type === 'WISHLIST' ? 'Wishlist' : 'Owned'} · {totalCards} card{totalCards === 1 ? '' : 's'}
-                </div>
-              </Link>
-              <button className="btn btn-danger" onClick={() => deleteCollection(c.id)}>
-                Delete
-              </button>
-            </div>
-          )
-        })
-      )}
-    </div>
+        </>
+      }
+    >
+      <div className="field-label">Binder name</div>
+      <input className="input" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+      <div className="field-label" style={{ marginTop: 14 }}>Type</div>
+      <select className="input" value={type} onChange={(e) => setType(e.target.value as CollectionType)}>
+        <option value="OWNED">Owned</option>
+        <option value="WISHLIST">Wishlist</option>
+      </select>
+    </Dialog>
   )
 }

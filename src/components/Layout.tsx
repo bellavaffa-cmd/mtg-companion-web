@@ -1,25 +1,19 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
+import { BottomNav } from './BottomNav'
+
+// Matches the Android app's bottomNavRoutes — hidden on pushed detail screens (their own back
+// button takes over instead), shown on the 4 top-level tabs.
+const TAB_ROUTES = new Set(['/', '/collections', '/decks', '/search'])
 
 export function Layout() {
+  const location = useLocation()
+  const showBottomNav = TAB_ROUTES.has(location.pathname)
+
   return (
-    <div className="app-shell">
-      <nav className="nav-bar">
-        <div className="nav-title">MTG COMPANION</div>
-        <NavLink to="/" end className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
-          Home
-        </NavLink>
-        <NavLink to="/collections" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
-          Collection
-        </NavLink>
-        <NavLink to="/decks" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
-          Decks
-        </NavLink>
-        <NavLink to="/search" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
-          Search
-        </NavLink>
-      </nav>
-      <div className="main-content">
+    <div className="phone-shell">
+      <div className="phone-frame">
         <Outlet />
+        {showBottomNav && <BottomNav />}
       </div>
     </div>
   )

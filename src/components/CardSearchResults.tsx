@@ -2,20 +2,27 @@ import { useEffect, useState } from 'react'
 import { searchCards } from '../api/scryfall'
 import type { ScryfallCard } from '../types/scryfall'
 import { displayImageUrl } from '../types/scryfall'
-import { AddToTargetMenu } from './AddToTargetMenu'
+import { useSync } from '../sync/SyncContext'
+import { ContextMenu } from './ContextMenu'
+import { useLongPress } from './useLongPress'
+import { CardZoomModal } from './CardZoomModal'
 
 interface Props {
-  /** If provided, each result shows a single "Add" button wired to this. Otherwise falls back to
-   * the generic "Add to…" deck/binder picker (used by the standalone Search page). */
+  /** If provided, long-press just offers a single "Add" wired to this (used inside a deck/binder's
+   * own "add cards" section). Otherwise falls back to a flat list of every deck/binder to add into
+   * (the standalone Search page). */
   onAdd?: (card: ScryfallCard) => void
   placeholder?: string
 }
 
-export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall — card name or syntax like "c:g t:creature"' }: Props) {
+export function CardSearchResults({ onAdd, placeholder = 'Search cards, e.g. "c:g t:creature"' }: Props) {
+  const { decks, collections, addCardToDeck, addEntryToCollection } = useSync()
   const [query, setQuery] = useState('')
   const [cards, setCards] = useState<ScryfallCard[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [zoomCard, setZoomCard] = useState<ScryfallCard | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number; card: ScryfallCard } | null>(null)
 
   useEffect(() => {
     const trimmed = query.trim()
@@ -48,6 +55,16 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall — ca
     }
   }, [query])
 
+  function menuActionsFor(card: ScryfallCard) {
+    if (onAdd) {
+      return [{ label: 'Add', icon: 'add', onClick: () => onAdd(card) }]
+    }
+    return [
+      ...collections.map((c) => ({ label: `Add to ${c.name}`, icon: 'collections', onClick: () => addEntryToCollection(c.id, card) })),
+      ...decks.map((d) => ({ label: `Add to ${d.name}`, icon: 'style', onClick: () => addCardToDeck(d.id, card) })),
+    ]
+  }
+
   return (
     <div>
       <input
@@ -56,30 +73,64 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall — ca
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
-      <div style={{ marginTop: 16 }}>
+      <div style={{ marginTop: 14 }}>
         {loading && <div className="muted">Searching…</div>}
         {error && <div className="muted" style={{ color: 'var(--error)' }}>{error}</div>}
         {!loading && !error && query.trim() && cards.length === 0 && (
           <div className="empty-state">No cards match.</div>
         )}
-        <div className="grid">
-          {cards.map((card) => (
-            <div key={card.id} className="card-tile" style={{ cursor: 'default' }}>
-              <img src={displayImageUrl(card) ?? undefined} alt={card.name} loading="lazy" />
-              <div className="tile-label">{card.name}</div>
-              <div style={{ padding: '0 8px 8px' }}>
-                {onAdd ? (
-                  <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => onAdd(card)}>
-                    Add
-                  </button>
-                ) : (
-                  <AddToTargetMenu card={card} />
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+        {cards.map((card) => (
+          <ResultRow
+            key={card.id}
+            card={card}
+            onZoom={() => setZoomCard(card)}
+            onLongPress={(x, y) => setMenu({ x, y, card })}
+          />
+        ))}
       </div>
+
+      {menu && (
+        <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} actions={menuActionsFor(menu.card)} />
+      )}
+
+      {zoomCard && (
+        <CardZoomModal
+          imageUrl={displayImageUrl(zoomCard)}
+          name={zoomCard.name}
+          priceUsd={zoomCard.prices?.usd}
+          onClose={() => setZoomCard(null)}
+        >
+          {onAdd ? (
+            <button className="btn btn-primary" style={{ marginTop: 14 }} onClick={() => { onAdd(zoomCard); setZoomCard(null) }}>
+              ADD
+            </button>
+          ) : (
+            <div className="muted" style={{ marginTop: 10 }}>Long-press the card to add it somewhere.</div>
+          )}
+        </CardZoomModal>
+      )}
+    </div>
+  )
+}
+
+function ResultRow({
+  card,
+  onZoom,
+  onLongPress,
+}: {
+  card: ScryfallCard
+  onZoom: () => void
+  onLongPress: (x: number, y: number) => void
+}) {
+  const longPress = useLongPress({ onLongPress, onClick: onZoom })
+  return (
+    <div className="card-row" {...longPress} style={{ cursor: 'pointer' }}>
+      <img src={displayImageUrl(card) ?? undefined} alt={card.name} loading="lazy" />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="name">{card.name}</div>
+        <div className="type-line">{(card.type_line ?? '').toUpperCase()}</div>
+      </div>
+      {card.prices?.usd && <div className="muted">${card.prices.usd}</div>}
     </div>
   )
 }

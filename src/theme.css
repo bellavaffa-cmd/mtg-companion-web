@@ -1,4 +1,5 @@
-/* Dark + gold theme matching the Android app's Color.kt palette. */
+/* Dark + gold theme matching the Android app's Color.kt palette, laid out as a literal phone-frame
+   clone of the Android app (bottom nav, tile grids, card rows) rather than a desktop app shell. */
 :root {
   --bg: #07080e;
   --surface: #0d0d1c;
@@ -16,10 +17,28 @@
   --error: #cf6659;
   --font-heading: 'Cinzel', Georgia, serif;
   --font-body: 'DM Sans', system-ui, sans-serif;
+  --phone-width: 430px;
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Material Symbols (filled) — matches the Android app's Material Icons.Filled.* glyphs. */
+.icon {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  font-size: inherit;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
 }
 
 html, body, #root {
@@ -28,7 +47,9 @@ html, body, #root {
 
 body {
   margin: 0;
-  background: var(--bg);
+  /* Outside the phone frame, on a desktop-width window, this shows as a neutral backdrop the
+     "device" sits on — same idea as viewing a phone mockup on a wide monitor. */
+  background: #000;
   color: var(--text-primary);
   font-family: var(--font-body);
 }
@@ -43,74 +64,164 @@ button, input, select, textarea {
   color: inherit;
 }
 
-.app-shell {
-  display: flex;
+/* ---- Phone frame ---- */
+
+.phone-shell {
   min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
 }
 
-.nav-bar {
-  width: 210px;
-  flex-shrink: 0;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
-  padding: 20px 12px;
+.phone-frame {
+  width: 100%;
+  max-width: var(--phone-width);
+  min-height: 100vh;
+  background: var(--bg);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  position: relative;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.6);
 }
 
-.nav-title {
+@media (min-width: 480px) {
+  .phone-frame {
+    min-height: 96vh;
+    margin: 2vh 0;
+    border-radius: 28px;
+    overflow: hidden;
+    border: 1px solid #222;
+  }
+}
+
+.top-bar {
+  flex-shrink: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px;
+  background: var(--bg);
+}
+
+.top-bar-title {
   font-family: var(--font-heading);
   color: var(--accent-light);
-  letter-spacing: 1.5px;
-  font-size: 15px;
-  font-weight: 700;
-  padding: 0 10px 16px;
-}
-
-.nav-link {
-  padding: 10px 12px;
-  border-radius: 6px;
-  color: var(--text-muted);
+  letter-spacing: 1.8px;
   font-size: 14px;
-  font-weight: 500;
-}
-
-.nav-link:hover {
-  background: var(--surface2);
-  color: var(--text-primary);
-}
-
-.nav-link.active {
-  background: var(--accent-glow);
-  color: var(--accent-light);
-}
-
-.main-content {
+  font-weight: 600;
   flex: 1;
-  min-width: 0;
-  padding: 28px 32px;
-  overflow-y: auto;
 }
+
+.top-bar-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.top-bar-icon:hover {
+  background: var(--surface2);
+}
+
+.content-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.bottom-nav {
+  flex-shrink: 0;
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+.nav-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px 10px;
+  color: var(--text-dim);
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+.nav-tab .nav-tab-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.nav-tab .nav-tab-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.nav-tab.active {
+  color: var(--accent);
+}
+
+/* ---- Shared text/section styles ---- */
 
 .page-title {
   font-family: var(--font-heading);
   color: var(--accent-light);
   letter-spacing: 1px;
-  font-size: 22px;
-  margin: 0 0 20px;
+  font-size: 20px;
+  margin: 0 0 16px;
 }
+
+.section-label {
+  font-family: var(--font-heading);
+  color: var(--text-dim);
+  letter-spacing: 1.4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  margin: 0 0 8px;
+}
+
+.muted {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.dim {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.empty-state {
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 24px 0;
+}
+
+/* ---- Elevated card panel (matches the Android app's elevatedCard() gradient style) ---- */
 
 .card-panel {
   background: linear-gradient(to bottom, var(--surface), var(--surface2));
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 16px;
+  padding: 14px;
 }
 
 .card-panel + .card-panel {
-  margin-top: 12px;
+  margin-top: 10px;
 }
+
+/* ---- Buttons / inputs ---- */
 
 .btn {
   border: 1px solid var(--border-bright);
@@ -181,33 +292,176 @@ button, input, select, textarea {
   gap: 10px;
 }
 
-.muted {
+/* ---- Home: stat cards + tile rows ---- */
+
+.stat-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.stat-card {
+  flex: 1;
+  background: linear-gradient(to bottom, var(--surface), var(--surface2));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.stat-card .stat-value {
+  font-family: var(--font-heading);
+  font-size: 22px;
+  color: var(--accent-light);
+  line-height: 1.1;
+}
+
+.stat-card .stat-label {
+  font-size: 11px;
   color: var(--text-muted);
+  letter-spacing: 0.4px;
+  margin-top: 2px;
+}
+
+.alert-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(to bottom, var(--surface), var(--surface2));
+  border: 1px solid rgba(196, 137, 58, 0.5);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
   font-size: 13px;
 }
 
-.dim {
-  color: var(--text-dim);
-  font-size: 12px;
+.home-tile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: linear-gradient(to bottom, var(--surface), var(--surface2));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
 }
+
+.home-tile + .home-tile {
+  margin-top: 10px;
+}
+
+.home-tile .tile-icon {
+  font-size: 26px;
+  color: var(--accent);
+  width: 30px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.home-tile .tile-title {
+  font-family: var(--font-heading);
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.home-tile .tile-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.home-tile .chevron {
+  color: var(--text-dim);
+  font-size: 18px;
+}
+
+/* ---- Deck grid (art-background tiles, matches Android's DeckTile) ---- */
+
+.deck-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.deck-tile {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface) center / cover no-repeat;
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.deck-tile .scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 40%, rgba(0, 0, 0, 0.9) 100%);
+}
+
+.deck-tile .tile-content {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 8px;
+}
+
+.deck-tile .deck-name {
+  font-size: 11px;
+  color: var(--accent-light);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deck-tile .deck-sub {
+  font-size: 9px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.mana-pips {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 50px;
+  padding: 2px 5px;
+}
+
+.mana-pip {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  font-size: 8px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #000;
+}
+
+/* ---- Card grid tiles (deck/collection cards with art) ---- */
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
 }
 
 .card-tile {
+  position: relative;
   background: var(--surface2);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
-  transition: border-color 0.15s;
-}
-
-.card-tile:hover {
-  border-color: var(--border-bright);
 }
 
 .card-tile img {
@@ -219,22 +473,36 @@ button, input, select, textarea {
 }
 
 .card-tile .tile-label {
-  padding: 6px 8px;
-  font-size: 12px;
+  padding: 5px 6px;
+  font-size: 11px;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.card-tile .qty-badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--accent-light);
+  font-size: 10px;
+  border-radius: 50px;
+  padding: 1px 6px;
+}
+
+/* ---- List rows (search results, collection entries, deck cards) ---- */
+
 .card-row {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
-  background: var(--surface2);
+  background: linear-gradient(to bottom, var(--surface), var(--surface2));
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
+  position: relative;
 }
 
 .card-row + .card-row {
@@ -248,12 +516,22 @@ button, input, select, textarea {
   border-radius: 4px;
   background: var(--surface3);
   flex-shrink: 0;
+  cursor: pointer;
 }
 
 .card-row .name {
   flex: 1;
   min-width: 0;
-  font-size: 14px;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.card-row .type-line {
+  font-size: 11px;
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -266,13 +544,13 @@ button, input, select, textarea {
 }
 
 .qty-stepper button {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   border: 1px solid var(--border-bright);
   background: transparent;
   color: var(--accent-light);
-  font-size: 15px;
+  font-size: 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -301,12 +579,6 @@ button, input, select, textarea {
   color: var(--bg);
 }
 
-.empty-state {
-  color: var(--text-muted);
-  font-size: 14px;
-  padding: 24px 0;
-}
-
 .badge {
   display: inline-block;
   padding: 2px 8px;
@@ -319,4 +591,154 @@ button, input, select, textarea {
 .badge-gold {
   background: var(--accent-glow);
   color: var(--accent-light);
+}
+
+/* ---- Long-press context menu (mimics Android's CardActionMenu dropdown) ---- */
+
+.context-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.context-menu {
+  position: fixed;
+  z-index: 41;
+  min-width: 200px;
+  background: var(--surface);
+  border: 1px solid var(--border-bright);
+  border-radius: 8px;
+  padding: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.context-menu-item:hover {
+  background: var(--surface2);
+}
+
+.context-menu-item.destructive {
+  color: var(--error);
+}
+
+.context-menu-item .icon {
+  color: var(--accent);
+  font-size: 15px;
+  width: 16px;
+  text-align: center;
+}
+
+.context-menu-item.destructive .icon {
+  color: var(--error);
+}
+
+/* ---- Card zoom modal (mimics Android's CardZoomDialog) ---- */
+
+.zoom-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 24px;
+}
+
+.zoom-content {
+  max-width: 340px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.zoom-content img {
+  width: 100%;
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+.zoom-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.zoom-name {
+  font-family: var(--font-heading);
+  color: var(--accent-light);
+  font-size: 16px;
+  margin-top: 14px;
+  text-align: center;
+}
+
+.zoom-price {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+/* ---- Dialog (mimics Android's AlertDialog) ---- */
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+  padding: 20px;
+}
+
+.dialog-box {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 20px;
+  width: 100%;
+  max-width: 320px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.dialog-title {
+  font-family: var(--font-heading);
+  color: var(--accent-light);
+  font-size: 16px;
+  margin-bottom: 14px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.field-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.4px;
+  margin-bottom: 6px;
+  text-transform: uppercase;
 }
