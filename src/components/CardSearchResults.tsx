@@ -98,6 +98,7 @@ export function CardSearchResults({ onAdd, placeholder = 'Search cards, e.g. "c:
           imageUrl={displayImageUrl(zoomCard)}
           name={zoomCard.name}
           priceUsd={zoomCard.prices?.usd}
+          scryfallId={zoomCard.id}
           onClose={() => setZoomCard(null)}
         >
           {onAdd ? (

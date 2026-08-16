@@ -62,7 +62,13 @@ export function CollectionDetailPage() {
       )}
 
       {zoomEntry && (
-        <CardZoomModal imageUrl={zoomEntry.imageUrl} name={zoomEntry.name} onClose={() => setZoomId(null)}>
+        <CardZoomModal
+          imageUrl={zoomEntry.imageUrl}
+          name={zoomEntry.name}
+          scryfallId={zoomEntry.scryfallId}
+          currentCollectionId={collection.id}
+          onClose={() => setZoomId(null)}
+        >
           <div className="row" style={{ marginTop: 14, gap: 22, justifyContent: 'center' }}>
             <div>
               <div className="dim" style={{ textAlign: 'center', marginBottom: 4 }}>QTY</div>

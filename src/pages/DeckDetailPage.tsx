@@ -207,7 +207,13 @@ export function DeckDetailPage() {
       {showExport && <ExportDeckDialog deck={deck} onDismiss={() => setShowExport(false)} />}
 
       {zoomEntry && (
-        <CardZoomModal imageUrl={zoomEntry.imageUrl} name={zoomEntry.name} onClose={() => setZoomId(null)}>
+        <CardZoomModal
+          imageUrl={zoomEntry.imageUrl}
+          name={zoomEntry.name}
+          scryfallId={zoomEntry.scryfallId}
+          currentDeckId={deck.id}
+          onClose={() => setZoomId(null)}
+        >
           <div className="qty-stepper" style={{ marginTop: 14, justifyContent: 'center' }}>
             <button onClick={() => setCardQuantity(deck.id, zoomEntry.scryfallId, zoomEntry.quantity - 1)}>−</button>
             <span>{zoomEntry.quantity}</span>

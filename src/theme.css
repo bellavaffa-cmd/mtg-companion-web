@@ -671,9 +671,28 @@ button, input, select, textarea {
 .zoom-content {
   max-width: 340px;
   width: 100%;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
   align-items: center;
+  overflow-y: auto;
+}
+
+.zoom-also-in {
+  width: 100%;
+  margin-top: 14px;
+}
+
+.zoom-also-in .section-label {
+  text-align: center;
+}
+
+.zoom-also-in .row {
+  justify-content: center;
+}
+
+.zoom-also-in .chip .icon {
+  font-size: 14px;
 }
 
 .zoom-content img {
