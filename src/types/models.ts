@@ -37,6 +37,30 @@ export const GAME_MODE_LABELS: Record<GameMode, string> = {
 
 export const GAME_MODES_USING_COMMANDER: ReadonlySet<GameMode> = new Set(['COMMANDER', 'BRAWL'])
 
+/**
+ * Whether a deck's cards represent real cards the user owns.
+ * - PHYSICAL: a deck the user physically owns — its cards count toward what they own.
+ * - VIRTUAL: a deck the user doesn't physically own (a copy of someone else's list, an
+ *   online-only deck) — its cards don't count toward owned totals.
+ * - PROTOTYPE: a deck still being built/tested, incomplete by design — same as Virtual, not
+ *   counted as owned until the deck is finished and marked Physical.
+ */
+export const DECK_OWNERSHIP_OPTIONS = ['PHYSICAL', 'VIRTUAL', 'PROTOTYPE'] as const
+export type DeckOwnership = (typeof DECK_OWNERSHIP_OPTIONS)[number]
+export const DECK_OWNERSHIP_DEFAULT: DeckOwnership = 'PHYSICAL'
+
+export const DECK_OWNERSHIP_LABELS: Record<DeckOwnership, string> = {
+  PHYSICAL: 'Physical',
+  VIRTUAL: 'Virtual',
+  PROTOTYPE: 'Prototype',
+}
+
+export const DECK_OWNERSHIP_DESCRIPTIONS: Record<DeckOwnership, string> = {
+  PHYSICAL: "You own this deck's cards — they count toward your collection.",
+  VIRTUAL: "You don't own this deck physically — its cards aren't counted as owned.",
+  PROTOTYPE: "Still being built — its cards aren't counted as owned yet.",
+}
+
 export interface Deck {
   id: string
   name: string
@@ -47,6 +71,7 @@ export interface Deck {
   createdAt: number
   tags: string[]
   gameResults: GameResult[]
+  ownership: DeckOwnership
 }
 
 export function newDeck(name: string, gameMode: GameMode = 'COMMANDER'): Deck {
@@ -60,6 +85,22 @@ export function newDeck(name: string, gameMode: GameMode = 'COMMANDER'): Deck {
     createdAt: Date.now(),
     tags: [],
     gameResults: [],
+    ownership: DECK_OWNERSHIP_DEFAULT,
+  }
+}
+
+/** Fills in fields that may be missing from JSON written by an older version of either app. */
+export function normalizeDeck(raw: Partial<Deck> & { id: string; name: string }): Deck {
+  return {
+    commander: null,
+    partnerCommander: null,
+    cards: [],
+    gameMode: 'COMMANDER',
+    createdAt: Date.now(),
+    tags: [],
+    gameResults: [],
+    ownership: DECK_OWNERSHIP_DEFAULT,
+    ...raw,
   }
 }
 

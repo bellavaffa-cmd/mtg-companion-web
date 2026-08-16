@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type {
-  Collection, CollectionType, Deck, DeckCardEntry, GameMode, GameResult, SyncPayload,
+  Collection, CollectionType, Deck, DeckCardEntry, DeckOwnership, GameMode, GameResult, SyncPayload,
 } from '../types/models'
+import { DECK_OWNERSHIP_DEFAULT, normalizeDeck } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 import { canBeCommander, displayImageUrl, partnerAbility } from '../types/scryfall'
 import { clearToken, fetchUserEmail, requestAccessToken } from './googleAuth'
@@ -21,12 +22,20 @@ interface SyncState {
   lastSyncedAt: number
 }
 
+/** Normalizes a whole library's decks — used for both the localStorage cache and Drive pulls, since
+ * either can hold decks written before a field existed (older web-app version, or the Android app). */
+function normalizeLibrary(lib: { decks?: Deck[]; collections?: Collection[] }): Library {
+  return {
+    decks: (lib.decks ?? []).map(normalizeDeck),
+    collections: lib.collections ?? [],
+  }
+}
+
 function loadLibrary(): Library {
   try {
     const raw = localStorage.getItem(LIBRARY_KEY)
     if (!raw) return { decks: [], collections: [] }
-    const parsed = JSON.parse(raw)
-    return { decks: parsed.decks ?? [], collections: parsed.collections ?? [] }
+    return normalizeLibrary(JSON.parse(raw))
   } catch {
     return { decks: [], collections: [] }
   }
@@ -75,6 +84,7 @@ interface SyncContextValue {
   setCommander: (deckId: string, entry: DeckCardEntry | null) => void
   setPartnerCommander: (deckId: string, entry: DeckCardEntry | null) => void
   setGameMode: (deckId: string, mode: GameMode) => void
+  setDeckOwnership: (deckId: string, ownership: DeckOwnership) => void
   setDeckTags: (deckId: string, tags: string[]) => void
   addGameResult: (deckId: string, result: GameResult) => void
   removeGameResult: (deckId: string, resultId: string) => void
@@ -154,9 +164,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       const token = await requestAccessToken()
       const folderId = await ensureFolder(token)
       const remoteId = await findBackup(token, folderId)
-      const remote: SyncPayload | null = remoteId
+      const remoteRaw: SyncPayload | null = remoteId
         ? JSON.parse(await downloadText(token, remoteId))
         : null
+      const remote: SyncPayload | null = remoteRaw && { ...remoteRaw, ...normalizeLibrary(remoteRaw) }
 
       const st = syncStateRef.current
       const localDirtyNow = localUpdatedAtRef.current > st.lastSyncedRev
@@ -225,7 +236,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     (name: string, gameMode: GameMode): Deck => {
       const deck: Deck = {
         id: crypto.randomUUID(), name, commander: null, partnerCommander: null, cards: [],
-        gameMode, createdAt: Date.now(), tags: [], gameResults: [],
+        gameMode, createdAt: Date.now(), tags: [], gameResults: [], ownership: DECK_OWNERSHIP_DEFAULT,
       }
       updateLibrary((lib) => ({ ...lib, decks: [...lib.decks, deck] }))
       return deck
@@ -323,6 +334,13 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const setGameMode = useCallback(
     (deckId: string, mode: GameMode) => {
       updateLibrary((lib) => mapDeck(lib, deckId, (deck) => ({ ...deck, gameMode: mode })))
+    },
+    [updateLibrary, mapDeck],
+  )
+
+  const setDeckOwnership = useCallback(
+    (deckId: string, ownership: DeckOwnership) => {
+      updateLibrary((lib) => mapDeck(lib, deckId, (deck) => ({ ...deck, ownership })))
     },
     [updateLibrary, mapDeck],
   )
@@ -447,6 +465,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setCommander,
       setPartnerCommander,
       setGameMode,
+      setDeckOwnership,
       setDeckTags,
       addGameResult,
       removeGameResult,
@@ -459,7 +478,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [
       library, connected, email, syncing, message, lastSyncedAt, localDirty, connect, disconnect, syncNow,
       createDeck, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity, setCommander,
-      setPartnerCommander, setGameMode, setDeckTags, addGameResult, removeGameResult,
+      setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, addGameResult, removeGameResult,
       createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, setEntryQuantities,
     ],
   )

@@ -4,7 +4,7 @@ import { useSync } from '../sync/SyncContext'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
 import { Dialog } from '../components/Dialog'
-import { GAME_MODES, GAME_MODE_LABELS } from '../types/models'
+import { GAME_MODES, GAME_MODE_LABELS, DECK_OWNERSHIP_LABELS } from '../types/models'
 import type { GameMode } from '../types/models'
 
 export function DecksPage() {
@@ -34,6 +34,9 @@ export function DecksPage() {
                 style={deck.commander?.imageUrl ? { backgroundImage: `url(${deck.commander.imageUrl})` } : undefined}
                 onClick={() => navigate(`/decks/${deck.id}`)}
               >
+                {deck.ownership !== 'PHYSICAL' && (
+                  <div className="ownership-badge">{DECK_OWNERSHIP_LABELS[deck.ownership].toUpperCase()}</div>
+                )}
                 <div className="scrim" />
                 <div className="tile-content">
                   <div className="deck-name">{deck.name}</div>

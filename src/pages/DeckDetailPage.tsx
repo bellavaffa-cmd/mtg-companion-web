@@ -8,15 +8,18 @@ import { ContextMenu } from '../components/ContextMenu'
 import { useLongPress } from '../components/useLongPress'
 import { CardSearchResults } from '../components/CardSearchResults'
 import { ExportDeckDialog } from '../components/ExportDeckDialog'
-import { GAME_MODES, GAME_MODES_USING_COMMANDER, GAME_MODE_LABELS } from '../types/models'
-import type { DeckCardEntry, GameMode } from '../types/models'
+import {
+  GAME_MODES, GAME_MODES_USING_COMMANDER, GAME_MODE_LABELS,
+  DECK_OWNERSHIP_OPTIONS, DECK_OWNERSHIP_LABELS, DECK_OWNERSHIP_DESCRIPTIONS,
+} from '../types/models'
+import type { DeckCardEntry, DeckOwnership, GameMode } from '../types/models'
 
 export function DeckDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const {
     decks, setCardQuantity, removeCardFromDeck, addCardToDeck,
-    setCommander, setPartnerCommander, setGameMode, setDeckTags, deleteDeck,
+    setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, deleteDeck,
   } = useSync()
   const deck = decks.find((d) => d.id === id)
   const [tagInput, setTagInput] = useState('')
@@ -80,6 +83,22 @@ export function DeckDetailPage() {
               ))}
             </select>
             <span className="muted">{totalCards} card{totalCards === 1 ? '' : 's'}</span>
+          </div>
+
+          <div style={{ marginBottom: 10 }}>
+            <div className="section-label">Ownership</div>
+            <div className="row" style={{ flexWrap: 'wrap' }}>
+              {DECK_OWNERSHIP_OPTIONS.map((option) => (
+                <span
+                  key={option}
+                  className={`chip${deck.ownership === option ? ' selected' : ''}`}
+                  onClick={() => setDeckOwnership(deck.id, option as DeckOwnership)}
+                >
+                  {DECK_OWNERSHIP_LABELS[option]}
+                </span>
+              ))}
+            </div>
+            <div className="dim" style={{ marginTop: 6 }}>{DECK_OWNERSHIP_DESCRIPTIONS[deck.ownership]}</div>
           </div>
 
           {usesCommander && (
