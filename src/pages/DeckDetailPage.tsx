@@ -7,6 +7,7 @@ import { CardZoomModal } from '../components/CardZoomModal'
 import { ContextMenu } from '../components/ContextMenu'
 import { useLongPress } from '../components/useLongPress'
 import { CardSearchResults } from '../components/CardSearchResults'
+import { ExportDeckDialog } from '../components/ExportDeckDialog'
 import { GAME_MODES, GAME_MODES_USING_COMMANDER, GAME_MODE_LABELS } from '../types/models'
 import type { DeckCardEntry, GameMode } from '../types/models'
 
@@ -22,6 +23,7 @@ export function DeckDetailPage() {
   const [zoomId, setZoomId] = useState<string | null>(null)
   const [menu, setMenu] = useState<{ x: number; y: number; entry: DeckCardEntry } | null>(null)
   const [overflowMenu, setOverflowMenu] = useState<{ x: number; y: number } | null>(null)
+  const [showExport, setShowExport] = useState(false)
 
   if (!deck) {
     return (
@@ -169,6 +171,7 @@ export function DeckDetailPage() {
           y={overflowMenu.y}
           onClose={() => setOverflowMenu(null)}
           actions={[
+            { label: 'Export decklist', icon: 'ios_share', onClick: () => setShowExport(true) },
             {
               label: 'Delete deck',
               icon: 'delete',
@@ -181,6 +184,8 @@ export function DeckDetailPage() {
           ]}
         />
       )}
+
+      {showExport && <ExportDeckDialog deck={deck} onDismiss={() => setShowExport(false)} />}
 
       {zoomEntry && (
         <CardZoomModal imageUrl={zoomEntry.imageUrl} name={zoomEntry.name} onClose={() => setZoomId(null)}>
