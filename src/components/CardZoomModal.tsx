@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { Icon } from './Icon'
@@ -15,15 +15,19 @@ interface Props {
   /** The deck/binder currently being viewed, if any — excluded from its own "also in" listing. */
   currentDeckId?: string
   currentCollectionId?: string
+  /** The second face's art, for a transform/modal-DFC/flip card — adds a flip control. */
+  backImageUrl?: string | null
 }
 
 /** Enlarged card view, mirroring the Android app's CardZoomDialog. [children] holds any extra
  * controls (quantity steppers, etc.) — callers pass live state so it stays in sync as they edit. */
 export function CardZoomModal({
-  imageUrl, name, priceUsd, onClose, children, scryfallId, currentDeckId, currentCollectionId,
+  imageUrl, name, priceUsd, onClose, children, scryfallId, currentDeckId, currentCollectionId, backImageUrl,
 }: Props) {
   const { decks, collections } = useSync()
   const navigate = useNavigate()
+  const [flipped, setFlipped] = useState(false)
+  const shownImageUrl = flipped && backImageUrl ? backImageUrl : imageUrl
 
   const inDecks = scryfallId
     ? decks.filter((d) => d.id !== currentDeckId && d.cards.some((c) => c.scryfallId === scryfallId))
@@ -43,7 +47,16 @@ export function CardZoomModal({
         <Icon name="close" />
       </button>
       <div className="zoom-content" onClick={(e) => e.stopPropagation()}>
-        {imageUrl && <img src={imageUrl} alt={name} />}
+        {shownImageUrl && (
+          <div className="zoom-image-wrap">
+            <img src={shownImageUrl} alt={name} />
+            {backImageUrl && (
+              <button className="zoom-flip" onClick={() => setFlipped((f) => !f)} aria-label="Flip card">
+                <Icon name="autorenew" />
+              </button>
+            )}
+          </div>
+        )}
         <div className="zoom-name">{name}</div>
         {priceUsd && <div className="zoom-price">${priceUsd}</div>}
         {children}

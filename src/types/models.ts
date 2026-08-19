@@ -10,6 +10,9 @@ export interface DeckCardEntry {
   canBeCommander: boolean
   typeLine: string | null
   partnerAbility: string | null
+  /** Cached from ScryfallCard's back face — see backImageUrl() in api/scryfall.ts. Null/undefined
+   * for single-faced cards and for entries added before this field existed. */
+  backImageUrl?: string | null
 }
 
 export interface GameResult {
@@ -112,6 +115,8 @@ export interface CollectionEntry {
   imageUrl: string | null
   quantity: number
   foilQuantity: number
+  /** Cached from ScryfallCard's back face — see DeckCardEntry.backImageUrl. */
+  backImageUrl?: string | null
 }
 
 export interface Collection {

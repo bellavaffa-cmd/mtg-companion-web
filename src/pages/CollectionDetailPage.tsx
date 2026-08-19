@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { TopBar } from '../components/TopBar'
+import { Icon } from '../components/Icon'
 import { CardZoomModal } from '../components/CardZoomModal'
 import { ContextMenu } from '../components/ContextMenu'
 import { useLongPress } from '../components/useLongPress'
@@ -67,6 +68,7 @@ export function CollectionDetailPage() {
           name={zoomEntry.name}
           scryfallId={zoomEntry.scryfallId}
           currentCollectionId={collection.id}
+          backImageUrl={zoomEntry.backImageUrl}
           onClose={() => setZoomId(null)}
         >
           <div className="row" style={{ marginTop: 14, gap: 22, justifyContent: 'center' }}>
@@ -105,7 +107,16 @@ function EntryRow({
   const longPress = useLongPress({ onLongPress, onClick: onZoom })
   return (
     <div className="card-row" {...longPress} style={{ cursor: 'pointer' }}>
-      {entry.imageUrl && <img src={entry.imageUrl} alt={entry.name} />}
+      {entry.imageUrl && (
+        <div className="thumb-wrap">
+          <img src={entry.imageUrl} alt={entry.name} />
+          {entry.backImageUrl && (
+            <span className="flip-badge">
+              <Icon name="autorenew" />
+            </span>
+          )}
+        </div>
+      )}
       <div className="name">{entry.name}</div>
       <div className="dim">
         {entry.quantity}

@@ -212,6 +212,7 @@ export function DeckDetailPage() {
           name={zoomEntry.name}
           scryfallId={zoomEntry.scryfallId}
           currentDeckId={deck.id}
+          backImageUrl={zoomEntry.backImageUrl}
           onClose={() => setZoomId(null)}
         >
           <div className="qty-stepper" style={{ marginTop: 14, justifyContent: 'center' }}>
@@ -241,7 +242,14 @@ function DeckCardRow({
   const longPress = useLongPress({ onLongPress, onClick: onZoom })
   return (
     <div className="card-row">
-      <img src={entry.imageUrl ?? undefined} alt={entry.name} {...longPress} style={{ cursor: 'pointer' }} />
+      <div className="thumb-wrap">
+        <img src={entry.imageUrl ?? undefined} alt={entry.name} {...longPress} style={{ cursor: 'pointer' }} />
+        {entry.backImageUrl && (
+          <span className="flip-badge">
+            <Icon name="autorenew" />
+          </span>
+        )}
+      </div>
       <div className="name" {...longPress} style={{ cursor: 'pointer' }}>{entry.name}</div>
       <div className="qty-stepper">
         <button onClick={onDecrement}>−</button>

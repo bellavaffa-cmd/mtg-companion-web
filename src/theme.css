@@ -531,6 +531,11 @@ button, input, select, textarea {
   cursor: pointer;
 }
 
+.thumb-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .card-row .name {
   flex: 1;
   min-width: 0;
@@ -699,6 +704,46 @@ button, input, select, textarea {
   width: 100%;
   border-radius: 14px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+.zoom-image-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.zoom-flip {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--accent-light);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Top-start corner marker on a thumbnail, hinting a card has a second side to flip to. */
+.flip-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--accent-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flip-badge .icon {
+  font-size: 13px;
 }
 
 .zoom-close {

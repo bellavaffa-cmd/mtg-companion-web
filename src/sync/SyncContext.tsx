@@ -5,7 +5,7 @@ import type {
 } from '../types/models'
 import { DECK_OWNERSHIP_DEFAULT, normalizeDeck } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
-import { canBeCommander, displayImageUrl, partnerAbility } from '../types/scryfall'
+import { backImageUrl, canBeCommander, displayImageUrl, partnerAbility } from '../types/scryfall'
 import { clearToken, fetchUserEmail, requestAccessToken } from './googleAuth'
 import { downloadText, ensureFolder, findBackup, uploadBackup } from './drive'
 
@@ -60,6 +60,7 @@ function entryFromCard(card: ScryfallCard, quantity: number): DeckCardEntry {
     canBeCommander: canBeCommander(card),
     typeLine: card.type_line ?? null,
     partnerAbility: partnerAbility(card),
+    backImageUrl: backImageUrl(card),
   }
 }
 
@@ -406,7 +407,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
               )
             : [
                 ...collection.entries,
-                { scryfallId: card.id, name: card.name, imageUrl: displayImageUrl(card), quantity, foilQuantity },
+                {
+                  scryfallId: card.id,
+                  name: card.name,
+                  imageUrl: displayImageUrl(card),
+                  quantity,
+                  foilQuantity,
+                  backImageUrl: backImageUrl(card),
+                },
               ]
           return { ...collection, entries }
         }),

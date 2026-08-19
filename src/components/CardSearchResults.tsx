@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { searchCards } from '../api/scryfall'
 import type { ScryfallCard } from '../types/scryfall'
-import { displayImageUrl } from '../types/scryfall'
+import { backImageUrl, displayImageUrl, hasFlipSides } from '../types/scryfall'
 import { useSync } from '../sync/SyncContext'
 import { ContextMenu } from './ContextMenu'
+import { Icon } from './Icon'
 import { useLongPress } from './useLongPress'
 import { CardZoomModal } from './CardZoomModal'
 
@@ -99,6 +100,7 @@ export function CardSearchResults({ onAdd, placeholder = 'Search cards, e.g. "c:
           name={zoomCard.name}
           priceUsd={zoomCard.prices?.usd}
           scryfallId={zoomCard.id}
+          backImageUrl={backImageUrl(zoomCard)}
           onClose={() => setZoomCard(null)}
         >
           {onAdd ? (
@@ -126,7 +128,14 @@ function ResultRow({
   const longPress = useLongPress({ onLongPress, onClick: onZoom })
   return (
     <div className="card-row" {...longPress} style={{ cursor: 'pointer' }}>
-      <img src={displayImageUrl(card) ?? undefined} alt={card.name} loading="lazy" />
+      <div className="thumb-wrap">
+        <img src={displayImageUrl(card) ?? undefined} alt={card.name} loading="lazy" />
+        {hasFlipSides(card) && (
+          <span className="flip-badge">
+            <Icon name="autorenew" />
+          </span>
+        )}
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="name">{card.name}</div>
         <div className="type-line">{(card.type_line ?? '').toUpperCase()}</div>
