@@ -7,6 +7,7 @@ import { ContextMenu } from './ContextMenu'
 import { Icon } from './Icon'
 import { useLongPress } from './useLongPress'
 import { CardZoomModal } from './CardZoomModal'
+import { useAddWarning } from './useAddWarning'
 
 interface Props {
   /** If provided, long-press just offers a single "Add" wired to this (used inside a deck/binder's
@@ -24,6 +25,7 @@ export function CardSearchResults({ onAdd, placeholder = 'Search cards, e.g. "c:
   const [error, setError] = useState<string | null>(null)
   const [zoomCard, setZoomCard] = useState<ScryfallCard | null>(null)
   const [menu, setMenu] = useState<{ x: number; y: number; card: ScryfallCard } | null>(null)
+  const [addWarning, setAddWarning] = useAddWarning()
 
   useEffect(() => {
     const trimmed = query.trim()
@@ -62,12 +64,13 @@ export function CardSearchResults({ onAdd, placeholder = 'Search cards, e.g. "c:
     }
     return [
       ...collections.map((c) => ({ label: `Add to ${c.name}`, icon: 'collections', onClick: () => addEntryToCollection(c.id, card) })),
-      ...decks.map((d) => ({ label: `Add to ${d.name}`, icon: 'style', onClick: () => addCardToDeck(d.id, card) })),
+      ...decks.map((d) => ({ label: `Add to ${d.name}`, icon: 'style', onClick: () => setAddWarning(addCardToDeck(d.id, card)) })),
     ]
   }
 
   return (
     <div>
+      {addWarning && <div className="add-warning">{addWarning}</div>}
       <input
         className="input"
         placeholder={placeholder}

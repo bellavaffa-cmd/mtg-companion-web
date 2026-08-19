@@ -8,6 +8,7 @@ import { ContextMenu } from '../components/ContextMenu'
 import { useLongPress } from '../components/useLongPress'
 import { CardSearchResults } from '../components/CardSearchResults'
 import { ExportDeckDialog } from '../components/ExportDeckDialog'
+import { useAddWarning } from '../components/useAddWarning'
 import {
   GAME_MODES, GAME_MODES_USING_COMMANDER, GAME_MODE_LABELS,
   DECK_OWNERSHIP_OPTIONS, DECK_OWNERSHIP_LABELS, DECK_OWNERSHIP_DESCRIPTIONS,
@@ -27,6 +28,7 @@ export function DeckDetailPage() {
   const [menu, setMenu] = useState<{ x: number; y: number; entry: DeckCardEntry } | null>(null)
   const [overflowMenu, setOverflowMenu] = useState<{ x: number; y: number } | null>(null)
   const [showExport, setShowExport] = useState(false)
+  const [addWarning, setAddWarning] = useAddWarning()
 
   if (!deck) {
     return (
@@ -164,7 +166,8 @@ export function DeckDetailPage() {
         </div>
 
         <div className="section-label" style={{ marginTop: 20 }}>ADD CARDS</div>
-        <CardSearchResults onAdd={(card) => addCardToDeck(deck.id, card)} />
+        {addWarning && <div className="add-warning">{addWarning}</div>}
+        <CardSearchResults onAdd={(card) => setAddWarning(addCardToDeck(deck.id, card))} />
       </div>
 
       {menu && (
@@ -214,7 +217,7 @@ export function DeckDetailPage() {
           currentDeckId={deck.id}
           backImageUrl={zoomEntry.backImageUrl}
           tags={zoomEntry.tags}
-          onSelectSimilar={(similar) => addCardToDeck(deck.id, similar)}
+          onSelectSimilar={(similar) => setAddWarning(addCardToDeck(deck.id, similar))}
           onClose={() => setZoomId(null)}
         >
           <div className="qty-stepper" style={{ marginTop: 14, justifyContent: 'center' }}>

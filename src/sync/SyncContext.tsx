@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import type {
   Collection, CollectionType, Deck, DeckCardEntry, DeckOwnership, GameMode, GameResult, SyncPayload,
 } from '../types/models'
-import { DECK_OWNERSHIP_DEFAULT, normalizeDeck } from '../types/models'
+import { DECK_OWNERSHIP_DEFAULT, duplicateWarning, normalizeDeck } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 import { backImageUrl, canBeCommander, cardTags, displayImageUrl, partnerAbility } from '../types/scryfall'
 import { clearToken, fetchUserEmail, requestAccessToken } from './googleAuth'
@@ -80,7 +80,9 @@ interface SyncContextValue {
 
   createDeck: (name: string, gameMode: GameMode) => Deck
   deleteDeck: (deckId: string) => void
-  addCardToDeck: (deckId: string, card: ScryfallCard, quantity?: number) => void
+  /** Returns a warning if the resulting copy count breaks the deck's format rules (singleton, max
+   * copies) — informational only, the card is added either way. Null if there's no issue. */
+  addCardToDeck: (deckId: string, card: ScryfallCard, quantity?: number) => string | null
   removeCardFromDeck: (deckId: string, scryfallId: string) => void
   setCardQuantity: (deckId: string, scryfallId: string, quantity: number) => void
   setCommander: (deckId: string, entry: DeckCardEntry | null) => void
@@ -260,18 +262,23 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   )
 
   const addCardToDeck = useCallback(
-    (deckId: string, card: ScryfallCard, quantity = 1) => {
+    (deckId: string, card: ScryfallCard, quantity = 1): string | null => {
+      // Checked against the deck's currently-loaded state before writing — informational only,
+      // the card is added either way (testing/sideboard scenarios are legitimate).
+      const deck = library.decks.find((d) => d.id === deckId)
+      const warning = deck ? duplicateWarning(deck, card, quantity) : null
       updateLibrary((lib) =>
-        mapDeck(lib, deckId, (deck) => {
-          const existing = deck.cards.find((c) => c.scryfallId === card.id)
+        mapDeck(lib, deckId, (d) => {
+          const existing = d.cards.find((c) => c.scryfallId === card.id)
           const cards = existing
-            ? deck.cards.map((c) => (c.scryfallId === card.id ? { ...c, quantity: c.quantity + quantity } : c))
-            : [...deck.cards, entryFromCard(card, quantity)]
-          return { ...deck, cards }
+            ? d.cards.map((c) => (c.scryfallId === card.id ? { ...c, quantity: c.quantity + quantity } : c))
+            : [...d.cards, entryFromCard(card, quantity)]
+          return { ...d, cards }
         }),
       )
+      return warning
     },
-    [updateLibrary, mapDeck],
+    [library, updateLibrary, mapDeck],
   )
 
   const removeCardFromDeck = useCallback(

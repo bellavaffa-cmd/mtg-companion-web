@@ -2,6 +2,8 @@
 // same enum-name strings) so a backup written by one app is read correctly by the other.
 // See MtgCompanionApp/app/src/main/java/com/mtgcompanion/app/data/{DeckModels,CollectionModels,SyncModels}.kt
 
+import type { ScryfallCard } from './scryfall'
+
 export interface DeckCardEntry {
   scryfallId: string
   name: string
@@ -78,6 +80,42 @@ export interface Deck {
   tags: string[]
   gameResults: GameResult[]
   ownership: DeckOwnership
+}
+
+/** Commander/Brawl allow only 1 copy of any non-basic-land card; other formats allow up to
+ * MAX_COPIES_DEFAULT. Mirrors the Android app's GameMode.singleton/maxCopies fields. */
+export const SINGLETON_GAME_MODES: ReadonlySet<GameMode> = new Set(['COMMANDER', 'BRAWL'])
+export const MAX_COPIES_DEFAULT = 4
+
+const BASIC_LAND_NAMES = new Set([
+  'Plains', 'Island', 'Swamp', 'Mountain', 'Forest', 'Wastes',
+  'Snow-Covered Plains', 'Snow-Covered Island', 'Snow-Covered Swamp',
+  'Snow-Covered Mountain', 'Snow-Covered Forest',
+])
+
+function isBasicLand(card: ScryfallCard): boolean {
+  return BASIC_LAND_NAMES.has(card.name) || (card.type_line ?? '').toLowerCase().includes('basic')
+}
+
+/**
+ * Null if adding [addingQuantity] more cop(ies) of [card] to [deck] stays within its format's copy
+ * limit; otherwise a short warning to show the user (the card is still added — this is
+ * informational, not a block, since testing/sideboard scenarios are legitimate). Basic lands are
+ * always unlimited. Mirrors the Android app's duplicateWarning() in data/DeckLegality.kt.
+ */
+export function duplicateWarning(deck: Deck, card: ScryfallCard, addingQuantity = 1): string | null {
+  if (isBasicLand(card)) return null
+  const mode = deck.gameMode as GameMode
+  const modeLabel = GAME_MODE_LABELS[mode] ?? deck.gameMode
+  const existingQuantity = deck.cards.find((c) => c.scryfallId === card.id)?.quantity ?? 0
+  const newQuantity = existingQuantity + addingQuantity
+  if (SINGLETON_GAME_MODES.has(mode) && newQuantity > 1) {
+    return `${modeLabel} is singleton — you'll have ${newQuantity} copies of "${card.name}".`
+  }
+  if (!SINGLETON_GAME_MODES.has(mode) && newQuantity > MAX_COPIES_DEFAULT) {
+    return `Max ${MAX_COPIES_DEFAULT} copies allowed in ${modeLabel} — you'll have ${newQuantity} of "${card.name}".`
+  }
+  return null
 }
 
 export function newDeck(name: string, gameMode: GameMode = 'COMMANDER'): Deck {

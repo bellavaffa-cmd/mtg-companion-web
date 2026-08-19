@@ -711,6 +711,18 @@ button, input, select, textarea {
   font-size: 11px;
 }
 
+/* Brief, auto-dismissing message after adding a card that breaks the deck's format rules
+   (singleton, max copies) — informational, the card is added either way. */
+.add-warning {
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: var(--surface2);
+  color: var(--accent-light);
+  font-size: 12px;
+}
+
 .similar-strip {
   display: flex;
   gap: 10px;
