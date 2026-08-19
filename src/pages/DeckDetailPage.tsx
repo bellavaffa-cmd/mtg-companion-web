@@ -213,6 +213,8 @@ export function DeckDetailPage() {
           scryfallId={zoomEntry.scryfallId}
           currentDeckId={deck.id}
           backImageUrl={zoomEntry.backImageUrl}
+          tags={zoomEntry.tags}
+          onSelectSimilar={(similar) => addCardToDeck(deck.id, similar)}
           onClose={() => setZoomId(null)}
         >
           <div className="qty-stepper" style={{ marginTop: 14, justifyContent: 'center' }}>

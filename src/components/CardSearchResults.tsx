@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { searchCards } from '../api/scryfall'
 import type { ScryfallCard } from '../types/scryfall'
-import { backImageUrl, displayImageUrl, hasFlipSides } from '../types/scryfall'
+import { backImageUrl, cardTags, displayImageUrl, hasFlipSides } from '../types/scryfall'
 import { useSync } from '../sync/SyncContext'
 import { ContextMenu } from './ContextMenu'
 import { Icon } from './Icon'
@@ -101,7 +101,7 @@ export function CardSearchResults({ onAdd, placeholder = 'Search cards, e.g. "c:
           priceUsd={zoomCard.prices?.usd}
           scryfallId={zoomCard.id}
           backImageUrl={backImageUrl(zoomCard)}
-          card={zoomCard}
+          tags={cardTags(zoomCard)}
           onSelectSimilar={setZoomCard}
           onClose={() => setZoomCard(null)}
         >

@@ -69,6 +69,8 @@ export function CollectionDetailPage() {
           scryfallId={zoomEntry.scryfallId}
           currentCollectionId={collection.id}
           backImageUrl={zoomEntry.backImageUrl}
+          tags={zoomEntry.tags}
+          onSelectSimilar={(similar) => addEntryToCollection(collection.id, similar)}
           onClose={() => setZoomId(null)}
         >
           <div className="row" style={{ marginTop: 14, gap: 22, justifyContent: 'center' }}>

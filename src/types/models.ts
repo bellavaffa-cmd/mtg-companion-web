@@ -13,6 +13,9 @@ export interface DeckCardEntry {
   /** Cached from ScryfallCard's back face — see backImageUrl() in api/scryfall.ts. Null/undefined
    * for single-faced cards and for entries added before this field existed. */
   backImageUrl?: string | null
+  /** Cached from cardTags() at add-time — see types/scryfall.ts. Undefined for entries added
+   * before this field existed. */
+  tags?: string[]
 }
 
 export interface GameResult {
@@ -117,6 +120,8 @@ export interface CollectionEntry {
   foilQuantity: number
   /** Cached from ScryfallCard's back face — see DeckCardEntry.backImageUrl. */
   backImageUrl?: string | null
+  /** Cached from cardTags() at add-time — see DeckCardEntry.tags. */
+  tags?: string[]
 }
 
 export interface Collection {

@@ -1,8 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
-import { findSimilarCards } from '../api/scryfall'
-import { cardTags, displayImageUrl, type ScryfallCard } from '../types/scryfall'
+import { findSimilarCards, getByFuzzyName } from '../api/scryfall'
+import { displayImageUrl, type ScryfallCard } from '../types/scryfall'
 import { Icon } from './Icon'
 
 interface Props {
@@ -19,10 +19,12 @@ interface Props {
   currentCollectionId?: string
   /** The second face's art, for a transform/modal-DFC/flip card — adds a flip control. */
   backImageUrl?: string | null
-  /** The full card, when available (currently only from Search results) — enables tag chips and
-   * a "Similar cards" strip. Omitted for deck/binder cards, which only cache a field subset. */
-  card?: ScryfallCard
-  /** Called when a "similar card" is tapped, so the caller can retarget this same modal to it. */
+  /** Printed keywords + heuristic theme tags (cardTags() from a full card, or a deck/binder
+   * entry's cached `tags`) — shown as chips. Omit if unavailable. */
+  tags?: string[]
+  /** Called when a "similar card" is tapped — the caller decides what that means (Search retargets
+   * this same modal to it; Deck/Binder add it directly). Omit to hide the add/select affordance
+   * (the similar-cards strip still shows, just informationally). */
   onSelectSimilar?: (card: ScryfallCard) => void
 }
 
@@ -30,28 +32,24 @@ interface Props {
  * controls (quantity steppers, etc.) — callers pass live state so it stays in sync as they edit. */
 export function CardZoomModal({
   imageUrl, name, priceUsd, onClose, children, scryfallId, currentDeckId, currentCollectionId, backImageUrl,
-  card, onSelectSimilar,
+  tags = [], onSelectSimilar,
 }: Props) {
   const { decks, collections } = useSync()
   const navigate = useNavigate()
   const [flipped, setFlipped] = useState(false)
-  const [similar, setSimilar] = useState<ScryfallCard[]>([])
+  // undefined = not searched yet, null = searching, [] = searched, no matches.
+  const [similar, setSimilar] = useState<ScryfallCard[] | null | undefined>(undefined)
   const shownImageUrl = flipped && backImageUrl ? backImageUrl : imageUrl
 
-  useEffect(() => {
-    setFlipped(false)
-    if (!card) {
+  async function findSimilar() {
+    setSimilar(null)
+    try {
+      const resolved = await getByFuzzyName(name)
+      setSimilar(await findSimilarCards(resolved))
+    } catch {
       setSimilar([])
-      return
     }
-    let cancelled = false
-    findSimilarCards(card)
-      .then((cards) => { if (!cancelled) setSimilar(cards) })
-      .catch(() => { if (!cancelled) setSimilar([]) })
-    return () => {
-      cancelled = true
-    }
-  }, [card?.id])
+  }
 
   const inDecks = scryfallId
     ? decks.filter((d) => d.id !== currentDeckId && d.cards.some((c) => c.scryfallId === scryfallId))
@@ -59,7 +57,6 @@ export function CardZoomModal({
   const inBinders = scryfallId
     ? collections.filter((c) => c.id !== currentCollectionId && c.entries.some((e) => e.scryfallId === scryfallId))
     : []
-  const tags = card ? cardTags(card) : []
 
   function goTo(path: string) {
     onClose()
@@ -91,6 +88,9 @@ export function CardZoomModal({
             ))}
           </div>
         )}
+        <button className="btn" style={{ marginTop: 10 }} onClick={findSimilar} disabled={similar === null}>
+          <Icon name="search" /> {similar === null ? 'SEARCHING…' : 'FIND SIMILAR CARDS'}
+        </button>
         {children}
         {(inDecks.length > 0 || inBinders.length > 0) && (
           <div className="zoom-also-in">
@@ -111,17 +111,26 @@ export function CardZoomModal({
             </div>
           </div>
         )}
-        {similar.length > 0 && onSelectSimilar && (
+        {similar != null && (
           <div className="zoom-also-in">
             <div className="section-label">SIMILAR CARDS</div>
-            <div className="similar-strip">
-              {similar.map((s) => (
-                <div key={s.id} className="similar-card" onClick={() => onSelectSimilar(s)}>
-                  <img src={displayImageUrl(s) ?? undefined} alt={s.name} />
-                  <div className="similar-card-name">{s.name}</div>
-                </div>
-              ))}
-            </div>
+            {similar.length === 0 ? (
+              <div className="dim">No similar cards found.</div>
+            ) : (
+              <div className="similar-strip">
+                {similar.map((s) => (
+                  <div
+                    key={s.id}
+                    className="similar-card"
+                    onClick={() => onSelectSimilar?.(s)}
+                    style={{ cursor: onSelectSimilar ? 'pointer' : 'default' }}
+                  >
+                    <img src={displayImageUrl(s) ?? undefined} alt={s.name} />
+                    <div className="similar-card-name">{s.name}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
