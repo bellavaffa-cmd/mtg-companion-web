@@ -101,6 +101,8 @@ export function CardSearchResults({ onAdd, placeholder = 'Search cards, e.g. "c:
           priceUsd={zoomCard.prices?.usd}
           scryfallId={zoomCard.id}
           backImageUrl={backImageUrl(zoomCard)}
+          card={zoomCard}
+          onSelectSimilar={setZoomCard}
           onClose={() => setZoomCard(null)}
         >
           {onAdd ? (

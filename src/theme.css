@@ -700,6 +700,46 @@ button, input, select, textarea {
   font-size: 14px;
 }
 
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 50px;
+  border: 1px solid var(--border-bright);
+  background: var(--surface3);
+  color: var(--text-primary);
+  font-size: 11px;
+}
+
+.similar-strip {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.similar-card {
+  flex-shrink: 0;
+  width: 84px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.zoom-content .similar-card img {
+  width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.similar-card-name {
+  font-size: 11px;
+  color: var(--text-primary);
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .zoom-content img {
   width: 100%;
   border-radius: 14px;

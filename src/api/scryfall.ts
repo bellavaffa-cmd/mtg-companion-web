@@ -1,4 +1,4 @@
-import type { ScryfallCard } from '../types/scryfall'
+import { primaryType, type ScryfallCard } from '../types/scryfall'
 
 // Scryfall sends `Access-Control-Allow-Origin: *` on every response (verified live) so this can
 // call the API directly from the browser with no proxy. Still identify the app per their API
@@ -11,11 +11,12 @@ export interface SearchPage {
   hasMore: boolean
 }
 
-export async function searchCards(query: string, page = 1): Promise<SearchPage> {
+export async function searchCards(query: string, page = 1, order?: string): Promise<SearchPage> {
   if (!query.trim()) return { cards: [], hasMore: false }
   const url = new URL(`${BASE}/cards/search`)
   url.searchParams.set('q', query)
   url.searchParams.set('page', String(page))
+  if (order) url.searchParams.set('order', order)
   const res = await fetch(url, { headers: HEADERS })
   if (res.status === 404) return { cards: [], hasMore: false }
   if (!res.ok) throw new Error(`Scryfall search failed (${res.status})`)
@@ -66,4 +67,28 @@ export async function getRandomCard(): Promise<ScryfallCard> {
   const res = await fetch(`${BASE}/cards/random`, { headers: HEADERS })
   if (!res.ok) throw new Error('Random card lookup failed')
   return res.json()
+}
+
+/**
+ * A rough "similar cards" list: same primary type, same colors, and (for non-lands) a mana value
+ * within 1 of this card's — Scryfall has no native similarity search, so this is a heuristic query
+ * built from the card's own attributes, sorted by EDHREC popularity. Excludes every printing of
+ * this card itself. Empty for cards whose type doesn't map to a known primary type.
+ */
+export async function findSimilarCards(card: ScryfallCard, limit = 12): Promise<ScryfallCard[]> {
+  const type = primaryType(card)
+  if (type === 'Other') return []
+  const parts = [`t:${type}`]
+  if (type === 'Land') {
+    if (card.produced_mana?.length) parts.push(`produces:${card.produced_mana.join('').toLowerCase()}`)
+  } else {
+    parts.push(`c:${card.colors?.length ? card.colors.join('').toLowerCase() : 'c'}`)
+    if (card.cmc != null) {
+      parts.push(`mv>=${Math.max(0, Math.floor(card.cmc - 1))}`)
+      parts.push(`mv<=${Math.floor(card.cmc + 1)}`)
+    }
+  }
+  const { cards } = await searchCards(parts.join(' '), 1, 'edhrec')
+  const excludeId = card.oracle_id ?? card.id
+  return cards.filter((c) => (c.oracle_id ?? c.id) !== excludeId).slice(0, limit)
 }
