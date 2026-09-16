@@ -4,6 +4,7 @@ import { useSync } from '../sync/SyncContext'
 import { findSimilarCards, getByFuzzyName } from '../api/scryfall'
 import { displayImageUrl, type ScryfallCard } from '../types/scryfall'
 import { Icon } from './Icon'
+import { InlineManaText } from './ManaSymbols'
 
 interface Props {
   imageUrl: string | null
@@ -26,13 +27,19 @@ interface Props {
    * this same modal to it; Deck/Binder add it directly). Omit to hide the add/select affordance
    * (the similar-cards strip still shows, just informationally). */
   onSelectSimilar?: (card: ScryfallCard) => void
+  /** Rules text in `{X}` symbol syntax (displayOracleText()), rendered with real mana/ability
+   * icons. Only passed where a full ScryfallCard is on hand — deck/binder entries cache a field
+   * subset and don't have it. */
+  oracleText?: string | null
+  /** Printed cast cost in `{X}` syntax (displayManaCost()), shown as icons beside the name. */
+  manaCost?: string | null
 }
 
 /** Enlarged card view, mirroring the Android app's CardZoomDialog. [children] holds any extra
  * controls (quantity steppers, etc.) — callers pass live state so it stays in sync as they edit. */
 export function CardZoomModal({
   imageUrl, name, priceUsd, onClose, children, scryfallId, currentDeckId, currentCollectionId, backImageUrl,
-  tags = [], onSelectSimilar,
+  tags = [], onSelectSimilar, oracleText, manaCost,
 }: Props) {
   const { decks, collections } = useSync()
   const navigate = useNavigate()
@@ -80,7 +87,17 @@ export function CardZoomModal({
           </div>
         )}
         <div className="zoom-name">{name}</div>
+        {manaCost && (
+          <div className="zoom-mana-cost">
+            <InlineManaText text={manaCost} size={16} />
+          </div>
+        )}
         {priceUsd && <div className="zoom-price">${priceUsd}</div>}
+        {oracleText && (
+          <div className="oracle-text">
+            <InlineManaText text={oracleText} />
+          </div>
+        )}
         {tags.length > 0 && (
           <div className="row" style={{ flexWrap: 'wrap', marginTop: 8, justifyContent: 'center' }}>
             {tags.map((tag) => (

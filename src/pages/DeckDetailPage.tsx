@@ -9,6 +9,7 @@ import { useLongPress } from '../components/useLongPress'
 import { CardSearchResults } from '../components/CardSearchResults'
 import { ExportDeckDialog } from '../components/ExportDeckDialog'
 import { useAddWarning } from '../components/useAddWarning'
+import { DeckStats } from '../components/DeckStats'
 import {
   GAME_MODES, GAME_MODES_USING_COMMANDER, GAME_MODE_LABELS,
   DECK_OWNERSHIP_OPTIONS, DECK_OWNERSHIP_LABELS, DECK_OWNERSHIP_DESCRIPTIONS,
@@ -23,6 +24,7 @@ export function DeckDetailPage() {
     setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, deleteDeck,
   } = useSync()
   const deck = decks.find((d) => d.id === id)
+  const [tab, setTab] = useState<'cards' | 'stats'>('cards')
   const [tagInput, setTagInput] = useState('')
   const [zoomId, setZoomId] = useState<string | null>(null)
   const [menu, setMenu] = useState<{ x: number; y: number; entry: DeckCardEntry } | null>(null)
@@ -148,26 +150,46 @@ export function DeckDetailPage() {
           </div>
         </div>
 
-        <div style={{ marginTop: 16 }}>
-          {otherCards.length === 0 ? (
-            <div className="empty-state">No cards yet — search below to add some.</div>
-          ) : (
-            otherCards.map((entry) => (
-              <DeckCardRow
-                key={entry.scryfallId}
-                entry={entry}
-                onZoom={() => setZoomId(entry.scryfallId)}
-                onIncrement={() => setCardQuantity(deck.id, entry.scryfallId, entry.quantity + 1)}
-                onDecrement={() => setCardQuantity(deck.id, entry.scryfallId, entry.quantity - 1)}
-                onLongPress={(x, y) => setMenu({ x, y, entry })}
-              />
-            ))
-          )}
+        <div className="tab-row" style={{ marginTop: 16 }}>
+          {(['cards', 'stats'] as const).map((t) => (
+            <button
+              key={t}
+              className={`tab${tab === t ? ' active' : ''}`}
+              onClick={() => setTab(t)}
+            >
+              {t === 'cards' ? 'CARDS' : 'STATS'}
+            </button>
+          ))}
         </div>
 
-        <div className="section-label" style={{ marginTop: 20 }}>ADD CARDS</div>
-        {addWarning && <div className="add-warning">{addWarning}</div>}
-        <CardSearchResults onAdd={(card) => setAddWarning(addCardToDeck(deck.id, card))} />
+        {tab === 'stats' ? (
+          <div style={{ marginTop: 16 }}>
+            <DeckStats deck={deck} />
+          </div>
+        ) : (
+          <>
+            <div style={{ marginTop: 16 }}>
+              {otherCards.length === 0 ? (
+                <div className="empty-state">No cards yet — search below to add some.</div>
+              ) : (
+                otherCards.map((entry) => (
+                  <DeckCardRow
+                    key={entry.scryfallId}
+                    entry={entry}
+                    onZoom={() => setZoomId(entry.scryfallId)}
+                    onIncrement={() => setCardQuantity(deck.id, entry.scryfallId, entry.quantity + 1)}
+                    onDecrement={() => setCardQuantity(deck.id, entry.scryfallId, entry.quantity - 1)}
+                    onLongPress={(x, y) => setMenu({ x, y, entry })}
+                  />
+                ))
+              )}
+            </div>
+
+            <div className="section-label" style={{ marginTop: 20 }}>ADD CARDS</div>
+            {addWarning && <div className="add-warning">{addWarning}</div>}
+            <CardSearchResults onAdd={(card) => setAddWarning(addCardToDeck(deck.id, card))} />
+          </>
+        )}
       </div>
 
       {menu && (

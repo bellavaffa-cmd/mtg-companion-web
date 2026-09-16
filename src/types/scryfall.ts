@@ -80,6 +80,14 @@ export function displayOracleText(card: ScryfallCard): string | null {
   return null
 }
 
+/** The printed cast cost as `{X}` symbol syntax. Double-faced cards carry an empty top-level
+ * `mana_cost` with the real one on the front face, so fall back to that. Split/adventure cards
+ * already have both halves in the top-level string. */
+export function displayManaCost(card: ScryfallCard): string | null {
+  if (card.mana_cost) return card.mana_cost
+  return card.card_faces?.[0]?.mana_cost ?? null
+}
+
 export function canBeCommander(card: ScryfallCard): boolean {
   const type = card.type_line ?? ''
   const isLegendaryCreature = type.includes('Legendary') && type.includes('Creature')

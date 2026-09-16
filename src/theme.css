@@ -870,3 +870,104 @@ button, input, select, textarea {
   margin-bottom: 6px;
   text-transform: uppercase;
 }
+
+/* --- Mana & ability symbols (ManaSymbols.tsx) ------------------------------ */
+
+.mana-symbol {
+  display: inline-block;
+  vertical-align: -0.14em;
+  margin: 0 1px;
+  border-radius: 50%;
+  /* Scryfall's symbol SVGs are already circular artwork; the radius only matters for the few
+     that ship with a square viewBox, so they don't sit as odd blocks inside a line of text. */
+}
+
+.inline-mana {
+  white-space: pre-wrap;
+}
+
+.oracle-text {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.55;
+  text-align: left;
+}
+
+.zoom-mana-cost {
+  margin-top: 4px;
+  text-align: center;
+}
+
+/* --- Tab row (deck detail) ------------------------------------------------ */
+
+.tab-row {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  flex: 1;
+  padding: 9px 4px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* --- Deck stats: mana symbol table ---------------------------------------- */
+
+.mana-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.mana-table-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mana-table-count {
+  width: 28px;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.mana-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.mana-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--accent);
+}
+
+.mana-table-pct {
+  width: 38px;
+  text-align: right;
+  color: var(--text-muted);
+  font-size: 12px;
+}
