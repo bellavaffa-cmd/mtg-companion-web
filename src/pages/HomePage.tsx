@@ -1,3 +1,4 @@
+import { NewsPanel } from '../components/RelayPanels'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
@@ -172,6 +173,8 @@ export function HomePage() {
             {cardOfDay ? <CardOfDay card={cardOfDay} onOpen={() => setZoomCard(cardOfDay)} /> : <div />}
             <BinderSummary collections={collections} onOpen={(id) => navigate(`/collections/${id}`)} onAll={() => navigate('/collections')} />
           </section>
+
+          <NewsPanel limit={desktop ? 8 : 6} index={5} />
         </div>
         {zoom}
       </>
@@ -211,6 +214,12 @@ export function HomePage() {
           <StatFigure value={ownedCards} label="Cards owned" onClick={() => navigate('/collections')} />
         </div>
 
+        <button type="button" className="banner press rise" style={{ ...rise(3), marginTop: 10 }} onClick={() => navigate('/life')}>
+          <Icon name="favorite" />
+          <span style={{ flex: 1 }}>Life counter — life, commander damage and turns for the whole table</span>
+          <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
+        </button>
+
         {record && (
           <div className="record rise" style={rise(3)}>
             <span className="num">{record}</span>
@@ -238,6 +247,10 @@ export function HomePage() {
             <CardOfDay card={cardOfDay} onOpen={() => setZoomCard(cardOfDay)} />
           </section>
         )}
+
+        <section style={{ marginTop: 18 }}>
+          <NewsPanel index={5} />
+        </section>
       </div>
       {zoom}
     </>

@@ -2167,3 +2167,73 @@ select.input {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---- News (Home) and Combos (deck stats), fetched through the api-relay function ---- */
+
+.news-list,
+.combo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.news-item,
+.combo {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  margin: 0 -12px;
+  border-radius: 14px;
+  color: inherit;
+  text-decoration: none;
+}
+.news-item:hover,
+.combo:hover {
+  background: var(--g2);
+}
+.news-title {
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.35;
+}
+.news-meta,
+.combo-results {
+  font-size: 12px;
+  color: var(--t2);
+}
+.combo-cards {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.combo-cards i {
+  font-style: normal;
+  color: var(--t2);
+}
+.combo-cards .missing {
+  color: var(--gold-light);
+}
+.combo-more {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--g2);
+  color: var(--t0);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.combo-more b {
+  margin-left: 8px;
+  font-family: var(--num);
+  font-weight: 400;
+  font-size: 18px;
+  color: var(--gold);
+}
