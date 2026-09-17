@@ -5,6 +5,7 @@ import { Icon } from './Icon'
 import { ArtImage, toArtCrop, useLayoutSize } from './kit'
 import { useSync } from '../sync/SyncContext'
 import { useDeckColors } from './useDeckColors'
+import { PullToSync } from './PullToSync'
 
 // Matches the Android app's bottomNavRoutes — on a phone the bar hides on pushed detail screens
 // (their own back button takes over). Tablet and desktop keep their rail/sidebar everywhere.
@@ -32,6 +33,7 @@ export function Layout() {
           <Outlet />
           {TAB_ROUTES.has(location.pathname) && <BottomNav />}
         </div>
+        <PullToSync />
       </div>
     )
   }
@@ -42,6 +44,7 @@ export function Layout() {
       <div className="wide-main">
         <Outlet />
       </div>
+      <PullToSync />
     </div>
   )
 }

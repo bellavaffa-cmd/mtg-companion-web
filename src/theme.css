@@ -2237,3 +2237,121 @@ select.input {
   font-size: 18px;
   color: var(--gold);
 }
+
+/* ---- Pull to sync (touch screens) ---- */
+
+/* The browser's own pull-to-refresh would reload the page instead. */
+html {
+  overscroll-behavior-y: contain;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.pull-sync {
+  position: fixed;
+  left: 50%;
+  top: calc(env(safe-area-inset-top) + 14px);
+  z-index: 70;
+  pointer-events: none;
+  transform-origin: top center;
+  transition: transform 0.35s var(--spring), opacity 0.25s ease;
+}
+.pull-sync.dragging {
+  transition: none;
+}
+.pull-sync-ring,
+.pull-sync-pill {
+  background: var(--g2);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+}
+.pull-sync-ring {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--t1);
+  transition: color 0.2s;
+}
+.pull-sync-ring svg {
+  position: absolute;
+  inset: 4px;
+  width: 34px;
+  height: 34px;
+  transform: rotate(-90deg);
+}
+.pull-sync-ring .track,
+.pull-sync-ring .arc {
+  fill: none;
+  stroke-width: 3;
+}
+.pull-sync-ring .track {
+  stroke: rgba(255, 255, 255, 0.08);
+}
+.pull-sync-ring .arc {
+  stroke: var(--t1);
+  stroke-linecap: round;
+  transition: stroke 0.2s;
+}
+.pull-sync-ring .icon {
+  font-size: 19px;
+}
+.pull-sync-ring.armed {
+  color: var(--gold);
+}
+.pull-sync-ring.armed .arc {
+  stroke: var(--gold);
+}
+.pull-sync-ring.spinning svg {
+  animation: pull-sync-spin 0.9s linear infinite;
+}
+.pull-sync-ring.spinning .icon {
+  animation: pull-sync-spin-back 0.45s linear infinite;
+}
+@keyframes pull-sync-spin {
+  from { transform: rotate(-90deg); }
+  to { transform: rotate(270deg); }
+}
+@keyframes pull-sync-spin-back {
+  to { transform: rotate(-360deg); }
+}
+.pull-sync-pill {
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 0 12px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--t0);
+  white-space: nowrap;
+  max-width: calc(100vw - 32px);
+  animation: pull-sync-pill-in 0.4s var(--spring) both;
+}
+.pull-sync-pill span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pull-sync-pill .icon {
+  font-size: 21px;
+}
+.pull-sync-pill.tone-ok .icon { color: var(--ok); }
+.pull-sync-pill.tone-bad .icon { color: var(--error); }
+.pull-sync-pill.tone-muted .icon { color: var(--t1); }
+@keyframes pull-sync-pill-in {
+  from { transform: scale(0.7); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pull-sync-ring.spinning svg,
+  .pull-sync-ring.spinning .icon {
+    animation-duration: 2.4s;
+  }
+}
