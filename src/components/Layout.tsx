@@ -90,6 +90,10 @@ function Sidebar() {
           {tab.label}
         </NavLink>
       ))}
+      <NavLink to="/life" className="side-nav">
+        <Icon name="favorite" />
+        Life counter
+      </NavLink>
       {recent.length > 0 && (
         <>
           <div className="side-sec">
@@ -124,6 +128,10 @@ function NavRail() {
           <span>{tab.label}</span>
         </NavLink>
       ))}
+      <NavLink to="/life" className="nav-tab">
+        <span className="pill"><Icon name="favorite" /></span>
+        <span>Life</span>
+      </NavLink>
       <div style={{ flex: 1 }} />
       <AccountStatus compact />
     </nav>

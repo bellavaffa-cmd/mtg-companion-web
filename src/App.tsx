@@ -9,6 +9,7 @@ import { DecksPage } from './pages/DecksPage'
 import { DeckDetailPage } from './pages/DeckDetailPage'
 import { SearchPage } from './pages/SearchPage'
 import { AccountPage } from './pages/AccountPage'
+import { LifeCounterPage } from './lifecounter/LifeCounterPage'
 
 export default function App() {
   return (
@@ -24,6 +25,8 @@ export default function App() {
             <Route path="/search" element={<SearchPage />} />
             <Route path="/account" element={<AccountPage />} />
           </Route>
+          {/* The table runs edge to edge, without the app's navigation. */}
+          <Route path="/life" element={<LifeCounterPage />} />
         </Routes>
       </BrowserRouter>
       <AccountDialogs />
