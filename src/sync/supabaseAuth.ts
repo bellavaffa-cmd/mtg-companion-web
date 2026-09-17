@@ -4,6 +4,7 @@
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, '') ?? ''
 const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? ''
 const SESSION_KEY = 'mtgweb_supabase_session'
+const SIGNED_OUT_KEY = 'mtgweb_signed_out'
 
 export const supabaseConfigured = SUPABASE_URL !== '' && SUPABASE_ANON_KEY !== ''
 
@@ -172,6 +173,11 @@ export async function accessToken(): Promise<string | null> {
       // hiccup (5xx, rate limit) keeps the session for the next try.
       if (e instanceof AuthError && e.sessionGone) {
         clearSession()
+        try {
+          localStorage.setItem(SIGNED_OUT_KEY, JSON.stringify({ reason: signedOutReason(e), at: Date.now() }))
+        } catch {
+          // Storage unavailable: the sign-out still happens, it just can't be explained afterwards.
+        }
         return null
       }
       if (e instanceof AuthError) throw new ServerBusyError("The account server isn't responding — will try again shortly.")
@@ -198,6 +204,36 @@ export async function updatePassword(newPassword: string): Promise<void> {
   }
 }
 
+/** Why this browser stopped being signed in, and when — shown on the account page until dismissed. */
+export interface SignedOutNotice { reason: string; at: number }
+
+export function signedOutNotice(): SignedOutNotice | null {
+  try {
+    const raw = localStorage.getItem(SIGNED_OUT_KEY)
+    return raw ? (JSON.parse(raw) as SignedOutNotice) : null
+  } catch {
+    return null
+  }
+}
+
+export function dismissSignedOutNotice(): void {
+  localStorage.removeItem(SIGNED_OUT_KEY)
+}
+
+/** Plain-English version of why the server ended the session. */
+function signedOutReason(e: AuthError): string {
+  const says = (text: string) => e.serverMessage.toLowerCase().includes(text)
+  if (e.code === 'refresh_token_already_used' || says('already used')) {
+    return "The server saw this browser's sign-in used twice and ended it. This can happen if a tab was closed mid-sync, or if you changed your password on another device."
+  }
+  if (e.code === 'user_banned') return 'This account has been suspended.'
+  if (e.code === 'user_not_found') return 'This account no longer exists.'
+  if (e.code === 'session_not_found' || e.code === 'session_expired' || says('not found')) {
+    return 'The sign-in was no longer valid — it may have been ended by a password change or by signing out everywhere.'
+  }
+  return `The server ended this sign-in (${e.code || `HTTP ${e.status}`}).`
+}
+
 /** The server refused the current access token (a clock that's off, say): refresh it on next use. */
 export function invalidateAccessToken(): void {
   const s = loadSession()
@@ -208,6 +244,7 @@ export function invalidateAccessToken(): void {
 export async function signOut(): Promise<void> {
   const s = loadSession()
   clearSession()
+  dismissSignedOutNotice() // asked for, so nothing to explain
   if (s) {
     await fetch(restUrl('/auth/v1/logout?scope=local'), { method: 'POST', headers: apiHeaders(s.accessToken) }).catch(() => {})
   }

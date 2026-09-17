@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSync } from '../sync/SyncContext'
+import * as auth from '../sync/supabaseAuth'
 import { Icon } from './Icon'
 import { SetPasswordDialog } from './AccountDialogs'
 
@@ -25,6 +26,13 @@ export function AccountPanel() {
   const [notice, setNotice] = useState<string | null>(null)
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false)
   const [changingPassword, setChangingPassword] = useState(false)
+  const [signedOut, setSignedOut] = useState(() => auth.signedOutNotice())
+
+  // A sign-out can happen while this panel is open (a sync pass finding the session gone).
+  useEffect(() => {
+    if (account) setSignedOut(null)
+    else setSignedOut(auth.signedOutNotice())
+  }, [account])
 
   if (!accountsAvailable) {
     return <div className="notice">Accounts aren't set up in this build — changes stay in this browser only.</div>
@@ -89,6 +97,18 @@ export function AccountPanel() {
         if (canSubmit) void run(async () => { await signIn(email, password); setPassword(''); return null })
       }}
     >
+      {signedOut && (
+        <div className="notice signed-out">
+          <b>You were signed out</b>
+          <span>{signedOut.reason}</span>
+          <span className="dim">
+            On {new Date(signedOut.at).toLocaleString()}. Your decks and binders are still in this browser.
+          </span>
+          <button type="button" className="btn btn-link sm" onClick={() => { auth.dismissSignedOutNotice(); setSignedOut(null) }}>
+            Dismiss
+          </button>
+        </div>
+      )}
       <div className="muted">
         Sign in with your MTG Companion account to sync decks and binders with the Android app. Everything still works signed out.
       </div>

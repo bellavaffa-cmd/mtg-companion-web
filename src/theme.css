@@ -2472,3 +2472,11 @@ html {
   font-size: 12px;
   font-weight: 700;
 }
+.notice.signed-out {
+  display: grid;
+  gap: 6px;
+  text-align: left;
+}
+.notice.signed-out .btn-link {
+  justify-self: end;
+}
