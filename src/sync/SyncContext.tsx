@@ -96,6 +96,8 @@ interface SyncContextValue {
   updatePassword: (password: string) => Promise<void>
 
   createDeck: (name: string, gameMode: GameMode) => Deck
+  /** Creates a Commander deck already holding [cards] — importing a precon. */
+  createDeckWithCards: (name: string, cards: DeckCardEntry[], commander?: DeckCardEntry | null, partnerCommander?: DeckCardEntry | null) => Deck
   deleteDeck: (deckId: string) => void
   /** Returns a warning if the resulting copy count breaks the deck's format rules (singleton, max
    * copies) — informational only, the card is added either way. Null if there's no issue. */
@@ -356,6 +358,18 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [updateLibrary],
   )
 
+  const createDeckWithCards = useCallback(
+    (name: string, cards: DeckCardEntry[], commander: DeckCardEntry | null = null, partnerCommander: DeckCardEntry | null = null): Deck => {
+      const deck: Deck = {
+        id: crypto.randomUUID(), name, commander, partnerCommander, cards,
+        gameMode: 'COMMANDER', createdAt: Date.now(), tags: [], gameResults: [], ownership: DECK_OWNERSHIP_DEFAULT,
+      }
+      updateLibrary((lib) => ({ ...lib, decks: [...lib.decks, deck] }))
+      return deck
+    },
+    [updateLibrary],
+  )
+
   const deleteDeck = useCallback(
     (deckId: string) => updateLibrary((lib) => ({ ...lib, decks: lib.decks.filter((d) => d.id !== deckId) })),
     [updateLibrary],
@@ -591,6 +605,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       sendPasswordReset: auth.sendPasswordReset,
       updatePassword,
       createDeck,
+      createDeckWithCards,
       deleteDeck,
       addCardToDeck,
       removeCardFromDeck,
@@ -610,7 +625,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }),
     [
       library, account, cloud, mergePrompt, resolveMerge, passwordRecovery, linkNotice, signIn, signUp, signOut,
-      syncNow, refresh, updatePassword, createDeck, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
+      syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, addGameResult,
       removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection,
       setEntryQuantities,

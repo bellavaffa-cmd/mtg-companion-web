@@ -6,6 +6,7 @@ import { HomePage } from './pages/HomePage'
 import { CollectionsPage } from './pages/CollectionsPage'
 import { CollectionDetailPage } from './pages/CollectionDetailPage'
 import { DecksPage } from './pages/DecksPage'
+import { PreconsPage } from './pages/PreconsPage'
 import { DeckDetailPage } from './pages/DeckDetailPage'
 import { SearchPage } from './pages/SearchPage'
 import { AccountPage } from './pages/AccountPage'
@@ -22,6 +23,7 @@ export default function App() {
             <Route path="/collections/:id" element={<CollectionDetailPage />} />
             <Route path="/decks" element={<DecksPage />} />
             <Route path="/decks/:id" element={<DeckDetailPage />} />
+            <Route path="/precons" element={<PreconsPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/account" element={<AccountPage />} />
           </Route>

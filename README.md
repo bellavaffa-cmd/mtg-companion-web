@@ -11,6 +11,8 @@ Live at https://bellavaffa-cmd.github.io/mtg-companion-web/
 - **Decks**: create/delete, add/remove cards, quantities, commander + partner commander, game
   mode, tags.
 - **Search**: live Scryfall search, add results straight into any deck or binder.
+- **Precons** (Decks -> Precons): official Commander decklists from MTGJSON; pick one to copy it in
+  as a new deck.
 - **Suggestions** (deck page): what other people play with your commander, from EDHREC — tap one to
   add it. Cards the deck already has are filtered out.
 - **Combos**: which combos a deck contains or is one card short of (deck stats), and the combos a
@@ -21,7 +23,7 @@ Live at https://bellavaffa-cmd.github.io/mtg-companion-web/
 - **Account & sync** (Home): sign in, create an account, forgot/change password. Decks and binders
   sync with the Android app.
 
-Not yet ported from the phone app: precons, deck legality, scanning, card-art recognition,
+Not yet ported from the phone app: deck legality, scanning, card-art recognition,
 search filters beyond raw Scryfall syntax, the rules reference, and the life counter's extras
 (history, monarch/initiative, day–night, Planechase).
 

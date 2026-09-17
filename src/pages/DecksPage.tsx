@@ -26,9 +26,17 @@ export function DecksPage() {
     <>
       <PageHeader
         title="Decks"
-        actions={wide
-          ? <button type="button" className="btn gold" onClick={() => setParams({ new: '1' })}><Icon name="add" />New deck</button>
-          : <IconButton icon="add" label="New deck" variant="gold" onClick={() => setParams({ new: '1' })} />}
+        actions={wide ? (
+          <>
+            <button type="button" className="btn line" onClick={() => navigate('/precons')}><Icon name="inventory_2" />Precons</button>
+            <button type="button" className="btn gold" onClick={() => setParams({ new: '1' })}><Icon name="add" />New deck</button>
+          </>
+        ) : (
+          <>
+            <IconButton icon="inventory_2" label="Precons" onClick={() => navigate('/precons')} />
+            <IconButton icon="add" label="New deck" variant="gold" onClick={() => setParams({ new: '1' })} />
+          </>
+        )}
       />
       <div className={`content-scroll${wide ? '' : ' with-nav'}`}>
         {decks.length === 0 ? (

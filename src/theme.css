@@ -2420,3 +2420,55 @@ html {
 .combo-cards .combo-self {
   color: var(--gold-light);
 }
+
+/* ---- Precons ---- */
+
+.precon-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+.precon {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--g1);
+  color: var(--t0);
+  text-align: left;
+  cursor: pointer;
+}
+.precon:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.precon-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.precon-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+.precon-meta {
+  font-size: 12px;
+  color: var(--t2);
+}
+.precon-action {
+  flex: none;
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--gold-soft);
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 700;
+}
