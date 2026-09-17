@@ -9,7 +9,7 @@ import { backImageUrl, canBeCommander, cardTags, displayImageUrl, partnerAbility
 import * as auth from './supabaseAuth'
 import type { Account } from './supabaseAuth'
 import type { Library } from './cloudSync'
-import { applyRemoteChanges, clearCloudState, loadCloudState, syncOnce } from './cloudSync'
+import { applyRemoteChanges, clearCloudState, loadCloudState, recordLocalEdits, syncOnce } from './cloudSync'
 
 const LIBRARY_KEY = 'mtgweb_library'
 /** Where "Use my account's library" keeps this browser's old library, just in case. */
@@ -144,6 +144,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       if (!acct || mergePending.current) return
       setCloud((c) => ({ ...c, syncing: true, message: null, failed: false }))
       try {
+        recordLocalEdits(libraryRef.current, acct.userId)
         const token = await auth.accessToken()
         if (!token) {
           setSignedOut()

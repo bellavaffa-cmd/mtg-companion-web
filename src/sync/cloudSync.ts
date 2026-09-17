@@ -136,11 +136,8 @@ export interface SyncOutcome {
  * 2. pull rows newer than the cursor, keeping any pending local edit that's newer,
  * 3. push what's still pending.
  */
-export async function syncOnce(snapshot: Library, startState: CloudState, userId: string, token: string): Promise<SyncOutcome> {
-  let state = startState.userId === userId ? startState : emptyCloudState(userId)
-  const local = libraryJson(snapshot)
-  const now = Date.now()
-
+/** Local changes since the last agreement with the server, each stamped with when it was first noticed. */
+function detectPending(local: Map<string, string>, state: CloudState, now: number): Record<string, number> {
   const pending = { ...state.pending }
   local.forEach((json, key) => {
     const meta = state.items[key]
@@ -153,6 +150,26 @@ export async function syncOnce(snapshot: Library, startState: CloudState, userId
   Object.entries(state.items).forEach(([key, meta]) => {
     if (!meta.deleted && !local.has(key) && !(key in pending)) pending[key] = now
   })
+  return pending
+}
+
+/**
+ * Notes local edits and when they happened, without touching the network. Called before each sync
+ * attempt, so an edit made offline keeps its own time rather than the time the browser next reaches
+ * the server — which could otherwise overwrite a newer edit of the same deck made on another device.
+ */
+export function recordLocalEdits(snapshot: Library, userId: string): void {
+  const loaded = loadCloudState()
+  const state = loaded.userId === userId ? loaded : emptyCloudState(userId)
+  const pending = detectPending(libraryJson(snapshot), state, Date.now())
+  if (JSON.stringify(pending) !== JSON.stringify(state.pending)) saveCloudState({ ...state, pending })
+}
+
+export async function syncOnce(snapshot: Library, startState: CloudState, userId: string, token: string): Promise<SyncOutcome> {
+  let state = startState.userId === userId ? startState : emptyCloudState(userId)
+  const local = libraryJson(snapshot)
+  const now = Date.now()
+  const pending = detectPending(local, state, now)
 
   const rows = await pull(token, state.cursor)
   const items = { ...state.items }
