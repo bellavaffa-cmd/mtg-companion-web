@@ -67,7 +67,7 @@ export function AccountPanel() {
           <button type="button" className="btn line" style={{ flex: 1 }} onClick={() => void signOut()}>Sign out</button>
         </div>
         <div className="dim account-hint" style={{ padding: '0 4px' }}>
-          Decks and binders sync on their own, so edits here and on your phone don't overwrite each other. Signing out keeps everything in this browser; it only stops syncing.
+          Decks and binders sync on their own and are merged card by card, so edits here and on your phone don't overwrite each other. Signing out keeps everything in this browser; it only stops syncing.
         </div>
         {changingPassword && (
           <SetPasswordDialog

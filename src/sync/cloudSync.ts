@@ -1,9 +1,12 @@
 // Per-item library sync with Supabase — the same table, rules and bookkeeping as the Android app's
 // SupabaseSync.kt, so a deck edited on the phone and one edited here never overwrite each other.
-// One row per deck/binder in public.library_items; same-item conflicts resolve last-edit-wins by the
+// One row per deck/binder in public.library_items. When both sides changed the same deck since they
+// last agreed, the edits are merged card by card (see mergeItems.ts); otherwise conflicts resolve
+// last-edit-wins by the
 // time of the edit, and the server's push_library_items refuses anything older than what it has.
 
 import type { Collection, Deck } from '../types/models'
+import { mergeCollection, mergeDeck } from './mergeItems'
 import { normalizeDeck } from '../types/models'
 import { apiHeaders, restUrl } from './supabaseAuth'
 
@@ -19,6 +22,12 @@ interface ItemMeta {
   hash: number
   editedMs: number
   deleted?: boolean
+  /**
+   * The item's JSON as last agreed with the server. When this device and another have both changed
+   * the same deck since then, this is what the merge compares them against (see mergeItems.ts).
+   * Absent for items last synced by an older version, which fall back to newest-edit-wins.
+   */
+  base?: string
 }
 
 export interface CloudState {
@@ -184,18 +193,40 @@ export async function syncOnce(snapshot: Library, startState: CloudState, userId
     cursor = row.server_updated_at
     const key = `${row.kind}:${row.id}`
     const localEdit = pending[key]
-    if (localEdit !== undefined && localEdit > row.edited_ms) continue // ours is newer; pushed below
     if (row.deleted || !row.data) {
+      // A deck deleted elsewhere goes, unless this device edited it more recently.
+      if (localEdit !== undefined && localEdit > row.edited_ms) continue
       if (local.has(key)) remoteChanges.set(key, null)
       items[key] = { hash: 0, editedMs: row.edited_ms, deleted: true }
-    } else {
-      const item = row.kind === 'deck'
-        ? normalizeDeck(row.data as unknown as Deck)
-        : (row.data as unknown as Collection)
-      const json = canonicalJson(item)
-      if (local.get(key) !== json) remoteChanges.set(key, item)
-      items[key] = { hash: hash(json), editedMs: row.edited_ms }
+      delete pending[key]
+      continue
     }
+    const theirs = row.kind === 'deck'
+      ? normalizeDeck(row.data as unknown as Deck)
+      : (row.data as unknown as Collection)
+    const theirJson = canonicalJson(theirs)
+    const mineJson = local.get(key)
+    const baseJson = state.items[key]?.base
+
+    // Both devices changed this one since they last agreed: keep both sets of edits.
+    if (localEdit !== undefined && mineJson !== undefined && baseJson !== undefined && mineJson !== theirJson) {
+      const base = JSON.parse(baseJson)
+      const mine = JSON.parse(mineJson)
+      const merged = row.kind === 'deck'
+        ? mergeDeck(base as Deck, mine as Deck, theirs as Deck, localEdit > row.edited_ms)
+        : mergeCollection(base as Collection, mine as Collection, theirs as Collection, localEdit > row.edited_ms)
+      const mergedJson = canonicalJson(merged)
+      if (mergedJson !== mineJson) remoteChanges.set(key, merged)
+      // Push the merged version (it's newer than both), and keep their version as the new base.
+      local.set(key, mergedJson)
+      pending[key] = now
+      items[key] = { hash: hash(theirJson), editedMs: row.edited_ms, base: theirJson }
+      continue
+    }
+
+    if (localEdit !== undefined && localEdit > row.edited_ms) continue // ours is newer; pushed below
+    if (mineJson !== theirJson) remoteChanges.set(key, theirs)
+    items[key] = { hash: hash(theirJson), editedMs: row.edited_ms, base: theirJson }
     delete pending[key]
   }
   state = { ...state, items, pending, cursor }
@@ -212,7 +243,7 @@ export async function syncOnce(snapshot: Library, startState: CloudState, userId
         pushed[key] = { hash: 0, editedMs, deleted: true }
         return { kind, id, edited_ms: editedMs, deleted: true }
       }
-      pushed[key] = { hash: hash(json), editedMs }
+      pushed[key] = { hash: hash(json), editedMs, base: json }
       return { kind, id, edited_ms: editedMs, deleted: false, data: JSON.parse(json) }
     })
     await request('/rest/v1/rpc/push_library_items', token, { method: 'POST', body: JSON.stringify({ items: batch }) })

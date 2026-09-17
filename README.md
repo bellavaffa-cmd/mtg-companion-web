@@ -23,7 +23,10 @@ Counter, search filters beyond raw Scryfall syntax, and Rules/news.
   offline.
 - Signed in, each deck and binder is its own row in Supabase (`public.library_items`, see
   `MtgCompanionApp/supabase/migrations/`). Edits to different decks on the phone and here never
-  overwrite each other; if the same deck is edited in both places, the most recent edit wins.
+  overwrite each other. If the same deck is edited in both places, the two sets of edits are merged
+  card by card: additions from both sides are kept, a removal on either side sticks, and counts that
+  both sides changed add up. Only a field both sides changed differently (a deck's name, say) falls
+  back to the more recent edit.
 - Sync runs on load, 2 seconds after an edit, and when you come back to the tab. The logic lives in
   `src/sync/cloudSync.ts` and mirrors the Android app's `SupabaseSync.kt`.
 - The first time an account signs in to a browser that already has decks or binders, the app asks
