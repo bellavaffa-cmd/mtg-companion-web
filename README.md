@@ -15,6 +15,8 @@ Live at https://bellavaffa-cmd.github.io/mtg-companion-web/
   as a new deck.
 - **Suggestions** (deck page): what other people play with your commander, from EDHREC — tap one to
   add it. Cards the deck already has are filtered out.
+- **Legality** (deck stats): the deck checked against its format — size, commander, banned and
+  restricted cards, copy limits and colour identity.
 - **Combos**: which combos a deck contains or is one card short of (deck stats), and the combos a
   card is part of (its zoom view), from Commander Spellbook.
 - **Life counter** (`/life`): the phone app's table — seatings for 1–10 players, tiles that face
@@ -23,7 +25,7 @@ Live at https://bellavaffa-cmd.github.io/mtg-companion-web/
 - **Account & sync** (Home): sign in, create an account, forgot/change password. Decks and binders
   sync with the Android app.
 
-Not yet ported from the phone app: deck legality, scanning, card-art recognition,
+Not yet ported from the phone app: scanning, card-art recognition,
 search filters beyond raw Scryfall syntax, the rules reference, and the life counter's extras
 (history, monarch/initiative, day–night, Planechase).
 
