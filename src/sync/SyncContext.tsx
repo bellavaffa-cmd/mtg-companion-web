@@ -9,7 +9,7 @@ import { backImageUrl, canBeCommander, cardTags, displayImageUrl, partnerAbility
 import * as auth from './supabaseAuth'
 import type { Account } from './supabaseAuth'
 import type { Library } from './cloudSync'
-import { applyRemoteChanges, clearCloudState, loadCloudState, recordLocalEdits, syncOnce } from './cloudSync'
+import { applyRemoteChanges, clearCloudState, loadCloudState, recordLocalEdits, syncOnce, UnauthorizedError } from './cloudSync'
 
 /** What a user-requested sync ended with. */
 export type RefreshResult =
@@ -171,7 +171,21 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           throw new auth.AuthError('Signed out — sign in again to sync.')
         }
         const snapshot = libraryRef.current
-        const { state, remoteChanges, pushed } = await syncOnce(snapshot, loadCloudState(), acct.userId, token)
+        let outcome
+        try {
+          outcome = await syncOnce(snapshot, loadCloudState(), acct.userId, token)
+        } catch (e) {
+          if (!(e instanceof UnauthorizedError)) throw e
+          // The access token was refused: refresh the session once and try again.
+          auth.invalidateAccessToken()
+          const fresh = await auth.accessToken()
+          if (!fresh) {
+            setSignedOut()
+            throw new auth.AuthError('Signed out — sign in again to sync.')
+          }
+          outcome = await syncOnce(snapshot, loadCloudState(), acct.userId, fresh)
+        }
+        const { state, remoteChanges, pushed } = outcome
         if (remoteChanges.size > 0) {
           setLibrary((live) => {
             const next = applyRemoteChanges(live, snapshot, remoteChanges)
@@ -185,13 +199,17 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         // The server no longer accepts this session (revoked, or the account was deleted): sign this
         // browser out so the panel offers sign-in again. Local decks and binders stay.
-        if (e instanceof auth.AuthError) {
-          await auth.signOut()
+        // Only a session the server has dropped signs this browser out (accessToken() cleared it).
+        if (e instanceof auth.AuthError && !auth.currentAccount()) {
           setSignedOut()
         }
-        const message = e instanceof auth.OfflineError ? "Offline — will sync when you're back online." : e instanceof Error ? e.message : 'Sync failed'
+        const message = e instanceof auth.ServerBusyError ? e.message
+          : e instanceof auth.OfflineError ? "Offline — will sync when you're back online."
+          : e instanceof Error ? e.message : 'Sync failed'
         setCloud((c) => ({ ...c, syncing: false, failed: true, message }))
-        onResult?.(e instanceof auth.AuthError ? { kind: 'signed-out' } : { kind: 'failed', message, offline: e instanceof auth.OfflineError })
+        onResult?.(e instanceof auth.AuthError && !auth.currentAccount()
+          ? { kind: 'signed-out' }
+          : { kind: 'failed', message, offline: e instanceof auth.OfflineError && !(e instanceof auth.ServerBusyError) })
       }
     }).finally(() => { syncBusy.current = false })
     syncChain.current = pass.catch(() => {})

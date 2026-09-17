@@ -20,10 +20,36 @@ interface Session extends Account {
 }
 
 /** The server refused: wrong credentials, expired/revoked session, rate limit… */
-export class AuthError extends Error {}
+export class AuthError extends Error {
+  readonly status: number
+  readonly code: string
+  readonly serverMessage: string
 
+  constructor(message: string, status = 0, code = '', serverMessage = '') {
+    super(message)
+    this.status = status
+    this.code = code
+    this.serverMessage = serverMessage
+  }
+
+  /**
+   * Whether the server says the session is gone for good (revoked, expired, already-used refresh
+   * token), as opposed to being briefly unable to answer — only then should the browser sign out.
+   */
+  get sessionGone(): boolean {
+    return this.status >= 400 && this.status <= 403 && (
+      SESSION_GONE_CODES.has(this.code) || /refresh token|invalid_grant/i.test(this.serverMessage)
+    )
+  }
+}
+const SESSION_GONE_CODES = new Set([
+  'refresh_token_not_found', 'refresh_token_already_used', 'session_not_found', 'session_expired',
+  'user_not_found', 'user_banned', 'invalid_grant',
+])
 /** The server couldn't be reached at all. */
 export class OfflineError extends Error {}
+/** The server answered with a temporary problem (overloaded, rate limited): keep the session, retry later. */
+export class ServerBusyError extends OfflineError {}
 
 /** Where account emails (confirm sign-up, reset password) send people back to: this web app. */
 export function authRedirectUrl(): string {
@@ -99,7 +125,11 @@ async function post(path: string, body: unknown, token?: string): Promise<Record
   const json = (() => {
     try { return text ? JSON.parse(text) : {} } catch { return {} }
   })()
-  if (!res.ok) throw new AuthError(friendlyError(res.status, json))
+  if (!res.ok) {
+    const raw = ['msg', 'error_description', 'message', 'error'].map((k) => json[k]).filter((v) => typeof v === 'string').join(' ')
+    const code = typeof json.error_code === 'string' ? json.error_code : typeof json.error === 'string' ? json.error : ''
+    throw new AuthError(friendlyError(res.status, json), res.status, code, raw)
+  }
   return json
 }
 
@@ -138,11 +168,13 @@ export async function accessToken(): Promise<string | null> {
     try {
       return saveSession(await post('/auth/v1/token?grant_type=refresh_token', { refresh_token: s.refreshToken })).accessToken
     } catch (e) {
-      // Revoked or expired refresh token: the user has to sign in again. Network trouble keeps the session.
-      if (e instanceof AuthError) {
+      // Revoked or expired refresh token: the user has to sign in again. Network trouble or a server
+      // hiccup (5xx, rate limit) keeps the session for the next try.
+      if (e instanceof AuthError && e.sessionGone) {
         clearSession()
         return null
       }
+      if (e instanceof AuthError) throw new ServerBusyError("The account server isn't responding — will try again shortly.")
       throw e
     } finally {
       refreshing = null
@@ -164,6 +196,12 @@ export async function updatePassword(newPassword: string): Promise<void> {
     const json = await res.json().catch(() => ({}))
     throw new AuthError(friendlyError(res.status, json))
   }
+}
+
+/** The server refused the current access token (a clock that's off, say): refresh it on next use. */
+export function invalidateAccessToken(): void {
+  const s = loadSession()
+  if (s) localStorage.setItem(SESSION_KEY, JSON.stringify({ ...s, expiresAt: 0 }))
 }
 
 /** Signs this browser out (scope=local keeps the user's other devices signed in). */

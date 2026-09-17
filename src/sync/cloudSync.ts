@@ -5,7 +5,7 @@
 
 import type { Collection, Deck } from '../types/models'
 import { normalizeDeck } from '../types/models'
-import { apiHeaders, AuthError, restUrl } from './supabaseAuth'
+import { apiHeaders, restUrl } from './supabaseAuth'
 
 const STATE_KEY = 'mtgweb_cloud_state'
 
@@ -92,6 +92,9 @@ interface RemoteRow {
 
 export class SyncError extends Error {}
 
+/** A data request's access token was refused (HTTP 401); the caller refreshes the session and retries once. */
+export class UnauthorizedError extends Error {}
+
 async function request(path: string, token: string, init?: RequestInit): Promise<Response> {
   let res: Response
   try {
@@ -101,7 +104,7 @@ async function request(path: string, token: string, init?: RequestInit): Promise
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({})) as { message?: string }
-    if (res.status === 401) throw new AuthError('Session expired — sign in again.')
+    if (res.status === 401) throw new UnauthorizedError("The server didn't accept this sign-in. Try again, or sign out and back in.")
     throw new SyncError(body.message ? `${body.message} (HTTP ${res.status})` : `Server error (HTTP ${res.status})`)
   }
   return res
