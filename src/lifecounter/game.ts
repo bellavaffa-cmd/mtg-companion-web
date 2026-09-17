@@ -87,6 +87,16 @@ export const DEFAULT_SETTINGS: LifeSettings = {
 export const startingLifeFor = (s: LifeSettings, players: number) =>
   players <= 2 ? s.twoPlayerStartingLife : s.multiplayerStartingLife
 
+/** One thing that happened, for the history sheet. [playerId] is null for table-wide events. */
+export interface HistoryEntry {
+  id: number
+  at: number
+  playerId: number | null
+  text: string
+}
+
+export type DayNight = 'DAY' | 'NIGHT'
+
 export interface Game {
   layoutId: string
   players: Player[]
@@ -95,6 +105,12 @@ export interface Game {
   turnSeconds: number
   matchSeconds: number
   timerRunning: boolean
+  /** Newest first, capped — see HISTORY_LIMIT. */
+  history: HistoryEntry[]
+  monarchId: number | null
+  initiativeId: number | null
+  /** Null until someone starts tracking day and night. */
+  dayNight: DayNight | null
   /** Whether anyone has changed anything yet — a new starting life applies at once to an untouched game. */
   touched: boolean
 }
@@ -112,9 +128,16 @@ export function newGame(settings: LifeSettings): Game {
     turnSeconds: 0,
     matchSeconds: 0,
     timerRunning: true,
+    history: [],
+    monarchId: null,
+    initiativeId: null,
+    dayNight: null,
     touched: false,
   }
 }
+
+/** How many history entries a game keeps. */
+const HISTORY_LIMIT = 200
 
 export type GameAction =
   | { type: 'new'; settings: LifeSettings }
@@ -130,17 +153,39 @@ export type GameAction =
   | { type: 'firstPlayer'; id: number }
   | { type: 'toggleTimer' }
   | { type: 'tick' }
+  | { type: 'monarch'; id: number | null }
+  | { type: 'initiative'; id: number | null }
+  | { type: 'dayNight'; value: DayNight | null }
+  | { type: 'clearHistory' }
 
 function updatePlayer(game: Game, id: number, fn: (p: Player) => Player): Game {
   return { ...game, touched: true, players: game.players.map((p) => (p.id === id ? fn(p) : p)) }
 }
 
+let nextHistoryId = 1
+
+/** Adds an entry to the log, newest first. */
+function note(game: Game, playerId: number | null, text: string): Game {
+  const entry: HistoryEntry = { id: nextHistoryId++, at: Date.now(), playerId, text }
+  return { ...game, history: [entry, ...game.history].slice(0, HISTORY_LIMIT) }
+}
+
+const nameOf = (game: Game, id: number | null) =>
+  id === null ? '' : displayName(game.players.find((p) => p.id === id) ?? { id, name: null } as Player)
+
 export function gameReducer(game: Game, action: GameAction): Game {
   switch (action.type) {
     case 'new':
       return newGame(action.settings)
-    case 'life':
-      return updatePlayer(game, action.id, (p) => ({ ...p, life: p.life + action.delta }))
+    case 'life': {
+      const before = game.players.find((p) => p.id === action.id)?.life ?? 0
+      const after = before + action.delta
+      return note(
+        updatePlayer(game, action.id, (p) => ({ ...p, life: after })),
+        action.id,
+        `${action.delta > 0 ? '+' : '−'}${Math.abs(action.delta)} life (${before} → ${after})`,
+      )
+    }
     case 'setLife':
       return updatePlayer(game, action.id, (p) => ({ ...p, life: action.value }))
     case 'commanderDamage': {
@@ -151,18 +196,28 @@ export function gameReducer(game: Game, action: GameAction): Game {
       const updated = Math.max(0, current + action.delta)
       const applied = updated - current
       if (applied === 0) return game
-      return updatePlayer(game, action.id, (x) => ({
-        ...x,
-        life: x.life - (action.costsLife ? applied : 0),
-        commanderDamage: { ...x.commanderDamage, [action.from]: updated },
-      }))
+      return note(
+        updatePlayer(game, action.id, (x) => ({
+          ...x,
+          life: x.life - (action.costsLife ? applied : 0),
+          commanderDamage: { ...x.commanderDamage, [action.from]: updated },
+        })),
+        action.id,
+        `Commander damage from ${nameOf(game, action.from)}: ${updated}`,
+      )
     }
-    case 'poison':
-      return updatePlayer(game, action.id, (p) => ({ ...p, poison: Math.max(0, p.poison + action.delta) }))
+    case 'poison': {
+      const poison = Math.max(0, (game.players.find((p) => p.id === action.id)?.poison ?? 0) + action.delta)
+      return note(updatePlayer(game, action.id, (p) => ({ ...p, poison })), action.id, `Poison: ${poison}`)
+    }
     case 'kill':
-      return updatePlayer(game, action.id, (p) => ({ ...p, killed: true }))
+      return note(updatePlayer(game, action.id, (p) => ({ ...p, killed: true })), action.id, 'Knocked out')
     case 'revive':
-      return updatePlayer(game, action.id, (p) => ({ ...p, killed: false, life: action.life, poison: 0, commanderDamage: {} }))
+      return note(
+        updatePlayer(game, action.id, (p) => ({ ...p, killed: false, life: action.life, poison: 0, commanderDamage: {} })),
+        action.id,
+        'Back in the game',
+      )
     case 'name':
       return updatePlayer(game, action.id, (p) => ({ ...p, name: action.name.trim() || null }))
     case 'color':
@@ -171,13 +226,12 @@ export function gameReducer(game: Game, action: GameAction): Game {
       const ids = game.players.map((p) => p.id)
       if (ids.length === 0) return game
       const idx = ids.indexOf(game.turnPlayerId)
-      return {
-        ...game,
-        touched: true,
-        turnPlayerId: idx === -1 || idx === ids.length - 1 ? ids[0] : ids[idx + 1],
-        turnNumber: game.turnNumber + 1,
-        turnSeconds: 0,
-      }
+      const turnPlayerId = idx === -1 || idx === ids.length - 1 ? ids[0] : ids[idx + 1]
+      return note(
+        { ...game, touched: true, turnPlayerId, turnNumber: game.turnNumber + 1, turnSeconds: 0 },
+        turnPlayerId,
+        `Turn ${game.turnNumber + 1}`,
+      )
     }
     case 'firstPlayer':
       return { ...game, turnPlayerId: action.id, turnNumber: 1, turnSeconds: 0, matchSeconds: 0, timerRunning: true }
@@ -185,6 +239,20 @@ export function gameReducer(game: Game, action: GameAction): Game {
       return { ...game, timerRunning: !game.timerRunning }
     case 'tick':
       return game.timerRunning ? { ...game, turnSeconds: game.turnSeconds + 1, matchSeconds: game.matchSeconds + 1 } : game
+    case 'monarch':
+      if (game.monarchId === action.id) return game
+      return note({ ...game, touched: true, monarchId: action.id }, action.id,
+        action.id === null ? 'No longer anyone\'s monarch' : `Became the monarch`)
+    case 'initiative':
+      if (game.initiativeId === action.id) return game
+      return note({ ...game, touched: true, initiativeId: action.id }, action.id,
+        action.id === null ? 'Nobody has the initiative' : 'Took the initiative')
+    case 'dayNight':
+      if (game.dayNight === action.value) return game
+      return note({ ...game, touched: true, dayNight: action.value }, null,
+        action.value === null ? 'Stopped tracking day and night' : action.value === 'DAY' ? 'It became day' : 'It became night')
+    case 'clearHistory':
+      return { ...game, history: [] }
   }
 }
 
@@ -234,7 +302,10 @@ export function useLifeCounter() {
   const [settings, setSettings] = useState<LifeSettings>(() => load(SETTINGS_KEY, DEFAULT_SETTINGS))
   const [game, dispatch] = useReducer(gameReducer, settings, (s) => {
     const saved = load<Game | null>(GAME_KEY, null)
-    return saved && saved.layoutId === s.layoutId && Array.isArray(saved.players) ? saved : newGame(s)
+    if (!saved || saved.layoutId !== s.layoutId || !Array.isArray(saved.players)) return newGame(s)
+    // A game saved by an older version is missing whatever has been added since (history, the
+    // monarch…), so fill those in from a fresh game rather than rendering with holes.
+    return { ...newGame(s), ...saved, players: saved.players, history: saved.history ?? [] }
   })
 
   useEffect(() => save(SETTINGS_KEY, settings), [settings])

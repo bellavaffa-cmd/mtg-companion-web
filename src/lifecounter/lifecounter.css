@@ -876,3 +876,127 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---- Monarch / initiative tokens, day-night, history ---- */
+
+.lc-token .lc-token-label {
+  display: none;
+}
+@container (min-width: 320px) {
+  .lc-token .lc-token-label {
+    display: inline;
+  }
+}
+.lc-daynight {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--lc-raised);
+}
+.lc-daynight .material-symbols-rounded {
+  font-size: 15px;
+}
+.lc-daynight.day {
+  color: var(--lc-yellow);
+}
+.lc-daynight.night {
+  color: #9ba8ff;
+}
+/* While a player's panel is open, the strip behind it fades (the menu button is handled in React). */
+.lc-panel-open .lc-strip-wrap {
+  opacity: 0.12;
+  pointer-events: none;
+}
+.lc-menu-btn {
+  transition: opacity 0.2s;
+}
+.lc-menu-row {
+  position: absolute;
+  left: 50%;
+  top: 172px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  animation: lc-pill-in 0.5s cubic-bezier(0.49, 0.2, 0.19, 1.48) both;
+  animation-delay: 180ms;
+}
+.lc-menu-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 16px 7px;
+  font-size: 22px;
+  line-height: 1;
+  white-space: nowrap;
+  background: #fff;
+  color: #000;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+.lc-menu-chip .material-symbols-rounded {
+  font-size: 20px;
+}
+.lc-holders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.lc-holder {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  padding: 8px 16px 6px;
+  font-size: 22px;
+  background: var(--lc-raised);
+  color: #fff;
+}
+.lc-holder.on {
+  background: var(--seat);
+  color: var(--ink);
+  border-color: #fff;
+}
+@supports (color: color(display-p3 1 1 1)) {
+  .lc-holder.on {
+    background: var(--seat-p3);
+  }
+}
+.lc-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.lc-history li {
+  display: grid;
+  grid-template-columns: 14px minmax(70px, auto) 1fr auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 19px;
+}
+.lc-history i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--seat);
+}
+.lc-history i.table-wide {
+  background: var(--lc-muted);
+}
+@supports (color: color(display-p3 1 1 1)) {
+  .lc-history i {
+    background: var(--seat-p3);
+  }
+}
+.lc-history-what {
+  color: #fff;
+}
+.lc-history-who,
+.lc-history-when {
+  color: var(--lc-muted);
+}

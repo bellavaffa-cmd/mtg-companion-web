@@ -71,20 +71,31 @@ export function PlayerTile({
   facing,
   settings,
   activeTurn,
+  isMonarch,
+  hasInitiative,
   highRoll,
   dispatch,
+  onPanelOpenChange,
 }: {
   player: Player
   opponents: Player[]
   facing: SeatFacing
   settings: LifeSettings
   activeTurn: boolean
+  isMonarch: boolean
+  hasInitiative: boolean
   /** This player's high-roll dice (last one counts) and whether they won, while results are up. */
   highRoll: { rolls: number[]; winner: boolean } | null
   dispatch: (a: GameAction) => void
+  /** The page dims the menu button while a panel covers a tile. */
+  onPanelOpenChange: (open: boolean) => void
 }) {
   const [pending, setPending] = useState(0)
-  const [panelOpen, setPanelOpen] = useState(false)
+  const [panelOpen, setPanelOpenState] = useState(false)
+  const setPanelOpen = (open: boolean) => {
+    setPanelOpenState(open)
+    onPanelOpenChange(open)
+  }
   const [changeCount, setChangeCount] = useState(0)
   const [shake, setShake] = useState(0)
 
@@ -120,6 +131,18 @@ export function PlayerTile({
     <Face facing={facing} className={`lc-tile${activeTurn ? ' active' : ''}${loss ? ' out' : ''}`}>
       <div className="lc-tile-body" style={seatStyle(player.colorIndex)}>
         <div className="lc-top">
+          {isMonarch && (
+            <span className="lc-chip lc-token" title="Monarch">
+              <span className="material-symbols-rounded" aria-hidden>crown</span>
+              <span className="lc-token-label">Monarch</span>
+            </span>
+          )}
+          {hasInitiative && (
+            <span className="lc-chip lc-token" title="Initiative">
+              <span className="material-symbols-rounded" aria-hidden>swords</span>
+              <span className="lc-token-label">Initiative</span>
+            </span>
+          )}
           <button type="button" className="lc-name" onClick={() => setPanelOpen(true)} aria-label={`${displayName(player)} — commander damage, poison and more`}>
             {displayName(player)}
           </button>

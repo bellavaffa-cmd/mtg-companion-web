@@ -20,14 +20,14 @@ Live at https://bellavaffa-cmd.github.io/mtg-companion-web/
 - **Combos**: which combos a deck contains or is one card short of (deck stats), and the combos a
   card is part of (its zoom view), from Commander Spellbook.
 - **Life counter** (`/life`): the phone app's table — seatings for 1–10 players, tiles that face
-  each seat and turn with the device, turn tracker, timer, commander damage, poison, dice.
+  each seat and turn with the device, turn tracker, timer, commander damage, poison, dice, the
+  monarch and the initiative, day and night, and a history of the game.
 - **News** (Home): headlines from MTG Arena Zone and Star City Games.
 - **Account & sync** (Home): sign in, create an account, forgot/change password. Decks and binders
   sync with the Android app.
 
 Not yet ported from the phone app: scanning, card-art recognition,
-search filters beyond raw Scryfall syntax, the rules reference, and the life counter's extras
-(history, monarch/initiative, day–night, Planechase).
+search filters beyond raw Scryfall syntax, the rules reference, and Planechase.
 
 Commander Spellbook and the news feeds don't allow browser requests, so those go through the
 `api-relay` Supabase function (source in `MtgCompanionApp/supabase/functions/api-relay`). Scryfall

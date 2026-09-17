@@ -8,7 +8,7 @@ import {
 } from './tableLayouts'
 import './lifecounter.css'
 
-type Overlay = null | 'seating' | 'settings' | 'restart' | 'dice'
+type Overlay = null | 'seating' | 'settings' | 'restart' | 'dice' | 'history' | 'table'
 
 /**
  * Whether the screen is wider than tall, and — when it is — whether the device was turned
@@ -70,6 +70,8 @@ export function LifeCounterPage() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [overlay, setOverlay] = useState<Overlay>(null)
   const [roll, setRoll] = useState<ReturnType<typeof highRoll> | null>(null)
+  // A panel covering a tile would sit under the menu button, so the button steps aside.
+  const [panelsOpen, setPanelsOpen] = useState(0)
   useWakeLock()
 
   useEffect(() => {
@@ -101,8 +103,11 @@ export function LifeCounterPage() {
           facing={cell.facing}
           settings={settings}
           activeTurn={settings.turnTracker && game.turnPlayerId === player.id && game.players.length > 1}
+          isMonarch={game.monarchId === player.id}
+          hasInitiative={game.initiativeId === player.id}
           highRoll={roll ? { rolls: roll.rolls[player.id] ?? [], winner: roll.winnerId === player.id } : null}
           dispatch={dispatch}
+          onPanelOpenChange={(open) => setPanelsOpen((n) => Math.max(0, n + (open ? 1 : -1)))}
         />
       </div>
     )
@@ -111,7 +116,7 @@ export function LifeCounterPage() {
   const bar = (vertical: boolean) => (
     <CentreBar key="bar" vertical={vertical} showStrip={showStrip}>
       {showStrip && <TurnStrip game={game} settings={settings} dispatch={dispatch} />}
-      <MenuButton open={menuOpen} onClick={() => (overlay ? closeAll() : setMenuOpen((m) => !m))} />
+      <MenuButton open={menuOpen} hidden={panelsOpen > 0} onClick={() => (overlay ? closeAll() : setMenuOpen((m) => !m))} />
       {menuOpen && (
         <RadialMenu
           onRestart={() => open('restart')}
@@ -119,6 +124,8 @@ export function LifeCounterPage() {
           onSeating={() => open('seating')}
           onSettings={() => open('settings')}
           onDice={() => open('dice')}
+          onTable={() => open('table')}
+          onHistory={() => open('history')}
           onExit={() => navigate('/')}
         />
       )}
@@ -126,7 +133,7 @@ export function LifeCounterPage() {
   )
 
   return (
-    <div className="lc-root">
+    <div className={`lc-root${panelsOpen > 0 ? ' lc-panel-open' : ''}`}>
       <TableSurface layout={layout} landscape={landscape} clockwise={clockwise} seat={seat} bar={bar} />
       {menuOpen && <button type="button" className="lc-scrim" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
 
@@ -138,6 +145,8 @@ export function LifeCounterPage() {
       )}
       {overlay === 'settings' && <SettingsOverlay lc={lc} onClose={closeAll} />}
       {overlay === 'dice' && <DiceOverlay onClose={closeAll} />}
+      {overlay === 'history' && <HistoryOverlay game={game} onClear={() => dispatch({ type: 'clearHistory' })} onClose={closeAll} />}
+      {overlay === 'table' && <TableOverlay game={game} dispatch={dispatch} onClose={closeAll} />}
     </div>
   )
 }
@@ -231,6 +240,11 @@ function TurnStrip({ game, settings, dispatch }: { game: Game; settings: LifeSet
             </>
           )}
         </div>
+        {game.dayNight && (
+          <span className={`lc-daynight ${game.dayNight.toLowerCase()}`} title={game.dayNight === 'DAY' ? 'Day' : 'Night'}>
+            <span className="material-symbols-rounded" aria-hidden>{game.dayNight === 'DAY' ? 'wb_sunny' : 'bedtime'}</span>
+          </span>
+        )}
         <div className="lc-menu-slot" />
         <div className="lc-strip-side end">
           {settings.gameTimer && (
@@ -257,9 +271,18 @@ function TurnStrip({ game, settings, dispatch }: { game: Game; settings: LifeSet
   )
 }
 
-function MenuButton({ open, onClick }: { open: boolean; onClick: () => void }) {
+/** [hidden]: a player's panel is covering its tile, and the button would sit on top of it. */
+function MenuButton({ open, hidden, onClick }: { open: boolean; hidden: boolean; onClick: () => void }) {
   return (
-    <button type="button" className={`lc-menu-btn${open ? ' open' : ''}`} onClick={onClick} aria-label={open ? 'Close game menu' : 'Game menu'} aria-expanded={open}>
+    <button
+      type="button"
+      className={`lc-menu-btn${open ? ' open' : ''}`}
+      style={hidden ? { opacity: 0.12, pointerEvents: 'none' } : undefined}
+      onClick={onClick}
+      aria-label={open ? 'Close game menu' : 'Game menu'}
+      aria-expanded={open}
+      aria-hidden={hidden}
+    >
       <span className="ring" />
       <span className="core" />
       <span className="bars"><i /><i /><i /></span>
@@ -268,7 +291,8 @@ function MenuButton({ open, onClick }: { open: boolean; onClick: () => void }) {
 }
 
 function RadialMenu(props: {
-  onRestart: () => void; onHighRoll: () => void; onSeating: () => void; onSettings: () => void; onDice: () => void; onExit: () => void
+  onRestart: () => void; onHighRoll: () => void; onSeating: () => void; onSettings: () => void
+  onDice: () => void; onTable: () => void; onHistory: () => void; onExit: () => void
 }) {
   const items: [string, string, () => void][] = [
     ['Exit', 'exit', props.onExit],
@@ -285,7 +309,84 @@ function RadialMenu(props: {
           {label}
         </button>
       ))}
+      <div className="lc-menu-row">
+        <button type="button" role="menuitem" className="lc-menu-chip" onClick={props.onTable}>
+          <span className="material-symbols-rounded" aria-hidden>crown</span>Table
+        </button>
+        <button type="button" role="menuitem" className="lc-menu-chip" onClick={props.onHistory}>
+          <span className="material-symbols-rounded" aria-hidden>history</span>History
+        </button>
+      </div>
     </div>
+  )
+}
+
+/** Who holds the monarch and the initiative, and whether it's day or night. */
+function TableOverlay({ game, dispatch, onClose }: { game: Game; dispatch: (a: GameAction) => void; onClose: () => void }) {
+  const holders = (current: number | null, action: 'monarch' | 'initiative') => (
+    <div className="lc-holders">
+      {game.players.map((p) => (
+        <button
+          key={p.id}
+          type="button"
+          className={`lc-holder${current === p.id ? ' on' : ''}`}
+          style={seatStyle(p.colorIndex)}
+          aria-pressed={current === p.id}
+          onClick={() => dispatch({ type: action, id: current === p.id ? null : p.id })}
+        >
+          {displayName(p)}
+        </button>
+      ))}
+    </div>
+  )
+  return (
+    <Sheet title="Table" subtitle="Who holds what, and whether it's day or night" onClose={onClose}>
+      <section>
+        <h3>Monarch</h3>
+        {holders(game.monarchId, 'monarch')}
+      </section>
+      <section>
+        <h3>Initiative</h3>
+        {holders(game.initiativeId, 'initiative')}
+      </section>
+      <section>
+        <h3>Day and night</h3>
+        <div className="lc-choices">
+          <button type="button" aria-pressed={game.dayNight === 'DAY'} onClick={() => dispatch({ type: 'dayNight', value: 'DAY' })}>Day</button>
+          <button type="button" aria-pressed={game.dayNight === 'NIGHT'} onClick={() => dispatch({ type: 'dayNight', value: 'NIGHT' })}>Night</button>
+          <button type="button" aria-pressed={game.dayNight === null} onClick={() => dispatch({ type: 'dayNight', value: null })}>Neither</button>
+        </div>
+        <p className="lc-hint">It always becomes day first. Tap the other one when a card turns it over.</p>
+      </section>
+    </Sheet>
+  )
+}
+
+/** Everything that has happened this game, newest first. */
+function HistoryOverlay({ game, onClear, onClose }: { game: Game; onClear: () => void; onClose: () => void }) {
+  return (
+    <Sheet title="History" subtitle={`Game ${game.turnNumber > 1 ? `· turn ${game.turnNumber}` : ''}`} onClose={onClose}>
+      {game.history.length === 0 ? (
+        <p className="lc-hint">Nothing has happened yet.</p>
+      ) : (
+        <>
+          <ul className="lc-history">
+            {game.history.map((entry) => {
+              const player = game.players.find((p) => p.id === entry.playerId)
+              return (
+                <li key={entry.id}>
+                  <i style={player ? seatStyle(player.colorIndex) : undefined} className={player ? '' : 'table-wide'} />
+                  <span className="lc-history-who">{player ? displayName(player) : 'Table'}</span>
+                  <span className="lc-history-what">{entry.text}</span>
+                  <span className="lc-history-when">{new Date(entry.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </li>
+              )
+            })}
+          </ul>
+          <button type="button" className="lc-wide-btn" onClick={onClear}>Clear history</button>
+        </>
+      )}
+    </Sheet>
   )
 }
 
