@@ -10,6 +10,7 @@ import { useLongPress } from '../components/useLongPress'
 import { CardSearchResults } from '../components/CardSearchResults'
 import { ExportDeckDialog } from '../components/ExportDeckDialog'
 import { useAddWarning } from '../components/useAddWarning'
+import { DeckSuggestions } from '../components/DeckSuggestions'
 import { DeckStats, deckFigures, useDeckCardData } from '../components/DeckStats'
 import { Dialog } from '../components/Dialog'
 import {
@@ -35,7 +36,7 @@ export function DeckDetailPage() {
   const deck = decks.find((d) => d.id === id)
   const deckColors = useDeckColors(deck ? [deck] : [])
   const cardData = useDeckCardData(deck)
-  const [tabName, setTabName] = useState<'Cards' | 'Stats' | 'Details'>('Cards')
+  const [tabName, setTabName] = useState<'Cards' | 'Stats' | 'Suggestions' | 'Details'>('Cards')
   const [filter, setFilter] = useState('')
   const [zoomId, setZoomId] = useState<string | null>(null)
   const [cardSheet, setCardSheet] = useState<DeckCardEntry | null>(null)
@@ -50,7 +51,8 @@ export function DeckDetailPage() {
   }, [deck?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Desktop shows stats beside the cards, so its tabs have no Stats tab.
-  const tabs: ('Cards' | 'Stats' | 'Details')[] = size === 'desktop' ? ['Cards', 'Details'] : ['Cards', 'Stats', 'Details']
+  const tabs: ('Cards' | 'Stats' | 'Suggestions' | 'Details')[] =
+    size === 'desktop' ? ['Cards', 'Suggestions', 'Details'] : ['Cards', 'Stats', 'Suggestions', 'Details']
   const tab = tabs.includes(tabName) ? tabName : 'Cards'
 
   if (!deck) {
@@ -153,6 +155,7 @@ export function DeckDetailPage() {
     </>
   )
 
+  const suggestions = <DeckSuggestions deck={deck} onAdd={(card) => setAddWarning(addCardToDeck(deck.id, card))} />
   const details = <DeckDetails deck={deck} onExport={() => setShowExport(true)} onDelete={() => setConfirmDelete(true)} />
 
   return (
@@ -213,7 +216,7 @@ export function DeckDetailPage() {
                 <SegmentedTabs labels={tabs} selected={tabs.indexOf(tab)} onSelect={(i) => setTabName(tabs[i])} />
                 {tab === 'Cards' && <SearchPill value={filter} onChange={setFilter} placeholder="Filter this deck" />}
               </div>
-              {tab === 'Cards' ? cardList : details}
+              {tab === 'Cards' ? cardList : tab === 'Suggestions' ? suggestions : details}
             </div>
             <aside className="deck-aside">
               <DeckStats deck={deck} cardsById={cardData} />
@@ -237,6 +240,7 @@ export function DeckDetailPage() {
               </>
             )}
             {tab === 'Stats' && <div style={{ marginTop: 12 }}><DeckStats deck={deck} cardsById={cardData} /></div>}
+            {tab === 'Suggestions' && <div style={{ marginTop: 12 }}>{suggestions}</div>}
             {tab === 'Details' && details}
           </>
         )}

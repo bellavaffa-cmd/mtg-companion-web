@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { findSimilarCards, getByFuzzyName } from '../api/scryfall'
+import { combosUsingCard, comboUrl, relayAvailable, type ComboVariant } from '../api/relay'
 import { displayImageUrl, type ScryfallCard } from '../types/scryfall'
 import { Icon } from './Icon'
 import { InlineManaText } from './ManaSymbols'
@@ -86,11 +87,23 @@ export function CardZoomModal({
   const [flipped, setFlipped] = useState(false)
   // undefined = not searched yet, null = searching, [] = searched, no matches.
   const [similar, setSimilar] = useState<ScryfallCard[] | null | undefined>(undefined)
+  // undefined = still loading, null = couldn't reach Commander Spellbook, [] = no combos.
+  const [combos, setCombos] = useState<ComboVariant[] | null | undefined>(undefined)
   const shownImageUrl = flipped && backImageUrl ? backImageUrl : imageUrl
 
   useEffect(() => {
     setFlipped(false)
     setSimilar(undefined)
+  }, [name])
+
+  useEffect(() => {
+    if (!relayAvailable) return
+    let cancelled = false
+    setCombos(undefined)
+    combosUsingCard(name)
+      .then((found) => { if (!cancelled) setCombos(found) })
+      .catch(() => { if (!cancelled) setCombos(null) })
+    return () => { cancelled = true }
   }, [name])
 
   useEffect(() => {
@@ -177,6 +190,31 @@ export function CardZoomModal({
               {inDecks.map((d) => <PillChip key={d.id} label={d.name} icon="style" onClick={() => goTo(`/decks/${d.id}`)} />)}
               {inBinders.map((c) => <PillChip key={c.id} label={c.name} icon="collections" onClick={() => goTo(`/collections/${c.id}`)} />)}
             </div>
+          </div>
+        )}
+
+        {combos && combos.length > 0 && (
+          <div>
+            <SectionHeader title="Combos" style={{ paddingTop: 12, paddingBottom: 2 }} />
+            <div className="dim" style={{ margin: '0 4px 10px' }}>From Commander Spellbook. Tap one to read how it works.</div>
+            <ul className="combo-list">
+              {combos.map((variant) => (
+                <li key={variant.id}>
+                  <a className="combo press" href={comboUrl(variant.id)} target="_blank" rel="noreferrer noopener">
+                    <span className="combo-cards">
+                      {variant.uses.map((use, i) => (
+                        <span key={`${use.card.name}-${i}`} className={use.card.name === name ? 'combo-self' : ''}>
+                          {i > 0 && <i> + </i>}{use.card.name}
+                        </span>
+                      ))}
+                    </span>
+                    {variant.produces.length > 0 && (
+                      <span className="combo-results">{variant.produces.slice(0, 2).map((p) => p.feature.name).join(' · ')}</span>
+                    )}
+                  </a>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 

@@ -74,4 +74,11 @@ export async function findCombosInDeck(commanders: string[], main: string[]): Pr
   return { included: res.results?.included ?? [], almostIncluded: res.results?.almostIncluded ?? [] }
 }
 
+/** Combos that use [cardName], most popular first. */
+export async function combosUsingCard(cardName: string, limit = 6): Promise<ComboVariant[]> {
+  const query = new URLSearchParams({ q: `card:"${cardName}"`, limit: String(limit) })
+  const res = await relay<{ results?: ComboVariant[] }>(`/combos/variants?${query}`)
+  return res.results ?? []
+}
+
 export const comboUrl = (id: string) => `https://commanderspellbook.com/combo/${encodeURIComponent(id)}/`

@@ -11,11 +11,23 @@ Live at https://bellavaffa-cmd.github.io/mtg-companion-web/
 - **Decks**: create/delete, add/remove cards, quantities, commander + partner commander, game
   mode, tags.
 - **Search**: live Scryfall search, add results straight into any deck or binder.
+- **Suggestions** (deck page): what other people play with your commander, from EDHREC — tap one to
+  add it. Cards the deck already has are filtered out.
+- **Combos**: which combos a deck contains or is one card short of (deck stats), and the combos a
+  card is part of (its zoom view), from Commander Spellbook.
+- **Life counter** (`/life`): the phone app's table — seatings for 1–10 players, tiles that face
+  each seat and turn with the device, turn tracker, timer, commander damage, poison, dice.
+- **News** (Home): headlines from MTG Arena Zone and Star City Games.
 - **Account & sync** (Home): sign in, create an account, forgot/change password. Decks and binders
   sync with the Android app.
 
-Not yet ported from the phone app: precons, EDHREC suggestions, deck legality, scanning, the Life
-Counter, search filters beyond raw Scryfall syntax, and Rules/news.
+Not yet ported from the phone app: precons, deck legality, scanning, card-art recognition,
+search filters beyond raw Scryfall syntax, the rules reference, and the life counter's extras
+(history, monarch/initiative, day–night, Planechase).
+
+Commander Spellbook and the news feeds don't allow browser requests, so those go through the
+`api-relay` Supabase function (source in `MtgCompanionApp/supabase/functions/api-relay`). Scryfall
+and EDHREC are called directly.
 
 ## How sync works
 
@@ -27,7 +39,8 @@ Counter, search filters beyond raw Scryfall syntax, and Rules/news.
   card by card: additions from both sides are kept, a removal on either side sticks, and counts that
   both sides changed add up. Only a field both sides changed differently (a deck's name, say) falls
   back to the more recent edit.
-- Sync runs on load, 2 seconds after an edit, and when you come back to the tab. The logic lives in
+- Sync runs on load, 2 seconds after an edit, when you come back to the tab, every 20 seconds while
+  the tab is open, and whenever you pull down at the top of a page on a touch screen. The logic lives in
   `src/sync/cloudSync.ts` and mirrors the Android app's `SupabaseSync.kt`.
 - The first time an account signs in to a browser that already has decks or binders, the app asks
   whether to **add** them to the account or **use the account's library only**.
