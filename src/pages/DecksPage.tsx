@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { Icon } from '../components/Icon'
 import { Dialog } from '../components/Dialog'
-import { ArtImage, IconButton, IdentityStrip, ManaPips, PageHeader, PillChip, SearchPill, rise, toArtCrop } from '../components/kit'
+import { ArtImage, IconButton, IdentityStrip, ManaPips, PageHeader, PillChip, SearchPill, rise, toArtCrop, useLayoutSize } from '../components/kit'
 import { useDeckColors } from '../components/useDeckColors'
 import { DECK_OWNERSHIP_LABELS, DECK_OWNERSHIP_OPTIONS, GAME_MODES, GAME_MODE_LABELS } from '../types/models'
 import type { DeckOwnership, GameMode } from '../types/models'
@@ -16,6 +16,7 @@ export function DecksPage() {
   const [filter, setFilter] = useState<DeckOwnership | 'ALL'>('ALL')
   const deckColors = useDeckColors(decks)
   const showCreate = params.get('new') === '1'
+  const wide = useLayoutSize() !== 'phone'
 
   const q = query.trim().toLowerCase()
   const matching = decks.filter((d) => !q || `${d.name} ${d.commander?.name ?? ''} ${d.partnerCommander?.name ?? ''} ${d.tags.join(' ')}`.toLowerCase().includes(q))
@@ -25,9 +26,11 @@ export function DecksPage() {
     <>
       <PageHeader
         title="Decks"
-        actions={<IconButton icon="add" label="New deck" variant="gold" onClick={() => setParams({ new: '1' })} />}
+        actions={wide
+          ? <button type="button" className="btn gold" onClick={() => setParams({ new: '1' })}><Icon name="add" />New deck</button>
+          : <IconButton icon="add" label="New deck" variant="gold" onClick={() => setParams({ new: '1' })} />}
       />
-      <div className="content-scroll with-nav">
+      <div className={`content-scroll${wide ? '' : ' with-nav'}`}>
         {decks.length === 0 ? (
           <div className="empty-state rise" style={rise(1)}>
             <Icon name="style" />
@@ -36,10 +39,9 @@ export function DecksPage() {
           </div>
         ) : (
           <>
-            <div className="rise" style={rise(1)}>
-              <SearchPill value={query} onChange={setQuery} placeholder="Search decks, commanders, tags" />
-            </div>
-            <div className="chips rise" style={rise(2)}>
+            <div className={wide ? 'toolbar rise' : 'rise'} style={rise(1)}>
+            <SearchPill value={query} onChange={setQuery} placeholder="Search decks, commanders, tags" />
+            <div className="chips">
               <PillChip label="All" count={matching.length} selected={filter === 'ALL'} onClick={() => setFilter('ALL')} />
               {DECK_OWNERSHIP_OPTIONS.map((o) => (
                 <PillChip
@@ -50,6 +52,7 @@ export function DecksPage() {
                   onClick={() => setFilter(o)}
                 />
               ))}
+            </div>
             </div>
             {shown.length === 0 ? (
               <div className="empty-state">No decks match.</div>

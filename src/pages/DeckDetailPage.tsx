@@ -10,32 +10,33 @@ import { useLongPress } from '../components/useLongPress'
 import { CardSearchResults } from '../components/CardSearchResults'
 import { ExportDeckDialog } from '../components/ExportDeckDialog'
 import { useAddWarning } from '../components/useAddWarning'
-import { DeckStats } from '../components/DeckStats'
+import { DeckStats, deckFigures, useDeckCardData } from '../components/DeckStats'
 import { Dialog } from '../components/Dialog'
 import {
-  ArtImage, IconButton, ManaPips, PillChip, SectionHeader, SegmentedTabs, TYPE_GROUPS, TYPE_PLURALS,
-  primaryTypeOf, rise, toArtCrop, useBack, useScrollProgress,
+  ArtImage, CountUp, IconButton, ManaPips, PillChip, SearchPill, SectionHeader, SegmentedTabs, TYPE_GROUPS, TYPE_PLURALS,
+  primaryTypeOf, rise, toArtCrop, useBack, useLayoutSize, useScrollProgress,
 } from '../components/kit'
 import { useDeckColors } from '../components/useDeckColors'
-import { LAST_DECK_KEY } from './HomePage'
+import { LAST_DECK_KEY } from '../components/Layout'
 import {
   GAME_MODES, GAME_MODES_USING_COMMANDER, GAME_MODE_LABELS,
   DECK_OWNERSHIP_OPTIONS, DECK_OWNERSHIP_LABELS, DECK_OWNERSHIP_DESCRIPTIONS,
 } from '../types/models'
 import type { Deck, DeckCardEntry, GameMode } from '../types/models'
 
-const TABS = ['Cards', 'Stats', 'Details'] as const
-
 export function DeckDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const back = useBack('/decks')
+  const size = useLayoutSize()
   const {
     decks, setCardQuantity, removeCardFromDeck, addCardToDeck, setCommander, setPartnerCommander, deleteDeck,
   } = useSync()
   const deck = decks.find((d) => d.id === id)
   const deckColors = useDeckColors(deck ? [deck] : [])
-  const [tab, setTab] = useState(0)
+  const cardData = useDeckCardData(deck)
+  const [tabName, setTabName] = useState<'Cards' | 'Stats' | 'Details'>('Cards')
+  const [filter, setFilter] = useState('')
   const [zoomId, setZoomId] = useState<string | null>(null)
   const [cardSheet, setCardSheet] = useState<DeckCardEntry | null>(null)
   const [deckSheet, setDeckSheet] = useState(false)
@@ -47,6 +48,10 @@ export function DeckDetailPage() {
   useEffect(() => {
     if (deck) localStorage.setItem(LAST_DECK_KEY, deck.id)
   }, [deck?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Desktop shows stats beside the cards, so its tabs have no Stats tab.
+  const tabs: ('Cards' | 'Stats' | 'Details')[] = size === 'desktop' ? ['Cards', 'Details'] : ['Cards', 'Stats', 'Details']
+  const tab = tabs.includes(tabName) ? tabName : 'Cards'
 
   if (!deck) {
     return (
@@ -65,13 +70,17 @@ export function DeckDetailPage() {
   const totalCards = deck.cards.reduce((s, c) => s + c.quantity, 0)
   const zoomEntry = deck.cards.find((c) => c.scryfallId === zoomId) ?? null
   const commanders = [deck.commander, deck.partnerCommander].filter((c): c is DeckCardEntry => !!c)
+  const figures = deckFigures(deck, cardData)
+  const q = filter.trim().toLowerCase()
+  const matches = (c: DeckCardEntry) => !q || c.name.toLowerCase().includes(q) || (c.typeLine ?? '').toLowerCase().includes(q)
 
   const groups = TYPE_GROUPS.map((type) => {
     const cards = deck.cards
-      .filter((c) => !commanderIds.has(c.scryfallId) && primaryTypeOf(c.typeLine) === type)
+      .filter((c) => !commanderIds.has(c.scryfallId) && primaryTypeOf(c.typeLine) === type && matches(c))
       .sort((a, b) => a.name.localeCompare(b.name))
     return { type, cards, count: cards.reduce((s, c) => s + c.quantity, 0) }
   }).filter((g) => g.cards.length > 0)
+  const shownCommanders = commanders.filter(matches)
 
   function canPartner(entry: DeckCardEntry): boolean {
     const main = deck!.commander
@@ -101,86 +110,136 @@ export function DeckDetailPage() {
     return actions
   }
 
+  const cardList = deck.cards.length === 0 ? (
+    <div className="empty-state"><Icon name="playing_cards" />No cards yet — search {size === 'desktop' ? 'on the right' : 'below'} to add some.</div>
+  ) : groups.length === 0 && shownCommanders.length === 0 ? (
+    <div className="empty-state">No cards in this deck match “{filter}”.</div>
+  ) : (
+    <div className={size === 'phone' ? '' : 'card-groups'}>
+      {shownCommanders.length > 0 && (
+        <div>
+          <div className="grp">{shownCommanders.length > 1 ? 'Commanders' : 'Commander'}<span>{shownCommanders.length}</span></div>
+          <div className="list">
+            {shownCommanders.map((entry) => (
+              <CardRow key={entry.scryfallId} entry={entry} commander onZoom={() => setZoomId(entry.scryfallId)} onMore={() => setCardSheet(entry)} />
+            ))}
+          </div>
+        </div>
+      )}
+      {groups.map((g) => (
+        <div key={g.type}>
+          <div className="grp">{TYPE_PLURALS[g.type]}<span>{g.count}</span></div>
+          <div className="list">
+            {g.cards.map((entry) => (
+              <CardRow
+                key={entry.scryfallId}
+                entry={entry}
+                onZoom={() => setZoomId(entry.scryfallId)}
+                onMore={() => setCardSheet(entry)}
+                onIncrement={() => setCardQuantity(deck.id, entry.scryfallId, entry.quantity + 1)}
+                onDecrement={() => setCardQuantity(deck.id, entry.scryfallId, entry.quantity - 1)}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+
+  const addCards = (
+    <>
+      {addWarning && <div className="add-warning">{addWarning}</div>}
+      <CardSearchResults onAdd={(card) => setAddWarning(addCardToDeck(deck.id, card))} placeholder="Search Scryfall to add cards" />
+    </>
+  )
+
+  const details = <DeckDetails deck={deck} onExport={() => setShowExport(true)} onDelete={() => setConfirmDelete(true)} />
+
   return (
     <>
       <TopBar
         title={deck.name}
         onBack={back}
         progress={progress}
-        actions={<IconButton icon="more_horiz" label="Deck actions" variant={progress < 0.6 ? 'glass' : ''} onClick={() => setDeckSheet(true)} />}
+        actions={
+          <>
+            {size === 'desktop' && (
+              <button type="button" className={`btn ${progress < 0.6 ? 'line' : ''}`} style={progress < 0.6 ? { background: 'rgba(12,13,17,.5)' } : undefined} onClick={() => setShowExport(true)}>
+                <Icon name="ios_share" />Export
+              </button>
+            )}
+            <IconButton icon="more_horiz" label="Deck actions" variant={progress < 0.6 ? 'glass' : ''} onClick={() => setDeckSheet(true)} />
+          </>
+        }
       />
 
       <div className="hero" style={{ ['--p' as string]: progress }}>
         <ArtImage src={toArtCrop(deck.commander?.imageUrl)} seed={deck.name} colors={colors} />
         <div className="hero-fade" />
         <div className="hero-body rise" style={rise(0)}>
-          <div className="h-cmd">
-            {colors.length > 0 && <ManaPips colors={colors} />}
-            <span>{commanders.length > 0 ? commanders.map((c) => c.name).join(' & ') : GAME_MODE_LABELS[deck.gameMode as GameMode] ?? deck.gameMode}</span>
+          <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: 6 }}>
+            <div className="h-cmd">
+              {colors.length > 0 && <ManaPips colors={colors} />}
+              <span>{commanders.length > 0 ? commanders.map((c) => c.name).join(' & ') : GAME_MODE_LABELS[deck.gameMode as GameMode] ?? deck.gameMode}</span>
+            </div>
+            <h1 className="deckname">{deck.name}</h1>
+            <div className="h-stats">
+              <span><b>{totalCards}</b>cards</span>
+              {usesCommander && commanders.length > 0 && <span>{GAME_MODE_LABELS[deck.gameMode as GameMode]}</span>}
+              <span className="bchip">{DECK_OWNERSHIP_LABELS[deck.ownership]}</span>
+              {size === 'tablet' && figures && figures.value > 0 && <span><b>${Math.round(figures.value).toLocaleString('en-US')}</b>value</span>}
+            </div>
           </div>
-          <h1 className="deckname">{deck.name}</h1>
-          <div className="h-stats">
-            <span><b>{totalCards}</b>cards</span>
-            {usesCommander && commanders.length > 0 && <span>{GAME_MODE_LABELS[deck.gameMode as GameMode]}</span>}
-            <span className="bchip">{DECK_OWNERSHIP_LABELS[deck.ownership]}</span>
-          </div>
+          {size === 'desktop' && (
+            <div className="hero-figures">
+              <div className="stat">
+                <span className="lbl">Deck value</span>
+                <span className="num">{figures ? <CountUp value={figures.value} format={(v) => `$${Math.round(v).toLocaleString('en-US')}`} /> : '—'}</span>
+              </div>
+              <div className="stat">
+                <span className="lbl">Avg. mana value</span>
+                <span className="num">{figures ? <CountUp value={figures.avgMv} format={(v) => v.toFixed(2)} /> : '—'}</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="content-scroll">
-        <div className="sticky-tabs">
-          <SegmentedTabs labels={[...TABS]} selected={tab} onSelect={setTab} />
-        </div>
-
-        {tab === 0 && (
+        {size === 'desktop' ? (
+          <div className="deck-columns">
+            <div style={{ minWidth: 0 }}>
+              <div className="deck-toolbar" style={{ position: 'sticky', top: 64, zIndex: 15, background: 'var(--g0)', padding: '10px 0 8px' }}>
+                <SegmentedTabs labels={tabs} selected={tabs.indexOf(tab)} onSelect={(i) => setTabName(tabs[i])} />
+                {tab === 'Cards' && <SearchPill value={filter} onChange={setFilter} placeholder="Filter this deck" />}
+              </div>
+              {tab === 'Cards' ? cardList : details}
+            </div>
+            <aside className="deck-aside">
+              <DeckStats deck={deck} cardsById={cardData} />
+              <div className="panel">
+                <div className="p-h"><h3>Add cards</h3></div>
+                {addCards}
+              </div>
+            </aside>
+          </div>
+        ) : (
           <>
-            {deck.cards.length === 0 ? (
-              <div className="empty-state"><Icon name="playing_cards" />No cards yet — search below to add some.</div>
-            ) : (
+            <div className={size === 'tablet' ? 'sticky-tabs deck-toolbar' : 'sticky-tabs'}>
+              <SegmentedTabs labels={tabs} selected={tabs.indexOf(tab)} onSelect={(i) => setTabName(tabs[i])} />
+              {size === 'tablet' && tab === 'Cards' && <SearchPill value={filter} onChange={setFilter} placeholder="Filter this deck" />}
+            </div>
+            {tab === 'Cards' && (
               <>
-                {commanders.length > 0 && (
-                  <>
-                    <div className="grp">Commander<span>{commanders.length}</span></div>
-                    <div className="list">
-                      {commanders.map((entry) => (
-                        <CardRow key={entry.scryfallId} entry={entry} commander onZoom={() => setZoomId(entry.scryfallId)} onMore={() => setCardSheet(entry)} />
-                      ))}
-                    </div>
-                  </>
-                )}
-                {groups.map((g) => (
-                  <div key={g.type}>
-                    <div className="grp">{TYPE_PLURALS[g.type]}<span>{g.count}</span></div>
-                    <div className="list">
-                      {g.cards.map((entry) => (
-                        <CardRow
-                          key={entry.scryfallId}
-                          entry={entry}
-                          onZoom={() => setZoomId(entry.scryfallId)}
-                          onMore={() => setCardSheet(entry)}
-                          onIncrement={() => setCardQuantity(deck.id, entry.scryfallId, entry.quantity + 1)}
-                          onDecrement={() => setCardQuantity(deck.id, entry.scryfallId, entry.quantity - 1)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                {cardList}
+                <SectionHeader title="Add cards" />
+                {addCards}
               </>
             )}
-
-            <SectionHeader title="Add cards" />
-            {addWarning && <div className="add-warning">{addWarning}</div>}
-            <CardSearchResults onAdd={(card) => setAddWarning(addCardToDeck(deck.id, card))} />
+            {tab === 'Stats' && <div style={{ marginTop: 12 }}><DeckStats deck={deck} cardsById={cardData} /></div>}
+            {tab === 'Details' && details}
           </>
         )}
-
-        {tab === 1 && (
-          <div style={{ marginTop: 12 }}>
-            <DeckStats deck={deck} />
-          </div>
-        )}
-
-        {tab === 2 && <DeckDetails deck={deck} onExport={() => setShowExport(true)} onDelete={() => setConfirmDelete(true)} />}
       </div>
 
       {cardSheet && (
@@ -200,7 +259,7 @@ export function DeckDetailPage() {
           imageUrl={deck.commander?.imageUrl ?? null}
           actions={[
             { label: 'Export decklist', icon: 'ios_share', detail: 'Copy it for Moxfield, Archidekt or Arena', onClick: () => setShowExport(true) },
-            { label: 'Deck details', icon: 'tune', detail: 'Format, ownership, commander and tags', onClick: () => setTab(2) },
+            { label: 'Deck details', icon: 'tune', detail: 'Format, ownership, commander and tags', onClick: () => setTabName('Details') },
             { label: 'Delete deck', icon: 'delete', tone: 'danger', onClick: () => setConfirmDelete(true) },
           ]}
           onClose={() => setDeckSheet(false)}
@@ -229,6 +288,10 @@ export function DeckDetailPage() {
           imageUrl={zoomEntry.imageUrl}
           name={zoomEntry.name}
           typeLine={zoomEntry.typeLine}
+          priceUsd={cardData?.get(zoomEntry.scryfallId)?.prices?.usd}
+          priceUsdFoil={cardData?.get(zoomEntry.scryfallId)?.prices?.usd_foil}
+          oracleText={cardData?.get(zoomEntry.scryfallId)?.oracle_text}
+          manaCost={cardData?.get(zoomEntry.scryfallId)?.mana_cost}
           scryfallId={zoomEntry.scryfallId}
           currentDeckId={deck.id}
           backImageUrl={zoomEntry.backImageUrl}
@@ -238,7 +301,7 @@ export function DeckDetailPage() {
           onClose={() => setZoomId(null)}
         >
           {!commanderIds.has(zoomEntry.scryfallId) && (
-            <div className="row-between panel">
+            <div className="row-between panel" style={{ padding: '14px 16px' }}>
               <div>
                 <div className="p-h" style={{ margin: 0 }}><h3>In this deck</h3></div>
                 <div className="dim">{GAME_MODE_LABELS[deck.gameMode as GameMode] ?? deck.gameMode}</div>
@@ -270,10 +333,8 @@ function CardRow({
   const hasQty = !!onIncrement && !!onDecrement
   return (
     <div className={`crow${hasQty ? '' : ' no-qty'}`}>
-      <div className="thumb-wrap">
-        <button type="button" className="thumb" onClick={onZoom} aria-label={`View ${entry.name}`} style={{ padding: 0, border: 0, background: 'none' }}>
-          <ArtImage className="thumb" src={toArtCrop(entry.imageUrl)} seed={entry.name} />
-        </button>
+      <div className="thumb-wrap" onClick={onZoom} style={{ cursor: 'pointer' }}>
+        <ArtImage className="thumb" src={toArtCrop(entry.imageUrl)} seed={entry.name} />
         {entry.backImageUrl && <span className="flip-badge"><Icon name="autorenew" /></span>}
       </div>
       <div className="cmain" {...longPress}>

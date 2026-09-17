@@ -145,13 +145,21 @@ export function SegmentedTabs({
   labels, selected, onSelect, counts = {}, className = '',
 }: { labels: string[]; selected: number; onSelect: (i: number) => void; counts?: Record<number, number>; className?: string }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([])
+  const container = useRef<HTMLDivElement>(null)
   const [ind, setInd] = useState<{ x: number; w: number } | null>(null)
   useLayoutEffect(() => {
-    const el = refs.current[selected]
-    if (el) setInd({ x: el.offsetLeft, w: el.offsetWidth })
+    const measure = () => {
+      const el = refs.current[selected]
+      if (el) setInd({ x: el.offsetLeft, w: el.offsetWidth })
+    }
+    measure()
+    // Tabs stretch with the window, so re-measure when the control resizes.
+    const observer = new ResizeObserver(measure)
+    if (container.current) observer.observe(container.current)
+    return () => observer.disconnect()
   }, [selected, labels.join('|'), JSON.stringify(counts)]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div className={`seg ${className}`} role="tablist">
+    <div ref={container} className={`seg ${className}`} role="tablist">
       {ind && <span className="seg-ind" style={{ width: ind.w, transform: `translateX(${ind.x}px)` }} />}
       {labels.map((label, i) => (
         <button
@@ -275,4 +283,31 @@ export const TYPE_GROUPS = [...TYPE_ORDER, 'Other']
 export const TYPE_PLURALS: Record<string, string> = {
   Creature: 'Creatures', Planeswalker: 'Planeswalkers', Battle: 'Battles', Instant: 'Instants', Sorcery: 'Sorceries',
   Artifact: 'Artifacts', Enchantment: 'Enchantments', Land: 'Lands', Other: 'Other',
+}
+
+export type LayoutSize = 'phone' | 'tablet' | 'desktop'
+
+const TABLET_MIN = 700
+const DESKTOP_MIN = 1100
+
+function currentLayout(): LayoutSize {
+  if (window.matchMedia(`(min-width: ${DESKTOP_MIN}px)`).matches) return 'desktop'
+  if (window.matchMedia(`(min-width: ${TABLET_MIN}px)`).matches) return 'tablet'
+  return 'phone'
+}
+
+/**
+ * Which layout the window is wide enough for — phone (bottom bar), tablet (navigation rail) or
+ * desktop (sidebar). Updates live as the window is resized. The same widths drive the CSS media
+ * queries in theme.css.
+ */
+export function useLayoutSize(): LayoutSize {
+  const [size, setSize] = useState<LayoutSize>(currentLayout)
+  useEffect(() => {
+    const queries = [TABLET_MIN, DESKTOP_MIN].map((w) => window.matchMedia(`(min-width: ${w}px)`))
+    const update = () => setSize(currentLayout())
+    queries.forEach((q) => q.addEventListener('change', update))
+    return () => queries.forEach((q) => q.removeEventListener('change', update))
+  }, [])
+  return size
 }

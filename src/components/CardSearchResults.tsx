@@ -19,11 +19,15 @@ interface Props {
   /** Example queries shown before anything is typed. */
   examples?: { label: string; query: string }[]
   autoFocus?: boolean
+  /** Starting query, e.g. from the desktop Home search box. */
+  initialQuery?: string
+  /** Lay results out in several columns when the screen is wide enough. */
+  wide?: boolean
 }
 
-export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. c:g t:creature', examples, autoFocus }: Props) {
+export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. c:g t:creature', examples, autoFocus, initialQuery = '', wide }: Props) {
   const { decks, collections, addCardToDeck, addEntryToCollection } = useSync()
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(initialQuery)
   const [cards, setCards] = useState<ScryfallCard[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -103,10 +107,10 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
         </div>
       )}
 
-      <div className="list" style={{ marginTop: 12 }}>
-        {loading && <div className="muted" style={{ padding: '4px' }}>Searching…</div>}
-        {error && <div className="muted" style={{ color: 'var(--error)', padding: '4px' }}>{error}</div>}
-        {!loading && !error && query.trim() && cards.length === 0 && <div className="empty-state">No cards match.</div>}
+      {loading && <div className="muted" style={{ padding: '12px 4px 0' }}>Searching…</div>}
+      {error && <div className="muted" style={{ color: 'var(--error)', padding: '12px 4px 0' }}>{error}</div>}
+      {!loading && !error && query.trim() && cards.length === 0 && <div className="empty-state">No cards match.</div>}
+      <div className={`list${wide ? ' wide-list' : ''}`} style={{ marginTop: 12 }}>
         {cards.map((card) => (
           <ResultRow key={card.id} card={card} onZoom={() => setZoomCard(card)} onMore={() => setSheetCard(card)} onAdd={onAdd ? () => add(card) : undefined} />
         ))}

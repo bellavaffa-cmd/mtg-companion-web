@@ -128,15 +128,18 @@ export function CardZoomModal({
     <div className="zoom-overlay" onClick={onClose}>
       <div className="zoom-content" onClick={(e) => e.stopPropagation()}>
         {shownImageUrl && (
-          <div className="stage3d rise" style={{ ['--i' as string]: 0 }}>
-            <TiltCard src={shownImageUrl} alt={name}>
-              {backImageUrl && (
-                <IconButton icon="autorenew" label="Flip card" variant="glass" className="flip-btn" onClick={() => setFlipped((f) => !f)} />
-              )}
-            </TiltCard>
-            <div className="tilt-hint">Move across the card to catch the foil</div>
+          <div className="zoom-left">
+            <div className="stage3d rise" style={{ ['--i' as string]: 0 }}>
+              <TiltCard src={shownImageUrl} alt={name}>
+                {backImageUrl && (
+                  <IconButton icon="autorenew" label="Flip card" variant="glass" className="flip-btn" onClick={() => setFlipped((f) => !f)} />
+                )}
+              </TiltCard>
+              <div className="tilt-hint">Move across the card to catch the foil</div>
+            </div>
           </div>
         )}
+        <div className="zoom-right">
 
         <div className="rise" style={{ ['--i' as string]: 1 }}>
           {typeLine && <div className="eyebrow">{typeLine}</div>}
@@ -207,6 +210,7 @@ export function CardZoomModal({
             )}
           </div>
         )}
+        </div>
       </div>
     </div>
     </>

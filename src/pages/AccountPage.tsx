@@ -9,7 +9,7 @@ export function AccountPage() {
     <>
       <TopBar title="Account & sync" onBack={back} />
       <div className="content-scroll rise" style={{ ...rise(0), paddingTop: 8 }}>
-        <AccountPanel />
+        <div className="narrow-width"><AccountPanel /></div>
       </div>
     </>
   )

@@ -7,7 +7,7 @@ import { CardZoomModal } from '../components/CardZoomModal'
 import { ActionSheet } from '../components/ActionSheet'
 import { useLongPress } from '../components/useLongPress'
 import { CardSearchResults } from '../components/CardSearchResults'
-import { ArtImage, SearchPill, SectionHeader, StatFigure, rise, toArtCrop, useBack, useScrollProgress } from '../components/kit'
+import { ArtImage, SearchPill, SectionHeader, StatFigure, rise, toArtCrop, useBack, useLayoutSize, useScrollProgress } from '../components/kit'
 import type { CollectionEntry } from '../types/models'
 
 export function CollectionDetailPage() {
@@ -20,6 +20,7 @@ export function CollectionDetailPage() {
   const [filter, setFilter] = useState('')
   // The big title scrolls away; the bar's title fades in to replace it.
   const titleProgress = useScrollProgress(90)
+  const size = useLayoutSize()
 
   if (!collection) {
     return (
@@ -42,6 +43,41 @@ export function CollectionDetailPage() {
   const setQty = (e: CollectionEntry, quantity: number, foilQuantity: number) =>
     setEntryQuantities(collection.id, e.scryfallId, Math.max(0, quantity), Math.max(0, foilQuantity))
 
+  const summary = (
+    <div className="stats rise" style={{ ...rise(1), maxWidth: size === 'phone' ? undefined : 720 }}>
+      <StatFigure value={cards} label="Cards" />
+      <StatFigure value={foils} label="Foils" />
+      <StatFigure value={collection.entries.length} label="Unique" />
+    </div>
+  )
+
+  const entryList = collection.entries.length === 0 ? (
+    <div className="empty-state"><Icon name="playing_cards" />No cards yet — search {size === 'desktop' ? 'on the right' : 'below'} to add some.</div>
+  ) : (
+    <>
+      {collection.entries.length > 8 && (
+        <div className="rise" style={{ ...rise(2), marginTop: 14, maxWidth: size === 'phone' ? undefined : 480 }}>
+          <SearchPill value={filter} onChange={setFilter} placeholder="Find in this binder" />
+        </div>
+      )}
+      <div className="list wide-list" style={{ marginTop: 14 }}>
+        {shown.map((entry) => (
+          <EntryRow
+            key={entry.scryfallId}
+            entry={entry}
+            onZoom={() => setZoomId(entry.scryfallId)}
+            onMore={() => setSheet(entry)}
+            onIncrement={() => setQty(entry, entry.quantity + 1, entry.foilQuantity)}
+            onDecrement={() => setQty(entry, entry.quantity - 1, entry.foilQuantity)}
+          />
+        ))}
+        {shown.length === 0 && <div className="empty-state">Nothing in this binder matches “{filter}”.</div>}
+      </div>
+    </>
+  )
+
+  const addCards = <CardSearchResults onAdd={(card) => addEntryToCollection(collection.id, card)} placeholder="Search Scryfall to add cards" />
+
   return (
     <>
       <TopBar title={collection.name} onBack={back} progress={titleProgress} />
@@ -50,39 +86,24 @@ export function CollectionDetailPage() {
           <div className="eyebrow">{collection.type === 'WISHLIST' ? 'Wishlist' : 'Binder'}</div>
           <h1>{collection.name}</h1>
         </div>
-        <div className="stats rise" style={{ ...rise(1), marginTop: 12 }}>
-          <StatFigure value={cards} label="Cards" />
-          <StatFigure value={foils} label="Foils" />
-          <StatFigure value={collection.entries.length} label="Unique" />
-        </div>
-
-        {collection.entries.length === 0 ? (
-          <div className="empty-state"><Icon name="playing_cards" />No cards yet — search below to add some.</div>
+        {size === 'desktop' ? (
+          <div className="binder-columns" style={{ marginTop: 12 }}>
+            <div style={{ minWidth: 0 }}>{summary}{entryList}</div>
+            <aside className="deck-aside">
+              <div className="panel">
+                <div className="p-h"><h3>Add cards</h3></div>
+                {addCards}
+              </div>
+            </aside>
+          </div>
         ) : (
           <>
-            {collection.entries.length > 8 && (
-              <div className="rise" style={{ ...rise(2), marginTop: 14 }}>
-                <SearchPill value={filter} onChange={setFilter} placeholder="Find in this binder" />
-              </div>
-            )}
-            <div className="list" style={{ marginTop: 14 }}>
-              {shown.map((entry) => (
-                <EntryRow
-                  key={entry.scryfallId}
-                  entry={entry}
-                  onZoom={() => setZoomId(entry.scryfallId)}
-                  onMore={() => setSheet(entry)}
-                  onIncrement={() => setQty(entry, entry.quantity + 1, entry.foilQuantity)}
-                  onDecrement={() => setQty(entry, entry.quantity - 1, entry.foilQuantity)}
-                />
-              ))}
-              {shown.length === 0 && <div className="empty-state">Nothing in this binder matches “{filter}”.</div>}
-            </div>
+            <div style={{ marginTop: 12 }}>{summary}</div>
+            {entryList}
+            <SectionHeader title="Add cards" />
+            {addCards}
           </>
         )}
-
-        <SectionHeader title="Add cards" />
-        <CardSearchResults onAdd={(card) => addEntryToCollection(collection.id, card)} />
       </div>
 
       {sheet && (

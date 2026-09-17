@@ -37,18 +37,16 @@ function colorPipCounts(entries: { scryfallId: string; quantity: number }[], car
   return PIP_ORDER.map((key) => [key, totals.get(key)!] as [string, number]).filter(([, n]) => n > 0)
 }
 
-/**
- * The deck's Stats tab. Deck entries only cache a field subset (no mana cost), so the full cards
- * are fetched once per deck — which also covers decks built before the tab existed.
- */
-export function DeckStats({ deck }: { deck: Deck }) {
-  // undefined = not loaded yet, null = failed.
-  const [cardsById, setCardsById] = useState<Map<string, ScryfallCard> | null | undefined>(undefined)
+/** undefined = loading, null = couldn't load. */
+export type DeckCardData = Map<string, ScryfallCard> | null | undefined
 
-  const allEntries = [deck.commander, deck.partnerCommander, ...deck.cards].filter((e) => e !== null)
-  // Commanders are also in deck.cards; count each card once.
-  const entries = [...new Map(allEntries.map((e) => [e.scryfallId, e])).values()]
-  const ids = entries.map((e) => e.scryfallId)
+/**
+ * The full Scryfall cards behind a deck's entries (entries only cache a field subset: no mana cost,
+ * mana value or price), fetched once per card list. Shared by the Stats panel and the deck header.
+ */
+export function useDeckCardData(deck: Deck | undefined): DeckCardData {
+  const [cardsById, setCardsById] = useState<DeckCardData>(undefined)
+  const ids = deck ? [...new Set([deck.commander, deck.partnerCommander, ...deck.cards].filter((e) => e !== null).map((e) => e.scryfallId))] : []
   const idKey = ids.join(',')
 
   useEffect(() => {
@@ -57,7 +55,6 @@ export function DeckStats({ deck }: { deck: Deck }) {
       return
     }
     let cancelled = false
-    setCardsById(undefined)
     getCardsByIds(ids)
       .then((cards) => { if (!cancelled) setCardsById(new Map(cards.map((c) => [c.id, c]))) })
       .catch(() => { if (!cancelled) setCardsById(null) })
@@ -65,6 +62,36 @@ export function DeckStats({ deck }: { deck: Deck }) {
     // idKey, not `ids`: a fresh array every render would restart the fetch forever.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idKey])
+
+  return cardsById
+}
+
+/** Deck value (USD, non-foil) and average mana value of its non-land cards; null until cards load. */
+export function deckFigures(deck: Deck, cardsById: DeckCardData): { value: number; avgMv: number } | null {
+  if (!cardsById) return null
+  let value = 0
+  let spells = 0
+  let mv = 0
+  const seen = new Set<string>()
+  for (const e of [deck.commander, deck.partnerCommander, ...deck.cards]) {
+    if (!e || seen.has(e.scryfallId)) continue
+    seen.add(e.scryfallId)
+    const card = cardsById.get(e.scryfallId)
+    if (!card) continue
+    value += Number(card.prices?.usd ?? 0) * e.quantity
+    if (primaryTypeOf(card.type_line ?? e.typeLine) !== 'Land') {
+      spells += e.quantity
+      mv += Math.floor(card.cmc ?? 0) * e.quantity
+    }
+  }
+  return { value, avgMv: spells > 0 ? mv / spells : 0 }
+}
+
+/** The deck's stats: mana curve, card types and mana symbols. Pass [cardsById] from useDeckCardData. */
+export function DeckStats({ deck, cardsById }: { deck: Deck; cardsById: DeckCardData }) {
+  const allEntries = [deck.commander, deck.partnerCommander, ...deck.cards].filter((e) => e !== null)
+  // Commanders are also in deck.cards; count each card once.
+  const entries = [...new Map(allEntries.map((e) => [e.scryfallId, e])).values()]
 
   if (entries.length === 0) return <div className="empty-state"><Icon name="bar_chart" />Add some cards to see this deck's stats.</div>
   if (cardsById === undefined) return <div className="empty-state">Loading card data…</div>

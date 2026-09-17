@@ -5,7 +5,7 @@ import { Icon } from '../components/Icon'
 import { Dialog } from '../components/Dialog'
 import { ActionSheet } from '../components/ActionSheet'
 import { useLongPress } from '../components/useLongPress'
-import { ArtImage, IconButton, PageHeader, PillChip, StatFigure, rise, toArtCrop } from '../components/kit'
+import { ArtImage, IconButton, PageHeader, PillChip, StatFigure, rise, toArtCrop, useLayoutSize } from '../components/kit'
 import type { Collection, CollectionType } from '../types/models'
 
 const TYPE_LABELS: Record<CollectionType, string> = { OWNED: 'Owned', WISHLIST: 'Wishlist' }
@@ -17,6 +17,7 @@ export function CollectionsPage() {
   const [filter, setFilter] = useState<CollectionType | 'ALL'>('ALL')
   const [sheet, setSheet] = useState<Collection | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Collection | null>(null)
+  const wide = useLayoutSize() !== 'phone'
 
   const owned = collections.filter((c) => c.type !== 'WISHLIST')
   const ownedCards = owned.reduce((s, c) => s + c.entries.reduce((n, e) => n + e.quantity + e.foilQuantity, 0), 0)
@@ -27,9 +28,11 @@ export function CollectionsPage() {
     <>
       <PageHeader
         title="Collection"
-        actions={<IconButton icon="add" label="New binder" variant="gold" onClick={() => setShowCreate(true)} />}
+        actions={wide
+          ? <button type="button" className="btn gold" onClick={() => setShowCreate(true)}><Icon name="add" />New binder</button>
+          : <IconButton icon="add" label="New binder" variant="gold" onClick={() => setShowCreate(true)} />}
       />
-      <div className="content-scroll with-nav">
+      <div className={`content-scroll${wide ? '' : ' with-nav'}`}>
         {collections.length === 0 ? (
           <div className="empty-state rise" style={rise(1)}>
             <Icon name="collections" />
@@ -38,7 +41,7 @@ export function CollectionsPage() {
           </div>
         ) : (
           <>
-            <div className="stats rise" style={rise(1)}>
+            <div className="stats rise" style={{ ...rise(1), maxWidth: wide ? 720 : undefined }}>
               <StatFigure value={ownedCards} label="Cards owned" />
               <StatFigure value={unique} label="Unique cards" />
               <StatFigure value={collections.length} label="Binders" />
@@ -49,7 +52,7 @@ export function CollectionsPage() {
                 <PillChip key={t} label={TYPE_LABELS[t]} count={collections.filter((c) => c.type === t).length} selected={filter === t} onClick={() => setFilter(t)} />
               ))}
             </div>
-            <div className="list">
+            <div className="list wide-list">
               {shown.map((c, i) => (
                 <BinderRow
                   key={c.id}
