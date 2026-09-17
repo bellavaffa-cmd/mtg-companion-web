@@ -3,35 +3,41 @@ import { searchCards } from '../api/scryfall'
 import type { ScryfallCard } from '../types/scryfall'
 import { backImageUrl, cardTags, displayImageUrl, displayManaCost, displayOracleText, hasFlipSides } from '../types/scryfall'
 import { useSync } from '../sync/SyncContext'
-import { ContextMenu } from './ContextMenu'
+import { ActionSheet } from './ActionSheet'
+import type { SheetAction } from './ActionSheet'
 import { Icon } from './Icon'
 import { useLongPress } from './useLongPress'
 import { CardZoomModal } from './CardZoomModal'
 import { useAddWarning } from './useAddWarning'
+import { ArtImage, PillChip, SearchPill, toArtCrop } from './kit'
 
 interface Props {
-  /** If provided, long-press just offers a single "Add" wired to this (used inside a deck/binder's
-   * own "add cards" section). Otherwise falls back to a flat list of every deck/binder to add into
-   * (the standalone Search page). */
+  /** Inside a deck or binder: adding goes straight there. Omitted on the Search tab, where the
+   * action sheet lists every deck and binder to add into. */
   onAdd?: (card: ScryfallCard) => void
   placeholder?: string
+  /** Example queries shown before anything is typed. */
+  examples?: { label: string; query: string }[]
+  autoFocus?: boolean
 }
 
-export function CardSearchResults({ onAdd, placeholder = 'Search cards, e.g. "c:g t:creature"' }: Props) {
+export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. c:g t:creature', examples, autoFocus }: Props) {
   const { decks, collections, addCardToDeck, addEntryToCollection } = useSync()
   const [query, setQuery] = useState('')
   const [cards, setCards] = useState<ScryfallCard[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [zoomCard, setZoomCard] = useState<ScryfallCard | null>(null)
-  const [menu, setMenu] = useState<{ x: number; y: number; card: ScryfallCard } | null>(null)
+  const [sheetCard, setSheetCard] = useState<ScryfallCard | null>(null)
   const [addWarning, setAddWarning] = useAddWarning()
+  const [added, setAdded] = useState<string | null>(null)
 
   useEffect(() => {
     const trimmed = query.trim()
     if (!trimmed) {
       setCards([])
       setError(null)
+      setLoading(false)
       return
     }
     let cancelled = false
@@ -58,50 +64,71 @@ export function CardSearchResults({ onAdd, placeholder = 'Search cards, e.g. "c:
     }
   }, [query])
 
-  function menuActionsFor(card: ScryfallCard) {
-    if (onAdd) {
-      return [{ label: 'Add', icon: 'add', onClick: () => onAdd(card) }]
-    }
+  useEffect(() => {
+    if (!added) return
+    const t = setTimeout(() => setAdded(null), 2500)
+    return () => clearTimeout(t)
+  }, [added])
+
+  function add(card: ScryfallCard) {
+    onAdd?.(card)
+    setAdded(`Added ${card.name}`)
+  }
+
+  function actionsFor(card: ScryfallCard): SheetAction[] {
+    const view: SheetAction = { label: 'View card', icon: 'visibility', onClick: () => setZoomCard(card) }
+    if (onAdd) return [{ label: 'Add', icon: 'add', tone: 'gold', onClick: () => add(card) }, view]
     return [
-      ...collections.map((c) => ({ label: `Add to ${c.name}`, icon: 'collections', onClick: () => addEntryToCollection(c.id, card) })),
-      ...decks.map((d) => ({ label: `Add to ${d.name}`, icon: 'style', onClick: () => setAddWarning(addCardToDeck(d.id, card)) })),
+      view,
+      ...decks.map((d): SheetAction => ({
+        label: `Add to ${d.name}`, icon: 'style', detail: 'Deck',
+        onClick: () => { setAddWarning(addCardToDeck(d.id, card)); setAdded(`Added to ${d.name}`) },
+      })),
+      ...collections.map((c): SheetAction => ({
+        label: `Add to ${c.name}`, icon: c.type === 'WISHLIST' ? 'star' : 'collections', detail: c.type === 'WISHLIST' ? 'Wishlist' : 'Binder',
+        onClick: () => { addEntryToCollection(c.id, card); setAdded(`Added to ${c.name}`) },
+      })),
     ]
   }
 
   return (
     <div>
-      {addWarning && <div className="add-warning">{addWarning}</div>}
-      <input
-        className="input"
-        placeholder={placeholder}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
-      <div style={{ marginTop: 14 }}>
-        {loading && <div className="muted">Searching…</div>}
-        {error && <div className="muted" style={{ color: 'var(--error)' }}>{error}</div>}
-        {!loading && !error && query.trim() && cards.length === 0 && (
-          <div className="empty-state">No cards match.</div>
-        )}
+      <SearchPill value={query} onChange={setQuery} placeholder={placeholder} autoFocus={autoFocus} />
+      {addWarning && <div className="add-warning" style={{ marginTop: 10 }}>{addWarning}</div>}
+      {added && !addWarning && <div className="notice" style={{ marginTop: 10 }}><Icon name="check_circle" style={{ color: 'var(--ok)', fontSize: 18, marginRight: 6 }} />{added}</div>}
+
+      {!query.trim() && examples && (
+        <div className="chips">
+          {examples.map((e) => <PillChip key={e.query} label={e.label} onClick={() => setQuery(e.query)} />)}
+        </div>
+      )}
+
+      <div className="list" style={{ marginTop: 12 }}>
+        {loading && <div className="muted" style={{ padding: '4px' }}>Searching…</div>}
+        {error && <div className="muted" style={{ color: 'var(--error)', padding: '4px' }}>{error}</div>}
+        {!loading && !error && query.trim() && cards.length === 0 && <div className="empty-state">No cards match.</div>}
         {cards.map((card) => (
-          <ResultRow
-            key={card.id}
-            card={card}
-            onZoom={() => setZoomCard(card)}
-            onLongPress={(x, y) => setMenu({ x, y, card })}
-          />
+          <ResultRow key={card.id} card={card} onZoom={() => setZoomCard(card)} onMore={() => setSheetCard(card)} onAdd={onAdd ? () => add(card) : undefined} />
         ))}
       </div>
 
-      {menu && (
-        <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} actions={menuActionsFor(menu.card)} />
+      {sheetCard && (
+        <ActionSheet
+          title={sheetCard.name}
+          subtitle={[sheetCard.type_line, sheetCard.prices?.usd ? `$${sheetCard.prices.usd}` : null].filter(Boolean).join(' · ')}
+          imageUrl={displayImageUrl(sheetCard)}
+          actions={actionsFor(sheetCard)}
+          onClose={() => setSheetCard(null)}
+        />
       )}
 
       {zoomCard && (
         <CardZoomModal
           imageUrl={displayImageUrl(zoomCard)}
           name={zoomCard.name}
+          typeLine={zoomCard.type_line}
           priceUsd={zoomCard.prices?.usd}
+          priceUsdFoil={zoomCard.prices?.usd_foil}
           scryfallId={zoomCard.id}
           backImageUrl={backImageUrl(zoomCard)}
           tags={cardTags(zoomCard)}
@@ -111,11 +138,13 @@ export function CardSearchResults({ onAdd, placeholder = 'Search cards, e.g. "c:
           onClose={() => setZoomCard(null)}
         >
           {onAdd ? (
-            <button className="btn btn-primary" style={{ marginTop: 14 }} onClick={() => { onAdd(zoomCard); setZoomCard(null) }}>
-              ADD
+            <button type="button" className="btn gold block" onClick={() => { add(zoomCard); setZoomCard(null) }}>
+              <Icon name="add" />Add
             </button>
           ) : (
-            <div className="muted" style={{ marginTop: 10 }}>Long-press the card to add it somewhere.</div>
+            <button type="button" className="btn gold block" onClick={() => { setSheetCard(zoomCard); setZoomCard(null) }}>
+              <Icon name="add" />Add to a deck or binder
+            </button>
           )}
         </CardZoomModal>
       )}
@@ -123,31 +152,28 @@ export function CardSearchResults({ onAdd, placeholder = 'Search cards, e.g. "c:
   )
 }
 
-function ResultRow({
-  card,
-  onZoom,
-  onLongPress,
-}: {
-  card: ScryfallCard
-  onZoom: () => void
-  onLongPress: (x: number, y: number) => void
-}) {
-  const longPress = useLongPress({ onLongPress, onClick: onZoom })
+function ResultRow({ card, onZoom, onMore, onAdd }: { card: ScryfallCard; onZoom: () => void; onMore: () => void; onAdd?: () => void }) {
+  const longPress = useLongPress({ onLongPress: onMore, onClick: onZoom })
   return (
-    <div className="card-row" {...longPress} style={{ cursor: 'pointer' }}>
-      <div className="thumb-wrap">
-        <img src={displayImageUrl(card) ?? undefined} alt={card.name} loading="lazy" />
-        {hasFlipSides(card) && (
-          <span className="flip-badge">
-            <Icon name="autorenew" />
-          </span>
-        )}
+    <div className="crow no-qty" style={{ gridTemplateColumns: '56px minmax(0, 1fr) auto auto' }}>
+      <div className="thumb-wrap" onClick={onZoom} style={{ cursor: 'pointer' }}>
+        <ArtImage className="thumb" src={toArtCrop(displayImageUrl(card))} seed={card.name} colors={card.color_identity} />
+        {hasFlipSides(card) && <span className="flip-badge"><Icon name="autorenew" /></span>}
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="name">{card.name}</div>
-        <div className="type-line">{(card.type_line ?? '').toUpperCase()}</div>
+      <div className="cmain" {...longPress}>
+        <div className="cname">{card.name}</div>
+        <div className="cmeta"><span>{card.type_line ?? ''}</span></div>
       </div>
-      {card.prices?.usd && <div className="muted">${card.prices.usd}</div>}
+      {card.prices?.usd ? <span className="cprice">${card.prices.usd}</span> : <span />}
+      {onAdd ? (
+        <button type="button" className="more" onClick={onAdd} aria-label={`Add ${card.name}`} style={{ color: 'var(--gold)' }}>
+          <Icon name="add_circle" style={{ fontSize: 24 }} />
+        </button>
+      ) : (
+        <button type="button" className="more" onClick={onMore} aria-label={`Actions for ${card.name}`}>
+          <Icon name="more_vert" style={{ fontSize: 20 }} />
+        </button>
+      )}
     </div>
   )
 }

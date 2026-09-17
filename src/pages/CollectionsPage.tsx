@@ -1,88 +1,142 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
-import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
 import { Dialog } from '../components/Dialog'
-import { ContextMenu } from '../components/ContextMenu'
+import { ActionSheet } from '../components/ActionSheet'
 import { useLongPress } from '../components/useLongPress'
+import { ArtImage, IconButton, PageHeader, PillChip, StatFigure, rise, toArtCrop } from '../components/kit'
 import type { Collection, CollectionType } from '../types/models'
+
+const TYPE_LABELS: Record<CollectionType, string> = { OWNED: 'Owned', WISHLIST: 'Wishlist' }
 
 export function CollectionsPage() {
   const { collections, deleteCollection } = useSync()
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
-  const [menu, setMenu] = useState<{ x: number; y: number; collection: Collection } | null>(null)
+  const [filter, setFilter] = useState<CollectionType | 'ALL'>('ALL')
+  const [sheet, setSheet] = useState<Collection | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<Collection | null>(null)
+
+  const owned = collections.filter((c) => c.type !== 'WISHLIST')
+  const ownedCards = owned.reduce((s, c) => s + c.entries.reduce((n, e) => n + e.quantity + e.foilQuantity, 0), 0)
+  const unique = new Set(owned.flatMap((c) => c.entries.map((e) => e.scryfallId))).size
+  const shown = collections.filter((c) => filter === 'ALL' || c.type === filter)
 
   return (
     <>
-      <TopBar
-        title="COLLECTION"
-        actions={
-          <button className="top-bar-icon" onClick={() => setShowCreate(true)} aria-label="New binder">
-            <Icon name="add" />
-          </button>
-        }
+      <PageHeader
+        title="Collection"
+        actions={<IconButton icon="add" label="New binder" variant="gold" onClick={() => setShowCreate(true)} />}
       />
-      <div className="content-scroll">
+      <div className="content-scroll with-nav">
         {collections.length === 0 ? (
-          <div className="empty-state">No binders yet. Tap + to create one.</div>
+          <div className="empty-state rise" style={rise(1)}>
+            <Icon name="collections" />
+            <div>No binders yet. Make one for the cards you own, or a wishlist for the ones you want.</div>
+            <button type="button" className="btn gold" onClick={() => setShowCreate(true)}><Icon name="add" />New binder</button>
+          </div>
         ) : (
-          collections.map((c) => (
-            <CollectionRow
-              key={c.id}
-              collection={c}
-              onClick={() => navigate(`/collections/${c.id}`)}
-              onLongPress={(x, y) => setMenu({ x, y, collection: c })}
-            />
-          ))
+          <>
+            <div className="stats rise" style={rise(1)}>
+              <StatFigure value={ownedCards} label="Cards owned" />
+              <StatFigure value={unique} label="Unique cards" />
+              <StatFigure value={collections.length} label="Binders" />
+            </div>
+            <div className="chips rise" style={rise(2)}>
+              <PillChip label="All" count={collections.length} selected={filter === 'ALL'} onClick={() => setFilter('ALL')} />
+              {(['OWNED', 'WISHLIST'] as const).map((t) => (
+                <PillChip key={t} label={TYPE_LABELS[t]} count={collections.filter((c) => c.type === t).length} selected={filter === t} onClick={() => setFilter(t)} />
+              ))}
+            </div>
+            <div className="list">
+              {shown.map((c, i) => (
+                <BinderRow
+                  key={c.id}
+                  collection={c}
+                  index={i}
+                  onOpen={() => navigate(`/collections/${c.id}`)}
+                  onMore={() => setSheet(c)}
+                />
+              ))}
+              {shown.length === 0 && <div className="empty-state">No {filter === 'WISHLIST' ? 'wishlists' : 'binders'} here yet.</div>}
+            </div>
+          </>
         )}
       </div>
 
-      {menu && (
-        <ContextMenu
-          x={menu.x}
-          y={menu.y}
-          onClose={() => setMenu(null)}
+      {sheet && (
+        <ActionSheet
+          title={sheet.name}
+          subtitle={`${TYPE_LABELS[sheet.type]} · ${sheet.entries.length} unique cards`}
+          imageUrl={sheet.entries[0]?.imageUrl ?? null}
           actions={[
-            { label: 'Delete binder', icon: 'delete', destructive: true, onClick: () => deleteCollection(menu.collection.id) },
+            { label: 'Open binder', icon: 'folder_open', onClick: () => navigate(`/collections/${sheet.id}`) },
+            { label: 'Delete binder', icon: 'delete', tone: 'danger', onClick: () => setConfirmDelete(sheet) },
           ]}
+          onClose={() => setSheet(null)}
         />
       )}
 
-      {showCreate && <CreateCollectionDialog onDismiss={() => setShowCreate(false)} />}
+      {confirmDelete && (
+        <Dialog
+          title="Delete this binder?"
+          onDismiss={() => setConfirmDelete(null)}
+          actions={
+            <>
+              <button type="button" className="btn line" onClick={() => setConfirmDelete(null)}>Cancel</button>
+              <button type="button" className="btn danger" onClick={() => { deleteCollection(confirmDelete.id); setConfirmDelete(null) }}>Delete binder</button>
+            </>
+          }
+        >
+          <p className="muted" style={{ margin: 0 }}>“{confirmDelete.name}” and its {confirmDelete.entries.length} cards will be removed here and on your other devices.</p>
+        </Dialog>
+      )}
+
+      {showCreate && <CreateCollectionDialog onDismiss={() => setShowCreate(false)} onCreated={(id) => navigate(`/collections/${id}`)} />}
     </>
   )
 }
 
-function CollectionRow({
-  collection,
-  onClick,
-  onLongPress,
-}: {
-  collection: Collection
-  onClick: () => void
-  onLongPress: (x: number, y: number) => void
-}) {
-  const longPress = useLongPress({ onLongPress, onClick })
+function BinderRow({ collection, index, onOpen, onMore }: { collection: Collection; index: number; onOpen: () => void; onMore: () => void }) {
+  const longPress = useLongPress({ onLongPress: onMore, onClick: onOpen })
   const total = collection.entries.reduce((s, e) => s + e.quantity + e.foilQuantity, 0)
-  const label = collection.type === 'WISHLIST' ? 'WISHLIST · ' : ''
-
+  const cover = collection.entries[0]
   return (
-    <div className="card-row" {...longPress} style={{ cursor: 'pointer' }}>
-      <Icon name={collection.type === 'WISHLIST' ? 'star' : 'collections'} style={{ fontSize: 32, color: 'var(--accent-dim)' }} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="name" style={{ whiteSpace: 'normal' }}>{collection.name}</div>
-        <div className="type-line">{label}{total} cards · {collection.entries.length} unique</div>
+    <div className="brow press rise" style={{ ...rise(Math.min(index, 8) + 3), cursor: 'pointer' }} {...longPress}>
+      {cover ? (
+        <ArtImage src={toArtCrop(cover.imageUrl)} seed={collection.name} />
+      ) : (
+        <div className="icon-tile"><Icon name={collection.type === 'WISHLIST' ? 'star' : 'collections'} /></div>
+      )}
+      <div style={{ minWidth: 0 }}>
+        <div className="brow-name">{collection.name}</div>
+        <div className="brow-meta">
+          {collection.type === 'WISHLIST' && <span className="badge soft">Wishlist</span>}
+          <span><b>{total}</b>cards</span>
+          <span><b>{collection.entries.length}</b>unique</span>
+        </div>
       </div>
+      <button
+        type="button"
+        className="more"
+        aria-label={`Actions for ${collection.name}`}
+        onClick={(e) => { e.stopPropagation(); onMore() }}
+      >
+        <Icon name="more_vert" style={{ fontSize: 20 }} />
+      </button>
     </div>
   )
 }
 
-function CreateCollectionDialog({ onDismiss }: { onDismiss: () => void }) {
+function CreateCollectionDialog({ onDismiss, onCreated }: { onDismiss: () => void; onCreated: (id: string) => void }) {
   const { createCollection } = useSync()
   const [name, setName] = useState('')
   const [type, setType] = useState<CollectionType>('OWNED')
+  const create = () => {
+    if (!name.trim()) return
+    onCreated(createCollection(name.trim(), type).id)
+  }
 
   return (
     <Dialog
@@ -90,27 +144,22 @@ function CreateCollectionDialog({ onDismiss }: { onDismiss: () => void }) {
       onDismiss={onDismiss}
       actions={
         <>
-          <button className="btn" onClick={onDismiss}>CANCEL</button>
-          <button
-            className="btn btn-primary"
-            disabled={!name.trim()}
-            onClick={() => {
-              createCollection(name.trim(), type)
-              onDismiss()
-            }}
-          >
-            CREATE
-          </button>
+          <button type="button" className="btn line" onClick={onDismiss}>Cancel</button>
+          <button type="button" className="btn gold" disabled={!name.trim()} onClick={create}>Create binder</button>
         </>
       }
     >
       <div className="field-label">Binder name</div>
-      <input className="input" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-      <div className="field-label" style={{ marginTop: 14 }}>Type</div>
-      <select className="input" value={type} onChange={(e) => setType(e.target.value as CollectionType)}>
-        <option value="OWNED">Owned</option>
-        <option value="WISHLIST">Wishlist</option>
-      </select>
+      <input className="input" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && create()} autoFocus />
+      <div className="field-label" style={{ marginTop: 16 }}>Type</div>
+      <div className="chips wrap">
+        {(['OWNED', 'WISHLIST'] as const).map((t) => (
+          <PillChip key={t} label={TYPE_LABELS[t]} selected={type === t} onClick={() => setType(t)} className="on-g2" />
+        ))}
+      </div>
+      <div className="dim" style={{ marginTop: 10 }}>
+        {type === 'OWNED' ? 'Cards you own. They count toward your collection.' : "Cards you want. They don't count as owned."}
+      </div>
     </Dialog>
   )
 }

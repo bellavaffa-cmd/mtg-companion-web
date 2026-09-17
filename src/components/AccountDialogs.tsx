@@ -15,7 +15,7 @@ export function SetPasswordDialog({ title, explanation, onDismiss }: { title: st
 
   if (done) {
     return (
-      <Dialog title="Password changed" onDismiss={onDismiss} actions={<button className="btn btn-primary" onClick={onDismiss}>OK</button>}>
+      <Dialog title="Password changed" onDismiss={onDismiss} actions={<button className="btn gold" onClick={onDismiss}>OK</button>}>
         <p className="muted" style={{ margin: 0 }}>Use the new password next time you sign in, here or on your phone.</p>
       </Dialog>
     )
@@ -40,8 +40,8 @@ export function SetPasswordDialog({ title, explanation, onDismiss }: { title: st
       onDismiss={() => { if (!busy) onDismiss() }}
       actions={
         <>
-          <button className="btn" onClick={onDismiss} disabled={busy}>Not now</button>
-          <button className="btn btn-primary" onClick={() => void save()} disabled={!canSave}>{busy ? 'Saving…' : 'Save password'}</button>
+          <button className="btn line" onClick={onDismiss} disabled={busy}>Not now</button>
+          <button className="btn gold" onClick={() => void save()} disabled={!canSave}>{busy ? 'Saving…' : 'Save password'}</button>
         </>
       }
     >
@@ -75,9 +75,9 @@ export function AccountDialogs() {
         onDismiss={() => {}}
         actions={
           <>
-            <button className="btn" onClick={() => void signOut()}>Sign out</button>
-            <button className="btn" onClick={() => resolveMerge('replace')}>Use my account only</button>
-            <button className="btn btn-primary" onClick={() => resolveMerge('add')}>Add to my account</button>
+            <button className="btn line" onClick={() => void signOut()}>Sign out</button>
+            <button className="btn line" onClick={() => resolveMerge('replace')}>Use my account only</button>
+            <button className="btn gold" onClick={() => resolveMerge('add')}>Add to my account</button>
           </>
         }
       >
@@ -108,7 +108,7 @@ export function AccountDialogs() {
 
   if (linkNotice) {
     return (
-      <Dialog title="Account" onDismiss={dismissLinkNotice} actions={<button className="btn btn-primary" onClick={dismissLinkNotice}>OK</button>}>
+      <Dialog title="Account" onDismiss={dismissLinkNotice} actions={<button className="btn gold" onClick={dismissLinkNotice}>OK</button>}>
         <p className="muted" style={{ margin: 0 }}>{linkNotice}</p>
       </Dialog>
     )

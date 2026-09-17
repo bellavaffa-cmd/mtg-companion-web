@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Dialog } from './Dialog'
+import { PillChip } from './kit'
 import { getCardsByIds } from '../api/scryfall'
 import type { ScryfallCard } from '../types/scryfall'
 import type { Deck, DeckCardEntry } from '../types/models'
@@ -54,49 +55,27 @@ export function ExportDeckDialog({ deck, onDismiss }: { deck: Deck; onDismiss: (
       onDismiss={onDismiss}
       actions={
         <>
-          <button className="btn" onClick={onDismiss}>CLOSE</button>
+          <button type="button" className="btn line" onClick={onDismiss}>Close</button>
           <button
-            className="btn btn-primary"
+            type="button"
+            className="btn gold"
             disabled={!decklist || (exact && loading)}
             onClick={() => {
               navigator.clipboard.writeText(decklist)
               setCopied(true)
             }}
           >
-            {copied ? 'COPIED' : 'COPY'}
+            {copied ? 'Copied' : 'Copy decklist'}
           </button>
         </>
       }
     >
-      <p className="muted" style={{ marginTop: 0 }}>Copy this decklist to share or back up your deck.</p>
-      <div className="row" style={{ marginBottom: 10 }}>
-        <span
-          className={`chip${!exact ? ' selected' : ''}`}
-          onClick={() => setExact(false)}
-        >
-          SIMPLE
-        </span>
-        <span
-          className={`chip${exact ? ' selected' : ''}`}
-          onClick={() => setExact(true)}
-        >
-          EXACT PRINTING
-        </span>
+      <p className="muted" style={{ marginTop: 0 }}>Paste it into Moxfield, Archidekt, Arena or the Android app's importer.</p>
+      <div className="chips wrap" style={{ marginBottom: 12 }}>
+        <PillChip label="Simple" selected={!exact} onClick={() => { setExact(false); setCopied(false) }} className="on-g2" />
+        <PillChip label="Exact printing" selected={exact} onClick={() => { setExact(true); setCopied(false) }} className="on-g2" />
       </div>
-      <div
-        style={{
-          maxHeight: 260,
-          overflowY: 'auto',
-          background: 'var(--bg)',
-          border: '1px solid var(--border)',
-          borderRadius: 8,
-          padding: 12,
-          fontSize: 13,
-          whiteSpace: 'pre-wrap',
-        }}
-      >
-        {exact && loading ? 'Loading printings…' : decklist || 'This deck has no cards yet.'}
-      </div>
+      <div className="decklist">{exact && loading ? 'Loading printings…' : decklist || 'This deck has no cards yet.'}</div>
     </Dialog>
   )
 }
