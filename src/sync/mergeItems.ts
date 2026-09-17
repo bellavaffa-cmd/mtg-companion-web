@@ -8,7 +8,8 @@
 // The rules, in short:
 //  - A card added on one side is kept.
 //  - A card removed on one side stays removed, even if the other side changed its count.
-//  - Counts that both sides changed add up: +1 here and +2 there lands on +3.
+//  - Counts that both sides changed add up: +1 here and +2 there lands on +3; two cuts that would
+//    take it below zero settle on the lower count rather than removing the card.
 //  - A field both sides changed differently (a deck's name, say) goes to the more recent edit.
 // The Android app merges the same way — see data/supabase/ItemMerge.kt.
 
@@ -45,8 +46,9 @@ interface EntryRules<T> {
 }
 
 /**
- * Merges a list of card entries keyed by printing. Remote order is kept, with cards this device
- * added appended, so both devices end up with the same list in the same order.
+ * Merges a list of card entries keyed by printing. The order both devices last agreed on is kept,
+ * with whatever either side added appended by id, so both devices end up with the same list in the
+ * same order.
  */
 function mergeEntries<T extends { scryfallId: string }>(
   base: T[],
@@ -60,8 +62,11 @@ function mergeEntries<T extends { scryfallId: string }>(
   const mineMap = byId(mine)
   const theirsMap = byId(theirs)
 
-  const ids: string[] = []
-  for (const e of [...theirs, ...mine]) if (!ids.includes(e.scryfallId)) ids.push(e.scryfallId)
+  // Both devices must land on the same order, so start from the order they agreed on and append
+  // what either side added, by id — never "their order, then mine".
+  const baseIds = base.map((e) => e.scryfallId)
+  const added = [...new Set([...theirs, ...mine].map((e) => e.scryfallId))].filter((id) => !baseIds.includes(id)).sort()
+  const ids = [...baseIds, ...added]
 
   const out: T[] = []
   for (const id of ids) {
@@ -88,8 +93,14 @@ function mergeEntries<T extends { scryfallId: string }>(
     const merged = { ...t! } as T
     for (const key of new Set([...Object.keys(b), ...Object.keys(m!), ...Object.keys(t!)]) as Set<keyof T>) {
       if (rules.counts.includes(key)) {
-        const mineDelta = Number(m![key] ?? 0) - Number(b[key] ?? 0)
-        merged[key] = Math.max(0, Number(t![key] ?? 0) + mineDelta) as T[keyof T]
+        const mineCount = Number(m![key] ?? 0)
+        const theirCount = Number(t![key] ?? 0)
+        const summed = theirCount + (mineCount - Number(b[key] ?? 0))
+        // Both sides cut the same card: take the lower count rather than letting two reductions
+        // cancel it out of the deck entirely.
+        merged[key] = (summed <= 0 && mineCount > 0 && theirCount > 0
+          ? Math.min(mineCount, theirCount)
+          : Math.max(0, summed)) as T[keyof T]
       } else {
         merged[key] = pick(b[key], m![key], t![key], minePreferred)
       }
@@ -118,16 +129,30 @@ function mergeGameResults(base: GameResult[], mine: GameResult[], theirs: GameRe
 }
 
 const DECK_COUNTS: EntryRules<DeckCardEntry> = { counts: ['quantity'] }
+/** The phone keeps this many saved versions of a deck (DeckRepository.MAX_VERSIONS). */
+const MAX_VERSIONS = 40
 const COLLECTION_COUNTS: EntryRules<CollectionEntry> = { counts: ['quantity', 'foilQuantity'] }
 
 /** [minePreferred]: this device's edit is the more recent one, so it wins any field both changed. */
 export function mergeDeck(base: Deck, mine: Deck, theirs: Deck, minePreferred: boolean): Deck {
+  // The phone's deck has two fields this app doesn't show but must not drop or diverge on.
+  const asPhone = (deck: Deck) => deck as Deck & { considering?: DeckCardEntry[]; versions?: { id: string; savedAt: number }[] }
+  const considering = mergeEntries(
+    asPhone(base).considering ?? [], asPhone(mine).considering ?? [], asPhone(theirs).considering ?? [],
+    DECK_COUNTS, minePreferred,
+  )
+  const versions = [...(asPhone(theirs).versions ?? []), ...(asPhone(mine).versions ?? [])]
+    .filter((v, i, all) => all.findIndex((x) => x.id === v.id) === i)
+    .sort((a, b) => a.savedAt - b.savedAt)
+    .slice(-MAX_VERSIONS)
   return {
     ...theirs,
+    ...(considering.length > 0 || asPhone(theirs).considering ? { considering } : {}),
+    ...(versions.length > 0 ? { versions } : {}),
     name: pick(base.name, mine.name, theirs.name, minePreferred),
     gameMode: pick(base.gameMode, mine.gameMode, theirs.gameMode, minePreferred),
     ownership: pick(base.ownership, mine.ownership, theirs.ownership, minePreferred),
-    createdAt: Math.min(base.createdAt || mine.createdAt, mine.createdAt, theirs.createdAt),
+    createdAt: Math.min(mine.createdAt, theirs.createdAt),
     commander: pick(base.commander, mine.commander, theirs.commander, minePreferred),
     partnerCommander: pick(base.partnerCommander, mine.partnerCommander, theirs.partnerCommander, minePreferred),
     cards: mergeEntries(base.cards, mine.cards, theirs.cards, DECK_COUNTS, minePreferred),
@@ -141,7 +166,7 @@ export function mergeCollection(base: Collection, mine: Collection, theirs: Coll
     ...theirs,
     name: pick(base.name, mine.name, theirs.name, minePreferred),
     type: pick(base.type, mine.type, theirs.type, minePreferred),
-    createdAt: Math.min(base.createdAt || mine.createdAt, mine.createdAt, theirs.createdAt),
+    createdAt: Math.min(mine.createdAt, theirs.createdAt),
     entries: mergeEntries(base.entries, mine.entries, theirs.entries, COLLECTION_COUNTS, minePreferred),
   }
 }

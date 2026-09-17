@@ -208,18 +208,22 @@ export async function syncOnce(snapshot: Library, startState: CloudState, userId
     const mineJson = local.get(key)
     const baseJson = state.items[key]?.base
 
+    // This device has diverged if its copy differs from the version both sides last agreed on —
+    // which stays true even when a push was skipped as stale server-side.
+    const diverged = mineJson !== undefined && baseJson !== undefined && mineJson !== baseJson
     // Both devices changed this one since they last agreed: keep both sets of edits.
-    if (localEdit !== undefined && mineJson !== undefined && baseJson !== undefined && mineJson !== theirJson) {
+    if (diverged && mineJson !== theirJson) {
       const base = JSON.parse(baseJson)
       const mine = JSON.parse(mineJson)
       const merged = row.kind === 'deck'
-        ? mergeDeck(base as Deck, mine as Deck, theirs as Deck, localEdit > row.edited_ms)
-        : mergeCollection(base as Collection, mine as Collection, theirs as Collection, localEdit > row.edited_ms)
+        ? mergeDeck(base as Deck, mine as Deck, theirs as Deck, (localEdit ?? 0) > row.edited_ms)
+        : mergeCollection(base as Collection, mine as Collection, theirs as Collection, (localEdit ?? 0) > row.edited_ms)
       const mergedJson = canonicalJson(merged)
       if (mergedJson !== mineJson) remoteChanges.set(key, merged)
-      // Push the merged version (it's newer than both), and keep their version as the new base.
+      // Push the merged version, stamped past their edit so the server can't reject it as stale,
+      // and keep their version as the new base.
       local.set(key, mergedJson)
-      pending[key] = now
+      pending[key] = Math.max(now, row.edited_ms + 1)
       items[key] = { hash: hash(theirJson), editedMs: row.edited_ms, base: theirJson }
       continue
     }
@@ -243,7 +247,10 @@ export async function syncOnce(snapshot: Library, startState: CloudState, userId
         pushed[key] = { hash: 0, editedMs, deleted: true }
         return { kind, id, edited_ms: editedMs, deleted: true }
       }
-      pushed[key] = { hash: hash(json), editedMs, base: json }
+      // Not `base: json`: the server skips a push that's older than what it holds, and only says how
+      // many rows it wrote. The base moves when a pull brings back what the server actually has, so a
+      // skipped push still reads as diverged and gets merged.
+      pushed[key] = { hash: hash(json), editedMs, base: state.items[key]?.base }
       return { kind, id, edited_ms: editedMs, deleted: false, data: JSON.parse(json) }
     })
     await request('/rest/v1/rpc/push_library_items', token, { method: 'POST', body: JSON.stringify({ items: batch }) })
