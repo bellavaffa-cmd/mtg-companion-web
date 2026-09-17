@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { commanderSuggestions, edhrecImageUrl, inclusionPercent, type EdhrecCard } from '../api/edhrec'
+import { commanderSuggestions, edhrecImageUrl, inclusionPercent, OfflineError, type EdhrecCard } from '../api/edhrec'
 import { getByFuzzyName } from '../api/scryfall'
 import type { Deck } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
@@ -18,6 +18,8 @@ export function DeckSuggestions({ deck, onAdd, index = 0 }: { deck: Deck; onAdd:
   const have = [...deck.cards.map((c) => c.name), ...(deck.commander ? [deck.commander.name] : [])]
   const key = `${commander}#${[...have].sort().join('|')}`
   const [cards, setCards] = useState<EdhrecCard[] | null | undefined>(undefined)
+  // Set when EDHREC couldn't be reached at all — a different thing from having no page for the commander.
+  const [unreachable, setUnreachable] = useState<string | null>(null)
   const [adding, setAdding] = useState<string | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
 
@@ -25,6 +27,7 @@ export function DeckSuggestions({ deck, onAdd, index = 0 }: { deck: Deck; onAdd:
     if (!commander) return
     let cancelled = false
     setCards(undefined)
+    setUnreachable(null)
     let request = cache.get(key)
     if (!request) {
       request = commanderSuggestions(commander, have)
@@ -33,7 +36,11 @@ export function DeckSuggestions({ deck, onAdd, index = 0 }: { deck: Deck; onAdd:
     }
     request
       .then((result) => { if (!cancelled) setCards(result) })
-      .catch(() => { if (!cancelled) setCards(null) })
+      .catch((e) => {
+        if (cancelled) return
+        setUnreachable(e instanceof OfflineError ? e.message : "Couldn't reach EDHREC. Try again in a moment.")
+        setCards(null)
+      })
     return () => { cancelled = true }
     // key covers the commander and every card already in the deck.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -60,6 +67,7 @@ export function DeckSuggestions({ deck, onAdd, index = 0 }: { deck: Deck; onAdd:
     )
   }
   if (cards === undefined) return <div className="empty-state">Asking EDHREC what pairs well with {commander}…</div>
+  if (unreachable) return <div className="empty-state"><Icon name="cloud_off" />{unreachable}</div>
   if (cards === null) return <div className="empty-state">EDHREC has no page for {commander} yet.</div>
   if (cards.length === 0) return <div className="empty-state">This deck already runs EDHREC's picks for {commander}.</div>
 

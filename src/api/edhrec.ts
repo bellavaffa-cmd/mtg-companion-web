@@ -50,8 +50,20 @@ export function cardNameKeys(name: string): string[] {
   return [full, full.split(' // ')[0].trim()]
 }
 
+/** A request that never reached EDHREC, as opposed to EDHREC saying it has no such page. */
+export class OfflineError extends Error {
+  constructor(message = "You're offline — suggestions need a connection.") {
+    super(message)
+  }
+}
+
 async function cardLists(path: string) {
-  const res = await fetch(`${BASE}/${path}.json`)
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/${path}.json`)
+  } catch {
+    throw new OfflineError()
+  }
   if (res.status === 404) return null // EDHREC has no page for this card
   if (!res.ok) throw new Error(`EDHREC ${res.status}`)
   const page = (await res.json()) as RawPage
