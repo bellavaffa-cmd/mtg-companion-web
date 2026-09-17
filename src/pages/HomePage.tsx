@@ -2,10 +2,11 @@ import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
+import { AccountPanel } from '../components/AccountPanel'
 
 export function HomePage() {
   const navigate = useNavigate()
-  const { decks, collections, connected, email, syncing, message, connect, syncNow, disconnect, localDirty } = useSync()
+  const { decks, collections } = useSync()
   const totalCards = collections.reduce((sum, c) => sum + c.entries.reduce((s, e) => s + e.quantity + e.foilQuantity, 0), 0)
 
   return (
@@ -16,29 +17,7 @@ export function HomePage() {
           Search cards, track your collection, and build decks — all in one place.
         </p>
 
-        <div className="alert-banner">
-          <Icon name={connected ? 'cloud_done' : 'cloud_off'} style={{ color: 'var(--accent)', fontSize: 20 }} />
-          <div style={{ flex: 1 }}>
-            {connected ? (
-              <>
-                <div>Connected as <span style={{ color: 'var(--accent-light)' }}>{email ?? '…'}</span></div>
-                <div className="dim">
-                  {syncing ? 'Syncing…' : localDirty ? 'Unsynced changes' : (message ?? 'Synced')}
-                </div>
-              </>
-            ) : (
-              <div>Not connected — changes stay in this browser only.</div>
-            )}
-          </div>
-          {connected ? (
-            <div className="row">
-              <button className="btn" onClick={() => syncNow()} disabled={syncing}>Sync</button>
-              <button className="btn btn-danger" onClick={disconnect}>Disconnect</button>
-            </div>
-          ) : (
-            <button className="btn btn-primary" onClick={() => connect()}>Connect Drive</button>
-          )}
-        </div>
+        <AccountPanel />
 
         <div className="stat-row">
           <div className="stat-card">

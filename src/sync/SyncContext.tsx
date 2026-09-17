@@ -1,29 +1,23 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type {
-  Collection, CollectionType, Deck, DeckCardEntry, DeckOwnership, GameMode, GameResult, SyncPayload,
+  Collection, CollectionType, Deck, DeckCardEntry, DeckOwnership, GameMode, GameResult,
 } from '../types/models'
 import { DECK_OWNERSHIP_DEFAULT, duplicateWarning, normalizeDeck } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 import { backImageUrl, canBeCommander, cardTags, displayImageUrl, partnerAbility } from '../types/scryfall'
-import { clearToken, fetchUserEmail, requestAccessToken } from './googleAuth'
-import { downloadText, ensureFolder, findBackup, uploadBackup } from './drive'
+import * as auth from './supabaseAuth'
+import type { Account } from './supabaseAuth'
+import type { Library } from './cloudSync'
+import { applyRemoteChanges, clearCloudState, loadCloudState, syncOnce } from './cloudSync'
 
 const LIBRARY_KEY = 'mtgweb_library'
-const SYNC_STATE_KEY = 'mtgweb_sync_state'
+/** Where "Use my account's library" keeps this browser's old library, just in case. */
+const LIBRARY_BACKUP_KEY = 'mtgweb_library_before_account'
+/** Leftover from the retired Google Drive sync. */
+const OLD_DRIVE_SYNC_KEY = 'mtgweb_sync_state'
 
-interface Library {
-  decks: Deck[]
-  collections: Collection[]
-}
-
-interface SyncState {
-  lastSyncedRev: number
-  lastSyncedAt: number
-}
-
-/** Normalizes a whole library's decks — used for both the localStorage cache and Drive pulls, since
- * either can hold decks written before a field existed (older web-app version, or the Android app). */
+/** Normalizes a whole library's decks, since stored JSON can predate a field (older web app or Android). */
 function normalizeLibrary(lib: { decks?: Deck[]; collections?: Collection[] }): Library {
   return {
     decks: (lib.decks ?? []).map(normalizeDeck),
@@ -41,16 +35,6 @@ function loadLibrary(): Library {
   }
 }
 
-function loadSyncState(): SyncState {
-  try {
-    const raw = localStorage.getItem(SYNC_STATE_KEY)
-    if (!raw) return { lastSyncedRev: 0, lastSyncedAt: 0 }
-    return JSON.parse(raw)
-  } catch {
-    return { lastSyncedRev: 0, lastSyncedAt: 0 }
-  }
-}
-
 function entryFromCard(card: ScryfallCard, quantity: number): DeckCardEntry {
   return {
     scryfallId: card.id,
@@ -65,18 +49,38 @@ function entryFromCard(card: ScryfallCard, quantity: number): DeckCardEntry {
   }
 }
 
+export interface CloudStatus {
+  syncing: boolean
+  lastSyncedAt: number
+  message: string | null
+  failed: boolean
+}
+
 interface SyncContextValue {
   decks: Deck[]
   collections: Collection[]
-  connected: boolean
-  email: string | null
-  syncing: boolean
-  message: string | null
-  lastSyncedAt: number
-  localDirty: boolean
-  connect: () => Promise<void>
-  disconnect: () => void
+
+  /** False when this build has no Supabase project configured. */
+  accountsAvailable: boolean
+  account: Account | null
+  cloud: CloudStatus
+  /** Set when an account is signed in for the first time in a browser that already has decks/binders. */
+  mergePrompt: { decks: number; collections: number; email: string } | null
+  resolveMerge: (choice: 'add' | 'replace') => void
+  /** True after a password-reset link signed the user in: ask for a new password. */
+  passwordRecovery: boolean
+  dismissPasswordRecovery: () => void
+  /** A one-off message from opening an account email link. */
+  linkNotice: string | null
+  dismissLinkNotice: () => void
+  signIn: (email: string, password: string) => Promise<void>
+  /** Resolves true when signed in right away, false when a confirmation email was sent. */
+  signUp: (email: string, password: string) => Promise<boolean>
+  signOut: () => Promise<void>
   syncNow: () => Promise<void>
+  resendConfirmation: (email: string) => Promise<void>
+  sendPasswordReset: (email: string) => Promise<void>
+  updatePassword: (password: string) => Promise<void>
 
   createDeck: (name: string, gameMode: GameMode) => Deck
   deleteDeck: (deckId: string) => void
@@ -102,137 +106,184 @@ interface SyncContextValue {
 
 const SyncContext = createContext<SyncContextValue | null>(null)
 
+const IDLE: CloudStatus = { syncing: false, lastSyncedAt: 0, message: null, failed: false }
+
+let authLink: Promise<auth.LinkResult | null> | null = null
+
 export function SyncProvider({ children }: { children: ReactNode }) {
   const [library, setLibrary] = useState<Library>(() => loadLibrary())
-  const [connected, setConnected] = useState(false)
-  const [email, setEmail] = useState<string | null>(null)
-  const [syncing, setSyncing] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
-
-  const syncStateRef = useRef<SyncState>(loadSyncState())
-  const localUpdatedAtRef = useRef<number>(loadSyncState().lastSyncedRev)
   const libraryRef = useRef(library)
   libraryRef.current = library
-  const [lastSyncedAt, setLastSyncedAt] = useState(syncStateRef.current.lastSyncedAt)
-  const [localDirty, setLocalDirty] = useState(false)
-  const pushTimer = useRef<number | undefined>(undefined)
+
+  const [account, setAccount] = useState<Account | null>(() => (auth.supabaseConfigured ? auth.currentAccount() : null))
+  const accountRef = useRef(account)
+  const [cloud, setCloud] = useState<CloudStatus>(() => ({ ...IDLE, lastSyncedAt: loadCloudState().lastSyncedAt }))
+  const [mergePrompt, setMergePrompt] = useState<SyncContextValue['mergePrompt']>(null)
+  const mergePending = useRef(false)
+  const [passwordRecovery, setPasswordRecovery] = useState(false)
+  const [linkNotice, setLinkNotice] = useState<string | null>(null)
+  const syncTimer = useRef<number | undefined>(undefined)
+  const syncChain = useRef<Promise<void>>(Promise.resolve())
+  const lastAutoSync = useRef(0)
 
   const persistLibrary = useCallback((lib: Library) => {
     localStorage.setItem(LIBRARY_KEY, JSON.stringify(lib))
   }, [])
 
-  const persistSyncState = useCallback((state: SyncState) => {
-    syncStateRef.current = state
-    localStorage.setItem(SYNC_STATE_KEY, JSON.stringify(state))
+  const setSignedOut = useCallback(() => {
+    accountRef.current = null
+    setAccount(null)
+    setMergePrompt(null)
+    mergePending.current = false
   }, [])
 
-  const pushLocal = useCallback(async () => {
-    const token = await requestAccessToken()
-    const folderId = await ensureFolder(token)
-    const remoteId = await findBackup(token, folderId)
-    const rev = Date.now()
-    const payload: SyncPayload = { decks: libraryRef.current.decks, collections: libraryRef.current.collections, updatedAt: rev }
-    await uploadBackup(token, folderId, remoteId, JSON.stringify(payload))
-    localUpdatedAtRef.current = rev
-    persistSyncState({ lastSyncedRev: rev, lastSyncedAt: rev })
-    setLastSyncedAt(rev)
-    setLocalDirty(false)
-  }, [persistSyncState])
+  /** One sync pass, queued behind any pass already running. */
+  const runSync = useCallback((): Promise<void> => {
+    const pass = syncChain.current.then(async () => {
+      const acct = accountRef.current
+      if (!acct || mergePending.current) return
+      setCloud((c) => ({ ...c, syncing: true, message: null, failed: false }))
+      try {
+        const token = await auth.accessToken()
+        if (!token) {
+          setSignedOut()
+          throw new auth.AuthError('Signed out — sign in again to sync.')
+        }
+        const snapshot = libraryRef.current
+        const { state, remoteChanges } = await syncOnce(snapshot, loadCloudState(), acct.userId, token)
+        if (remoteChanges.size > 0) {
+          setLibrary((live) => {
+            const next = applyRemoteChanges(live, snapshot, remoteChanges)
+            persistLibrary(next)
+            libraryRef.current = next
+            return next
+          })
+        }
+        setCloud({ syncing: false, lastSyncedAt: state.lastSyncedAt, message: null, failed: false })
+      } catch (e) {
+        // The server no longer accepts this session (revoked, or the account was deleted): sign this
+        // browser out so the panel offers sign-in again. Local decks and binders stay.
+        if (e instanceof auth.AuthError) {
+          await auth.signOut()
+          setSignedOut()
+        }
+        const message = e instanceof auth.OfflineError ? "Offline — will sync when you're back online." : e instanceof Error ? e.message : 'Sync failed'
+        setCloud((c) => ({ ...c, syncing: false, failed: true, message }))
+      }
+    })
+    syncChain.current = pass.catch(() => {})
+    return pass
+  }, [persistLibrary, setSignedOut])
 
-  const schedulePush = useCallback(() => {
-    if (!connected) return
-    window.clearTimeout(pushTimer.current)
-    pushTimer.current = window.setTimeout(() => {
-      pushLocal().catch((e) => setMessage(e instanceof Error ? e.message : 'Sync failed'))
-    }, 1500)
-  }, [connected, pushLocal])
+  const scheduleSync = useCallback(() => {
+    if (!accountRef.current || mergePending.current) return
+    window.clearTimeout(syncTimer.current)
+    syncTimer.current = window.setTimeout(() => { void runSync() }, 2000)
+  }, [runSync])
+
+  /** After any sign-in: ask what to do with this browser's library the first time, otherwise sync. */
+  const startAccount = useCallback((acct: Account) => {
+    accountRef.current = acct
+    setAccount(acct)
+    const lib = libraryRef.current
+    if (loadCloudState().userId !== acct.userId && (lib.decks.length > 0 || lib.collections.length > 0)) {
+      mergePending.current = true
+      setMergePrompt({ decks: lib.decks.length, collections: lib.collections.length, email: acct.email })
+      return
+    }
+    void runSync()
+  }, [runSync])
+
+  const resolveMerge = useCallback((choice: 'add' | 'replace') => {
+    if (choice === 'replace') {
+      localStorage.setItem(LIBRARY_BACKUP_KEY, JSON.stringify(libraryRef.current))
+      const empty: Library = { decks: [], collections: [] }
+      libraryRef.current = empty
+      setLibrary(empty)
+      persistLibrary(empty)
+      clearCloudState()
+    }
+    mergePending.current = false
+    setMergePrompt(null)
+    void runSync()
+  }, [persistLibrary, runSync])
+
+  // On load: finish an account email link if one opened the page, otherwise resume a saved session.
+  useEffect(() => {
+    localStorage.removeItem(OLD_DRIVE_SYNC_KEY)
+    if (!auth.supabaseConfigured) return
+    let cancelled = false
+    // Shared promise: the link can only be read once (it's cleared from the URL), but effects may run
+    // twice (StrictMode) and the second run still needs the result.
+    authLink ??= auth.consumeAuthLink()
+    void authLink.then((result) => {
+      if (cancelled) return
+      if (result?.kind === 'error') setLinkNotice(result.message)
+      if (result?.kind === 'signed-in') {
+        if (result.recovery) setPasswordRecovery(true)
+        else setLinkNotice(`Email confirmed — signed in as ${result.account.email}.`)
+        startAccount(result.account)
+      } else if (accountRef.current) {
+        startAccount(accountRef.current)
+      }
+    })
+    return () => { cancelled = true }
+  }, [startAccount])
+
+  // Coming back to the tab (or back online) is when another device's edits are most likely waiting.
+  useEffect(() => {
+    const onReturn = () => {
+      if (document.visibilityState !== 'visible' || !accountRef.current) return
+      if (Date.now() - lastAutoSync.current < 30_000) return
+      lastAutoSync.current = Date.now()
+      void runSync()
+    }
+    document.addEventListener('visibilitychange', onReturn)
+    window.addEventListener('online', onReturn)
+    return () => {
+      document.removeEventListener('visibilitychange', onReturn)
+      window.removeEventListener('online', onReturn)
+      window.clearTimeout(syncTimer.current)
+    }
+  }, [runSync])
 
   const updateLibrary = useCallback(
     (updater: (lib: Library) => Library) => {
       setLibrary((prev) => {
         const next = updater(prev)
         persistLibrary(next)
-        localUpdatedAtRef.current = Date.now()
-        setLocalDirty(true)
         return next
       })
-      schedulePush()
+      scheduleSync()
     },
-    [persistLibrary, schedulePush],
+    [persistLibrary, scheduleSync],
   )
 
-  const runSync = useCallback(async () => {
-    setSyncing(true)
-    setMessage(null)
-    try {
-      const token = await requestAccessToken()
-      const folderId = await ensureFolder(token)
-      const remoteId = await findBackup(token, folderId)
-      const remoteRaw: SyncPayload | null = remoteId
-        ? JSON.parse(await downloadText(token, remoteId))
-        : null
-      const remote: SyncPayload | null = remoteRaw && { ...remoteRaw, ...normalizeLibrary(remoteRaw) }
+  const signIn = useCallback(async (email: string, password: string) => {
+    startAccount(await auth.signIn(email, password))
+  }, [startAccount])
 
-      const st = syncStateRef.current
-      const localDirtyNow = localUpdatedAtRef.current > st.lastSyncedRev
-      const remoteRev = remote?.updatedAt ?? -1
-      const remoteDirty = remote !== null && remoteRev !== st.lastSyncedRev
+  const signUp = useCallback(async (email: string, password: string) => {
+    const acct = await auth.signUp(email, password)
+    if (acct) startAccount(acct)
+    return acct !== null
+  }, [startAccount])
 
-      if (remote === null) {
-        await pushLocal()
-      } else if (remoteDirty && !localDirtyNow) {
-        setLibrary({ decks: remote.decks, collections: remote.collections })
-        persistLibrary({ decks: remote.decks, collections: remote.collections })
-        localUpdatedAtRef.current = remoteRev
-        persistSyncState({ lastSyncedRev: remoteRev, lastSyncedAt: Date.now() })
-        setLastSyncedAt(Date.now())
-        setLocalDirty(false)
-      } else if (localDirtyNow && !remoteDirty) {
-        await pushLocal()
-      } else if (localDirtyNow && remoteDirty) {
-        if (remoteRev > localUpdatedAtRef.current) {
-          setLibrary({ decks: remote.decks, collections: remote.collections })
-          persistLibrary({ decks: remote.decks, collections: remote.collections })
-          localUpdatedAtRef.current = remoteRev
-          persistSyncState({ lastSyncedRev: remoteRev, lastSyncedAt: Date.now() })
-          setLastSyncedAt(Date.now())
-          setLocalDirty(false)
-        } else {
-          await pushLocal()
-        }
-      }
-      setMessage('Synced')
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Sync failed')
-    } finally {
-      setSyncing(false)
-    }
-  }, [persistLibrary, persistSyncState, pushLocal])
+  const signOut = useCallback(async () => {
+    await syncChain.current
+    await auth.signOut()
+    clearCloudState()
+    setSignedOut()
+    setCloud(IDLE)
+    setPasswordRecovery(false)
+  }, [setSignedOut])
 
-  const connect = useCallback(async () => {
-    const token = await requestAccessToken()
-    const userEmail = await fetchUserEmail(token)
-    setConnected(true)
-    setEmail(userEmail)
-    await runSync()
-  }, [runSync])
+  const syncNow = useCallback(() => runSync(), [runSync])
 
-  const disconnect = useCallback(() => {
-    clearToken()
-    setConnected(false)
-    setEmail(null)
-    setMessage('Disconnected.')
+  const updatePassword = useCallback(async (password: string) => {
+    await auth.updatePassword(password)
+    setPasswordRecovery(false)
   }, [])
-
-  const syncNow = useCallback(async () => {
-    if (!connected) {
-      await connect()
-      return
-    }
-    await runSync()
-  }, [connected, connect, runSync])
-
-  useEffect(() => () => window.clearTimeout(pushTimer.current), [])
 
   // ---- Deck mutations ----
 
@@ -465,15 +516,22 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     () => ({
       decks: library.decks,
       collections: library.collections,
-      connected,
-      email,
-      syncing,
-      message,
-      lastSyncedAt,
-      localDirty,
-      connect,
-      disconnect,
+      accountsAvailable: auth.supabaseConfigured,
+      account,
+      cloud,
+      mergePrompt,
+      resolveMerge,
+      passwordRecovery,
+      dismissPasswordRecovery: () => setPasswordRecovery(false),
+      linkNotice,
+      dismissLinkNotice: () => setLinkNotice(null),
+      signIn,
+      signUp,
+      signOut,
       syncNow,
+      resendConfirmation: auth.resendConfirmation,
+      sendPasswordReset: auth.sendPasswordReset,
+      updatePassword,
       createDeck,
       deleteDeck,
       addCardToDeck,
@@ -493,10 +551,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setEntryQuantities,
     }),
     [
-      library, connected, email, syncing, message, lastSyncedAt, localDirty, connect, disconnect, syncNow,
-      createDeck, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity, setCommander,
-      setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, addGameResult, removeGameResult,
-      createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, setEntryQuantities,
+      library, account, cloud, mergePrompt, resolveMerge, passwordRecovery, linkNotice, signIn, signUp, signOut,
+      syncNow, updatePassword, createDeck, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
+      setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, addGameResult,
+      removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection,
+      setEntryQuantities,
     ],
   )
 

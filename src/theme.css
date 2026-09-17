@@ -279,6 +279,37 @@ button, input, select, textarea {
   border-color: var(--accent);
 }
 
+.btn-link {
+  border-color: transparent;
+  color: var(--accent);
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+/* ---- Home: account & sync (AccountPanel.tsx) ---- */
+
+.account-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+
+.account-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.account-hint {
+  font-size: 12px;
+}
+
+.account-notice {
+  color: var(--accent-light);
+  font-size: 13px;
+}
+
 .row {
   display: flex;
   align-items: center;
@@ -858,6 +889,7 @@ button, input, select, textarea {
 
 .dialog-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
   margin-top: 18px;

@@ -26,7 +26,10 @@ jobs:
       - run: npm ci
       - run: npm run build
         env:
-          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+          # Supabase project URL + anon (publishable) key. The anon key ends up in the public bundle by
+          # design; row-level security on library_items is what keeps each account's data private.
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       # GitHub Pages serves static files with no server-side routing — copying the SPA shell to
       # 404.html means a direct link/refresh on e.g. /decks/abc123 still loads the app, which then
       # reads the real URL from the browser and lets React Router take it from there.
