@@ -128,6 +128,8 @@ export interface SyncOutcome {
   state: CloudState
   /** Remote changes to apply to the live library: key -> new item, or null to remove it. */
   remoteChanges: Map<string, Deck | Collection | null>
+  /** How many local changes were sent up. */
+  pushed: number
 }
 
 /**
@@ -215,7 +217,7 @@ export async function syncOnce(snapshot: Library, startState: CloudState, userId
   }
   state = { ...state, lastSyncedAt: Date.now() }
   saveCloudState(state)
-  return { state, remoteChanges }
+  return { state, remoteChanges, pushed: keys.length }
 }
 
 /**

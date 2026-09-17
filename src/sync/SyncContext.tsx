@@ -11,6 +11,17 @@ import type { Account } from './supabaseAuth'
 import type { Library } from './cloudSync'
 import { applyRemoteChanges, clearCloudState, loadCloudState, recordLocalEdits, syncOnce } from './cloudSync'
 
+/** What a user-requested sync ended with. */
+export type RefreshResult =
+  | { kind: 'ok'; pulled: number; pushed: number }
+  | { kind: 'failed'; message: string; offline?: boolean }
+  | { kind: 'signed-out' }
+
+/** How often an open, visible tab checks for other devices' edits. */
+const POLL_INTERVAL_MS = 20_000
+/** Switching back to the tab checks at once, unless a check ran moments ago. */
+const RETURN_SYNC_GAP_MS = 5_000
+
 const LIBRARY_KEY = 'mtgweb_library'
 /** Where "Use my account's library" keeps this browser's old library, just in case. */
 const LIBRARY_BACKUP_KEY = 'mtgweb_library_before_account'
@@ -78,6 +89,8 @@ interface SyncContextValue {
   signUp: (email: string, password: string) => Promise<boolean>
   signOut: () => Promise<void>
   syncNow: () => Promise<void>
+  /** A sync the user asked for (pull to refresh), resolving with how it went. */
+  refresh: () => Promise<RefreshResult>
   resendConfirmation: (email: string) => Promise<void>
   sendPasswordReset: (email: string) => Promise<void>
   updatePassword: (password: string) => Promise<void>
@@ -125,6 +138,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const syncTimer = useRef<number | undefined>(undefined)
   const syncChain = useRef<Promise<void>>(Promise.resolve())
   const lastAutoSync = useRef(0)
+  const syncBusy = useRef(false)
 
   const persistLibrary = useCallback((lib: Library) => {
     localStorage.setItem(LIBRARY_KEY, JSON.stringify(lib))
@@ -137,12 +151,18 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     mergePending.current = false
   }, [])
 
-  /** One sync pass, queued behind any pass already running. */
-  const runSync = useCallback((): Promise<void> => {
+  /**
+   * One sync pass, queued behind any pass already running. A [quiet] pass — the background check
+   * for other devices' edits — skips if one is already under way and doesn't flash the syncing state.
+   */
+  const runSync = useCallback((quiet = false, onResult?: (r: RefreshResult) => void): Promise<void> => {
+    if (quiet && syncBusy.current) return syncChain.current
+    syncBusy.current = true
     const pass = syncChain.current.then(async () => {
       const acct = accountRef.current
-      if (!acct || mergePending.current) return
-      setCloud((c) => ({ ...c, syncing: true, message: null, failed: false }))
+      if (!acct) return onResult?.({ kind: 'signed-out' })
+      if (mergePending.current) return onResult?.({ kind: 'failed', message: 'Choose how to combine this browser’s library first' })
+      if (!quiet) setCloud((c) => ({ ...c, syncing: true, message: null, failed: false }))
       try {
         recordLocalEdits(libraryRef.current, acct.userId)
         const token = await auth.accessToken()
@@ -151,7 +171,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           throw new auth.AuthError('Signed out — sign in again to sync.')
         }
         const snapshot = libraryRef.current
-        const { state, remoteChanges } = await syncOnce(snapshot, loadCloudState(), acct.userId, token)
+        const { state, remoteChanges, pushed } = await syncOnce(snapshot, loadCloudState(), acct.userId, token)
         if (remoteChanges.size > 0) {
           setLibrary((live) => {
             const next = applyRemoteChanges(live, snapshot, remoteChanges)
@@ -161,6 +181,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           })
         }
         setCloud({ syncing: false, lastSyncedAt: state.lastSyncedAt, message: null, failed: false })
+        onResult?.({ kind: 'ok', pulled: remoteChanges.size, pushed })
       } catch (e) {
         // The server no longer accepts this session (revoked, or the account was deleted): sign this
         // browser out so the panel offers sign-in again. Local decks and binders stay.
@@ -170,8 +191,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         }
         const message = e instanceof auth.OfflineError ? "Offline — will sync when you're back online." : e instanceof Error ? e.message : 'Sync failed'
         setCloud((c) => ({ ...c, syncing: false, failed: true, message }))
+        onResult?.(e instanceof auth.AuthError ? { kind: 'signed-out' } : { kind: 'failed', message, offline: e instanceof auth.OfflineError })
       }
-    })
+    }).finally(() => { syncBusy.current = false })
     syncChain.current = pass.catch(() => {})
     return pass
   }, [persistLibrary, setSignedOut])
@@ -231,19 +253,28 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true }
   }, [startAccount])
 
-  // Coming back to the tab (or back online) is when another device's edits are most likely waiting.
+  // Coming back to the tab (or back online) is when another device's edits are most likely waiting;
+  // while the tab stays open and visible, check for them every so often too.
   useEffect(() => {
     const onReturn = () => {
       if (document.visibilityState !== 'visible' || !accountRef.current) return
-      if (Date.now() - lastAutoSync.current < 30_000) return
+      if (Date.now() - lastAutoSync.current < RETURN_SYNC_GAP_MS) return
       lastAutoSync.current = Date.now()
-      void runSync()
+      void runSync(true)
     }
+    const poll = window.setInterval(() => {
+      if (document.visibilityState !== 'visible' || !accountRef.current || !navigator.onLine) return
+      lastAutoSync.current = Date.now()
+      void runSync(true)
+    }, POLL_INTERVAL_MS)
     document.addEventListener('visibilitychange', onReturn)
     window.addEventListener('online', onReturn)
+    window.addEventListener('focus', onReturn)
     return () => {
+      window.clearInterval(poll)
       document.removeEventListener('visibilitychange', onReturn)
       window.removeEventListener('online', onReturn)
+      window.removeEventListener('focus', onReturn)
       window.clearTimeout(syncTimer.current)
     }
   }, [runSync])
@@ -280,6 +311,13 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   }, [setSignedOut])
 
   const syncNow = useCallback(() => runSync(), [runSync])
+
+  const refresh = useCallback(async (): Promise<RefreshResult> => {
+    if (!accountRef.current) return { kind: 'signed-out' }
+    let result: RefreshResult = { kind: 'ok', pulled: 0, pushed: 0 }
+    await runSync(false, (r) => { result = r })
+    return result
+  }, [runSync])
 
   const updatePassword = useCallback(async (password: string) => {
     await auth.updatePassword(password)
@@ -530,6 +568,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       signUp,
       signOut,
       syncNow,
+      refresh,
       resendConfirmation: auth.resendConfirmation,
       sendPasswordReset: auth.sendPasswordReset,
       updatePassword,
@@ -553,7 +592,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }),
     [
       library, account, cloud, mergePrompt, resolveMerge, passwordRecovery, linkNotice, signIn, signUp, signOut,
-      syncNow, updatePassword, createDeck, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
+      syncNow, refresh, updatePassword, createDeck, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, addGameResult,
       removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection,
       setEntryQuantities,
