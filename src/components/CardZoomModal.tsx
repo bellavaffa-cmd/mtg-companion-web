@@ -181,6 +181,10 @@ export function CardZoomModal({
           </div>
         )}
 
+        <div className="chips wrap">
+          <PillChip label="Rulings" icon="gavel" onClick={() => goTo(`/rules?tab=rulings&card=${encodeURIComponent(name)}`)} />
+        </div>
+
         {children}
 
         {(inDecks.length > 0 || inBinders.length > 0) && (
