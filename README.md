@@ -70,6 +70,18 @@ private. Never use the `service_role` key here.
 npm run dev
 ```
 
+## Tests
+
+```bash
+npm test
+```
+
+`tests/sync/` runs the real sync code (`src/sync/cloudSync.ts`) through two or three simulated devices
+and a fake Supabase: edits on both sides, failed and half-answered pushes, clocks that are off, two
+syncs racing on the same deck. Every scenario runs twice — against the old push function and against
+the compare-and-swap one — and checks what each device and the server end up with. Uses Node's own
+test runner (Node 22.15+), no extra packages.
+
 ## Deploying
 
 Pushing to `main` builds and deploys to GitHub Pages (`.github/workflows/deploy.yml`). The build
