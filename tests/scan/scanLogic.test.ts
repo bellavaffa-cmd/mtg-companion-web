@@ -1,7 +1,7 @@
 // The scanner's decisions (src/scan/scanLogic.ts), frame by frame.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { BLANK_FRAMES_TO_RESET, cleanTitle, looksLikeSameCard, parseSetAndNumber, sameRead, ScanTracker } from '../../src/scan/scanLogic.ts'
+import { BLANK_FRAMES_TO_RESET, cleanTitle, looksLikeSameCard, parseSetAndNumber, sameCardName, sameRead, ScanTracker } from '../../src/scan/scanLogic.ts'
 
 test('the name is the first line with three letters, without the mana cost or stray marks', () => {
   assert.equal(cleanTitle('Lightning Bolt {R}'), 'Lightning Bolt')
@@ -85,4 +85,22 @@ test("small print that can't be read with confidence gives no printing", () => {
   assert.equal(parseSetAndNumber('MSC • EN'), null) // no number
   assert.equal(parseSetAndNumber('U 0211'), null) // no set
   assert.equal(parseSetAndNumber(''), null)
+})
+
+test('a printing from the small print must name exactly the card the title read', () => {
+  assert.ok(sameCardName('Lightning Bolt', 'Lightning Bolt'))
+  assert.ok(sameCardName('Delver of Secrets // Insectile Aberration', 'Delver of Secrets // Insectile Aberration'))
+  assert.ok(sameCardName('Delver of Secrets', 'Delver of Secrets // Insectile Aberration'))
+  assert.ok(!sameCardName('Lightning Bolt', 'Lightning Helix')) // a misread number landing on a near name
+  assert.ok(!sameCardName('Goblin Guide', 'Goblin Bushwhacker'))
+  assert.ok(!sameCardName('', ''))
+})
+
+test('a failed lookup is tried again while the card stays in view', () => {
+  const tracker = new ScanTracker()
+  tracker.onRead('Sol Ring')
+  assert.deepEqual(tracker.onRead('Sol Ring'), { kind: 'lookup', name: 'Sol Ring' })
+  assert.deepEqual(tracker.onRead('Sol Ring'), { kind: 'wait' }) // still looking it up
+  tracker.failed()
+  assert.deepEqual(tracker.onRead('Sol Ring'), { kind: 'lookup', name: 'Sol Ring' })
 })

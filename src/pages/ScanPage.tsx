@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { getByExactName, getByFuzzyName, getBySetAndNumber } from '../api/scryfall'
+import { getByExactName, getByFuzzyName, getBySetAndNumber, OfflineError } from '../api/scryfall'
 import { ActionSheet, type SheetAction } from '../components/ActionSheet'
 import { Icon } from '../components/Icon'
 import { ArtImage, toArtCrop, useBack } from '../components/kit'
@@ -7,7 +7,7 @@ import { TopBar } from '../components/TopBar'
 import { cardNameIndex, MIN_MATCH } from '../scan/cardNames'
 import { guideInVideo } from '../scan/guide'
 import { readCardName, readSmallPrint, titleReader } from '../scan/ocr'
-import { looksLikeSameCard, parseSetAndNumber, ScanTracker } from '../scan/scanLogic'
+import { parseSetAndNumber, sameCardName, ScanTracker } from '../scan/scanLogic'
 import { useSync } from '../sync/SyncContext'
 import { displayImageUrl, type ScryfallCard } from '../types/scryfall'
 
@@ -43,12 +43,14 @@ export function ScanPage() {
   const guideRef = useRef<HTMLDivElement>(null)
   const scanNow = useRef(false)
   const [camera, setCamera] = useState<Camera>('starting')
+  const [cameraAttempt, setCameraAttempt] = useState(0)
   const [loading, setLoading] = useState<string | null>('Getting the card reader ready…')
   const [status, setStatus] = useState('Hold a card inside the frame, its name in the gold strip.')
   const [seen, setSeen] = useState('')
   const [scanned, setScanned] = useState<Scanned[]>([])
   const [flash, setFlash] = useState(0)
   const [typed, setTyped] = useState('')
+  const [lookingUp, setLookingUp] = useState(false)
   const [picking, setPicking] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -66,7 +68,9 @@ export function ScanPage() {
     navigator.vibrate?.(30)
   }
 
-  // The camera: the back one on a phone, as sharp as it offers.
+  // The camera: the back one on a phone, as sharp as it offers. It's let go while the page is hidden
+  // (another app, a locked phone) and taken again on return — phones often freeze or stop it then
+  // anyway — and a camera that stops by itself (unplugged, taken by another app) says so.
   useEffect(() => {
     let stream: MediaStream | null = null
     let cancelled = false
@@ -74,11 +78,21 @@ export function ScanPage() {
       setCamera('unsupported')
       return
     }
+    const release = () => {
+      stream?.getTracks().forEach((t) => t.stop())
+      stream = null
+    }
+    const onVisibility = () => {
+      if (!document.hidden) setCameraAttempt((n) => n + 1)
+      else if (stream) { release(); setCamera('starting') }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
     navigator.mediaDevices
       .getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false })
       .then((s) => {
         if (cancelled) { s.getTracks().forEach((t) => t.stop()); return }
         stream = s
+        s.getVideoTracks().forEach((t) => t.addEventListener('ended', () => { if (!cancelled && stream === s) setCamera('failed') }))
         const video = videoRef.current
         if (video) {
           video.srcObject = s
@@ -93,9 +107,10 @@ export function ScanPage() {
       })
     return () => {
       cancelled = true
-      stream?.getTracks().forEach((t) => t.stop())
+      document.removeEventListener('visibilitychange', onVisibility)
+      release()
     }
-  }, [])
+  }, [cameraAttempt])
 
   // Reading: one frame at a time, as fast as the reader manages. A card is looked up once its name
   // reads the same twice, and not again while it stays in view (ScanTracker).
@@ -136,19 +151,28 @@ export function ScanPage() {
             // card's usual printing, by name.
             let card: ScryfallCard | null = null
             const printing = parseSetAndNumber(await readSmallPrint(video, box).catch(() => ''))
+            if (stopped) break
             if (printing) {
               const key = `${printing.set}:${printing.number}`
               card = found.get(key) ?? await getBySetAndNumber(printing.set, printing.number).catch(() => null)
-              if (card && looksLikeSameCard(step.name, card.name)) found.set(key, card)
+              if (card && sameCardName(step.name, card.name)) found.set(key, card)
               else card = null
             }
-            card ??= found.get(step.name) ?? await getByExactName(step.name).catch(() => getByFuzzyName(step.name))
-            found.set(step.name, card)
+            if (!card) {
+              const byName = found.get(step.name) ?? await getByExactName(step.name)
+                .catch((e: unknown) => { if (e instanceof OfflineError) throw e; return getByFuzzyName(step.name) })
+              found.set(step.name, byName)
+              card = byName
+            }
             if (stopped) break
             tracker.added(card.name)
             addScanned(card)
-          } catch {
-            setStatus(`Didn't find “${step.name}” — keep scanning…`)
+          } catch (e) {
+            if (stopped) break
+            tracker.failed()
+            setStatus(e instanceof OfflineError
+              ? "You're offline — cards can't be looked up until the connection is back."
+              : `Didn't find “${step.name}” — keep scanning…`)
           }
         }
         await sleep(BETWEEN_READS_MS)
@@ -159,35 +183,48 @@ export function ScanPage() {
 
   const addTyped = async () => {
     const name = typed.trim()
-    if (!name) return
+    if (!name || lookingUp) return
+    setLookingUp(true)
     try {
       // The same matching as scanning, which copes with typos better than Scryfall's fuzzy search
       // ("sol rng" is Sol Ring there, Oathsworn Giant here); that search is the fallback.
       const match = (await cardNameIndex().catch(() => null))?.match(name)
       addScanned(match && match.score >= MIN_MATCH ? await getByExactName(match.name) : await getByFuzzyName(name))
       setTyped('')
-    } catch {
-      setStatus(`No card called “${name}”.`)
+    } catch (e) {
+      setStatus(e instanceof OfflineError ? "You're offline — cards can't be looked up until the connection is back." : `No card called “${name}”.`)
+    } finally {
+      setLookingUp(false)
     }
   }
 
+  // Rows are found by their key, not the row seen at render: a scan may have replaced it since.
   /** Switches a row between foil and not, joining the other row of the same card if there is one. */
-  const toggleFoil = (row: Scanned) => {
+  const toggleFoil = (key: string) => {
     setScanned((list) => {
+      const row = list.find((s) => rowKey(s) === key)
+      if (!row) return list
       const other = list.find((s) => s.card.id === row.card.id && s.foil !== row.foil)
       if (!other) return list.map((s) => (s === row ? { ...s, foil: !s.foil } : s))
       return list.filter((s) => s !== row).map((s) => (s === other ? { ...s, quantity: s.quantity + row.quantity } : s))
     })
   }
+  /** One more or one less of a row; the last one taken away removes it. */
+  const changeQuantity = (key: string, by: number) => {
+    setScanned((list) => list.flatMap((s) => (rowKey(s) !== key ? [s] : s.quantity + by > 0 ? [{ ...s, quantity: s.quantity + by }] : [])))
+  }
 
   const total = scanned.reduce((n, s) => n + s.quantity, 0)
   const addAllTo = (target: { kind: 'deck' | 'binder'; id: string; name: string }) => {
+    const warnings: string[] = []
     for (const s of scanned) {
       // A deck doesn't track foils; a binder counts them separately.
-      if (target.kind === 'deck') addCardToDeck(target.id, s.card, s.quantity)
-      else addEntryToCollection(target.id, s.card, s.foil ? 0 : s.quantity, s.foil ? s.quantity : 0)
+      if (target.kind === 'deck') {
+        const warning = addCardToDeck(target.id, s.card, s.quantity)
+        if (warning) warnings.push(warning)
+      } else addEntryToCollection(target.id, s.card, s.foil ? 0 : s.quantity, s.foil ? s.quantity : 0)
     }
-    setNotice(`Added ${total} ${total === 1 ? 'card' : 'cards'} to ${target.name}.`)
+    setNotice([`Added ${total} ${total === 1 ? 'card' : 'cards'} to ${target.name}.`, ...warnings].join(' '))
     setScanned([])
     setPicking(false)
   }
@@ -214,27 +251,32 @@ export function ScanPage() {
             <div className="scan-camera-note">
               <Icon name={camera === 'starting' ? 'photo_camera' : 'no_photography'} />
               {camera === 'starting' && 'Starting the camera…'}
-              {camera === 'denied' && 'The camera is blocked for this site. Allow it in the browser’s site settings, then open Scan again — or type names below.'}
+              {camera === 'denied' && 'The camera is blocked for this site. Allow it in the browser’s site settings, then try again — or type names below.'}
               {camera === 'unsupported' && 'No camera here. Type card names below instead.'}
-              {camera === 'failed' && 'The camera didn’t start. Close other apps using it and try again — or type names below.'}
+              {camera === 'failed' && 'The camera stopped or didn’t start. Close other apps using it and try again — or type names below.'}
+              {(camera === 'failed' || camera === 'denied') && (
+                <button type="button" className="btn line" onClick={() => { setCamera('starting'); setCameraAttempt((n) => n + 1) }}>
+                  <Icon name="refresh" aria-hidden />Try again
+                </button>
+              )}
             </div>
           )}
         </div>
 
-        <div className="scan-status" aria-live="polite">
-          <div>{(camera === 'on' && loading) || status}</div>
+        <div className="scan-status">
+          <div aria-live="polite">{(camera === 'on' && loading) || status}</div>
           {!loading && camera === 'on' && <div className="scan-seen">Reading: {seen || '…'}</div>}
         </div>
 
         {camera === 'on' && !loading && (
           <button type="button" className="btn line block" onClick={() => { scanNow.current = true; setStatus('Reading…') }}>
-            <Icon name="center_focus_strong" />Scan now
+            <Icon name="center_focus_strong" aria-hidden />Scan now
           </button>
         )}
 
         <form className="scan-type" onSubmit={(e) => { e.preventDefault(); void addTyped() }}>
           <input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Or type a card name" aria-label="Card name" />
-          <button type="submit" className="btn gold" disabled={!typed.trim()}>Add</button>
+          <button type="submit" className="btn gold" disabled={!typed.trim() || lookingUp}>Add</button>
         </form>
 
         {notice && <div className="notice" style={{ marginTop: 12 }}><Icon name="check_circle" style={{ color: 'var(--ok)', fontSize: 18, marginRight: 6 }} />{notice}</div>}
@@ -244,7 +286,7 @@ export function ScanPage() {
             <div className="scan-list-head">
               <span>{total} {total === 1 ? 'card' : 'cards'} scanned</span>
               <button type="button" className="btn gold" onClick={() => setPicking(true)}>
-                <Icon name="add" />Add to a deck or binder
+                <Icon name="add" aria-hidden />Add to a deck or binder
               </button>
             </div>
             <div className="list">
@@ -257,20 +299,20 @@ export function ScanPage() {
                       <span>{[s.card.set_name ?? s.card.set?.toUpperCase(), s.card.collector_number && `#${s.card.collector_number}`].filter(Boolean).join(' · ')}</span>
                     </div>
                     {canBeFoil(s.card) && (
-                      <button type="button" className="chip scan-foil" aria-pressed={s.foil} onClick={() => toggleFoil(s)}>
-                        <Icon name="auto_awesome" />Foil
+                      <button type="button" className="chip scan-foil" aria-pressed={s.foil} aria-label={`Foil: ${s.card.name}`} onClick={() => toggleFoil(rowKey(s))}>
+                        <Icon name="auto_awesome" aria-hidden />Foil
                       </button>
                     )}
                   </div>
                   <div className="scan-qty">
                     <button type="button" className="ib" aria-label={`One less ${s.card.name}`}
-                      onClick={() => setScanned((list) => list.flatMap((x) => (x !== s ? [x] : x.quantity > 1 ? [{ ...x, quantity: x.quantity - 1 }] : [])))}>
-                      <Icon name={s.quantity > 1 ? 'remove' : 'delete'} />
+                      onClick={() => changeQuantity(rowKey(s), -1)}>
+                      <Icon name={s.quantity > 1 ? 'remove' : 'delete'} aria-hidden />
                     </button>
                     <b>{s.quantity}</b>
                     <button type="button" className="ib" aria-label={`One more ${s.card.name}`}
-                      onClick={() => setScanned((list) => list.map((x) => (x === s ? { ...x, quantity: x.quantity + 1 } : x)))}>
-                      <Icon name="add" />
+                      onClick={() => changeQuantity(rowKey(s), 1)}>
+                      <Icon name="add" aria-hidden />
                     </button>
                   </div>
                 </div>

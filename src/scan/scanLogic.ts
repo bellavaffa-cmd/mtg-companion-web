@@ -49,6 +49,16 @@ export function parseSetAndNumber(text: string): { set: string; number: string }
 
 const letters = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
 
+/**
+ * Whether two exact card names are the same card: equal once case and punctuation are dropped, and
+ * a double-faced card's front face is enough ("Delver of Secrets" is "Delver of Secrets // Insectile
+ * Aberration"). Strict on purpose — "Lightning Bolt" and "Lightning Helix" are different cards.
+ */
+export function sameCardName(a: string, b: string): boolean {
+  const front = (s: string) => letters(s.split(' // ')[0])
+  return front(a) !== '' && front(a) === front(b)
+}
+
 /** Whether a read title and a card's name are the same card, allowing for a misread character or a cut-off end. */
 export function looksLikeSameCard(title: string, cardName: string): boolean {
   const a = letters(title)
@@ -123,6 +133,11 @@ export class ScanTracker {
     if (!steady || (!forced && this.lastLookedUp !== null && sameRead(title, this.lastLookedUp))) return { kind: 'wait' }
     this.lastLookedUp = title
     return { kind: 'lookup', name: title }
+  }
+
+  /** The lookup failed (offline, say): the card in view is tried again on its next steady read. */
+  failed() {
+    this.lastLookedUp = null
   }
 
   /** The lookup found [cardName]: it's the card in view now, and isn't added again while it stays. */

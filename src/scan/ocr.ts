@@ -126,12 +126,25 @@ export function titleStrip(source: CanvasImageSource, card: Box, row: number): H
   return canvas
 }
 
+// One read at a time on the shared reader: the small print switches its mode for a moment, and a
+// title read slipping in then (a second scan page's loop, say) would run in the wrong mode.
+let queue: Promise<unknown> = Promise.resolve()
+function oneAtATime<T>(job: () => Promise<T>): Promise<T> {
+  const run = queue.then(job, job)
+  queue = run.catch(() => {})
+  return run
+}
+
 /**
  * Reads the small print at the bottom left of the card at [card] in [source] (set code, language,
  * collector number) and returns it as text; [parseSetAndNumber] makes the printing of it. Read once
  * per new card, not every frame: it's two short lines of tiny text.
  */
-export async function readSmallPrint(source: CanvasImageSource, card: Box): Promise<string> {
+export function readSmallPrint(source: CanvasImageSource, card: Box): Promise<string> {
+  return oneAtATime(() => readSmallPrintAlone(source, card))
+}
+
+async function readSmallPrintAlone(source: CanvasImageSource, card: Box): Promise<string> {
   const worker = await titleReader()
   const sx = card.x + card.width * 0.03
   const sw = card.width * 0.55
@@ -186,7 +199,11 @@ function bestMatch(text: string, names: NameIndex): NameMatch | null {
 }
 
 /** Reads the name of the card at [card] (the guide box, in [source]'s own pixels). */
-export async function readCardName(source: CanvasImageSource, card: Box, names: NameIndex): Promise<CardRead> {
+export function readCardName(source: CanvasImageSource, card: Box, names: NameIndex): Promise<CardRead> {
+  return oneAtATime(() => readCardNameAlone(source, card, names))
+}
+
+async function readCardNameAlone(source: CanvasImageSource, card: Box, names: NameIndex): Promise<CardRead> {
   const worker = await titleReader()
   const rows = [locateTitle(source, card), ...USUAL_TITLE_ROWS]
   let best: NameMatch | null = null
