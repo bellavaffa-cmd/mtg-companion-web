@@ -8,9 +8,13 @@
 import type { Collection, Deck } from '../types/models'
 import { mergeCollection, mergeDeck } from './mergeItems'
 import { normalizeDeck } from '../types/models'
-import { apiHeaders, restUrl } from './supabaseAuth'
+import { apiHeaders, OfflineError, restUrl } from './supabaseAuth'
+import { canonicalJson } from './canonicalJson'
 
 const STATE_KEY = 'mtgweb_cloud_state'
+
+/** A request that hasn't answered by now is treated like being offline, so a sync can't hang forever. */
+const REQUEST_TIMEOUT_MS = 30_000
 
 export interface Library {
   decks: Deck[]
@@ -20,6 +24,7 @@ export interface Library {
 interface ItemMeta {
   /** Hash of the item's JSON as last agreed with the server; 0 for a deletion. */
   hash: number
+  /** The edit time of the version last agreed on — or of this browser's last push of it. */
   editedMs: number
   deleted?: boolean
   /**
@@ -39,6 +44,11 @@ export interface CloudState {
   /** server_updated_at of the newest row already pulled. */
   cursor: string | null
   lastSyncedAt: number
+  /**
+   * Items from a push the server partly skipped (it held a newer edit of some of them). The next
+   * pass reads these rows back even if the cursor is past them, and merges where needed.
+   */
+  refetch?: string[]
 }
 
 export const emptyCloudState = (userId: string | null = null): CloudState =>
@@ -61,6 +71,8 @@ export function clearCloudState() {
   localStorage.removeItem(STATE_KEY)
 }
 
+export const CLOUD_STATE_KEY = STATE_KEY
+
 /** 32-bit FNV-1a — only compared with hashes this browser computed itself. */
 function hash(text: string): number {
   let h = 0x811c9dc5
@@ -69,18 +81,6 @@ function hash(text: string): number {
     h = Math.imul(h, 0x01000193)
   }
   return h >>> 0 || 1
-}
-
-/**
- * JSON with object keys sorted. Postgres jsonb doesn't keep key order, so a deck this browser pushed
- * comes back from the server reordered — comparing canonical JSON keeps that from looking like a change.
- */
-function canonicalJson(value: unknown): string {
-  return JSON.stringify(value, (_key, v: unknown) =>
-    v && typeof v === 'object' && !Array.isArray(v)
-      ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
-      : v,
-  )
 }
 
 export function libraryJson(lib: Library): Map<string, string> {
@@ -107,9 +107,9 @@ export class UnauthorizedError extends Error {}
 async function request(path: string, token: string, init?: RequestInit): Promise<Response> {
   let res: Response
   try {
-    res = await fetch(restUrl(path), { ...init, headers: apiHeaders(token) })
+    res = await fetch(restUrl(path), { ...init, headers: apiHeaders(token), signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
   } catch {
-    throw new SyncError("Offline — will sync when you're back online.")
+    throw new OfflineError("Offline — will sync when you're back online.")
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({})) as { message?: string }
@@ -119,15 +119,13 @@ async function request(path: string, token: string, init?: RequestInit): Promise
   return res
 }
 
+const ROW_FIELDS = 'kind,id,data,edited_ms,deleted,server_updated_at'
+
 async function pull(token: string, cursor: string | null): Promise<RemoteRow[]> {
   const rows: RemoteRow[] = []
   let after = cursor
   for (;;) {
-    const params = new URLSearchParams({
-      select: 'kind,id,data,edited_ms,deleted,server_updated_at',
-      order: 'server_updated_at.asc',
-      limit: '500',
-    })
+    const params = new URLSearchParams({ select: ROW_FIELDS, order: 'server_updated_at.asc', limit: '500' })
     if (after) params.set('server_updated_at', `gt.${after}`)
     const page = (await (await request(`/rest/v1/library_items?${params}`, token)).json()) as RemoteRow[]
     rows.push(...page)
@@ -136,20 +134,19 @@ async function pull(token: string, cursor: string | null): Promise<RemoteRow[]> 
   }
 }
 
-export interface SyncOutcome {
-  state: CloudState
-  /** Remote changes to apply to the live library: key -> new item, or null to remove it. */
-  remoteChanges: Map<string, Deck | Collection | null>
-  /** How many local changes were sent up. */
-  pushed: number
+/** The current rows for [keys], wherever they sit relative to the cursor. */
+async function fetchRows(token: string, keys: string[]): Promise<RemoteRow[]> {
+  const out: RemoteRow[] = []
+  for (let i = 0; i < keys.length; i += 100) {
+    const chunk = keys.slice(i, i + 100)
+    const ids = [...new Set(chunk.map((key) => key.slice(key.indexOf(':') + 1)))]
+    const params = new URLSearchParams({ select: ROW_FIELDS, id: `in.(${ids.map((id) => `"${id.replace(/"/g, '\\"')}"`).join(',')})` })
+    const page = (await (await request(`/rest/v1/library_items?${params}`, token)).json()) as RemoteRow[]
+    out.push(...page.filter((row) => chunk.includes(`${row.kind}:${row.id}`)))
+  }
+  return out
 }
 
-/**
- * One sync pass over [snapshot] (the library as it was when the pass started):
- * 1. note local changes since the last agreement with the server,
- * 2. pull rows newer than the cursor, keeping any pending local edit that's newer,
- * 3. push what's still pending.
- */
 /** Local changes since the last agreement with the server, each stamped with when it was first noticed. */
 function detectPending(local: Map<string, string>, state: CloudState, now: number): Record<string, number> {
   const pending = { ...state.pending }
@@ -179,21 +176,42 @@ export function recordLocalEdits(snapshot: Library, userId: string): void {
   if (JSON.stringify(pending) !== JSON.stringify(state.pending)) saveCloudState({ ...state, pending })
 }
 
-export async function syncOnce(snapshot: Library, startState: CloudState, userId: string, token: string): Promise<SyncOutcome> {
-  let state = startState.userId === userId ? startState : emptyCloudState(userId)
+/** What a pull found. Nothing is saved yet: apply [remoteChanges] locally, then save [state], then push. */
+export interface PullOutcome {
+  state: CloudState
+  /** Remote changes to apply to the live library: key -> new item, or null to remove it. */
+  remoteChanges: Map<string, Deck | Collection | null>
+  /** Every item as it should be pushed: the snapshot, with merged items in place of the originals. */
+  local: Map<string, string>
+  startedAt: number
+}
+
+/**
+ * The first half of a sync pass over [snapshot] (the library as it was when the pass started):
+ * note local changes since the last agreement with the server, then pull rows newer than the cursor,
+ * merging where both sides changed an item and keeping any pending local edit that's newer.
+ */
+export async function pullChanges(snapshot: Library, startState: CloudState, userId: string, token: string): Promise<PullOutcome> {
+  const state = startState.userId === userId ? startState : emptyCloudState(userId)
   const local = libraryJson(snapshot)
   const now = Date.now()
   const pending = detectPending(local, state, now)
 
   const rows = await pull(token, state.cursor)
+  // Rows a partly skipped push left behind, unless the cursor pull already brought a newer copy.
+  const inPull = new Set(rows.map((row) => `${row.kind}:${row.id}`))
+  const again = state.refetch?.length
+    ? (await fetchRows(token, state.refetch)).filter((row) => !inPull.has(`${row.kind}:${row.id}`))
+    : []
+
   const items = { ...state.items }
   const remoteChanges = new Map<string, Deck | Collection | null>()
   let cursor = state.cursor
-  for (const row of rows) {
-    cursor = row.server_updated_at
+  for (const row of [...again, ...rows]) {
+    if (inPull.has(`${row.kind}:${row.id}`)) cursor = row.server_updated_at
     const key = `${row.kind}:${row.id}`
     const localEdit = pending[key]
-    if (row.deleted || !row.data) {
+    if (row.deleted) {
       // A deck deleted elsewhere goes, unless this device edited it more recently.
       if (localEdit !== undefined && localEdit > row.edited_ms) continue
       if (local.has(key)) remoteChanges.set(key, null)
@@ -201,12 +219,16 @@ export async function syncOnce(snapshot: Library, startState: CloudState, userId
       delete pending[key]
       continue
     }
+    if (!row.data) continue // not readable; a later edit will bring it
     const theirs = row.kind === 'deck'
       ? normalizeDeck(row.data as unknown as Deck)
       : (row.data as unknown as Collection)
     const theirJson = canonicalJson(theirs)
     const mineJson = local.get(key)
-    const baseJson = state.items[key]?.base
+    const meta = state.items[key]
+    // A row stamped with the edit time this browser last pushed is its own write coming back (or one
+    // it already agreed on): that is now the agreed version, so it doesn't count twice in a merge.
+    const baseJson = meta && !meta.deleted && meta.editedMs === row.edited_ms ? theirJson : meta?.base
 
     // This device has diverged if its copy differs from the version both sides last agreed on —
     // which stays true even when a push was skipped as stale server-side.
@@ -226,8 +248,8 @@ export async function syncOnce(snapshot: Library, startState: CloudState, userId
           ? { ...mine, cards: [], considering: [], tags: [], gameResults: [], versions: [] }
           : { ...mine, entries: [] }
       const merged = row.kind === 'deck'
-        ? mergeDeck(base as Deck, mine as Deck, theirs as Deck, (localEdit ?? 0) > row.edited_ms)
-        : mergeCollection(base as Collection, mine as Collection, theirs as Collection, (localEdit ?? 0) > row.edited_ms)
+        ? mergeDeck(base as Deck, mine as Deck, JSON.parse(theirJson) as Deck, (localEdit ?? 0) > row.edited_ms)
+        : mergeCollection(base as Collection, mine as Collection, JSON.parse(theirJson) as Collection, (localEdit ?? 0) > row.edited_ms)
       const mergedJson = canonicalJson(merged)
       if (mergedJson !== mineJson) remoteChanges.set(key, merged)
       // Push the merged version, stamped past their edit so the server can't reject it as stale,
@@ -238,70 +260,92 @@ export async function syncOnce(snapshot: Library, startState: CloudState, userId
       continue
     }
 
-    if (localEdit !== undefined && localEdit > row.edited_ms) continue // ours is newer; pushed below
+    if (localEdit !== undefined && localEdit > row.edited_ms) {
+      // Ours is newer and pushed below; still note an echo of our own last push as agreed.
+      if (baseJson !== meta?.base && meta) items[key] = { ...meta, base: baseJson }
+      continue
+    }
     if (mineJson !== theirJson) remoteChanges.set(key, theirs)
     items[key] = { hash: hash(theirJson), editedMs: row.edited_ms, base: theirJson }
     delete pending[key]
   }
-  state = { ...state, items, pending, cursor }
-  saveCloudState(state)
+  return { state: { ...state, items, pending, cursor, refetch: [] }, remoteChanges, local, startedAt: now }
+}
 
-  const keys = Object.keys(pending)
+/**
+ * The second half of a pass: push what's still pending after [pulled], and return the state to keep.
+ * Save [pulled].state before calling this, so a push that fails doesn't lose what was pulled.
+ */
+export async function pushPending(pulled: PullOutcome, token: string): Promise<{ state: CloudState; pushed: number }> {
+  let state = pulled.state
+  const keys = Object.keys(state.pending)
   let written = 0
   if (keys.length > 0) {
-    const pushed: Record<string, ItemMeta> = {}
+    const pushedJson: Record<string, string | undefined> = {}
     const batch = keys.map((key) => {
       const [kind, id] = [key.slice(0, key.indexOf(':')), key.slice(key.indexOf(':') + 1)]
-      const editedMs = pending[key] === 0 ? now : pending[key]
-      const json = local.get(key)
-      if (json === undefined) {
-        pushed[key] = { hash: 0, editedMs, deleted: true }
-        return { kind, id, edited_ms: editedMs, deleted: true }
-      }
-      // Not `base: json`: the server skips a push that's older than what it holds, and only says how
-      // many rows it wrote. The base moves when a pull brings back what the server actually has, so a
-      // skipped push still reads as diverged and gets merged.
-      pushed[key] = { hash: hash(json), editedMs, base: state.items[key]?.base }
-      return { kind, id, edited_ms: editedMs, deleted: false, data: JSON.parse(json) }
+      const editedMs = state.pending[key] === 0 ? pulled.startedAt : state.pending[key]
+      const json = pulled.local.get(key)
+      pushedJson[key] = json
+      return json === undefined
+        ? { kind, id, edited_ms: editedMs, deleted: true }
+        : { kind, id, edited_ms: editedMs, deleted: false, data: JSON.parse(json) }
     })
     const res = await request('/rest/v1/rpc/push_library_items', token, { method: 'POST', body: JSON.stringify({ items: batch }) })
     // The server skips any item older than what it already holds, and answers with how many it wrote.
     const answer = Number((await res.text()).trim())
+    const allWritten = answer === batch.length
     written = Number.isFinite(answer) ? answer : batch.length
-    state = { ...state, items: { ...state.items, ...pushed }, pending: {} }
+    const items = { ...state.items }
+    batch.forEach((item) => {
+      const key = `${item.kind}:${item.id}`
+      const json = pushedJson[key]
+      items[key] = json === undefined
+        ? { hash: 0, editedMs: item.edited_ms, deleted: true }
+        // Everything was written: the pushed version is now what both sides agree on. Otherwise we
+        // can't tell which ones the server skipped, so the old base stays and the next pass reads
+        // those rows back — its own write is recognised by its edit time, anything newer is merged.
+        : { hash: hash(json), editedMs: item.edited_ms, base: allWritten ? json : state.items[key]?.base }
+    })
+    state = { ...state, items, pending: {}, refetch: allWritten ? [] : keys }
   }
-  state = { ...state, lastSyncedAt: Date.now() }
-  saveCloudState(state)
-  return { state, remoteChanges, pushed: written }
+  return { state: { ...state, lastSyncedAt: Date.now() }, pushed: written }
 }
 
 /**
- * Applies [changes] to the live library. Items edited locally while the sync was running (their
- * JSON no longer matches [snapshot]) are left alone — the next pass sees them as pending and pushes
- * the newer edit.
+ * Applies [changes] to the live library. An item edited locally while the sync was running (its
+ * JSON no longer matches [snapshot]) gets the remote version merged into it — the next pass then
+ * sees it as a local change and pushes the combination.
  */
 export function applyRemoteChanges(live: Library, snapshot: Library, changes: Map<string, Deck | Collection | null>): Library {
   if (changes.size === 0) return live
   const before = libraryJson(snapshot)
   const now = libraryJson(live)
-  const untouched = (key: string) => before.get(key) === now.get(key)
+
+  const resolve = <T extends Deck | Collection>(key: string, item: T | null, was: T | undefined, current: T | undefined, merge: (b: T, m: T, t: T) => T): T | null | undefined => {
+    if (before.get(key) === now.get(key)) return item // untouched here: take the remote version
+    if (item === null || current === undefined || was === undefined) return undefined // keep the local change
+    return merge(was, current, item)
+  }
 
   let decks = live.decks
   let collections = live.collections
   changes.forEach((item, key) => {
-    if (!untouched(key)) return
     const id = key.slice(key.indexOf(':') + 1)
     if (key.startsWith('deck:')) {
-      const rest = decks.filter((d) => d.id !== id)
-      const index = decks.findIndex((d) => d.id === id)
-      if (item === null) decks = rest
-      else if (index >= 0) decks = decks.map((d) => (d.id === id ? (item as Deck) : d))
-      else decks = [...rest, item as Deck]
+      const next = resolve(key, item as Deck | null, snapshot.decks.find((d) => d.id === id), decks.find((d) => d.id === id),
+        (b, m, t) => mergeDeck(b, m, t, true))
+      if (next === undefined) return
+      if (next === null) decks = decks.filter((d) => d.id !== id)
+      else if (decks.some((d) => d.id === id)) decks = decks.map((d) => (d.id === id ? next : d))
+      else decks = [...decks, next]
     } else {
-      const index = collections.findIndex((c) => c.id === id)
-      if (item === null) collections = collections.filter((c) => c.id !== id)
-      else if (index >= 0) collections = collections.map((c) => (c.id === id ? (item as Collection) : c))
-      else collections = [...collections, item as Collection]
+      const next = resolve(key, item as Collection | null, snapshot.collections.find((c) => c.id === id), collections.find((c) => c.id === id),
+        (b, m, t) => mergeCollection(b, m, t, true))
+      if (next === undefined) return
+      if (next === null) collections = collections.filter((c) => c.id !== id)
+      else if (collections.some((c) => c.id === id)) collections = collections.map((c) => (c.id === id ? next : c))
+      else collections = [...collections, next]
     }
   })
   return { decks, collections }

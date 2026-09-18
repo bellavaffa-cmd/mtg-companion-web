@@ -14,8 +14,10 @@
 // The Android app merges the same way — see data/supabase/ItemMerge.kt.
 
 import type { Collection, CollectionEntry, Deck, DeckCardEntry, GameResult } from '../types/models'
+import { canonicalJson } from './canonicalJson'
 
-const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+// Key order doesn't count: the server's copy comes back with its keys reordered.
+const same = (a: unknown, b: unknown) => canonicalJson(a ?? null) === canonicalJson(b ?? null)
 
 /** A field's value after a merge: whoever changed it, or the more recent edit when both did. */
 function pick<T>(base: T, mine: T, theirs: T, minePreferred: boolean): T {

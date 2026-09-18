@@ -9,7 +9,10 @@ import { backImageUrl, canBeCommander, cardTags, displayImageUrl, partnerAbility
 import * as auth from './supabaseAuth'
 import type { Account } from './supabaseAuth'
 import type { Library } from './cloudSync'
-import { applyRemoteChanges, clearCloudState, loadCloudState, recordLocalEdits, syncOnce, UnauthorizedError } from './cloudSync'
+import {
+  applyRemoteChanges, clearCloudState, CLOUD_STATE_KEY, loadCloudState, pullChanges, pushPending, recordLocalEdits,
+  saveCloudState, UnauthorizedError,
+} from './cloudSync'
 
 /** What a user-requested sync ended with. */
 export type RefreshResult =
@@ -36,14 +39,21 @@ function normalizeLibrary(lib: { decks?: Deck[]; collections?: Collection[] }): 
   }
 }
 
-function loadLibrary(): Library {
+function loadLibrary(raw = localStorage.getItem(LIBRARY_KEY)): Library {
   try {
-    const raw = localStorage.getItem(LIBRARY_KEY)
     if (!raw) return { decks: [], collections: [] }
     return normalizeLibrary(JSON.parse(raw))
   } catch {
     return { decks: [], collections: [] }
   }
+}
+
+/**
+ * Runs [fn] while no other tab of this app is syncing. Tabs share the sync bookkeeping and the
+ * session, so two passes at once would each push what the other just pulled.
+ */
+function withSyncLock<T>(fn: () => Promise<T>): Promise<T> {
+  return 'locks' in navigator ? navigator.locks.request('mtgweb-sync', fn) : fn()
 }
 
 function entryFromCard(card: ScryfallCard, quantity: number): DeckCardEntry {
@@ -127,8 +137,12 @@ let authLink: Promise<auth.LinkResult | null> | null = null
 
 export function SyncProvider({ children }: { children: ReactNode }) {
   const [library, setLibrary] = useState<Library>(() => loadLibrary())
+  // The library as of the latest change, updated synchronously (React state catches up on the next
+  // render), so a sync pass never starts from a copy that's missing an edit.
   const libraryRef = useRef(library)
-  libraryRef.current = library
+  // The stored library this tab last wrote or read. When localStorage holds something else, another
+  // tab changed it.
+  const storedLibrary = useRef<string | null>(null)
 
   const [account, setAccount] = useState<Account | null>(() => (auth.supabaseConfigured ? auth.currentAccount() : null))
   const accountRef = useRef(account)
@@ -143,7 +157,27 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const syncBusy = useRef(false)
 
   const persistLibrary = useCallback((lib: Library) => {
-    localStorage.setItem(LIBRARY_KEY, JSON.stringify(lib))
+    const raw = JSON.stringify(lib)
+    localStorage.setItem(LIBRARY_KEY, raw)
+    storedLibrary.current = raw
+  }, [])
+
+  /** Every change to the library goes through here. */
+  const commitLibrary = useCallback((next: Library) => {
+    libraryRef.current = next
+    persistLibrary(next)
+    setLibrary(next)
+  }, [persistLibrary])
+
+  /** Picks up the library another tab saved, so this one doesn't write an old copy over it. */
+  const adoptStoredLibrary = useCallback(() => {
+    const raw = localStorage.getItem(LIBRARY_KEY)
+    if (storedLibrary.current === null) storedLibrary.current = raw
+    if (raw === storedLibrary.current) return
+    storedLibrary.current = raw
+    const lib = loadLibrary(raw)
+    libraryRef.current = lib
+    setLibrary(lib)
   }, [])
 
   const setSignedOut = useCallback(() => {
@@ -160,44 +194,50 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const runSync = useCallback((quiet = false, onResult?: (r: RefreshResult) => void): Promise<void> => {
     if (quiet && syncBusy.current) return syncChain.current
     syncBusy.current = true
-    const pass = syncChain.current.then(async () => {
+    const pass = syncChain.current.then(() => withSyncLock(async () => {
       const acct = accountRef.current
       if (!acct) return onResult?.({ kind: 'signed-out' })
       if (mergePending.current) return onResult?.({ kind: 'failed', message: 'Choose how to combine this browser’s library first' })
+      // Another tab signed out or into a different account: this one follows it rather than syncing
+      // one account's library into the other.
+      if (auth.currentAccount()?.userId !== acct.userId) return onResult?.({ kind: 'signed-out' })
       if (!quiet) setCloud((c) => ({ ...c, syncing: true, message: null, failed: false }))
       try {
+        adoptStoredLibrary()
         recordLocalEdits(libraryRef.current, acct.userId)
-        const token = await auth.accessToken()
+        let token = await auth.accessToken()
         if (!token) {
           setSignedOut()
           throw new auth.AuthError('Signed out — sign in again to sync.')
         }
-        const snapshot = libraryRef.current
-        let outcome
-        try {
-          outcome = await syncOnce(snapshot, loadCloudState(), acct.userId, token)
-        } catch (e) {
-          if (!(e instanceof UnauthorizedError)) throw e
-          // The access token was refused: refresh the session once and try again.
-          auth.invalidateAccessToken()
-          const fresh = await auth.accessToken()
-          if (!fresh) {
-            setSignedOut()
-            throw new auth.AuthError('Signed out — sign in again to sync.')
+        // A request whose access token is refused refreshes the session once and tries again.
+        const authed = async <T,>(call: (t: string) => Promise<T>): Promise<T> => {
+          try {
+            return await call(token!)
+          } catch (e) {
+            if (!(e instanceof UnauthorizedError)) throw e
+            auth.invalidateAccessToken()
+            token = await auth.accessToken()
+            if (!token) {
+              setSignedOut()
+              throw new auth.AuthError('Signed out — sign in again to sync.')
+            }
+            return await call(token)
           }
-          outcome = await syncOnce(snapshot, loadCloudState(), acct.userId, fresh)
         }
-        const { state, remoteChanges, pushed } = outcome
-        if (remoteChanges.size > 0) {
-          setLibrary((live) => {
-            const next = applyRemoteChanges(live, snapshot, remoteChanges)
-            persistLibrary(next)
-            libraryRef.current = next
-            return next
-          })
+        const snapshot = libraryRef.current
+        const pulled = await authed((t) => pullChanges(snapshot, loadCloudState(), acct.userId, t))
+        // Take in what was pulled before pushing, so a push that fails can't lose it: the next pass
+        // would find the cursor past those rows and push this browser's old copies over them.
+        if (pulled.remoteChanges.size > 0) {
+          adoptStoredLibrary()
+          commitLibrary(applyRemoteChanges(libraryRef.current, snapshot, pulled.remoteChanges))
         }
+        saveCloudState(pulled.state)
+        const { state, pushed } = await authed((t) => pushPending(pulled, t))
+        saveCloudState(state)
         setCloud({ syncing: false, lastSyncedAt: state.lastSyncedAt, message: null, failed: false })
-        onResult?.({ kind: 'ok', pulled: remoteChanges.size, pushed })
+        onResult?.({ kind: 'ok', pulled: pulled.remoteChanges.size, pushed })
       } catch (e) {
         // The server no longer accepts this session (revoked, or the account was deleted): sign this
         // browser out so the panel offers sign-in again. Local decks and binders stay.
@@ -213,10 +253,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           ? { kind: 'signed-out' }
           : { kind: 'failed', message, offline: e instanceof auth.OfflineError && !(e instanceof auth.ServerBusyError) })
       }
-    }).finally(() => { syncBusy.current = false })
+    })).finally(() => { syncBusy.current = false })
     syncChain.current = pass.catch(() => {})
     return pass
-  }, [persistLibrary, setSignedOut])
+  }, [adoptStoredLibrary, commitLibrary, setSignedOut])
 
   const scheduleSync = useCallback(() => {
     if (!accountRef.current || mergePending.current) return
@@ -240,16 +280,13 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const resolveMerge = useCallback((choice: 'add' | 'replace') => {
     if (choice === 'replace') {
       localStorage.setItem(LIBRARY_BACKUP_KEY, JSON.stringify(libraryRef.current))
-      const empty: Library = { decks: [], collections: [] }
-      libraryRef.current = empty
-      setLibrary(empty)
-      persistLibrary(empty)
+      commitLibrary({ decks: [], collections: [] })
       clearCloudState()
     }
     mergePending.current = false
     setMergePrompt(null)
     void runSync()
-  }, [persistLibrary, runSync])
+  }, [commitLibrary, runSync])
 
   // On load: finish an account email link if one opened the page, otherwise resume a saved session.
   useEffect(() => {
@@ -299,16 +336,34 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }
   }, [runSync])
 
+  // Another tab of this app changed the library, the session or the sync state: follow it, so this
+  // tab neither saves an old library over the new one nor syncs as an account that's gone.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LIBRARY_KEY || e.key === null) adoptStoredLibrary()
+      if (e.key === CLOUD_STATE_KEY || e.key === null) {
+        setCloud((c) => ({ ...c, lastSyncedAt: loadCloudState().lastSyncedAt }))
+      }
+      const stored = auth.supabaseConfigured ? auth.currentAccount() : null
+      if (stored?.userId !== accountRef.current?.userId) {
+        accountRef.current = stored
+        setAccount(stored)
+        setMergePrompt(null)
+        mergePending.current = false
+        if (!stored) setCloud(IDLE)
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [adoptStoredLibrary])
+
   const updateLibrary = useCallback(
     (updater: (lib: Library) => Library) => {
-      setLibrary((prev) => {
-        const next = updater(prev)
-        persistLibrary(next)
-        return next
-      })
+      adoptStoredLibrary()
+      commitLibrary(updater(libraryRef.current))
       scheduleSync()
     },
-    [persistLibrary, scheduleSync],
+    [adoptStoredLibrary, commitLibrary, scheduleSync],
   )
 
   const signIn = useCallback(async (email: string, password: string) => {
