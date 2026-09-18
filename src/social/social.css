@@ -502,12 +502,83 @@
   color: var(--gold);
 }
 
-.giphy-box {
-  margin: -4px 0 16px;
-  padding: 12px;
-  border-radius: 16px;
+/* The Giphy picker opens from inside the edit-profile dialog, so it sits above dialogs. */
+.giphy-scrim {
+  z-index: 70;
+}
+.giphy-sheet {
+  z-index: 71;
+}
+.giphy-search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 22px;
   background: var(--g2);
 }
-.giphy-box a {
-  color: var(--gold);
+.giphy-search .icon {
+  color: var(--t2);
+}
+.giphy-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--t0);
+  font: inherit;
+  font-size: 15px;
+}
+.giphy-label {
+  margin: 0 4px 8px;
+  font-size: 12.5px;
+}
+.giphy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 6px;
+}
+.giphy-cell {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--g2);
+}
+.giphy-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.giphy-cell:disabled:not(.busy) {
+  opacity: 0.5;
+}
+.giphy-busy {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(12, 13, 17, 0.7);
+  color: var(--t0);
+  font-size: 12px;
+  font-weight: 700;
+}
+.giphy-link {
+  margin-top: 16px;
+}
+.giphy-attribution {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--t2);
 }

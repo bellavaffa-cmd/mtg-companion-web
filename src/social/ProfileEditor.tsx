@@ -4,7 +4,7 @@ import { Icon } from '../components/Icon'
 import * as api from './api'
 import { useSocial } from './SocialContext'
 import { Avatar } from './ui'
-import { fetchGiphyGif, GIPHY_SITE } from './giphy'
+import { GiphyPicker } from './GiphyPicker'
 
 const USERNAME = /^[a-z0-9_]{3,20}$/
 
@@ -31,8 +31,6 @@ export function ProfileEditor({ onDone }: { onDone?: () => void }) {
   const [error, setError] = useState<string | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const [giphyOpen, setGiphyOpen] = useState(false)
-  const [giphyLink, setGiphyLink] = useState('')
-  const [giphyBusy, setGiphyBusy] = useState(false)
 
   const cleanUsername = username.trim().toLowerCase()
   useEffect(() => {
@@ -87,7 +85,7 @@ export function ProfileEditor({ onDone }: { onDone?: () => void }) {
           <button type="button" className="btn line sm" onClick={() => fileInput.current?.click()}>
             <Icon name="add_photo_alternate" aria-hidden />{me?.avatar_path || picture ? 'Change picture' : 'Add a picture'}
           </button>
-          <button type="button" className="btn line sm" onClick={() => setGiphyOpen((o) => !o)} aria-expanded={giphyOpen}>
+          <button type="button" className="btn line sm" onClick={() => setGiphyOpen(true)}>
             <Icon name="gif_box" aria-hidden />GIF from Giphy
           </button>
           {(picture || (me?.avatar_path && !removePicture)) && (
@@ -113,46 +111,10 @@ export function ProfileEditor({ onDone }: { onDone?: () => void }) {
       </div>
 
       {giphyOpen && (
-        <div className="giphy-box">
-          <label className="field-label" htmlFor="giphy-link" style={{ marginTop: 0 }}>Paste a Giphy link</label>
-          <form
-            className="row"
-            style={{ gap: 8 }}
-            onSubmit={async (e) => {
-              e.preventDefault()
-              if (!giphyLink.trim() || giphyBusy) return
-              setGiphyBusy(true)
-              setError(null)
-              try {
-                setPicture(await fetchGiphyGif(giphyLink))
-                setRemovePicture(false)
-                setGiphyOpen(false)
-                setGiphyLink('')
-              } catch (err) {
-                setError(err instanceof Error ? err.message : 'Something went wrong.')
-              } finally {
-                setGiphyBusy(false)
-              }
-            }}
-          >
-            <input
-              id="giphy-link"
-              className="input"
-              style={{ flex: 1, minWidth: 0 }}
-              value={giphyLink}
-              onChange={(e) => setGiphyLink(e.target.value)}
-              placeholder="https://giphy.com/gifs/…"
-              inputMode="url"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-            />
-            <button type="submit" className="btn gold" disabled={giphyBusy || !giphyLink.trim()}>{giphyBusy ? 'Getting it…' : 'Use'}</button>
-          </form>
-          <div className="dim" style={{ fontSize: 12, marginTop: 6 }}>
-            Find one on <a href={GIPHY_SITE} target="_blank" rel="noreferrer">giphy.com</a>, open it, and copy its address (or Share → Copy link). Powered by GIPHY.
-          </div>
-        </div>
+        <GiphyPicker
+          onPicked={(file) => { setPicture(file); setRemovePicture(false); setError(null); setGiphyOpen(false) }}
+          onClose={() => setGiphyOpen(false)}
+        />
       )}
 
       <label className="field-label" htmlFor="profile-name">Your name</label>
