@@ -33,9 +33,14 @@ export function ShareWithFriend({ overview, friendId, friendName }: { overview: 
   const { refresh } = useOverview()
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Where the switch being saved is going: shown flipped straight away, as saving (a sync first,
+  // then the change) takes a moment.
+  const [pending, setPending] = useState<boolean | null>(null)
+  const shown = (key: string, saved: boolean) => (busy === key && pending !== null ? pending : saved)
 
-  const run = async (key: string, action: () => Promise<unknown>) => {
+  const run = async (key: string, on: boolean, action: () => Promise<unknown>) => {
     setBusy(key)
+    setPending(on)
     setError(null)
     try {
       // New binders and decks have to reach the server before they can be shared.
@@ -48,6 +53,7 @@ export function ShareWithFriend({ overview, friendId, friendName }: { overview: 
         : e instanceof Error ? e.message : 'Something went wrong.')
     } finally {
       setBusy(null)
+      setPending(null)
     }
   }
 
@@ -61,9 +67,9 @@ export function ShareWithFriend({ overview, friendId, friendName }: { overview: 
         key={`${kind}:${id}`}
         label={name}
         detail={broad ?? detail}
-        on={on}
+        on={shown(`${kind}:${id}`, on)}
         disabled={!!broad || busy !== null}
-        onChange={(next) => void run(`${kind}:${id}`, () => api.setItemFriendShare(kind, id, friendId, next))}
+        onChange={(next) => void run(`${kind}:${id}`, next, () => api.setItemFriendShare(kind, id, friendId, next))}
       />
     )
   }
@@ -83,9 +89,9 @@ export function ShareWithFriend({ overview, friendId, friendName }: { overview: 
       <ShareSwitch
         label="My whole collection"
         detail={collectionToAll ? 'Shared with all your friends' : 'Every binder and wishlist — including ones you make later'}
-        on={wholeCollection || collectionToAll}
+        on={shown('all:collection', wholeCollection || collectionToAll)}
         disabled={collectionToAll || busy !== null}
-        onChange={(next) => void run('all:collection', () => api.setShareAll('collection', friendId, next))}
+        onChange={(next) => void run('all:collection', next, () => api.setShareAll('collection', friendId, next))}
       />
       {!wholeCollection && !collectionToAll && binders.length > 0 && (
         <div className="share-group">
@@ -96,9 +102,9 @@ export function ShareWithFriend({ overview, friendId, friendName }: { overview: 
       <ShareSwitch
         label="All my decks"
         detail={decksToAll ? 'Shared with all your friends' : 'Every deck — including ones you make later'}
-        on={allDecks || decksToAll}
+        on={shown('all:deck', allDecks || decksToAll)}
         disabled={decksToAll || busy !== null}
-        onChange={(next) => void run('all:deck', () => api.setShareAll('deck', friendId, next))}
+        onChange={(next) => void run('all:deck', next, () => api.setShareAll('deck', friendId, next))}
       />
       {!allDecks && !decksToAll && sortedDecks.length > 0 && (
         <div className="share-group">
@@ -117,6 +123,8 @@ export function ShareCollectionDialog({ onClose }: { onClose: () => void }) {
   const { overview, refresh, error: loadError } = useOverview()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The friend (null: all friends) being saved, shown flipped straight away.
+  const [pending, setPending] = useState<{ viewer: string | null; on: boolean } | null>(null)
   const close = <button type="button" className="btn line" onClick={onClose}>Close</button>
 
   if (!account || !overview || !overview.me) {
@@ -138,6 +146,7 @@ export function ShareCollectionDialog({ onClose }: { onClose: () => void }) {
 
   const set = async (viewer: string | null, on: boolean) => {
     setBusy(true)
+    setPending({ viewer, on })
     setError(null)
     try {
       await syncNow()
@@ -147,10 +156,12 @@ export function ShareCollectionDialog({ onClose }: { onClose: () => void }) {
       setError(e instanceof Error ? e.message : 'Something went wrong.')
     } finally {
       setBusy(false)
+      setPending(null)
     }
   }
 
-  const toAll = sharesAll(overview, 'collection', null)
+  const shown = (viewer: string | null) => (pending && pending.viewer === viewer ? pending.on : sharesAll(overview, 'collection', viewer))
+  const toAll = shown(null)
   const friends = overview.friends
     .filter((f) => f.status === 'accepted')
     .map((f) => overview.people[f.user_id])
@@ -174,7 +185,7 @@ export function ShareCollectionDialog({ onClose }: { onClose: () => void }) {
           key={p.user_id}
           label={p.display_name}
           detail={`@${p.username}`}
-          on={sharesAll(overview, 'collection', p.user_id)}
+          on={shown(p.user_id)}
           disabled={busy}
           onChange={(on) => void set(p.user_id, on)}
         />
