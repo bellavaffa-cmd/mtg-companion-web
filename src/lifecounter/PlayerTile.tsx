@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import { displayName, lossReason, PLAYER_PALETTE, seatColor, startingLifeFor, type GameAction, type LifeSettings, type Player } from './game'
 import type { SeatFacing } from './tableLayouts'
+import { avatarUrl } from '../social/api'
 
 /** How long a "+3"/"−3" tally stays up after the last tap before it clears. */
 const FEEDBACK_HOLD_MS = 1500
@@ -80,6 +81,8 @@ export function PlayerTile({
   highRoll,
   dispatch,
   onPanelOpenChange,
+  onLinkSeat,
+  onUnlink,
 }: {
   player: Player
   opponents: Player[]
@@ -93,6 +96,10 @@ export function PlayerTile({
   dispatch: (a: GameAction) => void
   /** The page dims the menu button while a panel covers a tile. */
   onPanelOpenChange: (open: boolean) => void
+  /** Shows this seat's QR code, for a player to join with their profile. */
+  onLinkSeat: () => void
+  /** Frees the seat from the profile sitting there. */
+  onUnlink: () => void
 }) {
   const [pending, setPending] = useState(0)
   const [panelOpen, setPanelOpen] = useState(false)
@@ -152,8 +159,9 @@ export function PlayerTile({
               <span className="lc-token-label">Initiative</span>
             </span>
           )}
-          <button type="button" className="lc-name" onClick={() => setPanelOpen(true)} aria-label={`${displayName(player)} — commander damage, poison and more`}>
-            {displayName(player)}
+          <button type="button" className={`lc-name${player.linked ? ' linked' : ''}`} onClick={() => setPanelOpen(true)} aria-label={`${displayName(player)} — commander damage, poison and more`}>
+            {player.linked && <SeatAvatar player={player} />}
+            <span className="lc-name-text">{displayName(player)}</span>
           </button>
           {damageTaken.length > 0 && (
             <button type="button" className="lc-chip" onClick={() => setPanelOpen(true)} aria-label="Commander damage received">
@@ -196,7 +204,15 @@ export function PlayerTile({
         )}
 
         {panelOpen && (
-          <PlayerPanel player={player} opponents={opponents} settings={settings} dispatch={dispatch} onClose={() => setPanelOpen(false)} />
+          <PlayerPanel
+            player={player}
+            opponents={opponents}
+            settings={settings}
+            dispatch={dispatch}
+            onClose={() => setPanelOpen(false)}
+            onLinkSeat={() => { setPanelOpen(false); onLinkSeat() }}
+            onUnlink={onUnlink}
+          />
         )}
       </div>
     </Face>
@@ -210,12 +226,16 @@ function PlayerPanel({
   settings,
   dispatch,
   onClose,
+  onLinkSeat,
+  onUnlink,
 }: {
   player: Player
   opponents: Player[]
   settings: LifeSettings
   dispatch: (a: GameAction) => void
   onClose: () => void
+  onLinkSeat: () => void
+  onUnlink: () => void
 }) {
   const [name, setName] = useState(player.name ?? '')
   const loss = lossReason(player, settings.autoKill)
@@ -224,21 +244,40 @@ function PlayerPanel({
   return (
     <div className="lc-panel" onClick={(e) => e.stopPropagation()}>
       <div className="lc-panel-head">
-        <input
-          className="lc-name-input"
-          value={name}
-          placeholder={`Player ${player.id}`}
-          maxLength={24}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-          aria-label="Player name"
-        />
-        <button type="button" className="lc-icon-btn" onClick={() => { commit(); onClose() }} aria-label="Close">
+        {player.linked ? (
+          <div className="lc-linked">
+            <SeatAvatar player={player} />
+            <span className="lc-linked-text">
+              <b>{player.linked.displayName}</b>
+              <span>@{player.linked.username}</span>
+            </span>
+          </div>
+        ) : (
+          <input
+            className="lc-name-input"
+            value={name}
+            placeholder={`Player ${player.id}`}
+            maxLength={24}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+            aria-label="Player name"
+          />
+        )}
+        <button type="button" className="lc-icon-btn" onClick={() => { if (!player.linked) commit(); onClose() }} aria-label="Close">
           <span className="material-symbols-rounded">close</span>
         </button>
       </div>
       <div className="lc-panel-scroll">
+        {player.linked ? (
+          <button type="button" className="lc-wide-btn lc-link-btn" onClick={onUnlink}>
+            <span className="material-symbols-rounded" aria-hidden>link_off</span>Free this seat
+          </button>
+        ) : (
+          <button type="button" className="lc-wide-btn lc-link-btn" onClick={() => { commit(); onLinkSeat() }}>
+            <span className="material-symbols-rounded" aria-hidden>qr_code_2</span>Join with a profile
+          </button>
+        )}
         {opponents.length > 0 && <div className="lc-panel-label">Commander damage taken</div>}
         {opponents.map((o) => (
           <Counter
@@ -279,6 +318,14 @@ function PlayerPanel({
       </div>
     </div>
   )
+}
+
+/** The picture of the profile sitting at a seat (a GIF keeps playing), or their initial. */
+function SeatAvatar({ player }: { player: Player }) {
+  const url = avatarUrl(player.linked?.avatarPath)
+  const [failed, setFailed] = useState(false)
+  if (url && !failed) return <img className="lc-avatar" src={url} alt="" onError={() => setFailed(true)} />
+  return <span className="lc-avatar initial" aria-hidden>{(player.linked?.displayName.trim()[0] ?? '?').toUpperCase()}</span>
 }
 
 function Counter({ label, value, dot, onChange }: { label: string; value: number; dot?: number; onChange: (delta: number) => void }) {

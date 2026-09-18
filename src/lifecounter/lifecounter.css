@@ -1073,3 +1073,76 @@
 .lc-dice button:disabled {
   opacity: 0.4;
 }
+
+/* ---- Players who joined their seat with a profile ---- */
+
+.lc-name.linked {
+  padding-left: 3px;
+}
+.lc-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lc-avatar {
+  flex: none;
+  width: clamp(26px, 13cqh, 46px);
+  height: clamp(26px, 13cqh, 46px);
+  border-radius: 50%;
+  object-fit: cover;
+  background: color-mix(in srgb, var(--ink) 18%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ink) 30%, transparent);
+}
+.lc-avatar.initial {
+  display: grid;
+  place-items: center;
+  font-size: 0.8em;
+}
+.lc-linked {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.lc-linked .lc-avatar {
+  width: 44px;
+  height: 44px;
+}
+.lc-linked-text {
+  display: grid;
+  min-width: 0;
+}
+.lc-linked-text b {
+  font-weight: 400;
+  font-size: 22px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lc-linked-text span {
+  font-family: var(--ui);
+  font-size: 12px;
+  opacity: 0.7;
+}
+.lc-link-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+.lc-qr {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+}
+.lc-qr-code {
+  padding: 10px;
+  border-radius: 20px;
+  background: #fff;
+}
+.lc-qr-code .qr {
+  width: min(260px, 70vw);
+  height: auto;
+}

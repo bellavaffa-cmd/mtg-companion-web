@@ -9,6 +9,7 @@ import type { SheetAction } from '../components/ActionSheet'
 import { useLongPress } from '../components/useLongPress'
 import { CardSearchResults } from '../components/CardSearchResults'
 import { ExportDeckDialog } from '../components/ExportDeckDialog'
+import { ShareDialog } from '../social/ShareDialog'
 import { useAddWarning } from '../components/useAddWarning'
 import { DeckSuggestions } from '../components/DeckSuggestions'
 import { DeckStats, deckFigures, useDeckCardData } from '../components/DeckStats'
@@ -42,6 +43,7 @@ export function DeckDetailPage() {
   const [cardSheet, setCardSheet] = useState<DeckCardEntry | null>(null)
   const [deckSheet, setDeckSheet] = useState(false)
   const [showExport, setShowExport] = useState(false)
+  const [sharing, setSharing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [addWarning, setAddWarning] = useAddWarning()
   const progress = useScrollProgress(200)
@@ -262,6 +264,7 @@ export function DeckDetailPage() {
           subtitle={`${totalCards} cards · ${DECK_OWNERSHIP_LABELS[deck.ownership]}`}
           imageUrl={deck.commander?.imageUrl ?? null}
           actions={[
+            { label: 'Share with friends', icon: 'group', detail: 'View only — friends, pods or a link', onClick: () => setSharing(true) },
             { label: 'Export decklist', icon: 'ios_share', detail: 'Copy it for Moxfield, Archidekt or Arena', onClick: () => setShowExport(true) },
             { label: 'Deck details', icon: 'tune', detail: 'Format, ownership, commander and tags', onClick: () => setTabName('Details') },
             { label: 'Delete deck', icon: 'delete', tone: 'danger', onClick: () => setConfirmDelete(true) },
@@ -286,6 +289,7 @@ export function DeckDetailPage() {
       )}
 
       {showExport && <ExportDeckDialog deck={deck} onDismiss={() => setShowExport(false)} />}
+      {sharing && <ShareDialog kind="deck" itemId={deck.id} name={deck.name} onClose={() => setSharing(false)} />}
 
       {zoomEntry && (
         <CardZoomModal

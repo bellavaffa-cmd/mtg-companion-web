@@ -38,6 +38,14 @@ export const PLAYER_COLOR_COUNT = 10
 export const seatColor = (index: number): SeatColor =>
   PLAYER_PALETTE[((index % PLAYER_PALETTE.length) + PLAYER_PALETTE.length) % PLAYER_PALETTE.length]
 
+/** Someone with an account sitting at a seat, having scanned its QR code (see LinkSeat.tsx). */
+export interface LinkedPlayer {
+  userId: string
+  username: string
+  displayName: string
+  avatarPath: string | null
+}
+
 export interface Player {
   id: number
   life: number
@@ -47,9 +55,11 @@ export interface Player {
   colorIndex: number
   name: string | null
   killed: boolean
+  /** The account sitting here, when someone joined the seat by QR code. */
+  linked?: LinkedPlayer | null
 }
 
-export const displayName = (p: Player) => p.name ?? `Player ${p.id}`
+export const displayName = (p: Player) => p.linked?.displayName ?? p.name ?? `Player ${p.id}`
 
 export type LossReason = 'LIFE' | 'POISON' | 'COMMANDER_DAMAGE' | 'KILLED'
 
@@ -113,6 +123,8 @@ export interface Game {
   dayNight: DayNight | null
   /** Whether anyone has changed anything yet — a new starting life applies at once to an untouched game. */
   touched: boolean
+  /** The table players join by QR code, once the host has shown one. */
+  match?: { id: string; code: string } | null
 }
 
 export function newGame(settings: LifeSettings): Game {
@@ -157,6 +169,8 @@ export type GameAction =
   | { type: 'initiative'; id: number | null }
   | { type: 'dayNight'; value: DayNight | null }
   | { type: 'clearHistory' }
+  | { type: 'link'; id: number; player: LinkedPlayer | null }
+  | { type: 'match'; match: { id: string; code: string } | null }
 
 function updatePlayer(game: Game, id: number, fn: (p: Player) => Player): Game {
   return { ...game, touched: true, players: game.players.map((p) => (p.id === id ? fn(p) : p)) }
@@ -174,8 +188,16 @@ const nameOf = (game: Game, id: number | null) =>
 
 export function gameReducer(game: Game, action: GameAction): Game {
   switch (action.type) {
-    case 'new':
-      return newGame(action.settings)
+    case 'new': {
+      // A restart at the same table keeps who's sitting where; a different number of seats is a new table.
+      const fresh = newGame(action.settings)
+      if (!game.match || fresh.players.length !== game.players.length) return fresh
+      return {
+        ...fresh,
+        match: game.match,
+        players: fresh.players.map((p) => ({ ...p, linked: game.players.find((old) => old.id === p.id)?.linked ?? null })),
+      }
+    }
     case 'life': {
       const before = game.players.find((p) => p.id === action.id)?.life ?? 0
       const after = before + action.delta
@@ -252,6 +274,17 @@ export function gameReducer(game: Game, action: GameAction): Game {
         action.value === null ? 'Stopped tracking day and night' : action.value === 'DAY' ? 'It became day' : 'It became night')
     case 'clearHistory':
       return { ...game, history: [] }
+    case 'link': {
+      const current = game.players.find((p) => p.id === action.id)?.linked ?? null
+      if (JSON.stringify(current) === JSON.stringify(action.player)) return game
+      return { ...game, players: game.players.map((p) => (p.id === action.id ? { ...p, linked: action.player } : p)) }
+    }
+    case 'match':
+      return {
+        ...game,
+        match: action.match,
+        players: action.match ? game.players : game.players.map((p) => (p.linked ? { ...p, linked: null } : p)),
+      }
   }
 }
 

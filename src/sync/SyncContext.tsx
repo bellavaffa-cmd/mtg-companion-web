@@ -10,6 +10,7 @@ import * as auth from './supabaseAuth'
 import { watchLibrary } from './realtime'
 import type { Account } from './supabaseAuth'
 import type { Library } from './cloudSync'
+import { applyCollectionChanges, type CollectionChange } from '../social/tradeLogic'
 import {
   applyRemoteChanges, applyRescue, captureRescue, clearCloudState, clearRescue, CLOUD_STATE_KEY, leftoverFromSignOut,
   libraryIsAnotherAccounts, loadCloudState, loadRescue, pullChanges, pushPending, recordLocalEdits, RESCUE_MAX_AGE_MS,
@@ -147,6 +148,8 @@ interface SyncContextValue {
   addEntryToCollection: (collectionId: string, card: ScryfallCard, quantity?: number, foilQuantity?: number) => void
   removeEntryFromCollection: (collectionId: string, scryfallId: string) => void
   setEntryQuantities: (collectionId: string, scryfallId: string, quantity: number, foilQuantity: number) => void
+  /** Moves cards in and out of binders in one change (a trade); answers the ones there weren't enough copies of. */
+  changeCollections: (changes: CollectionChange[]) => CollectionChange[]
 }
 
 const SyncContext = createContext<SyncContextValue | null>(null)
@@ -782,6 +785,19 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [updateLibrary, mapCollection],
   )
 
+  const changeCollections = useCallback(
+    (changes: CollectionChange[]): CollectionChange[] => {
+      let short: CollectionChange[] = []
+      updateLibrary((lib) => {
+        const result = applyCollectionChanges(lib.collections, changes)
+        short = result.short
+        return { ...lib, collections: result.collections }
+      })
+      return short
+    },
+    [updateLibrary],
+  )
+
   const setEntryQuantities = useCallback(
     (collectionId: string, scryfallId: string, quantity: number, foilQuantity: number) => {
       updateLibrary((lib) =>
@@ -838,13 +854,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       addEntryToCollection,
       removeEntryFromCollection,
       setEntryQuantities,
+      changeCollections,
     }),
     [
       library, account, cloud, mergePrompt, resolveMerge, passwordRecovery, linkNotice, signIn, signUp, signOut,
       syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, addGameResult,
       removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection,
-      setEntryQuantities,
+      setEntryQuantities, changeCollections,
     ],
   )
 

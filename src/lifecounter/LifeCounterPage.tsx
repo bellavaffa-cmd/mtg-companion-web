@@ -7,6 +7,7 @@ import {
   layoutById, layoutDescription, playerCount, sections, TABLE_LAYOUTS, turned,
   type SeatCell, type TableLayout,
 } from './tableLayouts'
+import { SeatCodeSheet, useSeatLinks } from './LinkSeat'
 import './lifecounter.css'
 
 type Overlay = null | 'seating' | 'settings' | 'restart' | 'dice' | 'history' | 'table' | 'plane'
@@ -74,6 +75,7 @@ export function LifeCounterPage() {
   // A panel covering a tile would sit under the menu button, so the button steps aside.
   const [panelsOpen, setPanelsOpen] = useState(0)
   const { planechase, startPlanechase, planeswalk, rollPlanarDie, stopPlanechase } = usePlanechase()
+  const links = useSeatLinks(game, dispatch)
   useWakeLock()
 
   useEffect(() => {
@@ -110,6 +112,8 @@ export function LifeCounterPage() {
           highRoll={roll ? { rolls: roll.rolls[player.id] ?? [], winner: roll.winnerId === player.id } : null}
           dispatch={dispatch}
           onPanelOpenChange={(open) => setPanelsOpen((n) => Math.max(0, n + (open ? 1 : -1)))}
+          onLinkSeat={() => void links.showCode(player.id)}
+          onUnlink={() => links.unlink(player.id)}
         />
       </div>
     )
@@ -153,6 +157,7 @@ export function LifeCounterPage() {
       {overlay === 'dice' && <DiceOverlay onClose={closeAll} />}
       {overlay === 'history' && <HistoryOverlay game={game} onClear={() => dispatch({ type: 'clearHistory' })} onClose={closeAll} />}
       {overlay === 'table' && <TableOverlay game={game} dispatch={dispatch} onClose={closeAll} />}
+      {links.showing !== null && <SeatCodeSheet game={game} seat={links.showing} links={links} onClose={links.close} Sheet={Sheet} />}
       {planechase && overlay !== 'plane' && <PlaneBanner state={planechase} onOpen={() => open('plane')} />}
       {overlay === 'plane' && planechase && (
         <PlaneSheet

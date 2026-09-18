@@ -9,7 +9,7 @@ import {
 } from '../components/kit'
 import { useDeckColors } from '../components/useDeckColors'
 import { CardZoomModal } from '../components/CardZoomModal'
-import { LAST_DECK_KEY } from '../components/Layout'
+import { InboxBadge, LAST_DECK_KEY } from '../components/Layout'
 import { getRandomCard } from '../api/scryfall'
 import type { ScryfallCard } from '../types/scryfall'
 import { backImageUrl, cardTags, displayImageUrl, displayManaCost, displayOracleText } from '../types/scryfall'
@@ -192,6 +192,10 @@ export function HomePage() {
         {accountsAvailable && (
           <div className="row" style={{ gap: 8 }}>
             <SyncButton />
+            <span className="badge-anchor">
+              <IconButton icon="group" label="Friends" onClick={() => navigate('/friends')} />
+              <InboxBadge dot />
+            </span>
             <IconButton
               icon={account ? (cloud.failed ? 'cloud_off' : 'cloud_done') : 'account_circle'}
               label="Account & sync"
@@ -228,6 +232,14 @@ export function HomePage() {
           <span style={{ flex: 1 }}>Rules — what a keyword does, and the official rulings for any card</span>
           <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
         </button>
+        {accountsAvailable && (
+          <button type="button" className="banner press rise" style={{ ...rise(3), marginTop: 10 }} onClick={() => navigate('/friends')}>
+            <Icon name="group" />
+            <span style={{ flex: 1 }}>Friends — share decks and binders, trade cards, join a life counter</span>
+            <InboxBadge />
+            <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
+          </button>
+        )}
 
         {record && (
           <div className="record rise" style={rise(3)}>

@@ -7,6 +7,7 @@ import { useSync } from '../sync/SyncContext'
 import { useDeckColors } from './useDeckColors'
 import { PullToSync } from './PullToSync'
 import { SyncButton } from './SyncButton'
+import { useSocial } from '../social/SocialContext'
 
 // Matches the Android app's bottomNavRoutes — on a phone the bar hides on pushed detail screens
 // (their own back button takes over). Tablet and desktop keep their rail/sidebar everywhere.
@@ -81,6 +82,14 @@ function AccountStatus({ compact }: { compact?: boolean }) {
   )
 }
 
+/** How many friend requests and trades are waiting on the user. */
+export function InboxBadge({ dot }: { dot?: boolean }) {
+  const { inbox } = useSocial()
+  const n = inbox.friend_requests + inbox.trades
+  if (n === 0) return null
+  return <span className={dot ? 'inbox-dot' : 'count-badge'} aria-label={`${n} waiting`}>{dot ? '' : n}</span>
+}
+
 function Sidebar() {
   const { decks } = useSync()
   const location = useLocation()
@@ -111,6 +120,11 @@ function Sidebar() {
       <NavLink to="/rules" className={({ isActive }) => `side-nav${isActive ? ' active' : ''}`}>
         <Icon name="gavel" />
         Rules
+      </NavLink>
+      <NavLink to="/friends" className={({ isActive }) => `side-nav${isActive ? ' active' : ''}`}>
+        <Icon name="group" />
+        Friends
+        <InboxBadge />
       </NavLink>
       {recent.length > 0 && (
         <>
@@ -157,6 +171,10 @@ function NavRail() {
       <NavLink to="/rules" className={({ isActive }) => `nav-tab${isActive ? ' active' : ''}`}>
         <span className="pill"><Icon name="gavel" /></span>
         <span>Rules</span>
+      </NavLink>
+      <NavLink to="/friends" className={({ isActive }) => `nav-tab${isActive ? ' active' : ''}`}>
+        <span className="pill"><Icon name="group" /><InboxBadge dot /></span>
+        <span>Friends</span>
       </NavLink>
       <div style={{ flex: 1 }} />
       <AccountStatus compact />
