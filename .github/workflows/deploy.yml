@@ -21,9 +21,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # 22.15+ for the tests: they run the TypeScript sources directly (see tests/register.mjs).
+          node-version: 24
           cache: npm
       - run: npm ci
+      # The sync scenarios (tests/sync). A failure stops the deploy.
+      - run: npm test
       - run: npm run build
         env:
           # Supabase project URL + anon (publishable) key. The anon key ends up in the public bundle by
