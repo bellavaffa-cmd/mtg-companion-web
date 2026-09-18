@@ -126,6 +126,47 @@ export function titleStrip(source: CanvasImageSource, card: Box, row: number): H
   return canvas
 }
 
+/**
+ * Reads the small print at the bottom left of the card at [card] in [source] (set code, language,
+ * collector number) and returns it as text; [parseSetAndNumber] makes the printing of it. Read once
+ * per new card, not every frame: it's two short lines of tiny text.
+ */
+export async function readSmallPrint(source: CanvasImageSource, card: Box): Promise<string> {
+  const worker = await titleReader()
+  const sx = card.x + card.width * 0.03
+  const sw = card.width * 0.55
+  const sy = card.y + card.height * 0.91
+  const sh = card.height * 0.08
+  const height = 120
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round((sw * height) / sh))
+  canvas.height = height
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(source, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
+  const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  const px = image.data
+  let min = 255
+  let max = 0
+  for (let i = 0; i < px.length; i += 4) {
+    const grey = Math.round(0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2])
+    px[i] = grey
+    if (grey < min) min = grey
+    if (grey > max) max = grey
+  }
+  const range = Math.max(1, max - min)
+  // Small print is light on a dark border: flipped, so it's dark text on light as the reader prefers.
+  for (let i = 0; i < px.length; i += 4) px[i] = px[i + 1] = px[i + 2] = 255 - ((px[i] - min) * 255) / range
+  ctx.putImageData(image, 0, 0)
+  const { PSM } = await import('tesseract.js')
+  await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK })
+  try {
+    return (await worker.recognize(canvas)).data.text
+  } finally {
+    await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_LINE })
+  }
+}
+
 export interface CardRead {
   /** The card it matched, or null when nothing read as a card. */
   match: NameMatch | null

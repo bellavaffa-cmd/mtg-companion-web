@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { getByExactName, getByFuzzyName } from '../api/scryfall'
+import { getByExactName, getByFuzzyName, getBySetAndNumber } from '../api/scryfall'
 import { ActionSheet, type SheetAction } from '../components/ActionSheet'
 import { Icon } from '../components/Icon'
 import { ArtImage, toArtCrop, useBack } from '../components/kit'
 import { TopBar } from '../components/TopBar'
 import { cardNameIndex, MIN_MATCH } from '../scan/cardNames'
 import { guideInVideo } from '../scan/guide'
-import { readCardName, titleReader } from '../scan/ocr'
-import { ScanTracker } from '../scan/scanLogic'
+import { readCardName, readSmallPrint, titleReader } from '../scan/ocr'
+import { looksLikeSameCard, parseSetAndNumber, ScanTracker } from '../scan/scanLogic'
 import { useSync } from '../sync/SyncContext'
 import { displayImageUrl, type ScryfallCard } from '../types/scryfall'
 
@@ -21,7 +21,14 @@ type Camera = 'starting' | 'on' | 'denied' | 'unsupported' | 'failed'
 interface Scanned {
   card: ScryfallCard
   quantity: number
+  foil: boolean
 }
+
+/** A row of the list: the same card as foil and non-foil are separate rows. */
+const rowKey = (s: { card: ScryfallCard; foil: boolean }) => `${s.card.id}${s.foil ? ':foil' : ''}`
+
+/** Whether this printing comes in foil (Scryfall lists its finishes; unknown means maybe). */
+const canBeFoil = (card: ScryfallCard) => !card.finishes || card.finishes.includes('foil')
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -47,13 +54,13 @@ export function ScanPage() {
 
   const addScanned = (card: ScryfallCard) => {
     setScanned((list) => {
-      const existing = list.find((s) => s.card.id === card.id)
+      const existing = list.find((s) => s.card.id === card.id && !s.foil)
       if (existing) {
         setStatus(`${card.name} ×${existing.quantity + 1}`)
-        return list.map((s) => (s.card.id === card.id ? { ...s, quantity: s.quantity + 1 } : s))
+        return list.map((s) => (s === existing ? { ...s, quantity: s.quantity + 1 } : s))
       }
       setStatus(`Added ${card.name}`)
-      return [{ card, quantity: 1 }, ...list]
+      return [{ card, quantity: 1, foil: false }, ...list]
     })
     setFlash((n) => n + 1)
     navigator.vibrate?.(30)
@@ -124,7 +131,18 @@ export function ScanPage() {
         if (forced && !read?.match) setStatus("Couldn't read a name there — hold the card flat and still, or type it below.")
         if (step.kind === 'lookup') {
           try {
-            const card = found.get(step.name) ?? await getByExactName(step.name).catch(() => getByFuzzyName(step.name))
+            // The exact printing, from the small print at the bottom — kept only if it names the same
+            // card as the title (a misread number mustn't swap in a different card). Otherwise the
+            // card's usual printing, by name.
+            let card: ScryfallCard | null = null
+            const printing = parseSetAndNumber(await readSmallPrint(video, box).catch(() => ''))
+            if (printing) {
+              const key = `${printing.set}:${printing.number}`
+              card = found.get(key) ?? await getBySetAndNumber(printing.set, printing.number).catch(() => null)
+              if (card && looksLikeSameCard(step.name, card.name)) found.set(key, card)
+              else card = null
+            }
+            card ??= found.get(step.name) ?? await getByExactName(step.name).catch(() => getByFuzzyName(step.name))
             found.set(step.name, card)
             if (stopped) break
             tracker.added(card.name)
@@ -153,11 +171,21 @@ export function ScanPage() {
     }
   }
 
+  /** Switches a row between foil and not, joining the other row of the same card if there is one. */
+  const toggleFoil = (row: Scanned) => {
+    setScanned((list) => {
+      const other = list.find((s) => s.card.id === row.card.id && s.foil !== row.foil)
+      if (!other) return list.map((s) => (s === row ? { ...s, foil: !s.foil } : s))
+      return list.filter((s) => s !== row).map((s) => (s === other ? { ...s, quantity: s.quantity + row.quantity } : s))
+    })
+  }
+
   const total = scanned.reduce((n, s) => n + s.quantity, 0)
   const addAllTo = (target: { kind: 'deck' | 'binder'; id: string; name: string }) => {
     for (const s of scanned) {
+      // A deck doesn't track foils; a binder counts them separately.
       if (target.kind === 'deck') addCardToDeck(target.id, s.card, s.quantity)
-      else addEntryToCollection(target.id, s.card, s.quantity, 0)
+      else addEntryToCollection(target.id, s.card, s.foil ? 0 : s.quantity, s.foil ? s.quantity : 0)
     }
     setNotice(`Added ${total} ${total === 1 ? 'card' : 'cards'} to ${target.name}.`)
     setScanned([])
@@ -221,20 +249,27 @@ export function ScanPage() {
             </div>
             <div className="list">
               {scanned.map((s) => (
-                <div key={s.card.id} className="crow no-qty scan-row">
+                <div key={rowKey(s)} className="crow no-qty scan-row">
                   <ArtImage className="thumb" src={toArtCrop(displayImageUrl(s.card))} seed={s.card.name} colors={s.card.color_identity} />
                   <div className="cmain">
                     <div className="cname">{s.card.name}</div>
-                    <div className="cmeta"><span>{(s.card.set_name ?? s.card.set ?? '').toString()}</span></div>
+                    <div className="cmeta">
+                      <span>{[s.card.set_name ?? s.card.set?.toUpperCase(), s.card.collector_number && `#${s.card.collector_number}`].filter(Boolean).join(' · ')}</span>
+                    </div>
+                    {canBeFoil(s.card) && (
+                      <button type="button" className="chip scan-foil" aria-pressed={s.foil} onClick={() => toggleFoil(s)}>
+                        <Icon name="auto_awesome" />Foil
+                      </button>
+                    )}
                   </div>
                   <div className="scan-qty">
                     <button type="button" className="ib" aria-label={`One less ${s.card.name}`}
-                      onClick={() => setScanned((list) => list.flatMap((x) => (x.card.id !== s.card.id ? [x] : x.quantity > 1 ? [{ ...x, quantity: x.quantity - 1 }] : [])))}>
+                      onClick={() => setScanned((list) => list.flatMap((x) => (x !== s ? [x] : x.quantity > 1 ? [{ ...x, quantity: x.quantity - 1 }] : [])))}>
                       <Icon name={s.quantity > 1 ? 'remove' : 'delete'} />
                     </button>
                     <b>{s.quantity}</b>
                     <button type="button" className="ib" aria-label={`One more ${s.card.name}`}
-                      onClick={() => setScanned((list) => list.map((x) => (x.card.id === s.card.id ? { ...x, quantity: x.quantity + 1 } : x)))}>
+                      onClick={() => setScanned((list) => list.map((x) => (x === s ? { ...x, quantity: x.quantity + 1 } : x)))}>
                       <Icon name="add" />
                     </button>
                   </div>

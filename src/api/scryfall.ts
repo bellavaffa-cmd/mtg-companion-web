@@ -51,6 +51,13 @@ export async function autocomplete(query: string): Promise<string[]> {
   return json.data ?? []
 }
 
+/** One exact printing, by its set code and collector number (as printed at the bottom of a card). */
+export async function getBySetAndNumber(set: string, number: string): Promise<ScryfallCard> {
+  const res = await get(`${BASE}/cards/${encodeURIComponent(set)}/${encodeURIComponent(number)}`)
+  if (!res.ok) throw new Error(`No card ${set.toUpperCase()} #${number}`)
+  return res.json()
+}
+
 /** The card with exactly [name] (a double-faced card's full "Front // Back" name works too). */
 export async function getByExactName(name: string): Promise<ScryfallCard> {
   const url = new URL(`${BASE}/cards/named`)

@@ -38,6 +38,8 @@ export interface ScryfallCard {
   set?: string
   set_name?: string
   collector_number?: string
+  /** The finishes this printing comes in: 'nonfoil', 'foil', 'etched'. */
+  finishes?: string[]
   released_at?: string
   legalities?: Record<string, string>
   prices?: { usd?: string | null; usd_foil?: string | null }

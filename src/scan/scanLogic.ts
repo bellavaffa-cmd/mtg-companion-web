@@ -25,6 +25,28 @@ export function cleanTitle(text: string): string | null {
   return null
 }
 
+// The small print at the bottom left of cards since 2015: the set code before a bullet and a
+// two-letter language ("MSC • EN"), and the collector number after the rarity letter ("U 0211") or
+// as "number/total" ("0211/0280"). The reader sees the bullet as all sorts of marks ("«", "*", "."),
+// and sometimes doubles the rarity letter ("Cc 0172").
+const SET_AND_LANGUAGE = /\b([A-Z0-9]{3,5})\s*[^\sA-Za-z0-9]\s*[A-Z]{2}\b/
+const RARITY_NUMBER = /\b[CURMSPLT][a-z]?\s+(\d{1,4})\b/
+const NUMBER_OF_TOTAL = /\b(\d{1,4})\s*\/\s*\d{1,4}\b/
+
+/**
+ * The exact printing from the small print at the bottom of a card: its set code and collector number
+ * (leading zeros dropped), or null when either can't be read with confidence — the card is then
+ * found by name. Ported from the Android app's extractSetAndNumber.
+ */
+export function parseSetAndNumber(text: string): { set: string; number: string } | null {
+  const lines = text.split('\n')
+  const set = lines.map((l) => SET_AND_LANGUAGE.exec(l)?.[1]).find(Boolean)
+  if (!set) return null
+  const number = lines.map((l) => RARITY_NUMBER.exec(l)?.[1]).find(Boolean) ?? lines.map((l) => NUMBER_OF_TOTAL.exec(l)?.[1]).find(Boolean)
+  if (!number) return null
+  return { set: set.toLowerCase(), number: number.replace(/^0+(?=\d)/, '') }
+}
+
 const letters = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
 
 /** Whether a read title and a card's name are the same card, allowing for a misread character or a cut-off end. */

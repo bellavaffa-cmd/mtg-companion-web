@@ -2555,6 +2555,15 @@ html {
   min-width: 18px;
   text-align: center;
 }
+.scan-foil {
+  margin-top: 6px;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+.scan-foil .icon {
+  font-size: 16px;
+}
 
 /* Search filters */
 .sf {

@@ -1,7 +1,7 @@
 // The scanner's decisions (src/scan/scanLogic.ts), frame by frame.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { BLANK_FRAMES_TO_RESET, cleanTitle, looksLikeSameCard, sameRead, ScanTracker } from '../../src/scan/scanLogic.ts'
+import { BLANK_FRAMES_TO_RESET, cleanTitle, looksLikeSameCard, parseSetAndNumber, sameRead, ScanTracker } from '../../src/scan/scanLogic.ts'
 
 test('the name is the first line with three letters, without the mana cost or stray marks', () => {
   assert.equal(cleanTitle('Lightning Bolt {R}'), 'Lightning Bolt')
@@ -68,4 +68,21 @@ test('two different reads in a row wait for a steady one', () => {
   assert.deepEqual(t.onRead('Sol Ring'), { kind: 'wait' })
   assert.deepEqual(t.onRead('Arcane Signet'), { kind: 'wait' })
   assert.deepEqual(t.onRead('Arcane Signet'), { kind: 'lookup', name: 'Arcane Signet' })
+})
+
+test('the exact printing is read from the small print at the bottom', () => {
+  assert.deepEqual(parseSetAndNumber('U 0211\nMSC • EN  ARTIST NAME'), { set: 'msc', number: '211' })
+  assert.deepEqual(parseSetAndNumber('0211/0280 U\nMSC · EN'), { set: 'msc', number: '211' })
+  assert.deepEqual(parseSetAndNumber('R 0007\nFDN * EN'), { set: 'fdn', number: '7' })
+  assert.deepEqual(parseSetAndNumber('C 0100\nMH3 • EN'), { set: 'mh3', number: '100' })
+  // As the reader actually sees it on a camera frame:
+  assert.deepEqual(parseSetAndNumber('RR | U 0806          E\nMSC « EN % MiLivos CEraN'), { set: 'msc', number: '806' })
+  assert.deepEqual(parseSetAndNumber('———\nCc 0172\nMSC « EN % DARIUS ZABLOCKIS'), { set: 'msc', number: '172' })
+})
+
+test("small print that can't be read with confidence gives no printing", () => {
+  assert.equal(parseSetAndNumber('Illus. Some Artist'), null) // an older card: no set code line
+  assert.equal(parseSetAndNumber('MSC • EN'), null) // no number
+  assert.equal(parseSetAndNumber('U 0211'), null) // no set
+  assert.equal(parseSetAndNumber(''), null)
 })
