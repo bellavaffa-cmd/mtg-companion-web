@@ -211,10 +211,20 @@ export async function syncOnce(snapshot: Library, startState: CloudState, userId
     // This device has diverged if its copy differs from the version both sides last agreed on —
     // which stays true even when a push was skipped as stale server-side.
     const diverged = mineJson !== undefined && baseJson !== undefined && mineJson !== baseJson
+    // First sync in this browser, and the same deck is already in the cloud (both copies came from
+    // somewhere else). With no agreed version to compare against, keep every card from both rather
+    // than letting the cloud copy replace this one.
+    const firstMeeting = localEdit === 0 && mineJson !== undefined && baseJson === undefined
     // Both devices changed this one since they last agreed: keep both sets of edits.
-    if (diverged && mineJson !== theirJson) {
-      const base = JSON.parse(baseJson)
-      const mine = JSON.parse(mineJson)
+    if ((diverged || firstMeeting) && mineJson !== theirJson) {
+      const mine = JSON.parse(mineJson!)
+      // First meeting: an empty base makes every card an addition from both sides, and the cloud's
+      // name and settings win.
+      const base = baseJson !== undefined
+        ? JSON.parse(baseJson)
+        : row.kind === 'deck'
+          ? { ...mine, cards: [], considering: [], tags: [], gameResults: [], versions: [] }
+          : { ...mine, entries: [] }
       const merged = row.kind === 'deck'
         ? mergeDeck(base as Deck, mine as Deck, theirs as Deck, (localEdit ?? 0) > row.edited_ms)
         : mergeCollection(base as Collection, mine as Collection, theirs as Collection, (localEdit ?? 0) > row.edited_ms)
@@ -237,6 +247,7 @@ export async function syncOnce(snapshot: Library, startState: CloudState, userId
   saveCloudState(state)
 
   const keys = Object.keys(pending)
+  let written = 0
   if (keys.length > 0) {
     const pushed: Record<string, ItemMeta> = {}
     const batch = keys.map((key) => {
@@ -253,12 +264,15 @@ export async function syncOnce(snapshot: Library, startState: CloudState, userId
       pushed[key] = { hash: hash(json), editedMs, base: state.items[key]?.base }
       return { kind, id, edited_ms: editedMs, deleted: false, data: JSON.parse(json) }
     })
-    await request('/rest/v1/rpc/push_library_items', token, { method: 'POST', body: JSON.stringify({ items: batch }) })
+    const res = await request('/rest/v1/rpc/push_library_items', token, { method: 'POST', body: JSON.stringify({ items: batch }) })
+    // The server skips any item older than what it already holds, and answers with how many it wrote.
+    const answer = Number((await res.text()).trim())
+    written = Number.isFinite(answer) ? answer : batch.length
     state = { ...state, items: { ...state.items, ...pushed }, pending: {} }
   }
   state = { ...state, lastSyncedAt: Date.now() }
   saveCloudState(state)
-  return { state, remoteChanges, pushed: keys.length }
+  return { state, remoteChanges, pushed: written }
 }
 
 /**
