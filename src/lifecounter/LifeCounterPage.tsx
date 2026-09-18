@@ -2,13 +2,14 @@ import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'reac
 import { useNavigate } from 'react-router-dom'
 import { displayName, formatElapsed, highRoll, useLifeCounter, type Game, type GameAction, type LifeSettings } from './game'
 import { PlayerTile, seatStyle } from './PlayerTile'
+import { PlaneBanner, PlaneSheet, usePlanechase } from './Planechase'
 import {
   layoutById, layoutDescription, playerCount, sections, TABLE_LAYOUTS, turned,
   type SeatCell, type TableLayout,
 } from './tableLayouts'
 import './lifecounter.css'
 
-type Overlay = null | 'seating' | 'settings' | 'restart' | 'dice' | 'history' | 'table'
+type Overlay = null | 'seating' | 'settings' | 'restart' | 'dice' | 'history' | 'table' | 'plane'
 
 /**
  * Whether the screen is wider than tall, and — when it is — whether the device was turned
@@ -72,6 +73,7 @@ export function LifeCounterPage() {
   const [roll, setRoll] = useState<ReturnType<typeof highRoll> | null>(null)
   // A panel covering a tile would sit under the menu button, so the button steps aside.
   const [panelsOpen, setPanelsOpen] = useState(0)
+  const { planechase, startPlanechase, planeswalk, rollPlanarDie, stopPlanechase } = usePlanechase()
   useWakeLock()
 
   useEffect(() => {
@@ -126,6 +128,10 @@ export function LifeCounterPage() {
           onDice={() => open('dice')}
           onTable={() => open('table')}
           onHistory={() => open('history')}
+          onPlanechase={() => {
+            if (!planechase) void startPlanechase()
+            open('plane')
+          }}
           onExit={() => navigate('/')}
         />
       )}
@@ -147,6 +153,16 @@ export function LifeCounterPage() {
       {overlay === 'dice' && <DiceOverlay onClose={closeAll} />}
       {overlay === 'history' && <HistoryOverlay game={game} onClear={() => dispatch({ type: 'clearHistory' })} onClose={closeAll} />}
       {overlay === 'table' && <TableOverlay game={game} dispatch={dispatch} onClose={closeAll} />}
+      {planechase && overlay !== 'plane' && <PlaneBanner state={planechase} onOpen={() => open('plane')} />}
+      {overlay === 'plane' && planechase && (
+        <PlaneSheet
+          state={planechase}
+          onRoll={() => rollPlanarDie()}
+          onPlaneswalk={planeswalk}
+          onStop={() => { stopPlanechase(); closeAll() }}
+          onClose={closeAll}
+        />
+      )}
     </div>
   )
 }
@@ -292,7 +308,7 @@ function MenuButton({ open, hidden, onClick }: { open: boolean; hidden: boolean;
 
 function RadialMenu(props: {
   onRestart: () => void; onHighRoll: () => void; onSeating: () => void; onSettings: () => void
-  onDice: () => void; onTable: () => void; onHistory: () => void; onExit: () => void
+  onDice: () => void; onTable: () => void; onHistory: () => void; onPlanechase: () => void; onExit: () => void
 }) {
   const items: [string, string, () => void][] = [
     ['Exit', 'exit', props.onExit],
@@ -315,6 +331,9 @@ function RadialMenu(props: {
         </button>
         <button type="button" role="menuitem" className="lc-menu-chip" onClick={props.onHistory}>
           <span className="material-symbols-rounded" aria-hidden>history</span>History
+        </button>
+        <button type="button" role="menuitem" className="lc-menu-chip" onClick={props.onPlanechase}>
+          <span className="material-symbols-rounded" aria-hidden>public</span>Planechase
         </button>
       </div>
     </div>

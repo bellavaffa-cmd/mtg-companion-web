@@ -1000,3 +1000,76 @@
 .lc-history-when {
   color: var(--lc-muted);
 }
+
+/* ---- Planechase ---- */
+
+.lc-plane-banner {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  max-width: min(92vw, 520px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 16px 5px 5px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(20, 19, 27, 0.92);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  animation: lc-fade 0.3s both;
+}
+.lc-plane-banner img {
+  flex: none;
+  width: 52px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 999px;
+}
+.lc-plane-label {
+  color: var(--lc-yellow);
+}
+.lc-plane-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lc-plane {
+  margin: 8px 0 18px;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  animation: lc-pop 0.4s cubic-bezier(0.5, 0.3, 0.2, 1.4) both;
+}
+.lc-plane img {
+  width: 100%;
+  max-width: 560px;
+  max-height: 60vh;
+  object-fit: contain;
+  border-radius: 18px;
+}
+.lc-plane figcaption {
+  font-size: 30px;
+}
+.lc-die-result {
+  margin: 0 0 16px;
+  padding: 12px 16px 10px;
+  border-radius: 16px;
+  background: var(--lc-raised);
+  text-align: center;
+  font-size: 26px;
+  animation: lc-pop 0.35s cubic-bezier(0.49, 0.2, 0.19, 1.48) both;
+}
+.lc-die-result.chaos {
+  background: var(--lc-accent);
+}
+.lc-die-result.planeswalk {
+  background: #4550ff;
+}
+.lc-dice button:disabled {
+  opacity: 0.4;
+}
