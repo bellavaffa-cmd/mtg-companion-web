@@ -59,7 +59,11 @@ export async function getByFuzzyName(name: string): Promise<ScryfallCard> {
 }
 
 /** Bulk lookup by Scryfall id, batched into /cards/collection's 75-per-request limit. */
-export async function getCardsByIds(ids: string[]): Promise<ScryfallCard[]> {
+/**
+ * The cards for [ids], fetched 75 at a time. A batch that fails is left out — unless [strict], when
+ * it throws instead, for callers where a partial list would quietly produce something incomplete.
+ */
+export async function getCardsByIds(ids: string[], strict = false): Promise<ScryfallCard[]> {
   const unique = Array.from(new Set(ids))
   if (unique.length === 0) return []
   const chunks: string[][] = []
@@ -68,7 +72,10 @@ export async function getCardsByIds(ids: string[]): Promise<ScryfallCard[]> {
     chunks.map(async (chunk) => {
       const res = await get(`${BASE}/cards/collection`, { method: 'POST', headers: { ...HEADERS, 'Content-Type': 'application/json' }, body: JSON.stringify({ identifiers: chunk.map((id) => ({ id })) }),
       })
-      if (!res.ok) return []
+      if (!res.ok) {
+        if (strict) throw new Error(`Scryfall couldn't send every card (HTTP ${res.status}). Try again in a moment.`)
+        return []
+      }
       const json = await res.json()
       return (json.data ?? []) as ScryfallCard[]
     }),

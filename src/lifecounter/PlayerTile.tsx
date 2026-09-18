@@ -32,8 +32,11 @@ export function Face({ facing, className = '', children }: { facing: SeatFacing;
   )
 }
 
-/** Tap for ±1, hold for ±[longPressAmount] (repeating while held). */
-function useStepper(onStep: (amount: number) => void, longPressAmount: number) {
+/**
+ * Tap for ±1, hold for ±[longPressAmount] (repeating while held). A hold stops when [active] turns
+ * false — the buttons go away (a high roll starting, say) without ever seeing the finger lift.
+ */
+function useStepper(onStep: (amount: number) => void, longPressAmount: number, active: boolean) {
   const timer = useRef<number | null>(null)
   const held = useRef(false)
   const stop = () => {
@@ -41,6 +44,7 @@ function useStepper(onStep: (amount: number) => void, longPressAmount: number) {
     timer.current = null
   }
   useEffect(() => stop, [])
+  useEffect(() => { if (!active) stop() }, [active])
   return {
     onPointerDown: (e: ReactPointerEvent) => {
       if (e.button !== 0) return
@@ -91,11 +95,16 @@ export function PlayerTile({
   onPanelOpenChange: (open: boolean) => void
 }) {
   const [pending, setPending] = useState(0)
-  const [panelOpen, setPanelOpenState] = useState(false)
-  const setPanelOpen = (open: boolean) => {
-    setPanelOpenState(open)
-    onPanelOpenChange(open)
-  }
+  const [panelOpen, setPanelOpen] = useState(false)
+  // Tell the table while a panel is open — and that it closed when the tile goes away with it open
+  // (the table rebuilds its tiles when the device turns), or the menu button would stay hidden.
+  const panelOpenChange = useRef(onPanelOpenChange)
+  panelOpenChange.current = onPanelOpenChange
+  useEffect(() => {
+    if (!panelOpen) return
+    panelOpenChange.current(true)
+    return () => panelOpenChange.current(false)
+  }, [panelOpen])
   const [changeCount, setChangeCount] = useState(0)
   const [shake, setShake] = useState(0)
 
@@ -112,8 +121,8 @@ export function PlayerTile({
     if (Math.abs(delta) >= settings.longPressAmount) setShake((s) => s + 1)
     navigator.vibrate?.(8)
   }
-  const minus = useStepper((n) => change(-n), settings.longPressAmount)
-  const plus = useStepper((n) => change(n), settings.longPressAmount)
+  const minus = useStepper((n) => change(-n), settings.longPressAmount, !highRoll)
+  const plus = useStepper((n) => change(n), settings.longPressAmount, !highRoll)
 
   const loss = lossReason(player, settings.autoKill)
   const damageTaken = opponents

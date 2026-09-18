@@ -162,11 +162,10 @@ function updatePlayer(game: Game, id: number, fn: (p: Player) => Player): Game {
   return { ...game, touched: true, players: game.players.map((p) => (p.id === id ? fn(p) : p)) }
 }
 
-let nextHistoryId = 1
-
-/** Adds an entry to the log, newest first. */
+/** Adds an entry to the log, newest first. Ids carry on from the saved log, so they stay unique after a reload. */
 function note(game: Game, playerId: number | null, text: string): Game {
-  const entry: HistoryEntry = { id: nextHistoryId++, at: Date.now(), playerId, text }
+  const id = (game.history[0]?.id ?? 0) + 1
+  const entry: HistoryEntry = { id, at: Date.now(), playerId, text }
   return { ...game, history: [entry, ...game.history].slice(0, HISTORY_LIMIT) }
 }
 

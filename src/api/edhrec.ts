@@ -70,6 +70,21 @@ async function cardLists(path: string) {
   return page.container?.json_dict?.cardlists ?? []
 }
 
+// One fetch per commander per page load: ranking it against a deck's cards is then instant, so
+// adding a suggestion doesn't fetch the whole page again.
+const commanderPages = new Map<string, ReturnType<typeof cardLists>>()
+
+function commanderLists(commanderName: string) {
+  const slug = edhrecSlug(commanderName)
+  let page = commanderPages.get(slug)
+  if (!page) {
+    page = cardLists(`commanders/${slug}`)
+    page.catch(() => commanderPages.delete(slug))
+    commanderPages.set(slug, page)
+  }
+  return page
+}
+
 const toCard = (raw: RawCardView): EdhrecCard => ({
   name: raw.name,
   id: raw.id,
@@ -88,7 +103,7 @@ const toCard = (raw: RawCardView): EdhrecCard => ({
  * DeckDetailViewModel.suggestions.
  */
 export async function commanderSuggestions(commanderName: string, alreadyHave: string[], limit = 12): Promise<EdhrecCard[] | null> {
-  const lists = await cardLists(`commanders/${edhrecSlug(commanderName)}`)
+  const lists = await commanderLists(commanderName)
   if (!lists) return null
   const have = new Set(alreadyHave.flatMap(cardNameKeys))
   const priority = ['topcards', 'highsynergycards']

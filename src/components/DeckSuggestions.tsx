@@ -1,13 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { commanderSuggestions, edhrecImageUrl, inclusionPercent, OfflineError, type EdhrecCard } from '../api/edhrec'
 import { getByFuzzyName } from '../api/scryfall'
 import type { Deck } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 import { Icon } from './Icon'
 import { rise } from './kit'
-
-// One lookup per commander and deck list per page load, shared by the tab and the desktop panel.
-const cache = new Map<string, Promise<EdhrecCard[] | null>>()
 
 /**
  * Cards other people play with this deck's commander that it doesn't have yet, from EDHREC —
@@ -23,21 +20,23 @@ export function DeckSuggestions({ deck, onAdd, index = 0 }: { deck: Deck; onAdd:
   const [adding, setAdding] = useState<string | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
 
+  // Only a new commander shows the loading state; a card added to the deck just re-ranks the list.
+  const shownFor = useRef<string | null>(null)
+
   useEffect(() => {
     if (!commander) return
     let cancelled = false
-    setCards(undefined)
-    setUnreachable(null)
-    let request = cache.get(key)
-    if (!request) {
-      request = commanderSuggestions(commander, have)
-      request.catch(() => cache.delete(key))
-      cache.set(key, request)
+    if (shownFor.current !== commander) {
+      setCards(undefined)
+      setUnreachable(null)
     }
-    request
+    shownFor.current = commander
+    // edhrec.ts keeps each commander's page, so this is quick after the first time.
+    commanderSuggestions(commander, have)
       .then((result) => { if (!cancelled) setCards(result) })
       .catch((e) => {
         if (cancelled) return
+        shownFor.current = null
         setUnreachable(e instanceof OfflineError ? e.message : "Couldn't reach EDHREC. Try again in a moment.")
         setCards(null)
       })

@@ -6,7 +6,7 @@ import { Icon } from './../components/Icon'
 import { PageHeader, SearchPill, rise, useBack } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
 import type { DeckCardEntry } from '../types/models'
-import { displayImageUrl, backImageUrl, cardTags } from '../types/scryfall'
+import { backImageUrl, canBeCommander, cardTags, displayImageUrl, partnerAbility } from '../types/scryfall'
 
 const year = (releaseDate: string | null) => releaseDate?.slice(0, 4) ?? ''
 
@@ -42,7 +42,8 @@ export function PreconsPage() {
       const all = [...contents.commander, ...contents.cards]
       const ids = [...new Set(all.map((c) => c.scryfallId).filter((id): id is string => !!id))]
       if (ids.length === 0) throw new Error("Couldn't resolve any cards for this precon.")
-      const byId = new Map((await getCardsByIds(ids)).map((card) => [card.id, card]))
+      // Strict: a batch that fails would otherwise make a deck that's quietly missing cards.
+      const byId = new Map((await getCardsByIds(ids, true)).map((card) => [card.id, card]))
       const entries: DeckCardEntry[] = []
       for (const entry of all) {
         const card = entry.scryfallId ? byId.get(entry.scryfallId) : undefined
@@ -52,9 +53,9 @@ export function PreconsPage() {
           name: card.name,
           imageUrl: displayImageUrl(card),
           quantity: entry.quantity,
-          canBeCommander: (card.type_line ?? '').includes('Legendary') && (card.type_line ?? '').includes('Creature'),
+          canBeCommander: canBeCommander(card),
           typeLine: card.type_line ?? null,
-          partnerAbility: null,
+          partnerAbility: partnerAbility(card),
           backImageUrl: backImageUrl(card),
           tags: cardTags(card),
         })
