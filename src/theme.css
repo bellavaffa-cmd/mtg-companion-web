@@ -2423,6 +2423,80 @@ html {
 
 /* ---- Precons ---- */
 
+/* Search filters */
+.sf {
+  margin-top: 10px;
+}
+.sf-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.sf-bar .chip .n {
+  margin-left: 2px;
+}
+select.input.sf-sort {
+  width: auto;
+  height: 36px;
+  padding-left: 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  background-position: calc(100% - 20px) 15px, calc(100% - 15px) 15px;
+}
+.sf-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 14px 18px;
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--g1);
+}
+.sf-row .field-label {
+  margin-bottom: 6px;
+}
+.sf-colors {
+  display: flex;
+  gap: 8px;
+}
+.sf-color {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1.5px solid transparent;
+  border-radius: 50%;
+  background: var(--g2);
+  opacity: 0.45;
+  cursor: pointer;
+  transition: opacity 0.15s, border-color 0.15s;
+}
+.sf-color[aria-pressed='true'] {
+  opacity: 1;
+  border-color: var(--gold);
+}
+.sf-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--t2);
+  font-size: 13px;
+}
+.sf-range .input {
+  min-width: 0;
+}
+.sf-query {
+  margin-top: 8px;
+  padding: 0 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--t2);
+  overflow-wrap: anywhere;
+}
+
 /* Rules: keyword glossary and card rulings */
 .rules {
   display: grid;

@@ -18,7 +18,7 @@ export function SearchPage() {
       <PageHeader title="Search" eyebrow="Every card on Scryfall" />
       <div className={`content-scroll${wide ? '' : ' with-nav'} rise`} style={rise(1)}>
         <div className="wide-search">
-          <CardSearchResults examples={EXAMPLES} autoFocus initialQuery={params.get('q') ?? ''} wide={wide} />
+          <CardSearchResults examples={EXAMPLES} autoFocus initialQuery={params.get('q') ?? ''} wide={wide} filterable />
         </div>
         <p className="dim" style={{ margin: '18px 4px 0' }}>
           Tap a card to see it up close. Use ⋮ (or right-click) to add it to a deck or binder.

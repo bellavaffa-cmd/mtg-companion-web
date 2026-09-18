@@ -10,7 +10,9 @@ Live at https://bellavaffa-cmd.github.io/mtg-companion-web/
 - **Collection**: binders (Owned/Wishlist), add/remove cards, quantity + foil quantity.
 - **Decks**: create/delete, add/remove cards, quantities, commander + partner commander, game
   mode, tags.
-- **Search**: live Scryfall search, add results straight into any deck or binder.
+- **Search**: live Scryfall search with the phone app's filters (type, rules text, colours, commander
+  colours, rarity, finish, price, power, toughness, sets, artist) and sort; add results straight into
+  any deck or binder.
 - **Precons** (Decks -> Precons): official Commander decklists from MTGJSON; pick one to copy it in
   as a new deck.
 - **Suggestions** (deck page): what other people play with your commander, from EDHREC — tap one to
@@ -28,8 +30,7 @@ Live at https://bellavaffa-cmd.github.io/mtg-companion-web/
 - **Account & sync** (Home): sign in, create an account, forgot/change password. Decks and binders
   sync with the Android app.
 
-Not yet ported from the phone app: scanning, card-art recognition,
-and search filters beyond raw Scryfall syntax.
+Not yet ported from the phone app: scanning and card-art recognition, which need the phone's camera.
 
 Commander Spellbook and the news feeds don't allow browser requests, so those go through the
 `api-relay` Supabase function (source in `MtgCompanionApp/supabase/functions/api-relay`). Scryfall

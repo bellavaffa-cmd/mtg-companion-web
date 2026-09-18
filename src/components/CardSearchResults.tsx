@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { searchCards } from '../api/scryfall'
 import type { ScryfallCard } from '../types/scryfall'
 import { backImageUrl, cardTags, displayImageUrl, displayManaCost, displayOracleText, hasFlipSides } from '../types/scryfall'
@@ -10,6 +10,8 @@ import { useLongPress } from './useLongPress'
 import { CardZoomModal } from './CardZoomModal'
 import { useAddWarning } from './useAddWarning'
 import { ArtImage, PillChip, SearchPill, toArtCrop } from './kit'
+import { SearchFiltersPanel } from './SearchFiltersPanel'
+import { buildScryfallQuery, DEFAULT_SORT, NO_FILTERS, type SearchFilters, type SearchSort } from '../search/filters'
 
 interface Props {
   /** Inside a deck or binder: adding goes straight there. Omitted on the Search tab, where the
@@ -23,9 +25,11 @@ interface Props {
   initialQuery?: string
   /** Lay results out in several columns when the screen is wide enough. */
   wide?: boolean
+  /** Offer structured filters and a sort order (the Search tab). */
+  filterable?: boolean
 }
 
-export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. c:g t:creature', examples, autoFocus, initialQuery = '', wide }: Props) {
+export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. c:g t:creature', examples, autoFocus, initialQuery = '', wide, filterable }: Props) {
   const { decks, collections, addCardToDeck, addEntryToCollection } = useSync()
   const [query, setQuery] = useState(initialQuery)
   const [cards, setCards] = useState<ScryfallCard[]>([])
@@ -35,9 +39,14 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
   const [sheetCard, setSheetCard] = useState<ScryfallCard | null>(null)
   const [addWarning, setAddWarning] = useAddWarning()
   const [added, setAdded] = useState<string | null>(null)
+  const [filters, setFilters] = useState<SearchFilters>(NO_FILTERS)
+  const [sort, setSort] = useState<SearchSort>(DEFAULT_SORT)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  // What's actually sent to Scryfall: the typed query plus the filters, like the phone app.
+  const effective = useMemo(() => buildScryfallQuery(query, filters), [query, filters])
 
   useEffect(() => {
-    const trimmed = query.trim()
+    const trimmed = effective.trim()
     if (!trimmed) {
       setCards([])
       setError(null)
@@ -47,7 +56,7 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
     let cancelled = false
     setLoading(true)
     const timer = setTimeout(() => {
-      searchCards(trimmed)
+      searchCards(trimmed, 1, sort.order ?? undefined, sort.dir)
         .then((page) => {
           if (cancelled) return
           setCards(page.cards)
@@ -66,7 +75,7 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
       cancelled = true
       clearTimeout(timer)
     }
-  }, [query])
+  }, [effective, sort])
 
   useEffect(() => {
     if (!added) return
@@ -98,10 +107,23 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
   return (
     <div>
       <SearchPill value={query} onChange={setQuery} placeholder={placeholder} autoFocus={autoFocus} />
+      {filterable && (
+        <SearchFiltersPanel
+          filters={filters}
+          onChange={setFilters}
+          sort={sort}
+          onSortChange={setSort}
+          open={filtersOpen}
+          onToggle={() => setFiltersOpen((o) => !o)}
+        />
+      )}
+      {filterable && effective.trim() && effective.trim() !== query.trim() && (
+        <div className="sf-query" title="The Scryfall query these filters make">{effective}</div>
+      )}
       {addWarning && <div className="add-warning" style={{ marginTop: 10 }}>{addWarning}</div>}
       {added && !addWarning && <div className="notice" style={{ marginTop: 10 }}><Icon name="check_circle" style={{ color: 'var(--ok)', fontSize: 18, marginRight: 6 }} />{added}</div>}
 
-      {!query.trim() && examples && (
+      {!effective.trim() && examples && (
         <div className="chips">
           {examples.map((e) => <PillChip key={e.query} label={e.label} onClick={() => setQuery(e.query)} />)}
         </div>
@@ -109,7 +131,7 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
 
       {loading && <div className="muted" style={{ padding: '12px 4px 0' }}>Searching…</div>}
       {error && <div className="muted" style={{ color: 'var(--error)', padding: '12px 4px 0' }}>{error}</div>}
-      {!loading && !error && query.trim() && cards.length === 0 && <div className="empty-state">No cards match.</div>}
+      {!loading && !error && effective.trim() && cards.length === 0 && <div className="empty-state">No cards match.</div>}
       <div className={`list${wide ? ' wide-list' : ''}`} style={{ marginTop: 12 }}>
         {cards.map((card) => (
           <ResultRow key={card.id} card={card} onZoom={() => setZoomCard(card)} onMore={() => setSheetCard(card)} onAdd={onAdd ? () => add(card) : undefined} />

@@ -27,12 +27,13 @@ export interface SearchPage {
   hasMore: boolean
 }
 
-export async function searchCards(query: string, page = 1, order?: string): Promise<SearchPage> {
+export async function searchCards(query: string, page = 1, order?: string, dir?: 'asc' | 'desc'): Promise<SearchPage> {
   if (!query.trim()) return { cards: [], hasMore: false }
   const url = new URL(`${BASE}/cards/search`)
   url.searchParams.set('q', query)
   url.searchParams.set('page', String(page))
   if (order) url.searchParams.set('order', order)
+  if (order && dir) url.searchParams.set('dir', dir)
   const res = await get(url)
   if (res.status === 404) return { cards: [], hasMore: false }
   if (!res.ok) throw new Error(`Scryfall search failed (${res.status})`)
