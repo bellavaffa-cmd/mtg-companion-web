@@ -69,6 +69,12 @@ export function ShareDialog({ kind, itemId, name, onClose }: { kind: api.ShareKi
   // Phones offer their share sheet; elsewhere the link is copied.
   const canShare = typeof navigator.share === 'function'
   const friendCount = overview.friends.filter((f) => f.status === 'accepted').length
+  // Friends who see it anyway: everything of this kind is shared with them, or this one by one.
+  const everything = (overview.my_share_all ?? []).filter((a) => a.kind === kind)
+  const everyoneSees = everything.some((a) => a.viewer === null)
+  const alsoWith = [...new Set([...everything.map((a) => a.viewer), ...(current?.friend_ids ?? [])])]
+    .filter((id): id is string => !!id)
+    .map((id) => overview.people[id]?.display_name ?? 'a friend')
 
   return (
     <Dialog
@@ -98,6 +104,15 @@ export function ShareDialog({ kind, itemId, name, onClose }: { kind: api.ShareKi
         />
       ))}
       <ShareSwitch label="Anyone with the link" detail="Works without an account — turn it off to stop the link working" on={linkOn} onChange={setLink} />
+      {everyoneSees ? (
+        <p className="dim" style={{ fontSize: 12.5, margin: '10px 0 0' }}>
+          {kind === 'deck' ? 'All your decks are' : 'Your whole collection is'} shared with all your friends, so they see this {what} anyway.
+        </p>
+      ) : alsoWith.length > 0 && (
+        <p className="dim" style={{ fontSize: 12.5, margin: '10px 0 0' }}>
+          Also shared with {alsoWith.join(', ')} — change that on their page in Friends.
+        </p>
+      )}
       {url && (
         <div className="share-link">
           <QrCode text={url} size={160} label={`QR code for the link to ${name}`} />
@@ -125,9 +140,9 @@ export function ShareDialog({ kind, itemId, name, onClose }: { kind: api.ShareKi
   )
 }
 
-function ShareSwitch({ label, detail, on, onChange }: { label: string; detail: string; on: boolean; onChange: (on: boolean) => void }) {
+export function ShareSwitch({ label, detail, on, onChange, disabled }: { label: string; detail: string; on: boolean; onChange: (on: boolean) => void; disabled?: boolean }) {
   return (
-    <button type="button" role="switch" aria-checked={on} className="share-switch" onClick={() => onChange(!on)}>
+    <button type="button" role="switch" aria-checked={on} className="share-switch" disabled={disabled} onClick={() => onChange(!on)}>
       <span className="txt"><b>{label}</b><span>{detail}</span></span>
       <span className={`sw${on ? ' on' : ''}`}><i /></span>
     </button>

@@ -7,7 +7,8 @@ import { SectionHeader, rise, useBack } from '../components/kit'
 import * as api from '../social/api'
 import { useOverview } from '../social/SocialContext'
 import { Avatar, handle } from '../social/ui'
-import { SharedRow, SocialGate } from './FriendsPage'
+import { ShareWithFriend } from '../social/ShareWithFriend'
+import { SharedRow, SocialGate, WholeCollectionRow } from './FriendsPage'
 
 /** One friend: what they've shared with the user, trading with them, and unfriending. */
 export function FriendPage() {
@@ -32,6 +33,7 @@ export function FriendPage() {
               }
               const shared = overview.shared_with_me.filter((s) => s.owner === id)
               const binders = shared.filter((s) => s.kind === 'collection')
+              const wholeCollection = (overview.shared_all_with_me ?? []).some((w) => w.owner === id && w.kind === 'collection')
               const pods = overview.pods.filter((p) => p.members.includes(id))
               return (
                 <>
@@ -57,8 +59,13 @@ export function FriendPage() {
                   {shared.length === 0 ? (
                     <div className="notice">{friend.display_name} hasn't shared any decks or binders with you yet.</div>
                   ) : (
-                    <div className="list">{shared.map((s) => <SharedRow key={`${s.kind}:${s.item_id}`} item={s} owner={null} />)}</div>
+                    <div className="list">
+                      {(wholeCollection || binders.length > 1) && <WholeCollectionRow owner={id} name={friend.display_name} binders={binders} whole={wholeCollection} />}
+                      {shared.map((s) => <SharedRow key={`${s.kind}:${s.item_id}`} item={s} owner={null} />)}
+                    </div>
                   )}
+
+                  <ShareWithFriend overview={overview} friendId={id} friendName={friend.display_name} />
 
                   <button type="button" className="btn line block" style={{ marginTop: 28 }} onClick={() => setConfirmRemove(true)}>
                     <Icon name="person_remove" aria-hidden />Remove friend

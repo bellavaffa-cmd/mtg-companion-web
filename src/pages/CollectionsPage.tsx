@@ -8,6 +8,7 @@ import { useLongPress } from '../components/useLongPress'
 import { ArtImage, IconButton, PageHeader, PillChip, StatFigure, rise, toArtCrop, useLayoutSize } from '../components/kit'
 import { isUnsorted, type Collection, type CollectionType } from '../types/models'
 import { ExportCollectionDialog, ImportCardsDialog } from '../collection/CardListDialogs'
+import { ShareCollectionDialog } from '../social/ShareWithFriend'
 
 const TYPE_LABELS: Record<CollectionType, string> = { OWNED: 'Owned', WISHLIST: 'Wishlist' }
 
@@ -20,6 +21,7 @@ export function CollectionsPage() {
   const [confirmDelete, setConfirmDelete] = useState<Collection | null>(null)
   const [importing, setImporting] = useState<Collection | 'new' | null>(null)
   const [exporting, setExporting] = useState<Collection | null>(null)
+  const [sharingAll, setSharingAll] = useState(false)
   const wide = useLayoutSize() !== 'phone'
 
   const owned = collections.filter((c) => c.type !== 'WISHLIST')
@@ -38,12 +40,14 @@ export function CollectionsPage() {
         actions={wide
           ? (
             <>
+              <button type="button" className="btn line" onClick={() => setSharingAll(true)}><Icon name="group_add" />Share</button>
               <button type="button" className="btn line" onClick={() => setImporting('new')}><Icon name="playlist_add" />Import cards</button>
               <button type="button" className="btn gold" onClick={() => setShowCreate(true)}><Icon name="add" />New binder</button>
             </>
           )
           : (
             <>
+              <IconButton icon="group_add" label="Share my collection" onClick={() => setSharingAll(true)} />
               <IconButton icon="playlist_add" label="Import cards from another app" onClick={() => setImporting('new')} />
               <IconButton icon="add" label="New binder" variant="gold" onClick={() => setShowCreate(true)} />
             </>
@@ -139,6 +143,7 @@ export function CollectionsPage() {
           startInNewBinder={false}
         />
       )}
+      {sharingAll && <ShareCollectionDialog onClose={() => setSharingAll(false)} />}
       {exporting && <ExportCollectionDialog collection={exporting} onDismiss={() => setExporting(null)} />}
 
       {showCreate && <CreateCollectionDialog onDismiss={() => setShowCreate(false)} onCreated={(id) => navigate(`/collections/${id}`)} />}

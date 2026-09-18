@@ -85,6 +85,9 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
     .filter((f) => f.status === 'accepted')
     .sort((a, b) => (person(a.user_id)?.display_name ?? '').localeCompare(person(b.user_id)?.display_name ?? ''))
   const sharedDecks = overview.shared_with_me.length
+  // A friend's whole collection is one row here (it opens all of it); its binders are on their page.
+  const wholeOwners = (overview.shared_all_with_me ?? []).filter((w) => w.kind === 'collection').map((w) => w.owner)
+  const sharedRows = overview.shared_with_me.filter((s) => !(s.kind === 'collection' && s.whole && wholeOwners.includes(s.owner)))
 
   const tabs = (
     <div className="rise" style={{ ...rise(0), marginBottom: 14 }}>
@@ -186,12 +189,21 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
         </div>
       )}
 
-      <SectionHeader title={`Shared with you${sharedDecks ? ` · ${sharedDecks}` : ''}`} />
+      <SectionHeader title={`Shared with you${sharedDecks ? ` · ${wholeOwners.length + sharedRows.length}` : ''}`} />
       {sharedDecks === 0 ? (
         <div className="notice">Decks and binders friends share with you show up here.</div>
       ) : (
         <div className="list">
-          {overview.shared_with_me.map((s) => (
+          {wholeOwners.map((owner) => (
+            <WholeCollectionRow
+              key={`whole:${owner}`}
+              owner={owner}
+              name={person(owner)?.display_name ?? 'A friend'}
+              binders={overview.shared_with_me.filter((s) => s.owner === owner && s.kind === 'collection')}
+              whole
+            />
+          ))}
+          {sharedRows.map((s) => (
             <SharedRow key={`${s.owner}:${s.kind}:${s.item_id}`} item={s} owner={person(s.owner)} />
           ))}
         </div>
@@ -247,6 +259,26 @@ export function SharedRow({ item, owner }: { item: api.SharedSummary; owner: api
           <span className="badge soft">{item.kind === 'deck' ? 'Deck' : 'Binder'}</span>
           <span><b>{item.cards}</b>cards</span>
           {owner && <span className="dim">{owner.display_name}</span>}
+        </div>
+      </div>
+      <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
+    </button>
+  )
+}
+
+/** A friend's collection as a whole — every binder they share with the user — opened as one. */
+export function WholeCollectionRow({ owner, name, binders, whole }: { owner: string; name: string; binders: api.SharedSummary[]; whole: boolean }) {
+  const navigate = useNavigate()
+  const cards = binders.reduce((n, b) => n + b.cards, 0)
+  return (
+    <button type="button" className="brow press unsorted-row" onClick={() => navigate(`/shared/${owner}/collection`)}>
+      <div className="icon-tile"><Icon name="collections_bookmark" /></div>
+      <div style={{ minWidth: 0 }}>
+        <div className="brow-name">{whole ? `${name}'s collection` : `Everything ${name} shares`}</div>
+        <div className="brow-meta">
+          <span className="badge soft">{whole ? 'Whole collection' : 'All shared binders'}</span>
+          <span><b>{binders.length}</b>{binders.length === 1 ? 'binder' : 'binders'}</span>
+          <span><b>{cards}</b>cards</span>
         </div>
       </div>
       <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />

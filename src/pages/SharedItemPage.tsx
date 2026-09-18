@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
 import { CardZoomModal } from '../components/CardZoomModal'
-import { ArtImage, SectionHeader, StatFigure, TYPE_GROUPS, TYPE_PLURALS, primaryTypeOf, rise, toArtCrop, useBack } from '../components/kit'
+import { ArtImage, SearchPill, SectionHeader, StatFigure, TYPE_GROUPS, TYPE_PLURALS, primaryTypeOf, rise, toArtCrop, useBack } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
 import { GAME_MODE_LABELS, normalizeDeck, type Collection, type CollectionEntry, type Deck, type DeckCardEntry, type GameMode } from '../types/models'
 import * as api from '../social/api'
@@ -130,16 +130,153 @@ function SharedDeck({ item }: { item: api.SharedItem }) {
   )
 }
 
-function ReadOnlyCard({ card, onZoom, foil }: { card: { name: string; imageUrl: string | null; quantity: number; backImageUrl?: string | null }; onZoom: () => void; foil?: number }) {
+function ReadOnlyCard({ card, onZoom, foil, detail }: {
+  card: { name: string; imageUrl: string | null; quantity: number; backImageUrl?: string | null }
+  onZoom: () => void
+  foil?: number
+  detail?: string
+}) {
   return (
     <button type="button" className="crow read-only press" onClick={onZoom}>
       <ArtImage className="thumb" src={toArtCrop(card.imageUrl)} seed={card.name} />
       <div className="cmain">
         <div className="cname">{card.name}</div>
-        <div className="cmeta">{foil ? <span className="badge gold"><Icon name="auto_awesome" />{foil} foil</span> : <span />}</div>
+        <div className="cmeta">
+          {foil ? <span className="badge gold"><Icon name="auto_awesome" />{foil} foil</span> : null}
+          {detail ? <span className="dim">{detail}</span> : null}
+          {!foil && !detail ? <span /> : null}
+        </div>
       </div>
       <span className="ro-qty">{card.quantity > 0 ? `${card.quantity}×` : ''}</span>
     </button>
+  )
+}
+
+/** One card across a friend's binders: copies owned in all of them, and which binders. */
+interface OwnedCard {
+  scryfallId: string
+  name: string
+  imageUrl: string | null
+  backImageUrl?: string | null
+  quantity: number
+  foilQuantity: number
+  binders: string[]
+}
+
+/** How many cards the collection page lists before asking for a search. */
+const COLLECTION_LIST_LIMIT = 300
+
+/**
+ * A friend's collection as a whole (/shared/owner/collection): every card across the binders they
+ * share with the user — all of them when they share their whole collection — searchable, with the
+ * binders themselves below. Wishlists are listed but their cards aren't counted as owned.
+ */
+export function SharedCollectionPage() {
+  const { owner = '' } = useParams<{ owner: string }>()
+  const back = useBack(`/friends/${owner}`)
+  const navigate = useNavigate()
+  const { account } = useSync()
+  const [loaded, setLoaded] = useState<{ state: 'loading' } | { state: 'missing' } | { state: 'error'; message: string } | { state: 'ok'; data: api.SharedCollection }>({ state: 'loading' })
+  const [query, setQuery] = useState('')
+  const [zoom, setZoom] = useState<OwnedCard | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoaded({ state: 'loading' })
+    api.getSharedCollection(owner)
+      .then((data) => { if (!cancelled) setLoaded(data ? { state: 'ok', data } : { state: 'missing' }) })
+      .catch((e: unknown) => { if (!cancelled) setLoaded({ state: 'error', message: e instanceof Error ? e.message : 'Something went wrong.' }) })
+    return () => { cancelled = true }
+  }, [owner, account?.userId])
+
+  const name = loaded.state === 'ok' ? loaded.data.owner.display_name : null
+  let body: ReactNode
+  if (loaded.state === 'loading') body = <div className="empty-state"><Icon name="hourglass_empty" />Loading…</div>
+  else if (loaded.state === 'error') body = <div className="empty-state"><Icon name="cloud_off" />{loaded.message}</div>
+  else if (loaded.state === 'missing') body = <div className="empty-state"><Icon name="link_off" />Nothing of theirs is shared with you any more.</div>
+  else {
+    const binders = loaded.data.binders.map((b) => b as unknown as Partial<Collection>)
+    const owned = binders.filter((b) => b.type !== 'WISHLIST')
+    const byCard = new Map<string, OwnedCard>()
+    for (const b of owned) {
+      for (const e of Array.isArray(b.entries) ? b.entries : []) {
+        const card = byCard.get(e.scryfallId) ?? { scryfallId: e.scryfallId, name: e.name, imageUrl: e.imageUrl, backImageUrl: e.backImageUrl, quantity: 0, foilQuantity: 0, binders: [] }
+        card.quantity += e.quantity
+        card.foilQuantity += e.foilQuantity
+        card.binders.push(b.name ?? 'Binder')
+        byCard.set(e.scryfallId, card)
+      }
+    }
+    const cards = [...byCard.values()].sort((a, b) => a.name.localeCompare(b.name))
+    const total = cards.reduce((n, c) => n + c.quantity + c.foilQuantity, 0)
+    const q = query.trim().toLowerCase()
+    const shown = q ? cards.filter((c) => c.name.toLowerCase().includes(q)) : cards
+    body = (
+      <>
+        <div className="binder-head rise" style={rise(0)}>
+          <div className="eyebrow">{loaded.data.whole ? 'Whole collection' : 'Everything shared with you'}</div>
+          <h1>{loaded.data.owner.display_name}'s collection</h1>
+          <OwnerLine owner={loaded.data.owner} />
+        </div>
+        <div className="stats rise" style={{ ...rise(1), marginTop: 12, maxWidth: 720 }}>
+          <StatFigure value={total} label="Cards" />
+          <StatFigure value={cards.length} label="Unique" />
+          <StatFigure value={binders.length} label="Binders" />
+        </div>
+        {account && total > 0 && (
+          <div className="row" style={{ gap: 8, marginTop: 12 }}>
+            <button type="button" className="btn gold" onClick={() => navigate(`/trades/new?to=${owner}`)}>
+              <Icon name="swap_horiz" aria-hidden />Propose a trade
+            </button>
+          </div>
+        )}
+        <div style={{ marginTop: 14, maxWidth: 480 }}>
+          <SearchPill value={query} onChange={setQuery} placeholder={`Search ${cards.length} cards`} />
+        </div>
+        <div className="list wide-list" style={{ marginTop: 14 }}>
+          {shown.slice(0, COLLECTION_LIST_LIMIT).map((c) => (
+            <ReadOnlyCard
+              key={c.scryfallId}
+              card={{ ...c, quantity: c.quantity + c.foilQuantity }}
+              foil={c.foilQuantity}
+              detail={c.binders.join(', ')}
+              onZoom={() => setZoom(c)}
+            />
+          ))}
+          {shown.length === 0 && <div className="empty-state">{q ? `No cards match “${query}”.` : 'No cards yet.'}</div>}
+          {shown.length > COLLECTION_LIST_LIMIT && (
+            <div className="dim" style={{ padding: '8px 4px' }}>Showing {COLLECTION_LIST_LIMIT} of {shown.length} — search to find a card.</div>
+          )}
+        </div>
+        <SectionHeader title={`Binders · ${binders.length}`} />
+        <div className="list wide-list">
+          {binders.map((b) => {
+            const entries = Array.isArray(b.entries) ? b.entries : []
+            return (
+              <button key={b.id} type="button" className="brow press" onClick={() => navigate(`/shared/${owner}/collection/${encodeURIComponent(String(b.id ?? ''))}`)}>
+                {entries[0] ? <ArtImage src={toArtCrop(entries[0].imageUrl)} seed={b.name ?? ''} /> : <div className="icon-tile"><Icon name={b.type === 'WISHLIST' ? 'star' : 'collections'} /></div>}
+                <div style={{ minWidth: 0 }}>
+                  <div className="brow-name">{b.name ?? 'Binder'}</div>
+                  <div className="brow-meta">
+                    {b.type === 'WISHLIST' && <span className="badge soft">Wishlist</span>}
+                    <span><b>{entries.reduce((n, e) => n + e.quantity + e.foilQuantity, 0)}</b>cards</span>
+                  </div>
+                </div>
+                <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
+              </button>
+            )
+          })}
+        </div>
+      </>
+    )
+  }
+
+  return (
+    <>
+      <TopBar title={name ? `${name}'s collection` : 'Collection'} onBack={back} />
+      <div className="content-scroll">{body}</div>
+      {zoom && <CardZoomModal imageUrl={zoom.imageUrl} name={zoom.name} backImageUrl={zoom.backImageUrl} onClose={() => setZoom(null)} />}
+    </>
   )
 }
 

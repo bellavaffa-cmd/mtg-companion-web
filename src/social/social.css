@@ -434,6 +434,18 @@
   padding: 10px 0;
   color: var(--t0);
 }
+.share-switch:disabled {
+  cursor: default;
+}
+.share-switch:disabled .sw {
+  opacity: 0.55;
+}
+/* A friend's page: binders or decks shared one by one, under their "everything" switch. */
+.share-group {
+  margin: 0 0 6px 14px;
+  padding-left: 14px;
+  border-left: 2px solid var(--g3);
+}
 .share-switch .txt {
   flex: 1;
   display: grid;

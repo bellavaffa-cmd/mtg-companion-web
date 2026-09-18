@@ -36,6 +36,8 @@ export interface SharedSummary {
   cover: string | null
   cards: number
   edited_ms: number
+  /** Shared as part of the owner's whole collection / all their decks. */
+  whole?: boolean
 }
 
 export interface Share {
@@ -43,7 +45,15 @@ export interface Share {
   item_id: string
   all_friends: boolean
   pod_ids: string[]
+  /** Friends it's shared with one by one. */
+  friend_ids?: string[]
   link_token: string | null
+}
+
+/** Every deck or binder of [kind] — a whole collection, or all decks — shared with [viewer] (null: all friends). */
+export interface ShareAll {
+  kind: ShareKind
+  viewer: string | null
 }
 
 /** One line of a trade. [collectionId]: the giver's binder it comes out of. */
@@ -84,13 +94,24 @@ export interface Overview {
   friends: FriendLink[]
   pods: Pod[]
   shared_with_me: SharedSummary[]
+  /** Friends sharing their whole collection ('collection') or all decks ('deck') with the user. */
+  shared_all_with_me?: { owner: string; kind: ShareKind }[]
   my_shares: Share[]
+  my_share_all?: ShareAll[]
   trades: Trade[]
 }
 
 export interface Inbox {
   friend_requests: number
   trades: number
+}
+
+/** Every binder a friend shares with the user, for looking through their collection as a whole. */
+export interface SharedCollection {
+  owner: Profile
+  /** Their whole collection is shared, not just some binders. */
+  whole: boolean
+  binders: Record<string, unknown>[]
 }
 
 export interface SharedItem {
@@ -272,6 +293,11 @@ export const setShare = (kind: ShareKind, itemId: string, allFriends: boolean, p
   call<Share | null>('set_library_share', { p_kind: kind, p_item_id: itemId, p_all_friends: allFriends, p_pod_ids: podIds, p_link: link })
 export const getSharedItem = (owner: string, kind: ShareKind, itemId: string) =>
   call<SharedItem | null>('get_shared_item', { p_owner: owner, p_kind: kind, p_item_id: itemId })
+export const setItemFriendShare = (kind: ShareKind, itemId: string, friend: string, on: boolean) =>
+  call<Share | null>('set_item_friend_share', { p_kind: kind, p_item_id: itemId, p_friend: friend, p_on: on })
+export const setShareAll = (kind: ShareKind, viewer: string | null, on: boolean) =>
+  call<void>('set_share_all', { p_kind: kind, p_viewer: viewer, p_on: on })
+export const getSharedCollection = (owner: string) => call<SharedCollection | null>('get_shared_collection', { p_owner: owner })
 export const getSharedByLink = (token: string) => call<SharedItem | null>('get_shared_by_link', { p_token: token }, { signedIn: false })
 
 // ---- Life counter seats ----
