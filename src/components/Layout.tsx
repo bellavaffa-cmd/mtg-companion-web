@@ -97,6 +97,10 @@ function Sidebar() {
         <Icon name="favorite" />
         Life counter
       </NavLink>
+      <NavLink to="/rules" className={({ isActive }) => `side-nav${isActive ? ' active' : ''}`}>
+        <Icon name="gavel" />
+        Rules
+      </NavLink>
       {recent.length > 0 && (
         <>
           <div className="side-sec">
@@ -134,6 +138,10 @@ function NavRail() {
       <NavLink to="/life" className="nav-tab">
         <span className="pill"><Icon name="favorite" /></span>
         <span>Life</span>
+      </NavLink>
+      <NavLink to="/rules" className={({ isActive }) => `nav-tab${isActive ? ' active' : ''}`}>
+        <span className="pill"><Icon name="gavel" /></span>
+        <span>Rules</span>
       </NavLink>
       <div style={{ flex: 1 }} />
       <AccountStatus compact />

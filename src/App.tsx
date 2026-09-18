@@ -11,6 +11,7 @@ import { DeckDetailPage } from './pages/DeckDetailPage'
 import { SearchPage } from './pages/SearchPage'
 import { AccountPage } from './pages/AccountPage'
 import { LifeCounterPage } from './lifecounter/LifeCounterPage'
+import { RulesPage } from './pages/RulesPage'
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
             <Route path="/decks" element={<DecksPage />} />
             <Route path="/decks/:id" element={<DeckDetailPage />} />
             <Route path="/precons" element={<PreconsPage />} />
+            <Route path="/rules" element={<RulesPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/account" element={<AccountPage />} />
           </Route>

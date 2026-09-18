@@ -58,6 +58,21 @@ export async function getByFuzzyName(name: string): Promise<ScryfallCard> {
   return res.json()
 }
 
+export interface Ruling {
+  source: string
+  published_at: string
+  comment: string
+}
+
+/** The official rulings for the card that best matches [name], oldest first as Scryfall lists them. */
+export async function getRulings(name: string): Promise<{ card: ScryfallCard; rulings: Ruling[] }> {
+  const card = await getByFuzzyName(name)
+  const res = await get(`${BASE}/cards/${card.id}/rulings`)
+  if (!res.ok) throw new Error(`Scryfall couldn't send the rulings (HTTP ${res.status}).`)
+  const json = await res.json()
+  return { card, rulings: (json.data ?? []) as Ruling[] }
+}
+
 /** Bulk lookup by Scryfall id, batched into /cards/collection's 75-per-request limit. */
 /**
  * The cards for [ids], fetched 75 at a time. A batch that fails is left out — unless [strict], when

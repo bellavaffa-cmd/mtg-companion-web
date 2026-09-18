@@ -219,6 +219,11 @@ export function HomePage() {
           <span style={{ flex: 1 }}>Life counter — life, commander damage and turns for the whole table</span>
           <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
         </button>
+        <button type="button" className="banner press rise" style={{ ...rise(3), marginTop: 10 }} onClick={() => navigate('/rules')}>
+          <Icon name="gavel" />
+          <span style={{ flex: 1 }}>Rules — what a keyword does, and the official rulings for any card</span>
+          <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
+        </button>
 
         {record && (
           <div className="record rise" style={rise(3)}>
