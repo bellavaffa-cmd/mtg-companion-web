@@ -27,6 +27,10 @@ Live at https://bellavaffa-cmd.github.io/mtg-companion-web/
 - **Rules** (`/rules`): a keyword glossary that works offline (the same one as the phone app), and
   the official rulings for any card from Scryfall.
 - **News** (Home): headlines from MTG Arena Zone and Star City Games.
+- **Install it** like an app: the browser's install option (Chrome/Edge: the install icon in the
+  address bar; Android: menu → Add to home screen / Install app; iPhone: Share → Add to Home Screen)
+  gives it a home-screen icon and its own window. It opens without a connection too, with the decks
+  already in the browser (pwa/sw.template.js; card search, images and sync need the network).
 - **Account & sync** (Home): sign in, create an account, forgot/change password. Decks and binders
   sync with the Android app.
 
