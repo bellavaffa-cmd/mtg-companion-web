@@ -235,17 +235,29 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
     const theirJson = canonicalJson(theirs)
     const mineJson = local.get(key)
     const meta = state.items[key]
-    // A row stamped with the edit time this browser last pushed is its own write coming back (or one
-    // it already agreed on): that is now the agreed version, so it doesn't count twice in a merge.
-    const baseJson = meta && !meta.deleted && meta.editedMs === row.edited_ms ? theirJson : meta?.base
+    // This browser's own write coming back (or a row it already agreed on): stamped with the edit time
+    // it last pushed, and holding what it pushed. That is now the agreed version. The content check
+    // matters: another device merging from the same row can land on the very same stamp.
+    if (meta && !meta.deleted && meta.editedMs === row.edited_ms && (meta.hash === hash(theirJson) || meta.base === theirJson)) {
+      items[key] = { ...meta, base: theirJson }
+      if (mineJson !== undefined && hash(mineJson) !== meta.hash) {
+        // Edited again since: that edit is simply pushed — nothing from elsewhere to merge in.
+        pending[key] = Math.max(pending[key] ?? now, row.edited_ms + 1)
+      } else if (mineJson !== undefined) {
+        delete pending[key]
+      }
+      continue
+    }
+    const baseJson = meta?.base
 
     // This device has diverged if its copy differs from the version both sides last agreed on —
     // which stays true even when a push was skipped as stale server-side.
     const diverged = mineJson !== undefined && baseJson !== undefined && mineJson !== baseJson
-    // First sync in this browser, and the same deck is already in the cloud (both copies came from
-    // somewhere else). With no agreed version to compare against, keep every card from both rather
-    // than letting the cloud copy replace this one.
-    const firstMeeting = localEdit === 0 && mineJson !== undefined && baseJson === undefined
+    // This browser has the item but has never agreed a version of it with the server — its first
+    // sync, say, with the same deck already in the cloud from somewhere else. With nothing to compare
+    // against, keep every card from both rather than letting the cloud copy replace this one. (Not
+    // tied to a pending edit: a first push the server skipped leaves none.)
+    const firstMeeting = mineJson !== undefined && meta === undefined
     // Both devices changed this one since they last agreed: keep both sets of edits.
     if ((diverged || firstMeeting) && mineJson !== theirJson) {
       const mine = JSON.parse(mineJson!)
@@ -270,9 +282,7 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
     }
 
     if (localEdit !== undefined && localEdit > row.edited_ms) {
-      // Ours is newer and pushed below; still note an echo of our own last push as agreed.
-      if (baseJson !== meta?.base && meta) items[key] = { ...meta, base: baseJson }
-      continue
+      continue // ours is newer; pushed below
     }
     if (mineJson !== theirJson) remoteChanges.set(key, theirs)
     items[key] = { hash: hash(theirJson), editedMs: row.edited_ms, base: theirJson }
@@ -303,20 +313,36 @@ export async function pushPending(pulled: PullOutcome, token: string): Promise<{
     const res = await request('/rest/v1/rpc/push_library_items', token, { method: 'POST', body: JSON.stringify({ items: batch }) })
     // The server skips any item older than what it already holds, and answers with how many it wrote.
     const answer = Number((await res.text()).trim())
-    const allWritten = answer === batch.length
     written = Number.isFinite(answer) ? answer : batch.length
+    // Which items landed. Usually all of them; if the server skipped some (it held a newer edit),
+    // read the rows straight back — each one still carrying our stamp is ours. Left to the next pass,
+    // another device could build on one of our writes first, and our change would count twice.
+    let landed = new Set(answer === batch.length ? keys : [])
+    let unsure = answer === batch.length ? [] : keys
+    if (unsure.length > 0) {
+      try {
+        const stamps = new Map(batch.map((item) => [`${item.kind}:${item.id}`, item.edited_ms]))
+        const rows = await fetchRows(token, keys)
+        landed = new Set(rows.filter((row) => stamps.get(`${row.kind}:${row.id}`) === row.edited_ms).map((row) => `${row.kind}:${row.id}`))
+        unsure = keys.filter((key) => !landed.has(key))
+      } catch {
+        // Couldn't check: treat them all as unsure, and read them back next pass.
+      }
+    }
     const items = { ...state.items }
     batch.forEach((item) => {
       const key = `${item.kind}:${item.id}`
       const json = pushedJson[key]
+      // A first push the server skipped (another device had already put this item in the cloud):
+      // still never agreed, so the next pass meets it as a first meeting and merges both copies.
+      if (!landed.has(key) && !state.items[key]) return
       items[key] = json === undefined
         ? { hash: 0, editedMs: item.edited_ms, deleted: true }
-        // Everything was written: the pushed version is now what both sides agree on. Otherwise we
-        // can't tell which ones the server skipped, so the old base stays and the next pass reads
-        // those rows back — its own write is recognised by its edit time, anything newer is merged.
-        : { hash: hash(json), editedMs: item.edited_ms, base: allWritten ? json : state.items[key]?.base }
+        // Written: the pushed version is now what both sides agree on. Skipped: the old base stays,
+        // and the next pass reads the newer row back and merges.
+        : { hash: hash(json), editedMs: item.edited_ms, base: landed.has(key) ? json : state.items[key]?.base }
     })
-    state = { ...state, items, pending: {}, refetch: allWritten ? [] : keys }
+    state = { ...state, items, pending: {}, refetch: unsure }
   }
   return { state: { ...state, lastSyncedAt: Date.now() }, pushed: written }
 }

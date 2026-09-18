@@ -142,7 +142,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const libraryRef = useRef(library)
   // The stored library this tab last wrote or read. When localStorage holds something else, another
   // tab changed it.
-  const storedLibrary = useRef<string | null>(null)
+  const storedLibrary = useRef<string | null>(localStorage.getItem(LIBRARY_KEY))
 
   const [account, setAccount] = useState<Account | null>(() => (auth.supabaseConfigured ? auth.currentAccount() : null))
   const accountRef = useRef(account)
@@ -173,7 +173,6 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   /** Picks up the library another tab saved, so this one doesn't write an old copy over it. */
   const adoptStoredLibrary = useCallback(() => {
     const raw = localStorage.getItem(LIBRARY_KEY)
-    if (storedLibrary.current === null) storedLibrary.current = raw
     if (raw === storedLibrary.current) return
     storedLibrary.current = raw
     const lib = loadLibrary(raw)
