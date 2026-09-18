@@ -8,6 +8,7 @@ import { useSync } from '../sync/SyncContext'
 import * as api from '../social/api'
 import { useOverview } from '../social/SocialContext'
 import { ProfileEditor } from '../social/ProfileEditor'
+import { NotificationsPanel } from '../social/NotificationsPanel'
 import { Avatar, handle, QrCode } from '../social/ui'
 
 /**
@@ -178,6 +179,8 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
           ))}
         </div>
       )}
+
+      <NotificationsPanel />
 
       <SectionHeader title={`Shared with you${sharedDecks ? ` · ${sharedDecks}` : ''}`} />
       {sharedDecks === 0 ? (

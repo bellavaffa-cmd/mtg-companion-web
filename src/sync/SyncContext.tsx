@@ -11,6 +11,7 @@ import { watchLibrary } from './realtime'
 import type { Account } from './supabaseAuth'
 import type { Library } from './cloudSync'
 import { applyCollectionChanges, type CollectionChange } from '../social/tradeLogic'
+import { dropPushOnSignOut } from '../social/push'
 import {
   applyRemoteChanges, applyRescue, captureRescue, clearCloudState, clearRescue, CLOUD_STATE_KEY, leftoverFromSignOut,
   libraryIsAnotherAccounts, loadCloudState, loadRescue, pullChanges, pushPending, recordLocalEdits, RESCUE_MAX_AGE_MS,
@@ -221,6 +222,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }
     localStorage.removeItem(MERGE_PENDING_KEY)
     window.clearTimeout(syncTimer.current)
+    // This browser stops getting the account's notifications.
+    void dropPushOnSignOut()
     accountRef.current = null
     setAccount(null)
     setMergePrompt(null)

@@ -63,3 +63,38 @@ self.addEventListener('fetch', (event) => {
   // without, and a server that answers "Vary: Origin" would otherwise make that a miss.
   event.respondWith(caches.match(request, { ignoreVary: true }).then((hit) => hit ?? fetch(request)))
 })
+
+// ---- Notifications (friend requests and trades), sent by the push Edge Function ----
+
+self.addEventListener('push', (event) => {
+  let data = {}
+  try {
+    data = event.data ? event.data.json() : {}
+  } catch {
+    data = { title: 'MTG Companion', body: event.data ? event.data.text() : '' }
+  }
+  const scope = self.registration.scope
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'MTG Companion', {
+      body: data.body || '',
+      tag: data.tag || undefined,
+      renotify: Boolean(data.tag),
+      icon: new URL('icon-192.png', scope).href,
+      badge: new URL('icon-192.png', scope).href,
+      data: { url: new URL(data.open === 'trades' ? 'trades' : 'friends', scope).href },
+    }),
+  )
+})
+
+// A tap opens the screen it's about: in a tab of the app that's already open if there is one.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const url = (event.notification.data && event.notification.data.url) || self.registration.scope
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((w) => w.url.startsWith(self.registration.scope))
+      if (open) return open.focus().then((w) => (w && 'navigate' in w ? w.navigate(url) : undefined))
+      return self.clients.openWindow(url)
+    }),
+  )
+})

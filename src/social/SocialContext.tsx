@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSync } from '../sync/SyncContext'
 import * as api from './api'
+import { refreshPush } from './push'
 
 interface SocialValue {
   /** Null until loaded (or while signed out). */
@@ -41,6 +42,8 @@ export function SocialProvider({ children }: { children: ReactNode }) {
     setOverview(null)
     setInbox(NO_INBOX)
     setError(null)
+    // A browser already getting notifications keeps its address current, for whoever is signed in.
+    if (userId) void refreshPush().catch(() => {})
   }, [userId])
 
   const refresh = useCallback(async () => {
