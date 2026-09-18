@@ -10,6 +10,11 @@ Live at https://bellavaffa-cmd.github.io/mtg-companion-web/
 - **Collection**: binders (Owned/Wishlist), add/remove cards, quantity + foil quantity.
 - **Decks**: create/delete, add/remove cards, quantities, commander + partner commander, game
   mode, tags.
+- **Scan** (`/scan`, or Search → Scan): hold a card up to the camera and its name is read and looked
+  up; scanned cards collect in a list (adjust counts, remove mistakes) that goes into a deck or binder
+  in one go. Names are read with Tesseract (`tesseract.js`, in a Web Worker; its engine and English
+  data, about 4.5 MB, download from jsDelivr the first time) and matched against Scryfall's list of
+  every card name, so a misread letter still finds the card. A name can also be typed. `src/scan/`.
 - **Search**: live Scryfall search with the phone app's filters (type, rules text, colours, commander
   colours, rarity, finish, price, power, toughness, sets, artist) and sort; add results straight into
   any deck or binder.
@@ -34,7 +39,7 @@ Live at https://bellavaffa-cmd.github.io/mtg-companion-web/
 - **Account & sync** (Home): sign in, create an account, forgot/change password. Decks and binders
   sync with the Android app.
 
-Not yet ported from the phone app: scanning and card-art recognition, which need the phone's camera.
+Not yet ported from the phone app: recognising a card by its art (the phone's fallback when a name can't be read).
 
 Commander Spellbook and the news feeds don't allow browser requests, so those go through the
 `api-relay` Supabase function (source in `MtgCompanionApp/supabase/functions/api-relay`). Scryfall

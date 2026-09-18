@@ -12,6 +12,7 @@ import { SearchPage } from './pages/SearchPage'
 import { AccountPage } from './pages/AccountPage'
 import { LifeCounterPage } from './lifecounter/LifeCounterPage'
 import { RulesPage } from './pages/RulesPage'
+import { ScanPage } from './pages/ScanPage'
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
             <Route path="/precons" element={<PreconsPage />} />
             <Route path="/rules" element={<RulesPage />} />
             <Route path="/search" element={<SearchPage />} />
+            <Route path="/scan" element={<ScanPage />} />
             <Route path="/account" element={<AccountPage />} />
           </Route>
           {/* The table runs edge to edge, without the app's navigation. */}

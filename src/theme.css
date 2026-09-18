@@ -2453,6 +2453,109 @@ html {
 
 /* ---- Precons ---- */
 
+/* Scan: the camera, a card-shaped guide, and the list of scanned cards */
+.scan-page {
+  max-width: 720px;
+}
+.scan-view {
+  position: relative;
+  height: min(62vh, 560px);
+  border-radius: 20px;
+  overflow: hidden;
+  background: #000;
+}
+.scan-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.scan-guide-wrap {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.scan-guide {
+  height: 86%;
+  max-width: 86%;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 14px;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.35);
+  position: relative;
+  animation: scan-found 0.5s ease-out;
+}
+.scan-guide-title {
+  position: absolute;
+  left: 5%;
+  right: 18%;
+  top: 3%;
+  height: 7%;
+  border-radius: 6px;
+  background: rgba(230, 180, 90, 0.18);
+  border: 1px dashed rgba(230, 180, 90, 0.7);
+}
+@keyframes scan-found {
+  from { border-color: var(--gold); box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.35), 0 0 0 6px rgba(230, 180, 90, 0.5); }
+}
+.scan-camera-note {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  color: var(--t1);
+  background: var(--g1);
+}
+.scan-camera-note .icon {
+  font-size: 36px;
+  color: var(--t2);
+}
+.scan-status {
+  margin: 12px 4px;
+  font-weight: 600;
+}
+.scan-seen {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--t2);
+  overflow-wrap: anywhere;
+}
+.scan-type {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.scan-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 18px 4px 10px;
+  font-weight: 700;
+}
+.scan-row {
+  grid-template-columns: 56px minmax(0, 1fr) auto !important;
+}
+.scan-qty {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.scan-qty .ib {
+  width: 34px;
+  height: 34px;
+}
+.scan-qty b {
+  min-width: 18px;
+  text-align: center;
+}
+
 /* Search filters */
 .sf {
   margin-top: 10px;

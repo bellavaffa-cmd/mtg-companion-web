@@ -51,6 +51,15 @@ export async function autocomplete(query: string): Promise<string[]> {
   return json.data ?? []
 }
 
+/** The card with exactly [name] (a double-faced card's full "Front // Back" name works too). */
+export async function getByExactName(name: string): Promise<ScryfallCard> {
+  const url = new URL(`${BASE}/cards/named`)
+  url.searchParams.set('exact', name)
+  const res = await get(url)
+  if (!res.ok) throw new Error(`No card named "${name}"`)
+  return res.json()
+}
+
 export async function getByFuzzyName(name: string): Promise<ScryfallCard> {
   const url = new URL(`${BASE}/cards/named`)
   url.searchParams.set('fuzzy', name)

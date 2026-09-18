@@ -1,4 +1,5 @@
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Icon } from '../components/Icon'
 import { CardSearchResults } from '../components/CardSearchResults'
 import { PageHeader, rise, useLayoutSize } from '../components/kit'
 
@@ -12,10 +13,15 @@ const EXAMPLES = [
 
 export function SearchPage() {
   const [params] = useSearchParams()
+  const navigate = useNavigate()
   const wide = useLayoutSize() !== 'phone'
   return (
     <>
-      <PageHeader title="Search" eyebrow="Every card on Scryfall" />
+      <PageHeader
+        title="Search"
+        eyebrow="Every card on Scryfall"
+        actions={<button type="button" className="btn line" onClick={() => navigate('/scan')}><Icon name="photo_camera" />Scan</button>}
+      />
       <div className={`content-scroll${wide ? '' : ' with-nav'} rise`} style={rise(1)}>
         <div className="wide-search">
           <CardSearchResults examples={EXAMPLES} autoFocus initialQuery={params.get('q') ?? ''} wide={wide} filterable />

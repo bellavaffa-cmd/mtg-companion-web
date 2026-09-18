@@ -100,6 +100,10 @@ function Sidebar() {
           {tab.label}
         </NavLink>
       ))}
+      <NavLink to="/scan" className={({ isActive }) => `side-nav${isActive ? ' active' : ''}`}>
+        <Icon name="photo_camera" />
+        Scan cards
+      </NavLink>
       <NavLink to="/life" className="side-nav">
         <Icon name="favorite" />
         Life counter
@@ -142,6 +146,10 @@ function NavRail() {
           <span>{tab.label}</span>
         </NavLink>
       ))}
+      <NavLink to="/scan" className={({ isActive }) => `nav-tab${isActive ? ' active' : ''}`}>
+        <span className="pill"><Icon name="photo_camera" /></span>
+        <span>Scan</span>
+      </NavLink>
       <NavLink to="/life" className="nav-tab">
         <span className="pill"><Icon name="favorite" /></span>
         <span>Life</span>
