@@ -148,11 +148,13 @@ interface SyncContextValue {
   deleteCollection: (collectionId: string) => void
   addEntryToCollection: (collectionId: string, card: ScryfallCard, quantity?: number, foilQuantity?: number) => void
   removeEntryFromCollection: (collectionId: string, scryfallId: string) => void
+  /** Removes several cards from a binder in one change. */
+  removeEntriesFromCollection: (collectionId: string, scryfallIds: string[]) => void
   setEntryQuantities: (collectionId: string, scryfallId: string, quantity: number, foilQuantity: number) => void
   /** Adds a whole imported list to a binder in one change (to UNSORTED_COLLECTION_ID: the Unsorted pile, made if needed). */
   importIntoCollection: (collectionId: string, cards: { card: ScryfallCard; quantity: number; foilQuantity: number }[]) => void
-  /** Moves every copy of a card from one binder into another. */
-  moveEntry: (fromId: string, scryfallId: string, toId: string) => void
+  /** Moves every copy of some cards from one binder into another, in one change. */
+  moveEntries: (fromId: string, scryfallIds: string[], toId: string) => void
   /** Moves cards in and out of binders in one change (a trade); answers the ones there weren't enough copies of. */
   changeCollections: (changes: CollectionChange[]) => CollectionChange[]
 }
@@ -820,28 +822,40 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [updateLibrary, mapCollection],
   )
 
-  const moveEntry = useCallback(
-    (fromId: string, scryfallId: string, toId: string) => {
+  const moveEntries = useCallback(
+    (fromId: string, scryfallIds: string[], toId: string) => {
       updateLibrary((lib) => {
-        const entry = lib.collections.find((c) => c.id === fromId)?.entries.find((e) => e.scryfallId === scryfallId)
-        if (!entry || fromId === toId) return lib
+        const ids = new Set(scryfallIds)
+        const moving = lib.collections.find((c) => c.id === fromId)?.entries.filter((e) => ids.has(e.scryfallId)) ?? []
+        if (moving.length === 0 || fromId === toId) return lib
         return {
           ...lib,
           collections: lib.collections.map((c) => {
-            if (c.id === fromId) return { ...c, entries: c.entries.filter((e) => e.scryfallId !== scryfallId) }
+            if (c.id === fromId) return { ...c, entries: c.entries.filter((e) => !ids.has(e.scryfallId)) }
             if (c.id !== toId) return c
-            const existing = c.entries.find((e) => e.scryfallId === scryfallId)
-            return {
-              ...c,
-              entries: existing
-                ? c.entries.map((e) => (e.scryfallId === scryfallId ? { ...e, quantity: e.quantity + entry.quantity, foilQuantity: e.foilQuantity + entry.foilQuantity } : e))
-                : [...c.entries, { ...entry }],
+            let entries = c.entries
+            for (const entry of moving) {
+              const existing = entries.find((e) => e.scryfallId === entry.scryfallId)
+              entries = existing
+                ? entries.map((e) => (e.scryfallId === entry.scryfallId ? { ...e, quantity: e.quantity + entry.quantity, foilQuantity: e.foilQuantity + entry.foilQuantity } : e))
+                : [...entries, { ...entry }]
             }
+            return { ...c, entries }
           }),
         }
       })
     },
     [updateLibrary],
+  )
+
+  const removeEntriesFromCollection = useCallback(
+    (collectionId: string, scryfallIds: string[]) => {
+      const ids = new Set(scryfallIds)
+      updateLibrary((lib) =>
+        mapCollection(lib, collectionId, (collection) => ({ ...collection, entries: collection.entries.filter((e) => !ids.has(e.scryfallId)) })),
+      )
+    },
+    [updateLibrary, mapCollection],
   )
 
   const changeCollections = useCallback(
@@ -915,14 +929,15 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setEntryQuantities,
       changeCollections,
       importIntoCollection,
-      moveEntry,
+      moveEntries,
+      removeEntriesFromCollection,
     }),
     [
       library, account, cloud, mergePrompt, resolveMerge, passwordRecovery, linkNotice, signIn, signUp, signOut,
       syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, addGameResult,
       removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection,
-      setEntryQuantities, changeCollections, importIntoCollection, moveEntry,
+      setEntryQuantities, changeCollections, importIntoCollection, moveEntries, removeEntriesFromCollection,
     ],
   )
 

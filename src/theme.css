@@ -1360,6 +1360,54 @@ select.input {
   background: #1a1c23;
 }
 
+/* Cards picked by pressing and holding: a gold ring and a tick on the art. */
+.crow.picked {
+  box-shadow: inset 0 0 0 2px var(--gold);
+}
+.pick-mark {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 1;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.85);
+  color: var(--gold-ink);
+}
+.pick-mark.on {
+  background: var(--gold);
+  box-shadow: none;
+}
+.pick-mark .icon {
+  font-size: 16px;
+}
+/* What to do with the picked cards, pinned to the bottom of the page. */
+.select-bar {
+  position: sticky;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 8px 10px;
+  border-radius: 20px;
+  background: var(--g2);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  color: var(--t0);
+}
+.select-bar .select-count {
+  font-size: 14px;
+}
+.select-bar .danger-text {
+  color: var(--error);
+}
+
 .crow.no-qty {
   grid-template-columns: 56px minmax(0, 1fr) auto;
 }

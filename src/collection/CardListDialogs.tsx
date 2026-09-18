@@ -14,7 +14,7 @@ const fileName = (name: string) => `${name.trim().replace(/[^\w\- ]+/g, '').repl
  * A binder as text for other apps: "Simple" is "4 Lightning Bolt" (everything reads it); "Exact
  * printing" adds "(CMR) 472" so the same art comes back. Foil copies get their own "*F*" line.
  */
-export function ExportCollectionDialog({ collection, onDismiss }: { collection: Collection; onDismiss: () => void }) {
+export function ExportCollectionDialog({ collection, onDismiss, title = 'Export binder' }: { collection: Collection; onDismiss: () => void; title?: string }) {
   const [exact, setExact] = useState(false)
   const [printings, setPrintings] = useState<Map<string, { set: string; number: string }> | null>(null)
   const [loading, setLoading] = useState(false)
@@ -35,7 +35,7 @@ export function ExportCollectionDialog({ collection, onDismiss }: { collection: 
 
   return (
     <Dialog
-      title="Export binder"
+      title={title}
       onDismiss={onDismiss}
       actions={
         <>

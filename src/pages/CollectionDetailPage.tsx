@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { TopBar } from '../components/TopBar'
@@ -16,16 +16,25 @@ import { isUnsorted, type CollectionEntry } from '../types/models'
 export function CollectionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const back = useBack('/collections')
-  const { collections, setEntryQuantities, removeEntryFromCollection, addEntryToCollection, moveEntry, createCollection } = useSync()
+  const { collections, setEntryQuantities, removeEntryFromCollection, removeEntriesFromCollection, addEntryToCollection, moveEntries, createCollection } = useSync()
   const collection = collections.find((c) => c.id === id)
   const [zoomId, setZoomId] = useState<string | null>(null)
   const [sheet, setSheet] = useState<CollectionEntry | null>(null)
   const [filter, setFilter] = useState('')
   const [sharing, setSharing] = useState(false)
   const [listDialog, setListDialog] = useState<'import' | 'export' | null>(null)
-  // The card whose "move to binder" picker is open, and the one being moved into a new binder.
-  const [moving, setMoving] = useState<CollectionEntry | null>(null)
-  const [naming, setNaming] = useState<CollectionEntry | null>(null)
+  // The cards whose "move to binder" picker is open, and the ones being moved into a new binder.
+  const [moving, setMoving] = useState<CollectionEntry[] | null>(null)
+  const [naming, setNaming] = useState<CollectionEntry[] | null>(null)
+  // Cards picked by pressing and holding (scryfall ids), and whether their remove / export is open.
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulk, setBulk] = useState<'remove' | 'export' | null>(null)
+  useEffect(() => {
+    if (selected.size === 0) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelected(new Set()) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selected.size])
   const [newName, setNewName] = useState('')
   // The big title scrolls away; the bar's title fades in to replace it.
   const titleProgress = useScrollProgress(90)
@@ -61,9 +70,24 @@ export function CollectionDetailPage() {
   )
 
   const unsorted = isUnsorted(collection)
+  // Cards removed or moved out drop from the pick.
+  const picked = collection.entries.filter((e) => selected.has(e.scryfallId))
+  const selecting = picked.length > 0
+  const toggle = (e: CollectionEntry) => {
+    const next = new Set(picked.map((p) => p.scryfallId))
+    if (next.has(e.scryfallId)) next.delete(e.scryfallId)
+    else next.add(e.scryfallId)
+    setSelected(next)
+  }
+  const label = (cards: CollectionEntry[]) => (cards.length === 1 ? cards[0].name : `${cards.length} cards`)
+  const copies = (cards: CollectionEntry[]) => cards.reduce((n, e) => n + e.quantity + e.foilQuantity, 0)
+  const moveTo = (cards: CollectionEntry[], toId: string) => {
+    moveEntries(collection.id, cards.map((e) => e.scryfallId), toId)
+    setSelected(new Set())
+  }
   const moveToNew = () => {
     if (!naming || !newName.trim()) return
-    moveEntry(collection.id, naming.scryfallId, createCollection(newName.trim(), 'OWNED').id)
+    moveTo(naming, createCollection(newName.trim(), 'OWNED').id)
     setNaming(null)
   }
   const entryList = collection.entries.length === 0 ? (
@@ -87,6 +111,9 @@ export function CollectionDetailPage() {
           <EntryRow
             key={entry.scryfallId}
             entry={entry}
+            selecting={selecting}
+            selected={selected.has(entry.scryfallId)}
+            onToggle={() => toggle(entry)}
             onZoom={() => setZoomId(entry.scryfallId)}
             onMore={() => setSheet(entry)}
             onIncrement={() => setQty(entry, entry.quantity + 1, entry.foilQuantity)}
@@ -150,18 +177,59 @@ export function CollectionDetailPage() {
             ...(sheet.foilQuantity > 0
               ? [{ label: 'Remove a foil copy', icon: 'remove_circle_outline', onClick: () => setQty(sheet, sheet.quantity, sheet.foilQuantity - 1) }]
               : []),
-            { label: 'Move to binder', icon: 'drive_file_move', detail: 'Every copy, into another binder', onClick: () => setMoving(sheet) },
+            { label: 'Move to binder', icon: 'drive_file_move', detail: 'Every copy, into another binder', onClick: () => setMoving([sheet]) },
+            { label: 'Select', icon: 'check_circle', detail: 'Pick several cards to move, export or remove', onClick: () => toggle(sheet) },
             { label: 'Remove from binder', icon: 'delete', tone: 'danger' as const, onClick: () => removeEntryFromCollection(collection.id, sheet.scryfallId) },
           ]}
           onClose={() => setSheet(null)}
         />
       )}
 
+      {selecting && (
+        <div className="select-bar" role="toolbar" aria-label="Selected cards">
+          <button type="button" className="icon-btn" aria-label="Stop selecting" onClick={() => setSelected(new Set())}><Icon name="close" /></button>
+          <span className="select-count"><b>{picked.length}</b> selected</span>
+          {picked.length < collection.entries.length && (
+            <button type="button" className="btn line sm" onClick={() => setSelected(new Set(shown.map((e) => e.scryfallId).concat(picked.map((e) => e.scryfallId))))}>
+              <Icon name="select_all" aria-hidden />All
+            </button>
+          )}
+          <span style={{ flex: 1 }} />
+          <button type="button" className="btn line sm" onClick={() => setMoving(picked)}><Icon name="drive_file_move" aria-hidden />Move</button>
+          <button type="button" className="btn line sm" onClick={() => setBulk('export')}><Icon name="ios_share" aria-hidden />Export</button>
+          <button type="button" className="btn line sm danger-text" onClick={() => setBulk('remove')}><Icon name="delete" aria-hidden />Remove</button>
+        </div>
+      )}
+
+      {bulk === 'remove' && selecting && (
+        <Dialog
+          title={picked.length === 1 ? 'Remove card?' : `Remove ${picked.length} cards?`}
+          onDismiss={() => setBulk(null)}
+          actions={
+            <>
+              <button type="button" className="btn line" onClick={() => setBulk(null)}>Cancel</button>
+              <button
+                type="button"
+                className="btn danger"
+                onClick={() => { removeEntriesFromCollection(collection.id, picked.map((e) => e.scryfallId)); setSelected(new Set()); setBulk(null) }}
+              >
+                Remove
+              </button>
+            </>
+          }
+        >
+          <p className="muted" style={{ margin: 0 }}>Remove {label(picked)} ({copies(picked)} {copies(picked) === 1 ? 'copy' : 'copies'}) from this binder?</p>
+        </Dialog>
+      )}
+      {bulk === 'export' && selecting && (
+        <ExportCollectionDialog collection={{ ...collection, entries: picked }} title={`Export ${label(picked)}`} onDismiss={() => setBulk(null)} />
+      )}
+
       {moving && (
         <ActionSheet
-          title={`Move ${moving.name}`}
-          subtitle={`${moving.quantity + moving.foilQuantity} ${moving.quantity + moving.foilQuantity === 1 ? 'copy' : 'copies'}`}
-          imageUrl={moving.imageUrl}
+          title={`Move ${label(moving)}`}
+          subtitle={`${copies(moving)} ${copies(moving) === 1 ? 'copy' : 'copies'}`}
+          imageUrl={moving[0]?.imageUrl}
           actions={[
             { label: 'New binder…', icon: 'add', tone: 'gold' as const, onClick: () => { setNewName(''); setNaming(moving) } },
             ...collections
@@ -170,7 +238,7 @@ export function CollectionDetailPage() {
                 label: c.name,
                 icon: isUnsorted(c) ? 'inbox' : c.type === 'WISHLIST' ? 'star' : 'collections',
                 detail: isUnsorted(c) ? 'Not in a binder' : c.type === 'WISHLIST' ? 'Wishlist' : 'Binder',
-                onClick: () => moveEntry(collection.id, moving.scryfallId, c.id),
+                onClick: () => moveTo(moving, c.id),
               })),
           ]}
           onClose={() => setMoving(null)}
@@ -179,7 +247,7 @@ export function CollectionDetailPage() {
 
       {naming && (
         <Dialog
-          title={`Move ${naming.name} to a new binder`}
+          title={`Move ${label(naming)} to a new binder`}
           onDismiss={() => setNaming(null)}
           actions={
             <>
@@ -234,12 +302,23 @@ export function CollectionDetailPage() {
 }
 
 function EntryRow({
-  entry, onZoom, onMore, onIncrement, onDecrement,
-}: { entry: CollectionEntry; onZoom: () => void; onMore: () => void; onIncrement: () => void; onDecrement: () => void }) {
-  const longPress = useLongPress({ onLongPress: onMore, onClick: onZoom })
+  entry, selecting, selected, onToggle, onZoom, onMore, onIncrement, onDecrement,
+}: {
+  entry: CollectionEntry
+  selecting: boolean
+  selected: boolean
+  onToggle: () => void
+  onZoom: () => void
+  onMore: () => void
+  onIncrement: () => void
+  onDecrement: () => void
+}) {
+  // Press and hold picks the card; while picking, a tap adds or drops it.
+  const longPress = useLongPress({ onLongPress: onToggle, onClick: selecting ? onToggle : onZoom })
   return (
-    <div className="crow">
-      <div className="thumb-wrap" onClick={onZoom} style={{ cursor: 'pointer' }}>
+    <div className={`crow${selected ? ' picked' : ''}`}>
+      <div className="thumb-wrap" onClick={selecting ? onToggle : onZoom} style={{ cursor: 'pointer' }}>
+        {selecting && <span className={`pick-mark${selected ? ' on' : ''}`} aria-label={selected ? 'Selected' : 'Not selected'}>{selected && <Icon name="check" />}</span>}
         <ArtImage className="thumb" src={toArtCrop(entry.imageUrl)} seed={entry.name} />
         {entry.backImageUrl && <span className="flip-badge"><Icon name="autorenew" /></span>}
       </div>
