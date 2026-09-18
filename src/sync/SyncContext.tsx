@@ -7,6 +7,7 @@ import { DECK_OWNERSHIP_DEFAULT, duplicateWarning, normalizeDeck } from '../type
 import type { ScryfallCard } from '../types/scryfall'
 import { backImageUrl, canBeCommander, cardTags, displayImageUrl, partnerAbility } from '../types/scryfall'
 import * as auth from './supabaseAuth'
+import { watchLibrary } from './realtime'
 import type { Account } from './supabaseAuth'
 import type { Library } from './cloudSync'
 import {
@@ -22,6 +23,10 @@ export type RefreshResult =
 
 /** How often an open, visible tab checks for other devices' edits. */
 const POLL_INTERVAL_MS = 15_000
+/** While live updates are coming in (realtime.ts), a check this often is enough as a backup. */
+const LIVE_POLL_INTERVAL_MS = 60_000
+/** Several saves in quick succession (a whole push from another device) make one sync. */
+const LIVE_CHANGE_DELAY_MS = 400
 /** How soon after an edit it's sent: soon, so little is ever unsynced if the session ends. */
 const EDIT_SYNC_DELAY_MS = 1_000
 /** Where the deck page remembers the last deck opened (components/Layout.tsx). */
@@ -162,6 +167,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const syncTimer = useRef<number | undefined>(undefined)
   const syncChain = useRef<Promise<void>>(Promise.resolve())
   const lastAutoSync = useRef(0)
+  /** Whether live updates are connected (realtime.ts). */
+  const liveSync = useRef(false)
   /** Passes started and not yet finished, including ones queued behind another. */
   const syncQueue = useRef(0)
 
@@ -352,6 +359,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }
     const poll = window.setInterval(() => {
       if (document.visibilityState !== 'visible' || !accountRef.current || !navigator.onLine) return
+      if (liveSync.current && Date.now() - lastAutoSync.current < LIVE_POLL_INTERVAL_MS) return
       lastAutoSync.current = Date.now()
       void runSync(true)
     }, POLL_INTERVAL_MS)
@@ -376,6 +384,39 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       window.clearTimeout(syncTimer.current)
     }
   }, [runSync])
+
+  // Live updates while the tab is visible: another device's save is synced here within a moment,
+  // rather than at the next check. Hidden tabs let go of the connection and sync on return.
+  const liveUserId = account?.userId
+  useEffect(() => {
+    if (!liveUserId || !auth.supabaseConfigured) return
+    let stop: (() => void) | null = null
+    let debounce: number | undefined
+    const onChange = () => {
+      window.clearTimeout(debounce)
+      debounce = window.setTimeout(() => {
+        lastAutoSync.current = Date.now()
+        void runSync(true)
+      }, LIVE_CHANGE_DELAY_MS)
+    }
+    const start = () => {
+      if (stop || document.visibilityState !== 'visible') return
+      stop = watchLibrary(liveUserId, auth.accessToken, onChange, (live) => { liveSync.current = live })
+    }
+    const halt = () => {
+      stop?.()
+      stop = null
+      liveSync.current = false
+    }
+    const onVisibility = () => (document.visibilityState === 'visible' ? start() : halt())
+    start()
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.clearTimeout(debounce)
+      halt()
+    }
+  }, [liveUserId, runSync])
 
   // Another tab of this app changed the library, the session or the sync state: follow it, so this
   // tab neither saves an old library over the new one nor syncs as an account that's gone.

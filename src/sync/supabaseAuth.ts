@@ -61,6 +61,11 @@ export function restUrl(path: string): string {
   return SUPABASE_URL + path
 }
 
+/** Supabase Realtime's WebSocket address (Phoenix protocol, JSON messages). */
+export function realtimeSocketUrl(): string {
+  return `${SUPABASE_URL.replace(/^http/, 'ws')}/realtime/v1/websocket?apikey=${encodeURIComponent(SUPABASE_ANON_KEY)}&vsn=1.0.0`
+}
+
 export function apiHeaders(token?: string): Record<string, string> {
   return {
     apikey: SUPABASE_ANON_KEY,
