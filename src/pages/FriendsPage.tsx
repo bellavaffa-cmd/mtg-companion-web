@@ -1,9 +1,9 @@
 import { useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
 import { Dialog } from '../components/Dialog'
-import { ArtImage, IconButton, SectionHeader, rise, toArtCrop, useBack } from '../components/kit'
+import { ArtImage, SectionHeader, SegmentedTabs, rise, toArtCrop, useBack } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
 import * as api from '../social/api'
 import { useOverview } from '../social/SocialContext'
@@ -73,8 +73,9 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
   const navigate = useNavigate()
   const { refresh, inbox } = useOverview()
   const me = overview.me!
-  const [editing, setEditing] = useState(false)
-  const [showQr, setShowQr] = useState(false)
+  // Friends, or the user's own profile; kept in the address so Back and links land on the right one.
+  const [params, setParams] = useSearchParams()
+  const profileTab = params.get('tab') === 'profile'
   const [podDialog, setPodDialog] = useState<api.Pod | 'new' | null>(null)
   const person = (id: string) => overview.people[id] ?? null
 
@@ -85,18 +86,23 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
     .sort((a, b) => (person(a.user_id)?.display_name ?? '').localeCompare(person(b.user_id)?.display_name ?? ''))
   const sharedDecks = overview.shared_with_me.length
 
+  const tabs = (
+    <div className="rise" style={{ ...rise(0), marginBottom: 14 }}>
+      <SegmentedTabs
+        labels={['Friends', 'Profile']}
+        selected={profileTab ? 1 : 0}
+        counts={incoming.length + inbox.trades > 0 ? { 0: incoming.length + inbox.trades } : {}}
+        onSelect={(i) => setParams(i === 1 ? { tab: 'profile' } : {}, { replace: true })}
+      />
+    </div>
+  )
+  if (profileTab) {
+    return <>{tabs}<ProfileTab me={me} /></>
+  }
+
   return (
     <>
-      <div className="panel profile-card rise" style={rise(0)}>
-        <Avatar profile={me} size={64} />
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div className="profile-name">{me.display_name}</div>
-          <div className="dim">{handle(me)}</div>
-        </div>
-        <IconButton icon="qr_code_2" label="Show my QR code" onClick={() => setShowQr(true)} />
-        <IconButton icon="edit" label="Edit profile" onClick={() => setEditing(true)} />
-      </div>
-
+      {tabs}
       <AddFriend onAdded={refresh} />
 
       <button type="button" className="banner press rise" style={{ ...rise(1), marginTop: 12 }} onClick={() => navigate('/trades')}>
@@ -180,8 +186,6 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
         </div>
       )}
 
-      <NotificationsPanel />
-
       <SectionHeader title={`Shared with you${sharedDecks ? ` · ${sharedDecks}` : ''}`} />
       {sharedDecks === 0 ? (
         <div className="notice">Decks and binders friends share with you show up here.</div>
@@ -193,22 +197,39 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
         </div>
       )}
 
-      {editing && (
-        <Dialog title="Edit profile" onDismiss={() => setEditing(false)}>
-          <ProfileEditor onDone={() => setEditing(false)} />
-        </Dialog>
-      )}
-      {showQr && (
-        <Dialog title="Add me as a friend" onDismiss={() => setShowQr(false)} actions={<button type="button" className="btn line" onClick={() => setShowQr(false)}>Done</button>}>
-          <div className="qr-box">
-            <QrCode text={api.friendLink(me.username)} label={`QR code to add ${handle(me)}`} />
-            <div className="profile-name" style={{ marginTop: 12 }}>{me.display_name}</div>
-            <div className="dim">{handle(me)}</div>
-            <p className="dim" style={{ fontSize: 12.5, textAlign: 'center' }}>Scan with a phone camera, or the Android app’s Scan QR code.</p>
-          </div>
-        </Dialog>
-      )}
       {podDialog && <PodDialog overview={overview} pod={podDialog === 'new' ? null : podDialog} onClose={() => setPodDialog(null)} />}
+    </>
+  )
+}
+
+/** The user's own profile: how others see them, their QR code, editing it, and notifications. */
+function ProfileTab({ me }: { me: api.Profile }) {
+  const [editing, setEditing] = useState(false)
+  return (
+    <>
+      {editing ? (
+        <div className="panel rise" style={rise(1)}>
+          <div className="p-h" style={{ marginTop: 0 }}><h3>Edit profile</h3></div>
+          <ProfileEditor onDone={() => setEditing(false)} />
+        </div>
+      ) : (
+        <div className="panel profile-hero rise" style={rise(1)}>
+          <Avatar profile={me} size={112} />
+          <div className="profile-name" style={{ marginTop: 12 }}>{me.display_name}</div>
+          <div className="dim">{handle(me)}</div>
+          <button type="button" className="btn line sm" style={{ marginTop: 12 }} onClick={() => setEditing(true)}>
+            <Icon name="edit" aria-hidden />Edit profile
+          </button>
+        </div>
+      )}
+      <div className="panel qr-box rise" style={{ ...rise(2), marginTop: 12 }}>
+        <div className="p-h" style={{ marginTop: 0, alignSelf: 'stretch' }}><h3>Add me as a friend</h3></div>
+        <QrCode text={api.friendLink(me.username)} size={200} label={`QR code to add ${handle(me)}`} />
+        <p className="dim" style={{ fontSize: 12.5, margin: '10px 0 0', maxWidth: 360 }}>
+          Friends scan this with their phone’s camera or the Android app’s scanner — or add {handle(me)}.
+        </p>
+      </div>
+      <NotificationsPanel />
     </>
   )
 }
