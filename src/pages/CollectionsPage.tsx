@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { Icon } from '../components/Icon'
 import { Dialog } from '../components/Dialog'
 import { ActionSheet } from '../components/ActionSheet'
 import { useLongPress } from '../components/useLongPress'
-import { ArtImage, IconButton, PageHeader, PillChip, StatFigure, rise, toArtCrop, useLayoutSize } from '../components/kit'
+import { ArtImage, IconButton, PageHeader, PillChip, SegmentedTabs, StatFigure, rise, toArtCrop, useLayoutSize } from '../components/kit'
+import { SharedFriendsView } from '../social/SharedFriends'
 import { isUnsorted, type Collection, type CollectionType } from '../types/models'
 import { ExportCollectionDialog, ImportCardsDialog } from '../collection/CardListDialogs'
 import { ShareCollectionDialog } from '../social/ShareWithFriend'
@@ -13,7 +14,10 @@ import { ShareCollectionDialog } from '../social/ShareWithFriend'
 const TYPE_LABELS: Record<CollectionType, string> = { OWNED: 'Owned', WISHLIST: 'Wishlist' }
 
 export function CollectionsPage() {
-  const { collections, deleteCollection } = useSync()
+  const { collections, deleteCollection, accountsAvailable } = useSync()
+  // Your binders, or (with accounts) what friends share with you.
+  const [params, setParams] = useSearchParams()
+  const sharedTab = accountsAvailable && params.get('tab') === 'shared'
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
   const [filter, setFilter] = useState<CollectionType | 'ALL'>('ALL')
@@ -54,7 +58,16 @@ export function CollectionsPage() {
           )}
       />
       <div className={`content-scroll${wide ? '' : ' with-nav'}`}>
-        {binders.length === 0 && unsortedCards === 0 ? (
+        {accountsAvailable && (
+          <div className="rise" style={{ ...rise(0), marginBottom: 14, maxWidth: 420 }}>
+            <SegmentedTabs
+              labels={['Your binders', 'Shared with you']}
+              selected={sharedTab ? 1 : 0}
+              onSelect={(i) => setParams(i === 1 ? { tab: 'shared' } : {}, { replace: true })}
+            />
+          </div>
+        )}
+        {sharedTab ? <SharedFriendsView /> : binders.length === 0 && unsortedCards === 0 ? (
           <div className="empty-state rise" style={rise(1)}>
             <Icon name="collections" />
             <div>No binders yet. Make one for the cards you own, or a wishlist for the ones you want — or import your whole collection from another app and sort it later.</div>

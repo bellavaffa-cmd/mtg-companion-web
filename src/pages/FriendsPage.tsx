@@ -84,10 +84,7 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
   const friends = overview.friends
     .filter((f) => f.status === 'accepted')
     .sort((a, b) => (person(a.user_id)?.display_name ?? '').localeCompare(person(b.user_id)?.display_name ?? ''))
-  const sharedDecks = overview.shared_with_me.length
-  // A friend's whole collection is one row here (it opens all of it); its binders are on their page.
-  const wholeOwners = (overview.shared_all_with_me ?? []).filter((w) => w.kind === 'collection').map((w) => w.owner)
-  const sharedRows = overview.shared_with_me.filter((s) => !(s.kind === 'collection' && s.whole && wholeOwners.includes(s.owner)))
+  const sharers = [...new Set(overview.shared_with_me.map((s) => s.owner))]
 
   const tabs = (
     <div className="rise" style={{ ...rise(0), marginBottom: 14 }}>
@@ -189,25 +186,19 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
         </div>
       )}
 
-      <SectionHeader title={`Shared with you${sharedDecks ? ` · ${wholeOwners.length + sharedRows.length}` : ''}`} />
-      {sharedDecks === 0 ? (
-        <div className="notice">Decks and binders friends share with you show up here.</div>
-      ) : (
-        <div className="list">
-          {wholeOwners.map((owner) => (
-            <WholeCollectionRow
-              key={`whole:${owner}`}
-              owner={owner}
-              name={person(owner)?.display_name ?? 'A friend'}
-              binders={overview.shared_with_me.filter((s) => s.owner === owner && s.kind === 'collection')}
-              whole
-            />
-          ))}
-          {sharedRows.map((s) => (
-            <SharedRow key={`${s.owner}:${s.kind}:${s.item_id}`} item={s} owner={person(s.owner)} />
-          ))}
-        </div>
-      )}
+      {/* What friends share lives on the Collection page's Shared view; this is the way there. */}
+      <SectionHeader title="Shared with you" />
+      <button type="button" className="person-row press" onClick={() => navigate('/collections?tab=shared')}>
+        <span className="avatar-stack">
+          {sharers.slice(0, 3).map((m) => <Avatar key={m} profile={person(m)} size={30} />)}
+          {sharers.length === 0 && <Icon name="collections" style={{ color: 'var(--gold)' }} />}
+        </span>
+        <span className="person-main">
+          <span className="person-name">See what friends share</span>
+          <span className="dim">{sharers.length === 0 ? 'Nothing shared with you yet' : `${sharers.length} ${sharers.length === 1 ? 'friend shares' : 'friends share'} with you — in Collection`}</span>
+        </span>
+        <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
+      </button>
 
       {podDialog && <PodDialog overview={overview} pod={podDialog === 'new' ? null : podDialog} onClose={() => setPodDialog(null)} />}
     </>

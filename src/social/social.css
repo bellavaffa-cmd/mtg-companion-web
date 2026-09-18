@@ -434,6 +434,98 @@
   padding: 10px 0;
   color: var(--t0);
 }
+/* The Collection page's Shared view: friends as tiles, "who has a card?", folders. */
+.tile .initial {
+  position: absolute;
+  inset: 0;
+  padding-bottom: 38%;
+  display: grid;
+  place-items: center;
+  font-size: 64px;
+  font-weight: 800;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+}
+.tile .new-dot {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+.tile .t-cmd.wanted {
+  color: var(--gold-light);
+}
+.tile.add-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--t0);
+}
+.add-tile .add-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--g3);
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+.hit-row .thumb-wrap {
+  position: relative;
+}
+.hit-avatar {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--g1);
+}
+.folders {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 14px 10px;
+}
+.folder {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  text-align: left;
+  padding: 12px;
+  margin-top: 8px;
+  border: 0;
+  border-radius: 4px 16px 16px 16px;
+  background: var(--g1);
+  color: var(--t0);
+}
+.folder .folder-tab {
+  position: absolute;
+  top: -8px;
+  left: 0;
+  width: 44px;
+  height: 9px;
+  border-radius: 6px 6px 0 0;
+  background: var(--g1);
+}
+.folder .icon {
+  color: var(--gold);
+  font-size: 24px;
+  margin-bottom: 6px;
+}
+.folder b {
+  font-weight: 600;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .share-switch:disabled {
   cursor: default;
 }

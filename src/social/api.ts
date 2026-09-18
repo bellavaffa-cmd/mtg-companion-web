@@ -38,6 +38,21 @@ export interface SharedSummary {
   edited_ms: number
   /** Shared as part of the owner's whole collection / all their decks. */
   whole?: boolean
+  /** A binder's type (OWNED or WISHLIST); null for decks. */
+  type?: string | null
+}
+
+/** One card a friend has, found by "who has a card?" or as a wishlist match. */
+export interface SharedCardHit {
+  owner: string
+  kind: ShareKind
+  item_id: string
+  item_name: string
+  scryfall_id: string
+  name: string
+  image_url: string | null
+  quantity: number
+  foil_quantity: number
 }
 
 export interface Share {
@@ -297,6 +312,11 @@ export const setItemFriendShare = (kind: ShareKind, itemId: string, friend: stri
   call<Share | null>('set_item_friend_share', { p_kind: kind, p_item_id: itemId, p_friend: friend, p_on: on })
 export const setShareAll = (kind: ShareKind, viewer: string | null, on: boolean) =>
   call<void>('set_share_all', { p_kind: kind, p_viewer: viewer, p_on: on })
+/** "Who has a card?": copies of cards named like [query] in friends' shared binders and decks. */
+export const searchSharedCards = (query: string) => call<SharedCardHit[]>('search_shared_cards', { p_query: query })
+/** Cards in friends' shared binders that are on one of the user's wishlists. */
+export const wishlistMatches = () =>
+  call<Omit<SharedCardHit, 'kind'>[]>('wishlist_matches').then((hits) => hits.map((h) => ({ ...h, kind: 'collection' as const })))
 export const getSharedCollection = (owner: string) => call<SharedCollection | null>('get_shared_collection', { p_owner: owner })
 export const getSharedByLink = (token: string) => call<SharedItem | null>('get_shared_by_link', { p_token: token }, { signedIn: false })
 

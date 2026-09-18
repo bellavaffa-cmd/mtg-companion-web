@@ -21,6 +21,7 @@ import './social/social.css'
 const FriendsPage = lazy(() => import('./pages/FriendsPage').then((m) => ({ default: m.FriendsPage })))
 const FriendPage = lazy(() => import('./pages/FriendPage').then((m) => ({ default: m.FriendPage })))
 const SharedItemPage = lazy(() => import('./pages/SharedItemPage').then((m) => ({ default: m.SharedItemPage })))
+const FriendSharedPage = lazy(() => import('./social/SharedFriends').then((m) => ({ default: m.FriendSharedPage })))
 const SharedCollectionPage = lazy(() => import('./pages/SharedItemPage').then((m) => ({ default: m.SharedCollectionPage })))
 const TradesPage = lazy(() => import('./pages/TradesPage').then((m) => ({ default: m.TradesPage })))
 const TradeComposerPage = lazy(() => import('./pages/TradeComposerPage').then((m) => ({ default: m.TradeComposerPage })))
@@ -49,6 +50,7 @@ export default function App() {
             <Route path="/friends/:id" element={<FriendPage />} />
             <Route path="/trades" element={<TradesPage />} />
             <Route path="/trades/new" element={<TradeComposerPage />} />
+            <Route path="/shared/:owner" element={<FriendSharedPage />} />
             <Route path="/shared/:owner/collection" element={<SharedCollectionPage />} />
             <Route path="/shared/:owner/:kind/:itemId" element={<SharedItemPage />} />
             <Route path="/s/:token" element={<SharedItemPage />} />
