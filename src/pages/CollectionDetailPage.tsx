@@ -8,6 +8,7 @@ import { ActionSheet } from '../components/ActionSheet'
 import { useLongPress } from '../components/useLongPress'
 import { CardSearchResults } from '../components/CardSearchResults'
 import { ShareDialog } from '../social/ShareDialog'
+import { ExportCollectionDialog, ImportCardsDialog } from '../collection/CardListDialogs'
 import { ArtImage, IconButton, SearchPill, SectionHeader, StatFigure, rise, toArtCrop, useBack, useLayoutSize, useScrollProgress } from '../components/kit'
 import type { CollectionEntry } from '../types/models'
 
@@ -20,6 +21,7 @@ export function CollectionDetailPage() {
   const [sheet, setSheet] = useState<CollectionEntry | null>(null)
   const [filter, setFilter] = useState('')
   const [sharing, setSharing] = useState(false)
+  const [listDialog, setListDialog] = useState<'import' | 'export' | null>(null)
   // The big title scrolls away; the bar's title fades in to replace it.
   const titleProgress = useScrollProgress(90)
   const size = useLayoutSize()
@@ -86,7 +88,13 @@ export function CollectionDetailPage() {
         title={collection.name}
         onBack={back}
         progress={titleProgress}
-        actions={<IconButton icon="group_add" label="Share with friends" variant={titleProgress < 0.6 ? 'glass' : ''} onClick={() => setSharing(true)} />}
+        actions={
+          <>
+            <IconButton icon="playlist_add" label="Import cards from another app" variant={titleProgress < 0.6 ? 'glass' : ''} onClick={() => setListDialog('import')} />
+            <IconButton icon="ios_share" label="Export as text" variant={titleProgress < 0.6 ? 'glass' : ''} onClick={() => setListDialog('export')} />
+            <IconButton icon="group_add" label="Share with friends" variant={titleProgress < 0.6 ? 'glass' : ''} onClick={() => setSharing(true)} />
+          </>
+        }
       />
       <div className="content-scroll">
         <div className="binder-head rise" style={rise(0)}>
@@ -130,6 +138,8 @@ export function CollectionDetailPage() {
         />
       )}
 
+      {listDialog === 'import' && <ImportCardsDialog collection={collection} onDismiss={() => setListDialog(null)} />}
+      {listDialog === 'export' && <ExportCollectionDialog collection={collection} onDismiss={() => setListDialog(null)} />}
       {sharing && <ShareDialog kind="collection" itemId={collection.id} name={collection.name} onClose={() => setSharing(false)} />}
 
       {zoomEntry && (

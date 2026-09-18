@@ -115,6 +115,35 @@ export async function getCardsByIds(ids: string[], strict = false): Promise<Scry
   return results.flat()
 }
 
+/** Which card a collection lookup asks for: by id, by printing (set + number), or by name (optionally in a set). */
+export interface CardIdentifier {
+  id?: string
+  name?: string
+  set?: string
+  collector_number?: string
+}
+
+/**
+ * Up to 75 cards in one request (POST /cards/collection): [data] are the cards found, [not_found]
+ * the identifiers that weren't. A rate limit is waited out and tried again.
+ */
+export async function getCollection(identifiers: CardIdentifier[]): Promise<{ data: ScryfallCard[]; not_found: CardIdentifier[] }> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await get(`${BASE}/cards/collection`, {
+      method: 'POST',
+      headers: { ...HEADERS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifiers }),
+    })
+    if (res.status === 429 && attempt < 3) {
+      await new Promise((r) => setTimeout(r, 700 * (attempt + 1)))
+      continue
+    }
+    if (!res.ok) throw new Error(`Scryfall couldn't look those cards up (HTTP ${res.status}). Try again in a moment.`)
+    const json = await res.json()
+    return { data: json.data ?? [], not_found: json.not_found ?? [] }
+  }
+}
+
 export async function getRandomCard(): Promise<ScryfallCard> {
   const res = await get(`${BASE}/cards/random`)
   if (!res.ok) throw new Error('Random card lookup failed')

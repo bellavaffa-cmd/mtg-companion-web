@@ -2809,3 +2809,16 @@ select.input.sf-sort {
 .legal-list span {
   color: var(--t1);
 }
+
+/* Importing a card list: the pasted text keeps its columns. */
+.import-text {
+  height: auto;
+  min-height: 170px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  width: 100%;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+}

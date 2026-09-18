@@ -149,6 +149,8 @@ interface SyncContextValue {
   addEntryToCollection: (collectionId: string, card: ScryfallCard, quantity?: number, foilQuantity?: number) => void
   removeEntryFromCollection: (collectionId: string, scryfallId: string) => void
   setEntryQuantities: (collectionId: string, scryfallId: string, quantity: number, foilQuantity: number) => void
+  /** Adds a whole imported list to a binder in one change. */
+  importIntoCollection: (collectionId: string, cards: { card: ScryfallCard; quantity: number; foilQuantity: number }[]) => void
   /** Moves cards in and out of binders in one change (a trade); answers the ones there weren't enough copies of. */
   changeCollections: (changes: CollectionChange[]) => CollectionChange[]
 }
@@ -788,6 +790,27 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [updateLibrary, mapCollection],
   )
 
+  const importIntoCollection = useCallback(
+    (collectionId: string, cards: { card: ScryfallCard; quantity: number; foilQuantity: number }[]) => {
+      updateLibrary((lib) =>
+        mapCollection(lib, collectionId, (collection) => {
+          let entries = collection.entries
+          for (const { card, quantity, foilQuantity } of cards) {
+            const existing = entries.find((e) => e.scryfallId === card.id)
+            entries = existing
+              ? entries.map((e) => (e.scryfallId === card.id ? { ...e, quantity: e.quantity + quantity, foilQuantity: e.foilQuantity + foilQuantity } : e))
+              : [...entries, {
+                  scryfallId: card.id, name: card.name, imageUrl: displayImageUrl(card), quantity, foilQuantity,
+                  backImageUrl: backImageUrl(card), tags: cardTags(card),
+                }]
+          }
+          return { ...collection, entries }
+        }),
+      )
+    },
+    [updateLibrary, mapCollection],
+  )
+
   const changeCollections = useCallback(
     (changes: CollectionChange[]): CollectionChange[] => {
       let short: CollectionChange[] = []
@@ -858,13 +881,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       removeEntryFromCollection,
       setEntryQuantities,
       changeCollections,
+      importIntoCollection,
     }),
     [
       library, account, cloud, mergePrompt, resolveMerge, passwordRecovery, linkNotice, signIn, signUp, signOut,
       syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, addGameResult,
       removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection,
-      setEntryQuantities, changeCollections,
+      setEntryQuantities, changeCollections, importIntoCollection,
     ],
   )
 

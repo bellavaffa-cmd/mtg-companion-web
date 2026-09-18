@@ -7,6 +7,7 @@ import { ActionSheet } from '../components/ActionSheet'
 import { useLongPress } from '../components/useLongPress'
 import { ArtImage, IconButton, PageHeader, PillChip, StatFigure, rise, toArtCrop, useLayoutSize } from '../components/kit'
 import type { Collection, CollectionType } from '../types/models'
+import { ExportCollectionDialog, ImportCardsDialog } from '../collection/CardListDialogs'
 
 const TYPE_LABELS: Record<CollectionType, string> = { OWNED: 'Owned', WISHLIST: 'Wishlist' }
 
@@ -17,6 +18,8 @@ export function CollectionsPage() {
   const [filter, setFilter] = useState<CollectionType | 'ALL'>('ALL')
   const [sheet, setSheet] = useState<Collection | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Collection | null>(null)
+  const [importing, setImporting] = useState<Collection | 'new' | null>(null)
+  const [exporting, setExporting] = useState<Collection | null>(null)
   const wide = useLayoutSize() !== 'phone'
 
   const owned = collections.filter((c) => c.type !== 'WISHLIST')
@@ -29,8 +32,18 @@ export function CollectionsPage() {
       <PageHeader
         title="Collection"
         actions={wide
-          ? <button type="button" className="btn gold" onClick={() => setShowCreate(true)}><Icon name="add" />New binder</button>
-          : <IconButton icon="add" label="New binder" variant="gold" onClick={() => setShowCreate(true)} />}
+          ? (
+            <>
+              <button type="button" className="btn line" onClick={() => setImporting('new')}><Icon name="playlist_add" />Import</button>
+              <button type="button" className="btn gold" onClick={() => setShowCreate(true)}><Icon name="add" />New binder</button>
+            </>
+          )
+          : (
+            <>
+              <IconButton icon="playlist_add" label="Import a binder from another app" onClick={() => setImporting('new')} />
+              <IconButton icon="add" label="New binder" variant="gold" onClick={() => setShowCreate(true)} />
+            </>
+          )}
       />
       <div className={`content-scroll${wide ? '' : ' with-nav'}`}>
         {collections.length === 0 ? (
@@ -75,6 +88,8 @@ export function CollectionsPage() {
           imageUrl={sheet.entries[0]?.imageUrl ?? null}
           actions={[
             { label: 'Open binder', icon: 'folder_open', onClick: () => navigate(`/collections/${sheet.id}`) },
+            { label: 'Import cards', icon: 'playlist_add', detail: 'A list from Moxfield, ManaBox, Archidekt…', onClick: () => setImporting(sheet) },
+            { label: 'Export as text', icon: 'ios_share', detail: 'For other apps, or a .txt file', onClick: () => setExporting(sheet) },
             { label: 'Delete binder', icon: 'delete', tone: 'danger', onClick: () => setConfirmDelete(sheet) },
           ]}
           onClose={() => setSheet(null)}
@@ -95,6 +110,15 @@ export function CollectionsPage() {
           <p className="muted" style={{ margin: 0 }}>“{confirmDelete.name}” and its {confirmDelete.entries.length} cards will be removed here and on your other devices.</p>
         </Dialog>
       )}
+
+      {importing && (
+        <ImportCardsDialog
+          collection={importing === 'new' ? undefined : importing}
+          onDismiss={() => setImporting(null)}
+          onCreated={(id) => navigate(`/collections/${id}`)}
+        />
+      )}
+      {exporting && <ExportCollectionDialog collection={exporting} onDismiss={() => setExporting(null)} />}
 
       {showCreate && <CreateCollectionDialog onDismiss={() => setShowCreate(false)} onCreated={(id) => navigate(`/collections/${id}`)} />}
     </>
