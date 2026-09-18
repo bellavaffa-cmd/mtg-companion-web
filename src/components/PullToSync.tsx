@@ -111,16 +111,24 @@ export function PullToSync() {
     const run = async () => {
       setPhase({ kind: 'syncing' })
       setPull(1)
-      const started = Date.now()
-      const result = await refreshRef.current()
-      const elapsed = Date.now() - started
-      if (elapsed < MIN_SYNC_MS) await new Promise((r) => setTimeout(r, MIN_SYNC_MS - elapsed))
-      setPhase({ kind: 'done', result })
-      navigator.vibrate?.(12)
-      await new Promise((r) => setTimeout(r, result.kind === 'ok' ? 1200 : 2200))
-      setPull(0)
-      await new Promise((r) => setTimeout(r, 250))
-      setPhase({ kind: 'idle' })
+      // Whatever happens, the indicator comes back to rest — a stuck spinner would block every
+      // later pull and sync button tap.
+      try {
+        const started = Date.now()
+        const result = await refreshRef.current().catch((e: unknown): RefreshResult => (
+          { kind: 'failed', message: e instanceof Error ? e.message : 'Sync failed' }
+        ))
+        const elapsed = Date.now() - started
+        if (elapsed < MIN_SYNC_MS) await new Promise((r) => setTimeout(r, MIN_SYNC_MS - elapsed))
+        setPhase({ kind: 'done', result })
+        navigator.vibrate?.(12)
+        await new Promise((r) => setTimeout(r, result.kind === 'ok' ? 1200 : 2200))
+        setPull(0)
+        await new Promise((r) => setTimeout(r, 250))
+      } finally {
+        setPull(0)
+        setPhase({ kind: 'idle' })
+      }
     }
 
     // The sync button: same indicator, without the pull.

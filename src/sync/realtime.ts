@@ -9,9 +9,13 @@
 
 import { realtimeSocketUrl } from './supabaseAuth'
 
+/** Phoenix drops a connection it hasn't heard from in a while; a missed reply means ours is dead. */
 const HEARTBEAT_MS = 25_000
-/** Sign-in tokens last an hour: rejoin with a fresh one well before that. */
-const REJOIN_MS = 45 * 60_000
+/**
+ * How often the sign-in is checked. accessToken() renews it in its last minute, and a renewed one is
+ * handed to Realtime right away — otherwise Realtime ends the subscription when the old one expires.
+ */
+const TOKEN_CHECK_MS = 30_000
 /** Waits before reconnecting after a drop, growing with each failed attempt. */
 const RETRY_MS = [2_000, 5_000, 15_000, 30_000]
 
@@ -33,10 +37,13 @@ export function watchLibrary(
   let everJoined = false
   let ref = 0
   let attempt = 0
+  let sentToken: string | null = null
+  let awaitingHeartbeat: string | null = null
   let heartbeat: number | undefined
-  let rejoin: number | undefined
+  let tokenCheck: number | undefined
   let retry: number | undefined
 
+  const nextRef = () => String(++ref)
   const send = (message: object) => {
     if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message))
   }
@@ -45,29 +52,50 @@ export function watchLibrary(
     joined = live
     onLive(live)
   }
+  /** Closes the current connection, if any, without reconnecting. */
   const drop = () => {
     window.clearInterval(heartbeat)
-    window.clearTimeout(rejoin)
+    window.clearInterval(tokenCheck)
+    awaitingHeartbeat = null
     const s = socket
     socket = null
     s?.close()
     setLive(false)
   }
+  /** The connection is gone (or unusable): drop it and try again after a pause. */
+  const lost = (ws: WebSocket) => {
+    if (socket !== ws) return // already replaced or stopped
+    drop()
+    scheduleRetry()
+  }
+  const scheduleRetry = () => {
+    if (stopped) return
+    window.clearTimeout(retry)
+    retry = window.setTimeout(() => { void connect() }, RETRY_MS[Math.min(attempt, RETRY_MS.length - 1)])
+    attempt += 1
+  }
 
   const connect = async () => {
     if (stopped) return
-    const jwt = await token().catch(() => null)
+    let jwt: string | null
+    try {
+      jwt = await token()
+    } catch {
+      scheduleRetry() // offline, or the sign-in server busy: try again shortly
+      return
+    }
     if (stopped || !jwt) return // signed out: nothing to listen for
     const ws = new WebSocket(realtimeSocketUrl())
     socket = ws
+    sentToken = jwt
 
     ws.onopen = () => {
-      ref += 1
+      const join = nextRef()
       send({
         topic,
         event: 'phx_join',
-        ref: String(ref),
-        join_ref: String(ref),
+        ref: join,
+        join_ref: join,
         payload: {
           config: {
             broadcast: { ack: false, self: false },
@@ -78,14 +106,31 @@ export function watchLibrary(
           access_token: jwt,
         },
       })
-      heartbeat = window.setInterval(() => { ref += 1; send({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(ref) }) }, HEARTBEAT_MS)
+      heartbeat = window.setInterval(() => {
+        // The last heartbeat was never answered: the connection died without closing (a network
+        // change, a laptop waking from sleep). Start over.
+        if (awaitingHeartbeat !== null) { lost(ws); return }
+        awaitingHeartbeat = nextRef()
+        send({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: awaitingHeartbeat })
+      }, HEARTBEAT_MS)
+      tokenCheck = window.setInterval(() => {
+        void token().then((fresh) => {
+          if (!fresh || fresh === sentToken || socket !== ws) return
+          sentToken = fresh
+          send({ topic, event: 'access_token', payload: { access_token: fresh }, ref: nextRef() })
+        }, () => {})
+      }, TOKEN_CHECK_MS)
     }
 
     ws.onmessage = (e) => {
-      let message: { topic?: string; event?: string; payload?: { status?: string } }
+      let message: { topic?: string; event?: string; ref?: string; payload?: { status?: string; extension?: string } }
       try {
         message = JSON.parse(String(e.data))
       } catch {
+        return
+      }
+      if (message.topic === 'phoenix') {
+        if (message.event === 'phx_reply' && message.ref === awaitingHeartbeat) awaitingHeartbeat = null
         return
       }
       if (message.topic !== topic) return
@@ -96,33 +141,32 @@ export function watchLibrary(
             setLive(true)
             if (everJoined) onChange() // back after a drop: catch up on anything missed
             everJoined = true
-            rejoin = window.setTimeout(() => { drop(); void connect() }, REJOIN_MS)
           } else if (message.payload?.status === 'error') {
-            ws.close() // refused (an expired sign-in, say): reconnect with a fresh one
+            lost(ws) // refused (an expired sign-in, say): reconnect with a fresh one
           }
           break
         case 'postgres_changes':
           onChange()
           break
         case 'system':
-          // Realtime couldn't set up the subscription (the table isn't published for it): stop
-          // trying; the regular checks carry on.
-          if (message.payload?.status === 'error') { stopped = true; drop() }
+          if (message.payload?.status !== 'error') break
+          if (message.payload.extension === 'postgres_changes') {
+            // Realtime can't subscribe to the table (it isn't published for it): stop trying; the
+            // regular checks carry on.
+            stopped = true
+            drop()
+          } else {
+            lost(ws) // anything else (the sign-in expired, say): reconnect
+          }
           break
         case 'phx_error':
         case 'phx_close':
-          ws.close()
+          lost(ws)
           break
       }
     }
 
-    ws.onclose = () => {
-      if (socket !== ws) return // replaced or stopped on purpose
-      drop()
-      if (stopped) return
-      retry = window.setTimeout(() => { void connect() }, RETRY_MS[Math.min(attempt, RETRY_MS.length - 1)])
-      attempt += 1
-    }
+    ws.onclose = () => lost(ws)
   }
 
   void connect()

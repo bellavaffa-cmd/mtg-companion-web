@@ -31,6 +31,12 @@ const LIVE_CHANGE_DELAY_MS = 400
 const EDIT_SYNC_DELAY_MS = 1_000
 /** Where the deck page remembers the last deck opened (components/Layout.tsx). */
 const LAST_DECK_KEY = 'mtgweb_last_deck'
+/**
+ * Set (to the account's id) while "this browser already has a library" waits for an answer. Kept in
+ * localStorage so every tab knows: none of them may sync that library into the account, or wipe it
+ * on signing out — it's the browser's own, not the account's.
+ */
+const MERGE_PENDING_KEY = 'mtgweb_merge_pending'
 /** Switching back to the tab checks at once, unless a check ran moments ago. */
 const RETURN_SYNC_GAP_MS = 5_000
 
@@ -202,7 +208,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
    * browser's own, never synced, so it stays.
    */
   const setSignedOut = useCallback(() => {
-    const libraryIsAccounts = !mergePending.current
+    const libraryIsAccounts = !mergePending.current && localStorage.getItem(MERGE_PENDING_KEY) === null
+    localStorage.removeItem(MERGE_PENDING_KEY)
     window.clearTimeout(syncTimer.current)
     accountRef.current = null
     setAccount(null)
@@ -225,7 +232,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     const pass = syncChain.current.then(() => withSyncLock(async () => {
       const acct = accountRef.current
       if (!acct) return onResult?.({ kind: 'signed-out' })
-      if (mergePending.current) return onResult?.({ kind: 'failed', message: 'Choose how to combine this browser’s library first' })
+      if (mergePending.current || localStorage.getItem(MERGE_PENDING_KEY) !== null) {
+        return onResult?.({ kind: 'failed', message: 'Choose how to combine this browser’s library first' })
+      }
       // Another tab signed out or into a different account: this one follows it rather than syncing
       // one account's library into the other.
       if (auth.currentAccount()?.userId !== acct.userId) {
@@ -304,16 +313,26 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   /** After any sign-in: ask what to do with this browser's library the first time, otherwise sync. */
   const startAccount = useCallback((acct: Account) => {
+    // This browser still holds another account's library (an email link signed straight into a
+    // different account, say): it's that account's, so it goes — never offered to this one.
+    const prior = loadCloudState().userId
+    if (prior && prior !== acct.userId) {
+      clearCloudState()
+      commitLibrary({ decks: [], collections: [] })
+      localStorage.removeItem(LAST_DECK_KEY)
+      localStorage.removeItem(MERGE_PENDING_KEY)
+    }
     accountRef.current = acct
     setAccount(acct)
     const lib = libraryRef.current
     if (loadCloudState().userId !== acct.userId && (lib.decks.length > 0 || lib.collections.length > 0)) {
       mergePending.current = true
+      localStorage.setItem(MERGE_PENDING_KEY, acct.userId)
       setMergePrompt({ decks: lib.decks.length, collections: lib.collections.length, email: acct.email })
       return
     }
     void runSync()
-  }, [runSync])
+  }, [commitLibrary, runSync])
 
   const resolveMerge = useCallback((choice: 'add' | 'replace') => {
     if (choice === 'replace') {
@@ -322,6 +341,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       clearCloudState()
     }
     mergePending.current = false
+    localStorage.removeItem(MERGE_PENDING_KEY)
     setMergePrompt(null)
     void runSync()
   }, [commitLibrary, runSync])
@@ -330,6 +350,16 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.removeItem(OLD_DRIVE_SYNC_KEY)
     if (!auth.supabaseConfigured) return
+    // A sign-out that didn't finish (the tab closed between ending the session and removing the
+    // library): no one is signed in, yet the library is an account's. Finish removing it.
+    if (!auth.currentAccount()) {
+      if (loadCloudState().userId && localStorage.getItem(MERGE_PENDING_KEY) === null) {
+        clearCloudState()
+        commitLibrary({ decks: [], collections: [] })
+        localStorage.removeItem(LAST_DECK_KEY)
+      }
+      localStorage.removeItem(MERGE_PENDING_KEY)
+    }
     let cancelled = false
     // Shared promise: the link can only be read once (it's cleared from the URL), but effects may run
     // twice (StrictMode) and the second run still needs the result.
@@ -346,7 +376,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       }
     })
     return () => { cancelled = true }
-  }, [startAccount])
+  }, [commitLibrary, startAccount])
 
   // Coming back to the tab (or back online) is when another device's edits are most likely waiting;
   // while the tab stays open and visible, check for them every so often too.
@@ -426,6 +456,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       if (e.key === CLOUD_STATE_KEY || e.key === null) {
         setCloud((c) => ({ ...c, lastSyncedAt: loadCloudState().lastSyncedAt }))
       }
+      // The other tab answered "this browser already has a library": this one may sync again.
+      if (e.key === MERGE_PENDING_KEY && e.newValue === null && mergePending.current) {
+        mergePending.current = false
+        setMergePrompt(null)
+        if (accountRef.current) void runSync(true)
+      }
       const stored = auth.supabaseConfigured ? auth.currentAccount() : null
       if (!stored && accountRef.current) {
         // Signed out in another tab: this one lets go of the account's library too.
@@ -438,13 +474,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         accountRef.current = stored
         setAccount(stored)
         setMergePrompt(null)
-        mergePending.current = false
+        // Still waiting on "this browser already has a library" there: don't sync it from here.
+        mergePending.current = stored !== null && localStorage.getItem(MERGE_PENDING_KEY) === stored.userId
         adoptStoredLibrary()
       }
     }
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
-  }, [adoptStoredLibrary, setSignedOut])
+  }, [adoptStoredLibrary, runSync, setSignedOut])
 
   const updateLibrary = useCallback(
     (updater: (lib: Library) => Library) => {
@@ -479,10 +516,13 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       if (unsynced > 0) return { unsynced }
     }
     await syncChain.current
-    await auth.signOut()
+    // auth.signOut ends the session at once and then tells the server; the library goes before that
+    // request, so closing the tab while it's under way can't leave the account's decks behind.
+    const loggingOut = auth.signOut()
     setSignedOut()
     setCloud(IDLE)
     setPasswordRecovery(false)
+    await loggingOut
     return { unsynced: 0 }
   }, [runSync, setSignedOut])
 
