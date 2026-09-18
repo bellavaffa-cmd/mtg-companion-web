@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { IconButton } from './kit'
+import { IconButton, useLayoutSize } from './kit'
+import { SyncButton } from './SyncButton'
 
 interface Props {
   title: string
@@ -15,6 +16,7 @@ interface Props {
 /** Detail-screen top bar: round back button, title, trailing actions. */
 export function TopBar({ title, onBack, actions, progress }: Props) {
   const overHero = progress !== undefined
+  const phone = useLayoutSize() === 'phone'
   const style = overHero
     ? ({ ['--p' as string]: progress, ['--title' as string]: Math.max(0, Math.min(1, (progress - 0.55) * 3)) } as CSSProperties)
     : undefined
@@ -22,6 +24,7 @@ export function TopBar({ title, onBack, actions, progress }: Props) {
     <div className="top-bar" style={style}>
       {onBack && <IconButton icon="arrow_back" label="Back" onClick={onBack} variant={overHero ? 'glass' : ''} />}
       <div className="top-bar-title">{title}</div>
+      {phone && <SyncButton variant={overHero && progress < 0.6 ? 'glass' : ''} />}
       {actions}
     </div>
   )

@@ -135,6 +135,23 @@
   text-overflow: ellipsis;
 }
 
+.side-account-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.side-account-row .side-account {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
+}
+
+.navrail .sync-btn {
+  margin-bottom: 10px;
+}
+
 .side-account {
   display: flex;
   align-items: center;

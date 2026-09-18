@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSync, type RefreshResult } from '../sync/SyncContext'
 import { Icon } from './Icon'
+import { SYNC_REQUEST_EVENT } from './SyncButton'
 
 /** How far (px, after resistance) the page must be pulled before letting go syncs. */
 const THRESHOLD = 72
@@ -122,11 +123,17 @@ export function PullToSync() {
       setPhase({ kind: 'idle' })
     }
 
+    // The sync button: same indicator, without the pull.
+    const onRequest = () => {
+      if (phaseRef.current.kind === 'idle') void run()
+    }
+    window.addEventListener(SYNC_REQUEST_EVENT, onRequest)
     window.addEventListener('touchstart', onStart, { passive: true })
     window.addEventListener('touchmove', onMove, { passive: false })
     window.addEventListener('touchend', onEnd)
     window.addEventListener('touchcancel', onEnd)
     return () => {
+      window.removeEventListener(SYNC_REQUEST_EVENT, onRequest)
       window.removeEventListener('touchstart', onStart)
       window.removeEventListener('touchmove', onMove)
       window.removeEventListener('touchend', onEnd)

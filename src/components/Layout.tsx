@@ -6,6 +6,7 @@ import { ArtImage, toArtCrop, useLayoutSize } from './kit'
 import { useSync } from '../sync/SyncContext'
 import { useDeckColors } from './useDeckColors'
 import { PullToSync } from './PullToSync'
+import { SyncButton } from './SyncButton'
 
 // Matches the Android app's bottomNavRoutes — on a phone the bar hides on pushed detail screens
 // (their own back button takes over). Tablet and desktop keep their rail/sidebar everywhere.
@@ -55,22 +56,28 @@ function AccountStatus({ compact }: { compact?: boolean }) {
   const initial = account ? account.email.slice(0, 1).toUpperCase() : null
   if (compact) {
     return (
-      <NavLink to="/account" className="rail-account" aria-label="Account & sync" title={account ? account.email : 'Sign in'}>
-        {initial ? <span className="avatar sm">{initial}</span> : <Icon name="account_circle" style={{ fontSize: 30 }} />}
-      </NavLink>
+      <>
+        <SyncButton />
+        <NavLink to="/account" className="rail-account" aria-label="Account & sync" title={account ? account.email : 'Sign in'}>
+          {initial ? <span className="avatar sm">{initial}</span> : <Icon name="account_circle" style={{ fontSize: 30 }} />}
+        </NavLink>
+      </>
     )
   }
   return (
+    <div className="side-account-row">
     <NavLink to="/account" className="side-account">
       {initial ? <span className="avatar sm">{initial}</span> : <span className="avatar sm"><Icon name="person" style={{ fontSize: 20 }} /></span>}
       <span style={{ minWidth: 0, flex: 1 }}>
         <span className="side-account-name">{account ? account.email : 'Sign in'}</span>
         <span className={`side-account-status${account && !cloud.failed ? ' ok' : ''}`}>
           <Icon name={!account ? 'sync' : cloud.syncing ? 'sync' : cloud.failed ? 'cloud_off' : 'cloud_done'} style={{ fontSize: 15 }} />
-          {!account ? 'Sync with the Android app' : cloud.syncing ? 'Syncing…' : cloud.failed ? 'Not synced' : 'Synced'}
+          {!account ? 'Not syncing — sign in' : cloud.syncing ? 'Syncing…' : cloud.failed ? 'Not synced' : 'Synced'}
         </span>
       </span>
     </NavLink>
+    <SyncButton />
+    </div>
   )
 }
 

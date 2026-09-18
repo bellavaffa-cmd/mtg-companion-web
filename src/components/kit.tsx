@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Icon } from './Icon'
+import { SyncButton } from './SyncButton'
 
 /** Magic's five colours plus colorless, tuned to glow on the dark ground (ManaColors in Color.kt). */
 export const MANA: Record<string, string> = {
@@ -237,13 +238,15 @@ export function IconButton({
 
 /** Big page title for the top-level tabs (Decks, Collection, Search). */
 export function PageHeader({ title, eyebrow, actions }: { title: string; eyebrow?: string; actions?: ReactNode }) {
+  // Phones have no sidebar, so the sync button rides in each page's header.
+  const phone = useLayoutSize() === 'phone'
   return (
     <header className="page-h rise" style={rise(0)}>
       <div>
         {eyebrow && <div className="eyebrow">{eyebrow}</div>}
         <h1>{title}</h1>
       </div>
-      {actions && <div className="acts">{actions}</div>}
+      {(actions || phone) && <div className="acts">{actions}{phone && <SyncButton />}</div>}
     </header>
   )
 }

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { Icon } from '../components/Icon'
+import { SyncButton } from '../components/SyncButton'
 import {
   ArtImage, IconButton, IdentityStrip, SectionHeader, StatFigure, rise, toArtCrop, useLayoutSize,
 } from '../components/kit'
@@ -189,11 +190,14 @@ export function HomePage() {
           <div className="brand">MTG Companion</div>
         </div>
         {accountsAvailable && (
-          <IconButton
-            icon={account ? (cloud.failed ? 'cloud_off' : 'cloud_done') : 'account_circle'}
-            label="Account & sync"
-            onClick={() => navigate('/account')}
-          />
+          <div className="row" style={{ gap: 8 }}>
+            <SyncButton />
+            <IconButton
+              icon={account ? (cloud.failed ? 'cloud_off' : 'cloud_done') : 'account_circle'}
+              label="Account & sync"
+              onClick={() => navigate('/account')}
+            />
+          </div>
         )}
       </header>
 

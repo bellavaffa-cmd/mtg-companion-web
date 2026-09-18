@@ -2315,6 +2315,36 @@ html {
 .pull-sync-ring.spinning .icon {
   animation: pull-sync-spin-back 0.45s linear infinite;
 }
+/* Sync button: spins while syncing; a red dot for a failed sync or a signed-out browser. */
+.sync-btn {
+  position: relative;
+}
+.sync-btn:disabled {
+  cursor: default;
+}
+.sync-btn.spinning .icon {
+  animation: sync-btn-spin 0.9s linear infinite;
+}
+.sync-btn.alert::after {
+  content: '';
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--error);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+@keyframes sync-btn-spin {
+  to { transform: rotate(-360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sync-btn.spinning .icon {
+    animation-duration: 2.4s;
+  }
+}
+
 @keyframes pull-sync-spin {
   from { transform: rotate(-90deg); }
   to { transform: rotate(270deg); }
