@@ -922,7 +922,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, addGameResult,
       removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection,
-      setEntryQuantities, changeCollections, importIntoCollection,
+      setEntryQuantities, changeCollections, importIntoCollection, moveEntry,
     ],
   )
 
