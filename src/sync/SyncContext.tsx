@@ -154,7 +154,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const syncTimer = useRef<number | undefined>(undefined)
   const syncChain = useRef<Promise<void>>(Promise.resolve())
   const lastAutoSync = useRef(0)
-  const syncBusy = useRef(false)
+  /** Passes started and not yet finished, including ones queued behind another. */
+  const syncQueue = useRef(0)
 
   const persistLibrary = useCallback((lib: Library) => {
     const raw = JSON.stringify(lib)
@@ -192,8 +193,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
    * for other devices' edits — skips if one is already under way and doesn't flash the syncing state.
    */
   const runSync = useCallback((quiet = false, onResult?: (r: RefreshResult) => void): Promise<void> => {
-    if (quiet && syncBusy.current) return syncChain.current
-    syncBusy.current = true
+    if (quiet && syncQueue.current > 0) return syncChain.current
+    syncQueue.current++
     const pass = syncChain.current.then(() => withSyncLock(async () => {
       const acct = accountRef.current
       if (!acct) return onResult?.({ kind: 'signed-out' })
@@ -253,7 +254,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           ? { kind: 'signed-out' }
           : { kind: 'failed', message, offline: e instanceof auth.OfflineError && !(e instanceof auth.ServerBusyError) })
       }
-    })).finally(() => { syncBusy.current = false })
+    })).finally(() => { syncQueue.current-- })
     syncChain.current = pass.catch(() => {})
     return pass
   }, [adoptStoredLibrary, commitLibrary, setSignedOut])

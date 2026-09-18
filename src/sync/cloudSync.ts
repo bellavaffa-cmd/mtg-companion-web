@@ -16,6 +16,13 @@ const STATE_KEY = 'mtgweb_cloud_state'
 /** A request that hasn't answered by now is treated like being offline, so a sync can't hang forever. */
 const REQUEST_TIMEOUT_MS = 30_000
 
+/**
+ * Each pull reads back this far before the cursor. A row is stamped when it's written but only seen
+ * once its push commits, so a slow push can land behind rows another device already pulled past.
+ * Reading a row again is harmless: one this device already has counts as agreed and changes nothing.
+ */
+const PULL_OVERLAP_MS = 60_000
+
 export interface Library {
   decks: Deck[]
   collections: Collection[]
@@ -123,7 +130,8 @@ const ROW_FIELDS = 'kind,id,data,edited_ms,deleted,server_updated_at'
 
 async function pull(token: string, cursor: string | null): Promise<RemoteRow[]> {
   const rows: RemoteRow[] = []
-  let after = cursor
+  const cursorMs = cursor ? Date.parse(cursor) : NaN
+  let after = Number.isFinite(cursorMs) ? new Date(cursorMs - PULL_OVERLAP_MS).toISOString() : cursor
   for (;;) {
     const params = new URLSearchParams({ select: ROW_FIELDS, order: 'server_updated_at.asc', limit: '500' })
     if (after) params.set('server_updated_at', `gt.${after}`)
@@ -208,7 +216,8 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
   const remoteChanges = new Map<string, Deck | Collection | null>()
   let cursor = state.cursor
   for (const row of [...again, ...rows]) {
-    if (inPull.has(`${row.kind}:${row.id}`)) cursor = row.server_updated_at
+    // Never backwards: rows re-read from the overlap come before the cursor.
+    if (inPull.has(`${row.kind}:${row.id}`) && (cursor === null || row.server_updated_at > cursor)) cursor = row.server_updated_at
     const key = `${row.kind}:${row.id}`
     const localEdit = pending[key]
     if (row.deleted) {
