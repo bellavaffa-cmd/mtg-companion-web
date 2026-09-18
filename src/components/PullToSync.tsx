@@ -12,6 +12,20 @@ type Phase = { kind: 'idle' } | { kind: 'syncing' } | { kind: 'done'; result: Re
 /** Where a pull can't start: dialogs, sheets, zoom, the life counter and text fields. */
 const NO_PULL = '.dialog-overlay, .sheet, .scrim, .zoom-overlay, .lc-root, input, textarea, select, [data-no-pull]'
 
+/**
+ * Whether something under the finger can still scroll up — a side panel or list scrolled partway
+ * down. Dragging down there scrolls it back; only at its top does the drag become a pull.
+ */
+function insideScrolledContainer(target: Element | null): boolean {
+  for (let el = target; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+    if (el.scrollTop > 0) {
+      const overflow = getComputedStyle(el).overflowY
+      if (overflow === 'auto' || overflow === 'scroll') return true
+    }
+  }
+  return false
+}
+
 function label(result: RefreshResult): { icon: string; text: string; tone: 'ok' | 'bad' | 'muted' } {
   switch (result.kind) {
     case 'signed-out':
@@ -50,7 +64,8 @@ export function PullToSync() {
 
     const onStart = (e: TouchEvent) => {
       if (e.touches.length !== 1 || phaseRef.current.kind !== 'idle' || window.scrollY > 0) return
-      if ((e.target as Element | null)?.closest?.(NO_PULL)) return
+      const target = e.target as Element | null
+      if (target?.closest?.(NO_PULL) || insideScrolledContainer(target)) return
       startX = e.touches[0].clientX
       startY = e.touches[0].clientY
       tracking = true
