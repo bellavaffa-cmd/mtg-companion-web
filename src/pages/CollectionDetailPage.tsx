@@ -10,18 +10,23 @@ import { CardSearchResults } from '../components/CardSearchResults'
 import { ShareDialog } from '../social/ShareDialog'
 import { ExportCollectionDialog, ImportCardsDialog } from '../collection/CardListDialogs'
 import { ArtImage, IconButton, SearchPill, SectionHeader, StatFigure, rise, toArtCrop, useBack, useLayoutSize, useScrollProgress } from '../components/kit'
-import type { CollectionEntry } from '../types/models'
+import { Dialog } from '../components/Dialog'
+import { isUnsorted, type CollectionEntry } from '../types/models'
 
 export function CollectionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const back = useBack('/collections')
-  const { collections, setEntryQuantities, removeEntryFromCollection, addEntryToCollection } = useSync()
+  const { collections, setEntryQuantities, removeEntryFromCollection, addEntryToCollection, moveEntry, createCollection } = useSync()
   const collection = collections.find((c) => c.id === id)
   const [zoomId, setZoomId] = useState<string | null>(null)
   const [sheet, setSheet] = useState<CollectionEntry | null>(null)
   const [filter, setFilter] = useState('')
   const [sharing, setSharing] = useState(false)
   const [listDialog, setListDialog] = useState<'import' | 'export' | null>(null)
+  // The card whose "move to binder" picker is open, and the one being moved into a new binder.
+  const [moving, setMoving] = useState<CollectionEntry | null>(null)
+  const [naming, setNaming] = useState<CollectionEntry | null>(null)
+  const [newName, setNewName] = useState('')
   // The big title scrolls away; the bar's title fades in to replace it.
   const titleProgress = useScrollProgress(90)
   const size = useLayoutSize()
@@ -55,10 +60,23 @@ export function CollectionDetailPage() {
     </div>
   )
 
+  const unsorted = isUnsorted(collection)
+  const moveToNew = () => {
+    if (!naming || !newName.trim()) return
+    moveEntry(collection.id, naming.scryfallId, createCollection(newName.trim(), 'OWNED').id)
+    setNaming(null)
+  }
   const entryList = collection.entries.length === 0 ? (
-    <div className="empty-state"><Icon name="playing_cards" />No cards yet — search {size === 'desktop' ? 'on the right' : 'below'} to add some.</div>
+    unsorted
+      ? <div className="empty-state"><Icon name="inbox" />All sorted — every card is in a binder.</div>
+      : <div className="empty-state"><Icon name="playing_cards" />No cards yet — search {size === 'desktop' ? 'on the right' : 'below'} to add some.</div>
   ) : (
     <>
+      {unsorted && (
+        <p className="muted rise" style={{ ...rise(2), margin: '14px 0 0' }}>
+          Cards you own that aren't in a binder yet. Use <Icon name="more_vert" style={{ fontSize: 16, verticalAlign: -3 }} /> → <b>Move to binder</b> on a card to sort it — into a binder you have, or a new one.
+        </p>
+      )}
       {collection.entries.length > 8 && (
         <div className="rise" style={{ ...rise(2), marginTop: 14, maxWidth: size === 'phone' ? undefined : 480 }}>
           <SearchPill value={filter} onChange={setFilter} placeholder="Find in this binder" />
@@ -98,7 +116,7 @@ export function CollectionDetailPage() {
       />
       <div className="content-scroll">
         <div className="binder-head rise" style={rise(0)}>
-          <div className="eyebrow">{collection.type === 'WISHLIST' ? 'Wishlist' : 'Binder'}</div>
+          <div className="eyebrow">{unsorted ? 'Not in a binder yet' : collection.type === 'WISHLIST' ? 'Wishlist' : 'Binder'}</div>
           <h1>{collection.name}</h1>
         </div>
         {size === 'desktop' ? (
@@ -132,10 +150,47 @@ export function CollectionDetailPage() {
             ...(sheet.foilQuantity > 0
               ? [{ label: 'Remove a foil copy', icon: 'remove_circle_outline', onClick: () => setQty(sheet, sheet.quantity, sheet.foilQuantity - 1) }]
               : []),
+            { label: 'Move to binder', icon: 'drive_file_move', detail: 'Every copy, into another binder', onClick: () => setMoving(sheet) },
             { label: 'Remove from binder', icon: 'delete', tone: 'danger' as const, onClick: () => removeEntryFromCollection(collection.id, sheet.scryfallId) },
           ]}
           onClose={() => setSheet(null)}
         />
+      )}
+
+      {moving && (
+        <ActionSheet
+          title={`Move ${moving.name}`}
+          subtitle={`${moving.quantity + moving.foilQuantity} ${moving.quantity + moving.foilQuantity === 1 ? 'copy' : 'copies'}`}
+          imageUrl={moving.imageUrl}
+          actions={[
+            { label: 'New binder…', icon: 'add', tone: 'gold' as const, onClick: () => { setNewName(''); setNaming(moving) } },
+            ...collections
+              .filter((c) => c.id !== collection.id)
+              .map((c) => ({
+                label: c.name,
+                icon: isUnsorted(c) ? 'inbox' : c.type === 'WISHLIST' ? 'star' : 'collections',
+                detail: isUnsorted(c) ? 'Not in a binder' : c.type === 'WISHLIST' ? 'Wishlist' : 'Binder',
+                onClick: () => moveEntry(collection.id, moving.scryfallId, c.id),
+              })),
+          ]}
+          onClose={() => setMoving(null)}
+        />
+      )}
+
+      {naming && (
+        <Dialog
+          title={`Move ${naming.name} to a new binder`}
+          onDismiss={() => setNaming(null)}
+          actions={
+            <>
+              <button type="button" className="btn line" onClick={() => setNaming(null)}>Cancel</button>
+              <button type="button" className="btn gold" disabled={!newName.trim()} onClick={moveToNew}>Create &amp; move</button>
+            </>
+          }
+        >
+          <label className="field-label" htmlFor="move-new-name" style={{ marginTop: 0 }}>Binder name</label>
+          <input id="move-new-name" className="input" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && moveToNew()} autoFocus />
+        </Dialog>
       )}
 
       {listDialog === 'import' && <ImportCardsDialog collection={collection} onDismiss={() => setListDialog(null)} />}

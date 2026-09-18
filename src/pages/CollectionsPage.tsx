@@ -6,7 +6,7 @@ import { Dialog } from '../components/Dialog'
 import { ActionSheet } from '../components/ActionSheet'
 import { useLongPress } from '../components/useLongPress'
 import { ArtImage, IconButton, PageHeader, PillChip, StatFigure, rise, toArtCrop, useLayoutSize } from '../components/kit'
-import type { Collection, CollectionType } from '../types/models'
+import { isUnsorted, type Collection, type CollectionType } from '../types/models'
 import { ExportCollectionDialog, ImportCardsDialog } from '../collection/CardListDialogs'
 
 const TYPE_LABELS: Record<CollectionType, string> = { OWNED: 'Owned', WISHLIST: 'Wishlist' }
@@ -25,7 +25,11 @@ export function CollectionsPage() {
   const owned = collections.filter((c) => c.type !== 'WISHLIST')
   const ownedCards = owned.reduce((s, c) => s + c.entries.reduce((n, e) => n + e.quantity + e.foilQuantity, 0), 0)
   const unique = new Set(owned.flatMap((c) => c.entries.map((e) => e.scryfallId))).size
-  const shown = collections.filter((c) => filter === 'ALL' || c.type === filter)
+  // The Unsorted pile counts as owned cards, but isn't listed or counted as a binder.
+  const unsorted = collections.find(isUnsorted)
+  const binders = collections.filter((c) => !isUnsorted(c))
+  const unsortedCards = unsorted?.entries.reduce((n, e) => n + e.quantity + e.foilQuantity, 0) ?? 0
+  const shown = binders.filter((c) => filter === 'ALL' || c.type === filter)
 
   return (
     <>
@@ -34,35 +38,50 @@ export function CollectionsPage() {
         actions={wide
           ? (
             <>
-              <button type="button" className="btn line" onClick={() => setImporting('new')}><Icon name="playlist_add" />Import</button>
+              <button type="button" className="btn line" onClick={() => setImporting('new')}><Icon name="playlist_add" />Import cards</button>
               <button type="button" className="btn gold" onClick={() => setShowCreate(true)}><Icon name="add" />New binder</button>
             </>
           )
           : (
             <>
-              <IconButton icon="playlist_add" label="Import a binder from another app" onClick={() => setImporting('new')} />
+              <IconButton icon="playlist_add" label="Import cards from another app" onClick={() => setImporting('new')} />
               <IconButton icon="add" label="New binder" variant="gold" onClick={() => setShowCreate(true)} />
             </>
           )}
       />
       <div className={`content-scroll${wide ? '' : ' with-nav'}`}>
-        {collections.length === 0 ? (
+        {binders.length === 0 && unsortedCards === 0 ? (
           <div className="empty-state rise" style={rise(1)}>
             <Icon name="collections" />
-            <div>No binders yet. Make one for the cards you own, or a wishlist for the ones you want.</div>
-            <button type="button" className="btn gold" onClick={() => setShowCreate(true)}><Icon name="add" />New binder</button>
+            <div>No binders yet. Make one for the cards you own, or a wishlist for the ones you want — or import your whole collection from another app and sort it later.</div>
+            <div className="row" style={{ gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button type="button" className="btn gold" onClick={() => setShowCreate(true)}><Icon name="add" />New binder</button>
+              <button type="button" className="btn line" onClick={() => setImporting('new')}><Icon name="playlist_add" />Import your collection</button>
+            </div>
           </div>
         ) : (
           <>
             <div className="stats rise" style={{ ...rise(1), maxWidth: wide ? 720 : undefined }}>
               <StatFigure value={ownedCards} label="Cards owned" />
               <StatFigure value={unique} label="Unique cards" />
-              <StatFigure value={collections.length} label="Binders" />
+              <StatFigure value={binders.length} label="Binders" />
             </div>
+            {unsorted && unsortedCards > 0 && (
+              <div className="list wide-list rise" style={{ ...rise(2), marginBottom: 14 }}>
+                <button type="button" className="brow press unsorted-row" onClick={() => navigate(`/collections/${unsorted.id}`)}>
+                  <div className="icon-tile"><Icon name="inbox" /></div>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="brow-name">Unsorted</div>
+                    <div className="brow-meta"><span><b>{unsortedCards}</b>{unsortedCards === 1 ? 'card' : 'cards'} not in a binder yet — open to sort them</span></div>
+                  </div>
+                  <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
+                </button>
+              </div>
+            )}
             <div className="chips rise" style={rise(2)}>
-              <PillChip label="All" count={collections.length} selected={filter === 'ALL'} onClick={() => setFilter('ALL')} />
+              <PillChip label="All" count={binders.length} selected={filter === 'ALL'} onClick={() => setFilter('ALL')} />
               {(['OWNED', 'WISHLIST'] as const).map((t) => (
-                <PillChip key={t} label={TYPE_LABELS[t]} count={collections.filter((c) => c.type === t).length} selected={filter === t} onClick={() => setFilter(t)} />
+                <PillChip key={t} label={TYPE_LABELS[t]} count={binders.filter((c) => c.type === t).length} selected={filter === t} onClick={() => setFilter(t)} />
               ))}
             </div>
             <div className="list wide-list">
@@ -116,6 +135,8 @@ export function CollectionsPage() {
           collection={importing === 'new' ? undefined : importing}
           onDismiss={() => setImporting(null)}
           onCreated={(id) => navigate(`/collections/${id}`)}
+          // Here the whole collection comes in unsorted by default; from a binder's menu, into it.
+          startInNewBinder={false}
         />
       )}
       {exporting && <ExportCollectionDialog collection={exporting} onDismiss={() => setExporting(null)} />}

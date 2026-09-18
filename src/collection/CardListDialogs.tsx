@@ -4,7 +4,7 @@ import { Icon } from '../components/Icon'
 import { PillChip } from '../components/kit'
 import { getCardsByIds } from '../api/scryfall'
 import { useSync } from '../sync/SyncContext'
-import type { Collection } from '../types/models'
+import { UNSORTED_COLLECTION_ID, type Collection } from '../types/models'
 import { buildCardListText, parseCardList } from './cardListText'
 import { resolveCardList, type ImportResult } from './importCards'
 
@@ -81,10 +81,17 @@ type Stage = { kind: 'edit' } | { kind: 'working'; done: number; total: number }
 
 /**
  * Adds a list of cards from another app — pasted, or a .txt/.csv file — to a binder. With no
- * [collection], it makes a new binder for them (named here).
+ * [collection], the cards go to a new binder (named here) or — "No binder" — the Unsorted pile,
+ * to be sorted into binders later.
  */
-export function ImportCardsDialog({ collection, onDismiss, onCreated }: { collection?: Collection; onDismiss: () => void; onCreated?: (id: string) => void }) {
+export function ImportCardsDialog({ collection, onDismiss, onCreated, startInNewBinder = true }: {
+  collection?: Collection
+  onDismiss: () => void
+  onCreated?: (id: string) => void
+  startInNewBinder?: boolean
+}) {
   const { createCollection, importIntoCollection } = useSync()
+  const [newBinder, setNewBinder] = useState(startInNewBinder)
   const [text, setText] = useState('')
   const [name, setName] = useState('')
   const [stage, setStage] = useState<Stage>({ kind: 'edit' })
@@ -99,9 +106,9 @@ export function ImportCardsDialog({ collection, onDismiss, onCreated }: { collec
     try {
       const result = await resolveCardList(parsed.lines, (done, total) => setStage({ kind: 'working', done, total }))
       if (result.cards.length > 0) {
-        const target = collection ?? createCollection(name.trim() || 'Imported', 'OWNED')
-        importIntoCollection(target.id, result.cards)
-        if (!collection) onCreated?.(target.id)
+        const targetId = collection?.id ?? (newBinder ? createCollection(name.trim() || 'Imported', 'OWNED').id : UNSORTED_COLLECTION_ID)
+        importIntoCollection(targetId, result.cards)
+        if (!collection && newBinder) onCreated?.(targetId)
       }
       setStage({
         kind: 'done',
@@ -119,7 +126,7 @@ export function ImportCardsDialog({ collection, onDismiss, onCreated }: { collec
     return (
       <Dialog title="Import finished" onDismiss={onDismiss} actions={<button type="button" className="btn gold" onClick={onDismiss}>Done</button>}>
         <p style={{ marginTop: 0 }}>
-          Added <b>{stage.added}</b> {stage.added === 1 ? 'card' : 'cards'}{stage.foils > 0 ? ` (${stage.foils} foil)` : ''} to {collection?.name ?? (name.trim() || 'Imported')}.
+          Added <b>{stage.added}</b> {stage.added === 1 ? 'card' : 'cards'}{stage.foils > 0 ? ` (${stage.foils} foil)` : ''} to {collection?.name ?? (newBinder ? name.trim() || 'Imported' : 'your collection (Unsorted)')}.
         </p>
         {stage.result.missing.length > 0 && (
           <>
@@ -134,12 +141,12 @@ export function ImportCardsDialog({ collection, onDismiss, onCreated }: { collec
   const working = stage.kind === 'working'
   return (
     <Dialog
-      title={collection ? `Import into ${collection.name}` : 'Import a binder'}
+      title={collection ? `Import into ${collection.name}` : 'Import cards'}
       onDismiss={() => { if (!working) onDismiss() }}
       actions={
         <>
           <button type="button" className="btn line" onClick={onDismiss} disabled={working}>Cancel</button>
-          <button type="button" className="btn gold" disabled={working || parsed.lines.length === 0 || (!collection && !name.trim())} onClick={() => void run()}>
+          <button type="button" className="btn gold" disabled={working || parsed.lines.length === 0 || (!collection && newBinder && !name.trim())} onClick={() => void run()}>
             {working ? `Finding cards… ${stage.done}/${stage.total}` : count > 0 ? `Import ${count} ${count === 1 ? 'card' : 'cards'}` : 'Import'}
           </button>
         </>
@@ -149,6 +156,15 @@ export function ImportCardsDialog({ collection, onDismiss, onCreated }: { collec
         Paste a list — one card per line, like <code>4 Lightning Bolt</code> or <code>1 Sol Ring (CMR) 472 *F*</code> — or choose a .txt or .csv export from Moxfield, ManaBox, Archidekt, Deckbox or TCGplayer.
       </p>
       {!collection && (
+        <div className="chips wrap" style={{ marginBottom: 10 }}>
+          <PillChip label="No binder" selected={!newBinder} onClick={() => setNewBinder(false)} className="on-g2" />
+          <PillChip label="New binder" selected={newBinder} onClick={() => setNewBinder(true)} className="on-g2" />
+        </div>
+      )}
+      {!collection && !newBinder && (
+        <p className="dim" style={{ marginTop: 0 }}>Cards go into Unsorted, on the Collection page. Move them into binders whenever you like.</p>
+      )}
+      {!collection && newBinder && (
         <>
           <label className="field-label" htmlFor="import-name" style={{ marginTop: 0 }}>Binder name</label>
           <input id="import-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. My collection" disabled={working} />
@@ -176,7 +192,7 @@ export function ImportCardsDialog({ collection, onDismiss, onCreated }: { collec
           if (!f) return
           if (f.size > 5 * 1024 * 1024) { setError('That file is too big (5 MB at most).'); return }
           setText(await f.text())
-          if (!collection && !name.trim()) setName(f.name.replace(/\.[^.]+$/, ''))
+          if (!collection && newBinder && !name.trim()) setName(f.name.replace(/\.[^.]+$/, ''))
         }}
       />
       {error && <div className="notice warn" style={{ marginTop: 10 }}>{error}</div>}

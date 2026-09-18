@@ -1634,6 +1634,16 @@ select.input {
   border-radius: 16px;
 }
 
+/* The Unsorted pile on the Collection page: cards owned but not in a binder yet. */
+.brow.unsorted-row {
+  box-shadow: inset 0 0 0 1px var(--gold-dim);
+  text-align: left;
+}
+
+.brow.unsorted-row .icon-tile {
+  color: var(--gold);
+}
+
 .brow .icon-tile {
   width: 60px;
   height: 60px;

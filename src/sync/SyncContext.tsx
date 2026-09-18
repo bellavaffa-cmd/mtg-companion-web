@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import type {
   Collection, CollectionType, Deck, DeckCardEntry, DeckOwnership, GameMode, GameResult,
 } from '../types/models'
-import { DECK_OWNERSHIP_DEFAULT, duplicateWarning, normalizeDeck } from '../types/models'
+import { DECK_OWNERSHIP_DEFAULT, UNSORTED_COLLECTION_ID, UNSORTED_COLLECTION_NAME, duplicateWarning, normalizeDeck } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 import { backImageUrl, canBeCommander, cardTags, displayImageUrl, partnerAbility } from '../types/scryfall'
 import * as auth from './supabaseAuth'
@@ -149,8 +149,10 @@ interface SyncContextValue {
   addEntryToCollection: (collectionId: string, card: ScryfallCard, quantity?: number, foilQuantity?: number) => void
   removeEntryFromCollection: (collectionId: string, scryfallId: string) => void
   setEntryQuantities: (collectionId: string, scryfallId: string, quantity: number, foilQuantity: number) => void
-  /** Adds a whole imported list to a binder in one change. */
+  /** Adds a whole imported list to a binder in one change (to UNSORTED_COLLECTION_ID: the Unsorted pile, made if needed). */
   importIntoCollection: (collectionId: string, cards: { card: ScryfallCard; quantity: number; foilQuantity: number }[]) => void
+  /** Moves every copy of a card from one binder into another. */
+  moveEntry: (fromId: string, scryfallId: string, toId: string) => void
   /** Moves cards in and out of binders in one change (a trade); answers the ones there weren't enough copies of. */
   changeCollections: (changes: CollectionChange[]) => CollectionChange[]
 }
@@ -160,6 +162,13 @@ const SyncContext = createContext<SyncContextValue | null>(null)
 const IDLE: CloudStatus = { syncing: false, lastSyncedAt: 0, message: null, failed: false }
 
 let authLink: Promise<auth.LinkResult | null> | null = null
+
+/** [lib] with the Unsorted pile in it, if [collectionId] is the pile and there isn't one yet. */
+function withUnsorted(lib: Library, collectionId: string): Library {
+  if (collectionId !== UNSORTED_COLLECTION_ID || lib.collections.some((c) => c.id === collectionId)) return lib
+  const pile: Collection = { id: UNSORTED_COLLECTION_ID, name: UNSORTED_COLLECTION_NAME, entries: [], createdAt: Date.now(), type: 'OWNED' }
+  return { ...lib, collections: [...lib.collections, pile] }
+}
 
 export function SyncProvider({ children }: { children: ReactNode }) {
   const [library, setLibrary] = useState<Library>(() => loadLibrary())
@@ -793,7 +802,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const importIntoCollection = useCallback(
     (collectionId: string, cards: { card: ScryfallCard; quantity: number; foilQuantity: number }[]) => {
       updateLibrary((lib) =>
-        mapCollection(lib, collectionId, (collection) => {
+        mapCollection(withUnsorted(lib, collectionId), collectionId, (collection) => {
           let entries = collection.entries
           for (const { card, quantity, foilQuantity } of cards) {
             const existing = entries.find((e) => e.scryfallId === card.id)
@@ -809,6 +818,30 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       )
     },
     [updateLibrary, mapCollection],
+  )
+
+  const moveEntry = useCallback(
+    (fromId: string, scryfallId: string, toId: string) => {
+      updateLibrary((lib) => {
+        const entry = lib.collections.find((c) => c.id === fromId)?.entries.find((e) => e.scryfallId === scryfallId)
+        if (!entry || fromId === toId) return lib
+        return {
+          ...lib,
+          collections: lib.collections.map((c) => {
+            if (c.id === fromId) return { ...c, entries: c.entries.filter((e) => e.scryfallId !== scryfallId) }
+            if (c.id !== toId) return c
+            const existing = c.entries.find((e) => e.scryfallId === scryfallId)
+            return {
+              ...c,
+              entries: existing
+                ? c.entries.map((e) => (e.scryfallId === scryfallId ? { ...e, quantity: e.quantity + entry.quantity, foilQuantity: e.foilQuantity + entry.foilQuantity } : e))
+                : [...c.entries, { ...entry }],
+            }
+          }),
+        }
+      })
+    },
+    [updateLibrary],
   )
 
   const changeCollections = useCallback(
@@ -882,6 +915,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setEntryQuantities,
       changeCollections,
       importIntoCollection,
+      moveEntry,
     }),
     [
       library, account, cloud, mergePrompt, resolveMerge, passwordRecovery, linkNotice, signIn, signUp, signOut,

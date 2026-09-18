@@ -170,6 +170,16 @@ export interface Collection {
   type: CollectionType
 }
 
+/**
+ * The one pile of owned cards that aren't in a binder yet — a whole collection imported before it's
+ * sorted. The same id on every device, so piles made on two devices merge into one when they sync.
+ */
+export const UNSORTED_COLLECTION_ID = 'unsorted'
+export const UNSORTED_COLLECTION_NAME = 'Unsorted'
+
+/** Whether [c] is the Unsorted pile — owned cards, but not a binder itself. */
+export const isUnsorted = (c: Collection): boolean => c.id === UNSORTED_COLLECTION_ID
+
 export function newCollection(name: string, type: CollectionType = 'OWNED'): Collection {
   return { id: crypto.randomUUID(), name, entries: [], createdAt: Date.now(), type }
 }
