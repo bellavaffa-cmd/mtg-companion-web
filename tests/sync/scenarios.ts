@@ -202,4 +202,70 @@ export function syncScenarios(cas: boolean) {
     assert.equal(sim.show('B'), 'x1,y1')
     assert.equal(sim.server(), 'x1,y1')
   })
+
+  // ---- Signing out and back in ----
+
+  /** A session ending on its own: kept edits captured, then the library and its bookkeeping removed. */
+  const sessionEnds = (dev: string) => {
+    sim.recordEdits(dev)
+    const rescue = sim.cs.captureRescue(sim.library(dev), sim.cs.loadCloudState(), 'u', Date.now())
+    sim.cs.clearCloudState()
+    sim.setLibrary(dev, { decks: [], collections: [] })
+    return rescue
+  }
+  /** Signing back in: the first pass pulls the account's library, then the kept edits go back in. */
+  const signBackIn = async (dev: string, rescue: ReturnType<typeof sessionEnds>) => {
+    await sim.pass(dev)
+    if (rescue) sim.setLibrary(dev, sim.cs.applyRescue(sim.library(dev), rescue))
+    await sim.pass(dev)
+  }
+
+  test("an edit that hadn't synced when the session ended is put back on signing in", async () => {
+    sim.reset('A', 'B')
+    sim.setDeck('A', 'd1', [['x', 1]]); await sim.settle('A', 'B')
+    sim.setDeck('A', 'd1', [['x', 2]]) // not synced yet...
+    const rescue = sessionEnds('A') // ...when the server ends the session
+    assert.ok(rescue, 'the unsynced edit is kept')
+    sim.setDeck('B', 'd1', [['x', 1], ['y', 1]]); await sim.pass('B') // meanwhile, on another device
+    await signBackIn('A', rescue)
+    await sim.settle('A', 'B')
+    assert.equal(sim.show('A'), 'x2,y1')
+    assert.equal(sim.show('B'), 'x2,y1')
+    assert.equal(sim.server(), 'x2,y1')
+  })
+
+  test('a deletion kept through a sign-out goes through, unless the deck changed elsewhere meanwhile', async () => {
+    sim.reset('A', 'B')
+    sim.setDeck('A', 'd1', [['x', 1]]); sim.setDeck('A', 'd2', [['q', 1]]); await sim.settle('A', 'B')
+    sim.removeDeck('A', 'd1'); sim.removeDeck('A', 'd2')
+    const rescue = sessionEnds('A')
+    sim.setDeck('B', 'd2', [['q', 1], ['r', 1]]); await sim.pass('B') // d2 edited elsewhere; d1 untouched
+    await signBackIn('A', rescue)
+    await sim.settle('A', 'B')
+    assert.equal(sim.show('A', 'd1'), '(none)')
+    assert.equal(sim.server('d1'), '(deleted)')
+    assert.equal(sim.show('A', 'd2'), 'q1,r1')
+  })
+
+  test('a sign-out cut short (library half-removed) pushes no deletions on signing in again', async () => {
+    sim.reset('A')
+    sim.setDeck('A', 'd1', [['x', 1]]); sim.setDeck('A', 'd2', [['q', 1]]); await sim.settle('A')
+    sim.use('A'); sim.cs.clearCloudState() // bookkeeping goes first...
+    sim.removeDeck('A', 'd1') // ...and the tab closes halfway through removing the library
+    await sim.settle('A')
+    assert.equal(sim.server('d1'), 'x1')
+    assert.equal(sim.server('d2'), 'q1')
+    assert.equal(sim.show('A', 'd1'), 'x1')
+  })
+
+  test('whose library is it', () => {
+    assert.equal(sim.cs.libraryIsAnotherAccounts(null, 'u'), false) // never synced: the browser's own
+    assert.equal(sim.cs.libraryIsAnotherAccounts('u', 'u'), false)
+    assert.equal(sim.cs.libraryIsAnotherAccounts('v', 'u'), true)
+    assert.equal(sim.cs.libraryIsAnotherAccounts('v', null), true)
+    assert.equal(sim.cs.leftoverFromSignOut(false, 'u', false), true) // nobody signed in, yet an account's library
+    assert.equal(sim.cs.leftoverFromSignOut(true, 'u', false), false)
+    assert.equal(sim.cs.leftoverFromSignOut(false, null, false), false)
+    assert.equal(sim.cs.leftoverFromSignOut(false, 'u', true), false) // waiting on "this browser already has a library"
+  })
 }

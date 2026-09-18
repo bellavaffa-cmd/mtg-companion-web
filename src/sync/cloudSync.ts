@@ -467,3 +467,108 @@ export function applyRemoteChanges(live: Library, snapshot: Library, changes: Ma
   })
   return { decks, collections }
 }
+
+// ---- Whose library is this? ----
+
+/**
+ * Whether the library described by [cloudUserId] (the account its sync bookkeeping belongs to) is
+ * another account's than [accountUserId]'s. Such a library must be removed — never synced into, or
+ * offered to, the account now signed in. A library never synced (no bookkeeping) is the browser's own.
+ */
+export function libraryIsAnotherAccounts(cloudUserId: string | null, accountUserId: string | null): boolean {
+  return cloudUserId !== null && cloudUserId !== accountUserId
+}
+
+/**
+ * On load with nobody signed in: whether the library left in this browser is an account's (a sign-out
+ * that didn't finish) and so should be removed. Not while "this browser already has a library" was
+ * waiting for an answer — that library is the browser's own.
+ */
+export function leftoverFromSignOut(signedIn: boolean, cloudUserId: string | null, mergePending: boolean): boolean {
+  return !signedIn && cloudUserId !== null && !mergePending
+}
+
+// ---- Edits kept through an automatic sign-out ----
+
+const RESCUE_KEY = 'mtgweb_unsynced_rescue'
+/** Kept edits older than this are dropped rather than re-applied. */
+export const RESCUE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
+
+/**
+ * Edits that hadn't reached the server when a session ended on its own (the server refused the
+ * sign-in), kept so signing back in to the same account can put them back. Each item holds this
+ * browser's copy (null if deleted here) and the version it was based on, for merging.
+ */
+export interface Rescue {
+  userId: string
+  savedAt: number
+  items: Record<string, { json: string | null; base?: string }>
+}
+
+/** The edits in [library] that [state] shows as not yet on the server, or null if there are none. */
+export function captureRescue(library: Library, state: CloudState, userId: string, now: number): Rescue | null {
+  if (state.userId !== userId) return null
+  const local = libraryJson(library)
+  const pending = detectPending(local, state, now)
+  const items: Rescue['items'] = {}
+  for (const key of Object.keys(pending)) items[key] = { json: local.get(key) ?? null, base: state.items[key]?.base }
+  return Object.keys(items).length > 0 ? { userId, savedAt: now, items } : null
+}
+
+/**
+ * [library] (the account's, just pulled after signing back in) with [rescue]'s edits merged back in,
+ * each against the version it was made from, so changes made on other devices meanwhile are kept.
+ * A deletion made here only goes through if the item hasn't changed elsewhere since.
+ */
+export function applyRescue(library: Library, rescue: Rescue): Library {
+  let { decks, collections } = library
+  for (const [key, kept] of Object.entries(rescue.items)) {
+    const isDeck = key.startsWith('deck:')
+    const id = key.slice(key.indexOf(':') + 1)
+    const current = (isDeck ? decks : collections).find((item) => item.id === id) as Deck | Collection | undefined
+    let next: Deck | Collection | null | undefined // undefined: leave as it is
+    if (kept.json === null) {
+      if (current && (kept.base === undefined || canonicalJson(current) === kept.base)) next = null
+    } else {
+      const mine = JSON.parse(kept.json) as Deck | Collection
+      if (!current) {
+        next = mine
+      } else {
+        const base = kept.base !== undefined
+          ? JSON.parse(kept.base)
+          : isDeck
+            ? { ...mine, cards: [], considering: [], tags: [], gameResults: [], versions: [] }
+            : { ...mine, entries: [] }
+        next = isDeck
+          ? mergeDeck(base as Deck, mine as Deck, current as Deck, true)
+          : mergeCollection(base as Collection, mine as Collection, current as Collection, true)
+      }
+    }
+    if (next === undefined) continue
+    if (isDeck) {
+      decks = next === null ? decks.filter((d) => d.id !== id)
+        : decks.some((d) => d.id === id) ? decks.map((d) => (d.id === id ? next as Deck : d)) : [...decks, next as Deck]
+    } else {
+      collections = next === null ? collections.filter((c) => c.id !== id)
+        : collections.some((c) => c.id === id) ? collections.map((c) => (c.id === id ? next as Collection : c)) : [...collections, next as Collection]
+    }
+  }
+  return { decks, collections }
+}
+
+export function saveRescue(rescue: Rescue) {
+  localStorage.setItem(RESCUE_KEY, JSON.stringify(rescue))
+}
+
+export function loadRescue(): Rescue | null {
+  try {
+    const raw = localStorage.getItem(RESCUE_KEY)
+    return raw ? (JSON.parse(raw) as Rescue) : null
+  } catch {
+    return null
+  }
+}
+
+export function clearRescue() {
+  localStorage.removeItem(RESCUE_KEY)
+}

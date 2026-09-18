@@ -50,9 +50,17 @@ and EDHREC are called directly.
   card by card: additions from both sides are kept, a removal on either side sticks, and counts that
   both sides changed add up. Only a field both sides changed differently (a deck's name, say) falls
   back to the more recent edit.
-- Sync runs on load, 2 seconds after an edit, when you come back to the tab, every 20 seconds while
-  the tab is open, and whenever you pull down at the top of a page on a touch screen. The logic lives in
-  `src/sync/cloudSync.ts` and mirrors the Android app's `SupabaseSync.kt`.
+- Sync runs on load, a second after an edit, when you leave or come back to the tab, from the sync
+  button, and whenever you pull down at the top of a page on a touch screen. While a tab is open and
+  visible it also gets **live updates** (Supabase Realtime, `src/sync/realtime.ts`): another device's
+  save syncs here within a second. A check every 15 seconds (every 60 while live updates are
+  connected) is the backup. The logic lives in `src/sync/cloudSync.ts` and makes the same decisions as
+  the Android app's `SyncCore.kt`; `npm test` runs both through the same scenarios.
+- Signing out — or being signed out, when the server ends the session — removes the account's decks
+  and binders from this browser; they come back on signing in. The Sign out button syncs first and
+  warns about anything that couldn't be sent. If the server ends a session with edits not yet
+  synced, those few items are kept out of sight and merged back in when the same account signs in
+  again (any other account, or 7 days, and they're dropped).
 - The first time an account signs in to a browser that already has decks or binders, the app asks
   whether to **add** them to the account or **use the account's library only**.
 - Account emails (confirm sign-up, password reset) link back to this site and sign you in.

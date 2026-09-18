@@ -11,8 +11,9 @@ import { watchLibrary } from './realtime'
 import type { Account } from './supabaseAuth'
 import type { Library } from './cloudSync'
 import {
-  applyRemoteChanges, clearCloudState, CLOUD_STATE_KEY, loadCloudState, pullChanges, pushPending, recordLocalEdits,
-  saveCloudState, UnauthorizedError,
+  applyRemoteChanges, applyRescue, captureRescue, clearCloudState, clearRescue, CLOUD_STATE_KEY, leftoverFromSignOut,
+  libraryIsAnotherAccounts, loadCloudState, loadRescue, pullChanges, pushPending, recordLocalEdits, RESCUE_MAX_AGE_MS,
+  saveCloudState, saveRescue, UnauthorizedError,
 } from './cloudSync'
 
 /** What a user-requested sync ended with. */
@@ -207,8 +208,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
    * Not when the sign-in never got past "this browser already has a library": that library is the
    * browser's own, never synced, so it stays.
    */
-  const setSignedOut = useCallback(() => {
+  const setSignedOut = useCallback((keepUnsynced = false) => {
     const libraryIsAccounts = !mergePending.current && localStorage.getItem(MERGE_PENDING_KEY) === null
+    // The session ended on its own (the server refused it): edits that hadn't synced yet are kept,
+    // out of sight, and put back if the same account signs in again (see applyRescue).
+    if (keepUnsynced && libraryIsAccounts && accountRef.current) {
+      const rescue = captureRescue(libraryRef.current, loadCloudState(), accountRef.current.userId, Date.now())
+      if (rescue) saveRescue(rescue)
+    }
     localStorage.removeItem(MERGE_PENDING_KEY)
     window.clearTimeout(syncTimer.current)
     accountRef.current = null
@@ -239,7 +246,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       // one account's library into the other.
       if (auth.currentAccount()?.userId !== acct.userId) {
         // The session ended elsewhere (another tab, or a token refresh the server refused).
-        if (!auth.currentAccount()) setSignedOut()
+        if (!auth.currentAccount()) setSignedOut(true)
         return onResult?.({ kind: 'signed-out' })
       }
       if (!quiet) setCloud((c) => ({ ...c, syncing: true, message: null, failed: false }))
@@ -248,7 +255,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         recordLocalEdits(libraryRef.current, acct.userId)
         let token = await auth.accessToken()
         if (!token) {
-          setSignedOut()
+          setSignedOut(true)
           throw new auth.AuthError('Signed out — sign in again to sync.')
         }
         // A request whose access token is refused refreshes the session once and tries again.
@@ -260,7 +267,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
             auth.invalidateAccessToken()
             token = await auth.accessToken()
             if (!token) {
-              setSignedOut()
+              setSignedOut(true)
               throw new auth.AuthError('Signed out — sign in again to sync.')
             }
             return await call(token)
@@ -283,6 +290,16 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         const { state, pushed } = await authed((t) => pushPending(pulled, t))
         if (signedOutMeanwhile()) return onResult?.({ kind: 'signed-out' })
         saveCloudState(state)
+        // Signed back in after the session ended on its own: put back the edits that hadn't synced,
+        // merged with the account's library as it is now, and send them.
+        const rescue = loadRescue()
+        if (rescue) {
+          clearRescue()
+          if (rescue.userId === acct.userId && Date.now() - rescue.savedAt < RESCUE_MAX_AGE_MS) {
+            commitLibrary(applyRescue(libraryRef.current, rescue))
+            syncTimer.current = window.setTimeout(() => { void runSync(true) }, 0)
+          }
+        }
         setCloud({ syncing: false, lastSyncedAt: state.lastSyncedAt, message: null, failed: false })
         onResult?.({ kind: 'ok', pulled: pulled.remoteChanges.size, pushed })
       } catch (e) {
@@ -290,7 +307,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         // browser out so the panel offers sign-in again.
         // Only a session the server has dropped signs this browser out (accessToken() cleared it).
         if (e instanceof auth.AuthError && !auth.currentAccount()) {
-          setSignedOut()
+          setSignedOut(true)
         }
         const message = e instanceof auth.ServerBusyError ? e.message
           : e instanceof auth.OfflineError ? "Offline — will sync when you're back online."
@@ -316,7 +333,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     // This browser still holds another account's library (an email link signed straight into a
     // different account, say): it's that account's, so it goes — never offered to this one.
     const prior = loadCloudState().userId
-    if (prior && prior !== acct.userId) {
+    // Edits kept from another account's session never go to this one.
+    if (loadRescue()?.userId !== undefined && loadRescue()?.userId !== acct.userId) clearRescue()
+    if (libraryIsAnotherAccounts(prior, acct.userId)) {
       clearCloudState()
       commitLibrary({ decks: [], collections: [] })
       localStorage.removeItem(LAST_DECK_KEY)
@@ -353,7 +372,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     // A sign-out that didn't finish (the tab closed between ending the session and removing the
     // library): no one is signed in, yet the library is an account's. Finish removing it.
     if (!auth.currentAccount()) {
-      if (loadCloudState().userId && localStorage.getItem(MERGE_PENDING_KEY) === null) {
+      if (leftoverFromSignOut(false, loadCloudState().userId, localStorage.getItem(MERGE_PENDING_KEY) !== null)) {
         clearCloudState()
         commitLibrary({ decks: [], collections: [] })
         localStorage.removeItem(LAST_DECK_KEY)
@@ -520,6 +539,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     // request, so closing the tab while it's under way can't leave the account's decks behind.
     const loggingOut = auth.signOut()
     setSignedOut()
+    clearRescue() // signed out on purpose, after the warning: nothing is kept
     setCloud(IDLE)
     setPasswordRecovery(false)
     await loggingOut
