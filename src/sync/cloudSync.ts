@@ -40,6 +40,9 @@ interface ItemMeta {
    * Absent for items last synced by an older version, which fall back to newest-edit-wins.
    */
   base?: string
+  /** The edit time of the version in [base]. A push names it, and the server only lets the push
+   * overwrite that version (see push_library_items_v2). */
+  baseMs?: number
 }
 
 export interface CloudState {
@@ -56,6 +59,12 @@ export interface CloudState {
    * pass reads these rows back even if the cursor is past them, and merges where needed.
    */
   refetch?: string[]
+  /**
+   * A push sent whose answer hasn't come back (it may be lost): each item's stamp and JSON. The next
+   * pass reads those rows back to learn whether it landed — the row carries our stamp, or another
+   * device built on it — so our change is never counted twice.
+   */
+  sent?: Record<string, { ms: number; json?: string }>
 }
 
 export const emptyCloudState = (userId: string | null = null): CloudState =>
@@ -104,9 +113,18 @@ interface RemoteRow {
   edited_ms: number
   deleted: boolean
   server_updated_at: string
+  /** The version the writer merged from (servers with push_library_items_v2 only). */
+  base_edited_ms?: number | null
 }
 
-export class SyncError extends Error {}
+export class SyncError extends Error {
+  /** PostgREST's error code, e.g. 42703 for a column the database doesn't have. */
+  code?: string
+  constructor(message: string, code?: string) {
+    super(message)
+    this.code = code
+  }
+}
 
 /** A data request's access token was refused (HTTP 401); the caller refreshes the session and retries once. */
 export class UnauthorizedError extends Error {}
@@ -119,21 +137,41 @@ async function request(path: string, token: string, init?: RequestInit): Promise
     throw new OfflineError("Offline — will sync when you're back online.")
   }
   if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { message?: string }
+    const body = await res.json().catch(() => ({})) as { message?: string; code?: string }
     if (res.status === 401) throw new UnauthorizedError("The server didn't accept this sign-in. Try again, or sign out and back in.")
-    throw new SyncError(body.message ? `${body.message} (HTTP ${res.status})` : `Server error (HTTP ${res.status})`)
+    throw new SyncError(body.message ? `${body.message} (HTTP ${res.status})` : `Server error (HTTP ${res.status})`, body.code)
   }
   return res
 }
 
 const ROW_FIELDS = 'kind,id,data,edited_ms,deleted,server_updated_at'
 
+/**
+ * Whether the server has compare-and-swap pushes (supabase/migrations/…_library_sync_cas.sql in the
+ * Android repo). Until it does, sync works as before; learned from the first request that needs it.
+ */
+let casServer: boolean | null = null
+const rowFields = () => (casServer === false ? ROW_FIELDS : `${ROW_FIELDS},base_edited_ms`)
+/** An unknown column (42703) or function (PGRST202): the migration hasn't been run. */
+const noCas = (e: unknown) => e instanceof SyncError && (e.code === '42703' || e.code === 'PGRST202')
+
+/** Runs [call], and once more the old way if the server turns out not to have the migration. */
+async function orWithoutCas<T>(call: () => Promise<T>): Promise<T> {
+  try {
+    return await call()
+  } catch (e) {
+    if (casServer === false || !noCas(e)) throw e
+    casServer = false
+    return call()
+  }
+}
+
 async function pull(token: string, cursor: string | null): Promise<RemoteRow[]> {
   const rows: RemoteRow[] = []
   const cursorMs = cursor ? Date.parse(cursor) : NaN
   let after = Number.isFinite(cursorMs) ? new Date(cursorMs - PULL_OVERLAP_MS).toISOString() : cursor
   for (;;) {
-    const params = new URLSearchParams({ select: ROW_FIELDS, order: 'server_updated_at.asc', limit: '500' })
+    const params = new URLSearchParams({ select: rowFields(), order: 'server_updated_at.asc', limit: '500' })
     if (after) params.set('server_updated_at', `gt.${after}`)
     const page = (await (await request(`/rest/v1/library_items?${params}`, token)).json()) as RemoteRow[]
     rows.push(...page)
@@ -148,7 +186,7 @@ async function fetchRows(token: string, keys: string[]): Promise<RemoteRow[]> {
   for (let i = 0; i < keys.length; i += 100) {
     const chunk = keys.slice(i, i + 100)
     const ids = [...new Set(chunk.map((key) => key.slice(key.indexOf(':') + 1)))]
-    const params = new URLSearchParams({ select: ROW_FIELDS, id: `in.(${ids.map((id) => `"${id.replace(/"/g, '\\"')}"`).join(',')})` })
+    const params = new URLSearchParams({ select: rowFields(), id: `in.(${ids.map((id) => `"${id.replace(/"/g, '\\"')}"`).join(',')})` })
     const page = (await (await request(`/rest/v1/library_items?${params}`, token)).json()) as RemoteRow[]
     out.push(...page.filter((row) => chunk.includes(`${row.kind}:${row.id}`)))
   }
@@ -205,11 +243,13 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
   const now = Date.now()
   const pending = detectPending(local, state, now)
 
-  const rows = await pull(token, state.cursor)
-  // Rows a partly skipped push left behind, unless the cursor pull already brought a newer copy.
+  const rows = await orWithoutCas(() => pull(token, state.cursor))
+  // Rows a skipped push left behind, and those of a push whose answer never came — unless the cursor
+  // pull already brought them.
   const inPull = new Set(rows.map((row) => `${row.kind}:${row.id}`))
-  const again = state.refetch?.length
-    ? (await fetchRows(token, state.refetch)).filter((row) => !inPull.has(`${row.kind}:${row.id}`))
+  const refetch = [...new Set([...(state.refetch ?? []), ...Object.keys(state.sent ?? {})])]
+  const again = refetch.length
+    ? (await orWithoutCas(() => fetchRows(token, refetch))).filter((row) => !inPull.has(`${row.kind}:${row.id}`))
     : []
 
   const items = { ...state.items }
@@ -224,7 +264,7 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
       // A deck deleted elsewhere goes, unless this device edited it more recently.
       if (localEdit !== undefined && localEdit > row.edited_ms) continue
       if (local.has(key)) remoteChanges.set(key, null)
-      items[key] = { hash: 0, editedMs: row.edited_ms, deleted: true }
+      items[key] = { hash: 0, editedMs: row.edited_ms, deleted: true, baseMs: row.edited_ms }
       delete pending[key]
       continue
     }
@@ -235,12 +275,16 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
     const theirJson = canonicalJson(theirs)
     const mineJson = local.get(key)
     const meta = state.items[key]
+    const sent = state.sent?.[key]
+    // A push whose answer was lost did land: the row still carries its stamp and content.
+    const sentLanded = sent !== undefined && sent.ms === row.edited_ms && sent.json !== undefined && hash(sent.json) === hash(theirJson)
     // This browser's own write coming back (or a row it already agreed on): stamped with the edit time
     // it last pushed, and holding what it pushed. That is now the agreed version. The content check
     // matters: another device merging from the same row can land on the very same stamp.
-    if (meta && !meta.deleted && meta.editedMs === row.edited_ms && (meta.hash === hash(theirJson) || meta.base === theirJson)) {
-      items[key] = { ...meta, base: theirJson }
-      if (mineJson !== undefined && hash(mineJson) !== meta.hash) {
+    if ((meta && !meta.deleted && meta.editedMs === row.edited_ms && (meta.hash === hash(theirJson) || meta.base === theirJson)) || sentLanded) {
+      const ownHash = sentLanded ? hash(sent.json!) : meta!.hash
+      items[key] = { hash: ownHash, editedMs: row.edited_ms, base: theirJson, baseMs: row.edited_ms }
+      if (mineJson !== undefined && hash(mineJson) !== ownHash) {
         // Edited again since: that edit is simply pushed — nothing from elsewhere to merge in.
         pending[key] = Math.max(pending[key] ?? now, row.edited_ms + 1)
       } else if (mineJson !== undefined) {
@@ -248,7 +292,10 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
       }
       continue
     }
-    const baseJson = meta?.base
+    // Another device merged from a push of ours whose answer was lost: it landed, and it's the
+    // version to merge against — merging from the older one would count our change twice.
+    const builtOnOurs = sent !== undefined && row.base_edited_ms != null && row.base_edited_ms === sent.ms
+    const baseJson = builtOnOurs ? sent.json : meta?.base
 
     // This device has diverged if its copy differs from the version both sides last agreed on —
     // which stays true even when a push was skipped as stale server-side.
@@ -257,7 +304,7 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
     // sync, say, with the same deck already in the cloud from somewhere else. With nothing to compare
     // against, keep every card from both rather than letting the cloud copy replace this one. (Not
     // tied to a pending edit: a first push the server skipped leaves none.)
-    const firstMeeting = mineJson !== undefined && meta === undefined
+    const firstMeeting = mineJson !== undefined && meta === undefined && !builtOnOurs
     // Both devices changed this one since they last agreed: keep both sets of edits.
     if ((diverged || firstMeeting) && mineJson !== theirJson) {
       const mine = JSON.parse(mineJson!)
@@ -277,7 +324,7 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
       // and keep their version as the new base.
       local.set(key, mergedJson)
       pending[key] = Math.max(now, row.edited_ms + 1)
-      items[key] = { hash: hash(theirJson), editedMs: row.edited_ms, base: theirJson }
+      items[key] = { hash: hash(theirJson), editedMs: row.edited_ms, base: theirJson, baseMs: row.edited_ms }
       continue
     }
 
@@ -285,10 +332,11 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
       continue // ours is newer; pushed below
     }
     if (mineJson !== theirJson) remoteChanges.set(key, theirs)
-    items[key] = { hash: hash(theirJson), editedMs: row.edited_ms, base: theirJson }
+    items[key] = { hash: hash(theirJson), editedMs: row.edited_ms, base: theirJson, baseMs: row.edited_ms }
     delete pending[key]
   }
-  return { state: { ...state, items, pending, cursor, refetch: [] }, remoteChanges, local, startedAt: now }
+  // Every unanswered push has now been read back (a row it never reached leaves its edit pending).
+  return { state: { ...state, items, pending, cursor, refetch: [], sent: {} }, remoteChanges, local, startedAt: now }
 }
 
 /**
@@ -306,10 +354,44 @@ export async function pushPending(pulled: PullOutcome, token: string): Promise<{
       const editedMs = state.pending[key] === 0 ? pulled.startedAt : state.pending[key]
       const json = pulled.local.get(key)
       pushedJson[key] = json
+      // The version this was merged from; the server only lets the push overwrite that one.
+      const meta = state.items[key]
+      const base = meta ? (meta.baseMs ?? meta.editedMs) : null
       return json === undefined
-        ? { kind, id, edited_ms: editedMs, deleted: true }
-        : { kind, id, edited_ms: editedMs, deleted: false, data: JSON.parse(json) }
+        ? { kind, id, edited_ms: editedMs, deleted: true, base_edited_ms: base }
+        : { kind, id, edited_ms: editedMs, deleted: false, data: JSON.parse(json), base_edited_ms: base }
     })
+    // Note what's being sent first: if the answer is lost, the next pass can still tell whether it landed.
+    saveCloudState({ ...state, sent: Object.fromEntries(batch.map((item) => [`${item.kind}:${item.id}`, { ms: item.edited_ms, json: pushedJson[`${item.kind}:${item.id}`] }])) })
+
+    if (casServer !== false) {
+      try {
+        const res = await request('/rest/v1/rpc/push_library_items_v2', token, { method: 'POST', body: JSON.stringify({ items: batch }) })
+        casServer = true
+        const wrote = new Set(((await res.json()) as { kind: string; id: string }[]).map((w) => `${w.kind}:${w.id}`))
+        const items = { ...state.items }
+        const stillPending: Record<string, number> = {}
+        batch.forEach((item) => {
+          const key = `${item.kind}:${item.id}`
+          const json = pushedJson[key]
+          if (!wrote.has(key)) {
+            // Skipped: the row moved on from the version this was merged from. Keep the edit and its
+            // time; the next pass reads the row back and merges.
+            stillPending[key] = state.pending[key]
+            return
+          }
+          items[key] = json === undefined
+            ? { hash: 0, editedMs: item.edited_ms, deleted: true, baseMs: item.edited_ms }
+            : { hash: hash(json), editedMs: item.edited_ms, base: json, baseMs: item.edited_ms }
+        })
+        const skipped = Object.keys(stillPending)
+        state = { ...state, items, pending: stillPending, refetch: skipped, sent: {} }
+        return { state: { ...state, lastSyncedAt: Date.now() }, pushed: wrote.size }
+      } catch (e) {
+        if (!noCas(e)) throw e
+        casServer = false // no migration yet: push the old way
+      }
+    }
     const res = await request('/rest/v1/rpc/push_library_items', token, { method: 'POST', body: JSON.stringify({ items: batch }) })
     // The server skips any item older than what it already holds, and answers with how many it wrote.
     const answer = Number((await res.text()).trim())
@@ -342,7 +424,7 @@ export async function pushPending(pulled: PullOutcome, token: string): Promise<{
         // and the next pass reads the newer row back and merges.
         : { hash: hash(json), editedMs: item.edited_ms, base: landed.has(key) ? json : state.items[key]?.base }
     })
-    state = { ...state, items, pending: {}, refetch: unsure }
+    state = { ...state, items, pending: {}, refetch: unsure, sent: {} }
   }
   return { state: { ...state, lastSyncedAt: Date.now() }, pushed: written }
 }
