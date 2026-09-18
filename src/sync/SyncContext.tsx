@@ -21,7 +21,11 @@ export type RefreshResult =
   | { kind: 'signed-out' }
 
 /** How often an open, visible tab checks for other devices' edits. */
-const POLL_INTERVAL_MS = 20_000
+const POLL_INTERVAL_MS = 15_000
+/** How soon after an edit it's sent: soon, so little is ever unsynced if the session ends. */
+const EDIT_SYNC_DELAY_MS = 1_000
+/** Where the deck page remembers the last deck opened (components/Layout.tsx). */
+const LAST_DECK_KEY = 'mtgweb_last_deck'
 /** Switching back to the tab checks at once, unless a check ran moments ago. */
 const RETURN_SYNC_GAP_MS = 5_000
 
@@ -97,7 +101,11 @@ interface SyncContextValue {
   signIn: (email: string, password: string) => Promise<void>
   /** Resolves true when signed in right away, false when a confirmation email was sent. */
   signUp: (email: string, password: string) => Promise<boolean>
-  signOut: () => Promise<void>
+  /**
+   * Syncs, then signs out and removes this account's decks and binders from this browser. If some
+   * changes couldn't be synced first, it stops and says how many — pass [force] to go ahead anyway.
+   */
+  signOut: (force?: boolean) => Promise<{ unsynced: number }>
   syncNow: () => Promise<void>
   /** A sync the user asked for (pull to refresh), resolving with how it went. */
   refresh: () => Promise<RefreshResult>
@@ -180,12 +188,25 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     setLibrary(lib)
   }, [])
 
+  /**
+   * Signed out, however it happened (the button, an expired session, another tab): this account's
+   * decks and binders leave this browser. They're in the account, and come back on signing in.
+   * Not when the sign-in never got past "this browser already has a library": that library is the
+   * browser's own, never synced, so it stays.
+   */
   const setSignedOut = useCallback(() => {
+    const libraryIsAccounts = !mergePending.current
+    window.clearTimeout(syncTimer.current)
     accountRef.current = null
     setAccount(null)
     setMergePrompt(null)
     mergePending.current = false
-  }, [])
+    clearCloudState()
+    if (libraryIsAccounts) {
+      commitLibrary({ decks: [], collections: [] })
+      localStorage.removeItem(LAST_DECK_KEY)
+    }
+  }, [commitLibrary])
 
   /**
    * One sync pass, queued behind any pass already running. A [quiet] pass — the background check
@@ -200,7 +221,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       if (mergePending.current) return onResult?.({ kind: 'failed', message: 'Choose how to combine this browser’s library first' })
       // Another tab signed out or into a different account: this one follows it rather than syncing
       // one account's library into the other.
-      if (auth.currentAccount()?.userId !== acct.userId) return onResult?.({ kind: 'signed-out' })
+      if (auth.currentAccount()?.userId !== acct.userId) {
+        // The session ended elsewhere (another tab, or a token refresh the server refused).
+        if (!auth.currentAccount()) setSignedOut()
+        return onResult?.({ kind: 'signed-out' })
+      }
       if (!quiet) setCloud((c) => ({ ...c, syncing: true, message: null, failed: false }))
       try {
         adoptStoredLibrary()
@@ -225,8 +250,13 @@ export function SyncProvider({ children }: { children: ReactNode }) {
             return await call(token)
           }
         }
+        // Signed out while this pass was waiting on the network: its library is gone, and it must not
+        // save anything — sync bookkeeping written after the wipe would read the empty library as
+        // "everything deleted" on the next sign-in.
+        const signedOutMeanwhile = () => accountRef.current?.userId !== acct.userId
         const snapshot = libraryRef.current
         const pulled = await authed((t) => pullChanges(snapshot, loadCloudState(), acct.userId, t))
+        if (signedOutMeanwhile()) return onResult?.({ kind: 'signed-out' })
         // Take in what was pulled before pushing, so a push that fails can't lose it: the next pass
         // would find the cursor past those rows and push this browser's old copies over them.
         if (pulled.remoteChanges.size > 0) {
@@ -235,12 +265,13 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         }
         saveCloudState(pulled.state)
         const { state, pushed } = await authed((t) => pushPending(pulled, t))
+        if (signedOutMeanwhile()) return onResult?.({ kind: 'signed-out' })
         saveCloudState(state)
         setCloud({ syncing: false, lastSyncedAt: state.lastSyncedAt, message: null, failed: false })
         onResult?.({ kind: 'ok', pulled: pulled.remoteChanges.size, pushed })
       } catch (e) {
         // The server no longer accepts this session (revoked, or the account was deleted): sign this
-        // browser out so the panel offers sign-in again. Local decks and binders stay.
+        // browser out so the panel offers sign-in again.
         // Only a session the server has dropped signs this browser out (accessToken() cleared it).
         if (e instanceof auth.AuthError && !auth.currentAccount()) {
           setSignedOut()
@@ -261,7 +292,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const scheduleSync = useCallback(() => {
     if (!accountRef.current || mergePending.current) return
     window.clearTimeout(syncTimer.current)
-    syncTimer.current = window.setTimeout(() => { void runSync() }, 2000)
+    syncTimer.current = window.setTimeout(() => { void runSync() }, EDIT_SYNC_DELAY_MS)
   }, [runSync])
 
   /** After any sign-in: ask what to do with this browser's library the first time, otherwise sync. */
@@ -324,12 +355,22 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       lastAutoSync.current = Date.now()
       void runSync(true)
     }, POLL_INTERVAL_MS)
+    // Leaving the tab (or closing it): send anything not yet synced straight away.
+    const onLeave = () => {
+      if (document.visibilityState !== 'hidden' || !accountRef.current) return
+      window.clearTimeout(syncTimer.current)
+      void runSync(true)
+    }
     document.addEventListener('visibilitychange', onReturn)
+    document.addEventListener('visibilitychange', onLeave)
+    window.addEventListener('pagehide', onLeave)
     window.addEventListener('online', onReturn)
     window.addEventListener('focus', onReturn)
     return () => {
       window.clearInterval(poll)
       document.removeEventListener('visibilitychange', onReturn)
+      document.removeEventListener('visibilitychange', onLeave)
+      window.removeEventListener('pagehide', onLeave)
       window.removeEventListener('online', onReturn)
       window.removeEventListener('focus', onReturn)
       window.clearTimeout(syncTimer.current)
@@ -345,17 +386,24 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         setCloud((c) => ({ ...c, lastSyncedAt: loadCloudState().lastSyncedAt }))
       }
       const stored = auth.supabaseConfigured ? auth.currentAccount() : null
-      if (stored?.userId !== accountRef.current?.userId) {
+      if (!stored && accountRef.current) {
+        // Signed out in another tab: this one lets go of the account's library too.
+        setSignedOut()
+        setCloud(IDLE)
+      } else if (stored?.userId !== accountRef.current?.userId) {
+        // Another tab signed into a different account: it owns what's stored now, so just follow it
+        // (wiping here could delete the library it just loaded).
+        window.clearTimeout(syncTimer.current)
         accountRef.current = stored
         setAccount(stored)
         setMergePrompt(null)
         mergePending.current = false
-        if (!stored) setCloud(IDLE)
+        adoptStoredLibrary()
       }
     }
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
-  }, [adoptStoredLibrary])
+  }, [adoptStoredLibrary, setSignedOut])
 
   const updateLibrary = useCallback(
     (updater: (lib: Library) => Library) => {
@@ -376,14 +424,26 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     return acct !== null
   }, [startAccount])
 
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async (force = false): Promise<{ unsynced: number }> => {
+    const acct = accountRef.current
+    if (acct && !force && !mergePending.current) {
+      // Send everything first — signing out removes this browser's copy. A second pass picks up
+      // anything the first had to merge with another device's edit.
+      window.clearTimeout(syncTimer.current)
+      await runSync()
+      recordLocalEdits(libraryRef.current, acct.userId)
+      if (Object.keys(loadCloudState().pending).length > 0) await runSync()
+      recordLocalEdits(libraryRef.current, acct.userId)
+      const unsynced = Object.keys(loadCloudState().pending).length
+      if (unsynced > 0) return { unsynced }
+    }
     await syncChain.current
     await auth.signOut()
-    clearCloudState()
     setSignedOut()
     setCloud(IDLE)
     setPasswordRecovery(false)
-  }, [setSignedOut])
+    return { unsynced: 0 }
+  }, [runSync, setSignedOut])
 
   const syncNow = useCallback(() => runSync(), [runSync])
 

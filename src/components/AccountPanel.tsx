@@ -27,6 +27,8 @@ export function AccountPanel() {
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false)
   const [changingPassword, setChangingPassword] = useState(false)
   const [signedOut, setSignedOut] = useState(() => auth.signedOutNotice())
+  const [signingOut, setSigningOut] = useState(false)
+  const [unsynced, setUnsynced] = useState<number | null>(null)
 
   // A sign-out can happen while this panel is open (a sync pass finding the session gone).
   useEffect(() => {
@@ -72,10 +74,31 @@ export function AccountPanel() {
         </div>
         <div className="row">
           <button type="button" className="btn line" style={{ flex: 1 }} onClick={() => setChangingPassword(true)}>Change password</button>
-          <button type="button" className="btn line" style={{ flex: 1 }} onClick={() => void signOut()}>Sign out</button>
+          <button
+            type="button"
+            className="btn line"
+            style={{ flex: 1 }}
+            disabled={signingOut}
+            onClick={() => {
+              setSigningOut(true)
+              void signOut().then((r) => setUnsynced(r.unsynced || null)).finally(() => setSigningOut(false))
+            }}
+          >
+            {signingOut ? 'Syncing first…' : 'Sign out'}
+          </button>
         </div>
+        {unsynced !== null && (
+          <div className="notice warn" role="alert">
+            <b>{unsynced} {unsynced === 1 ? 'change hasn’t' : 'changes haven’t'} synced yet.</b> Signing out removes your decks and
+            binders from this browser, so {unsynced === 1 ? 'it' : 'they'} would be lost. Check your connection and sync again, or sign out anyway.
+            <div className="row" style={{ gap: 8, marginTop: 10 }}>
+              <button type="button" className="btn line sm" onClick={() => setUnsynced(null)}>Cancel</button>
+              <button type="button" className="btn line sm" onClick={() => { setUnsynced(null); void signOut(true) }}>Sign out anyway</button>
+            </div>
+          </div>
+        )}
         <div className="dim account-hint" style={{ padding: '0 4px' }}>
-          Decks and binders sync on their own and are merged card by card, so edits here and on your phone don't overwrite each other. Signing out keeps everything in this browser; it only stops syncing.
+          Decks and binders sync on their own and are merged card by card, so edits here and on your phone don't overwrite each other. Signing out removes them from this browser — they stay in your account and come back when you sign in.
         </div>
         {changingPassword && (
           <SetPasswordDialog
@@ -102,7 +125,7 @@ export function AccountPanel() {
           <b>You were signed out</b>
           <span>{signedOut.reason}</span>
           <span className="dim">
-            On {new Date(signedOut.at).toLocaleString()}. Your decks and binders are still in this browser.
+            On {new Date(signedOut.at).toLocaleString()}. Your decks and binders were removed from this browser; sign in to get them back from your account.
           </span>
           <button type="button" className="btn btn-link sm" onClick={() => { auth.dismissSignedOutNotice(); setSignedOut(null) }}>
             Dismiss
