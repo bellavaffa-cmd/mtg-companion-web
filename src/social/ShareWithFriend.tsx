@@ -9,7 +9,7 @@ import { ShareSwitch } from './ShareDialog'
 import { useOverview } from './SocialContext'
 
 /** Whether the user shares every [kind] with [viewer] (a friend's id; null: all friends). */
-export function sharesAll(overview: api.Overview, kind: api.ShareKind, viewer: string | null): boolean {
+function sharesAll(overview: api.Overview, kind: api.ShareKind, viewer: string | null): boolean {
   return (overview.my_share_all ?? []).some((a) => a.kind === kind && a.viewer === viewer)
 }
 
