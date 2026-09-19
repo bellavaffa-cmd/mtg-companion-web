@@ -16,6 +16,7 @@ import { useAddWarning } from '../components/useAddWarning'
 import { DeckSuggestions } from '../components/DeckSuggestions'
 import { DeckStats, deckFigures, useDeckCardData } from '../components/DeckStats'
 import { MatchRecordPanel } from '../components/MatchRecordPanel'
+import { GoldfishDialog } from '../components/GoldfishDialog'
 import { Dialog } from '../components/Dialog'
 import {
   ArtImage, CountUp, IconButton, ManaPips, PillChip, SearchPill, SectionHeader, SegmentedTabs, TYPE_GROUPS, TYPE_PLURALS,
@@ -50,6 +51,7 @@ export function DeckDetailPage() {
   const [showExport, setShowExport] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [whoHas, setWhoHas] = useState(false)
+  const [goldfish, setGoldfish] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [addWarning, setAddWarning] = useAddWarning()
   const progress = useScrollProgress(200)
@@ -289,6 +291,7 @@ export function DeckDetailPage() {
           imageUrl={deck.commander?.imageUrl ?? null}
           actions={[
             { label: 'Share with friends', icon: 'group', detail: 'View only — friends, pods or a link', onClick: () => setSharing(true) },
+            { label: 'Goldfish (playtest)', icon: 'playing_cards', detail: 'Draw an opening hand, then a card at a time', onClick: () => setGoldfish(true) },
             { label: 'Who has it?', icon: 'person_search', detail: "Friends who own the cards you're missing", onClick: () => setWhoHas(true) },
             { label: 'Export decklist', icon: 'ios_share', detail: 'Copy it for Moxfield, Archidekt or Arena', onClick: () => setShowExport(true) },
             { label: 'Deck details', icon: 'tune', detail: 'Format, ownership, commander and tags', onClick: () => setTabName('Details') },
@@ -316,6 +319,7 @@ export function DeckDetailPage() {
       {showExport && <ExportDeckDialog deck={deck} onDismiss={() => setShowExport(false)} />}
       {sharing && <ShareDialog kind="deck" itemId={deck.id} name={deck.name} onClose={() => setSharing(false)} />}
       {whoHas && <WhoHasItSheet deck={deck} onClose={() => setWhoHas(false)} />}
+      {goldfish && <GoldfishDialog deck={deck} onClose={() => setGoldfish(false)} />}
 
       {zoomEntry && (
         <CardZoomModal
