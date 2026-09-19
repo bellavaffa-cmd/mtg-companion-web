@@ -14,6 +14,7 @@ import { AccountPage } from './pages/AccountPage'
 import { LifeCounterPage } from './lifecounter/LifeCounterPage'
 import { RemotePage } from './lifecounter/RemotePage'
 import { GetAppPage } from './pages/GetAppPage'
+import { TagBinderPage } from './collection/TagBinders'
 import { RulesPage } from './pages/RulesPage'
 import { ScanPage } from './pages/ScanPage'
 import { SocialProvider } from './social/SocialContext'
@@ -41,6 +42,7 @@ export default function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/collections" element={<CollectionsPage />} />
             <Route path="/collections/:id" element={<CollectionDetailPage />} />
+            <Route path="/collections/tag/:tagId" element={<TagBinderPage />} />
             <Route path="/decks" element={<DecksPage />} />
             <Route path="/decks/:id" element={<DeckDetailPage />} />
             <Route path="/precons" element={<PreconsPage />} />

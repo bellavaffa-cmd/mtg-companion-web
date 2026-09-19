@@ -11,6 +11,7 @@ import { CardSearchResults } from '../components/CardSearchResults'
 import { ExportDeckDialog } from '../components/ExportDeckDialog'
 import { ShareDialog } from '../social/ShareDialog'
 import { WhoHasItSheet } from '../social/WhoHasIt'
+import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
 import { useAddWarning } from '../components/useAddWarning'
 import { DeckSuggestions } from '../components/DeckSuggestions'
 import { DeckStats, deckFigures, useDeckCardData } from '../components/DeckStats'
@@ -38,6 +39,8 @@ export function DeckDetailPage() {
   const deck = decks.find((d) => d.id === id)
   const deckColors = useDeckColors(deck ? [deck] : [])
   const cardData = useDeckCardData(deck)
+  // What each card does (mana ramp, removal…): searched with the name, shown in the zoom and Stats.
+  const { tags: roleTags, loading: tagging } = useRoleTags(deck ? [...deck.cards, ...(deck.considering ?? [])].map((c) => c.name) : [])
   const [tabName, setTabName] = useState<'Cards' | 'Stats' | 'Suggestions' | 'Details'>('Cards')
   const [filter, setFilter] = useState('')
   const [zoomId, setZoomId] = useState<string | null>(null)
@@ -78,7 +81,11 @@ export function DeckDetailPage() {
   const commanders = [deck.commander, deck.partnerCommander].filter((c): c is DeckCardEntry => !!c)
   const figures = deckFigures(deck, cardData)
   const q = filter.trim().toLowerCase()
-  const matches = (c: DeckCardEntry) => !q || c.name.toLowerCase().includes(q) || (c.typeLine ?? '').toLowerCase().includes(q)
+  const matches = (c: DeckCardEntry) =>
+    !q || matchesNameOrTag(c.name, tagsOf(roleTags, c.name), q) || (c.typeLine ?? '').toLowerCase().includes(q)
+  // A search that found cards by their tag says which, since tags only show in the zoom.
+  const tagHits = q ? [...new Set(deck.cards.filter((c) => !c.name.toLowerCase().includes(q)).flatMap((c) => matchedTags(tagsOf(roleTags, c.name), q)))] : []
+  const shownCount = q ? deck.cards.filter(matches).length : 0
 
   const groups = TYPE_GROUPS.map((type) => {
     const cards = deck.cards
@@ -115,6 +122,14 @@ export function DeckDetailPage() {
     actions.push({ label: 'Remove from deck', icon: 'delete', tone: 'danger', onClick: () => removeCardFromDeck(deck!.id, entry.scryfallId) })
     return actions
   }
+
+  const searchNote = q && deck.cards.length > 0 && (
+    <div className="dim search-note">
+      {shownCount} {shownCount === 1 ? 'card' : 'cards'}
+      {tagHits.length > 0 && ` · tag: ${tagHits.slice(0, 2).map(tagLabel).join(', ')}${tagHits.length > 2 ? '…' : ''}`}
+      {tagging && ' · finding tags…'}
+    </div>
+  )
 
   const cardList = deck.cards.length === 0 ? (
     <div className="empty-state"><Icon name="playing_cards" />No cards yet — search {size === 'desktop' ? 'on the right' : 'below'} to add some.</div>
@@ -218,12 +233,13 @@ export function DeckDetailPage() {
             <div style={{ minWidth: 0 }}>
               <div className="deck-toolbar" style={{ position: 'sticky', top: 64, zIndex: 15, background: 'var(--g0)', padding: '10px 0 8px' }}>
                 <SegmentedTabs labels={tabs} selected={tabs.indexOf(tab)} onSelect={(i) => setTabName(tabs[i])} />
-                {tab === 'Cards' && <SearchPill value={filter} onChange={setFilter} placeholder="Filter this deck" />}
+                {tab === 'Cards' && <SearchPill value={filter} onChange={setFilter} placeholder="Name or tag, e.g. ramp" />}
               </div>
+              {tab === 'Cards' && searchNote}
               {tab === 'Cards' ? cardList : tab === 'Suggestions' ? suggestions : details}
             </div>
             <aside className="deck-aside">
-              <DeckStats deck={deck} cardsById={cardData} />
+              <DeckStats deck={deck} cardsById={cardData} roleTags={roleTags} tagging={!!tagging} onTag={(label) => { setTabName('Cards'); setFilter(label) }} />
               <div className="panel">
                 <div className="p-h"><h3>Add cards</h3></div>
                 {addCards}
@@ -234,16 +250,20 @@ export function DeckDetailPage() {
           <>
             <div className={size === 'tablet' ? 'sticky-tabs deck-toolbar' : 'sticky-tabs'}>
               <SegmentedTabs labels={tabs} selected={tabs.indexOf(tab)} onSelect={(i) => setTabName(tabs[i])} />
-              {size === 'tablet' && tab === 'Cards' && <SearchPill value={filter} onChange={setFilter} placeholder="Filter this deck" />}
+              {size === 'tablet' && tab === 'Cards' && <SearchPill value={filter} onChange={setFilter} placeholder="Name or tag, e.g. ramp" />}
             </div>
             {tab === 'Cards' && (
               <>
+                {size === 'phone' && deck.cards.length > 0 && (
+                  <div style={{ marginTop: 12 }}><SearchPill value={filter} onChange={setFilter} placeholder="Name or tag, e.g. ramp" /></div>
+                )}
+                {searchNote}
                 {cardList}
                 <SectionHeader title="Add cards" />
                 {addCards}
               </>
             )}
-            {tab === 'Stats' && <div style={{ marginTop: 12 }}><DeckStats deck={deck} cardsById={cardData} /></div>}
+            {tab === 'Stats' && <div style={{ marginTop: 12 }}><DeckStats deck={deck} cardsById={cardData} roleTags={roleTags} tagging={!!tagging} onTag={(label) => { setTabName('Cards'); setFilter(label) }} /></div>}
             {tab === 'Suggestions' && <div style={{ marginTop: 12 }}>{suggestions}</div>}
             {tab === 'Details' && details}
           </>
@@ -307,7 +327,9 @@ export function DeckDetailPage() {
           scryfallId={zoomEntry.scryfallId}
           currentDeckId={deck.id}
           backImageUrl={zoomEntry.backImageUrl}
-          tags={zoomEntry.tags}
+          tags={tagsOf(roleTags, zoomEntry.name).map(tagLabel)}
+          tagsLoading={!!tagging && !roleTags.has(zoomEntry.name.trim().toLowerCase())}
+          onTagClick={(label) => { setZoomId(null); setTabName('Cards'); setFilter(label) }}
           onSelectSimilar={(similar) => setAddWarning(addCardToDeck(deck.id, similar))}
           similarActionLabel="Tap a card to add it to this deck"
           onClose={() => setZoomId(null)}

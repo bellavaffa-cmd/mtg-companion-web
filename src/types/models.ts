@@ -80,6 +80,8 @@ export interface Deck {
   tags: string[]
   gameResults: GameResult[]
   ownership: DeckOwnership
+  /** Cards being thought about for this deck (the Android app's "Considering" list). Not in the deck. */
+  considering?: DeckCardEntry[]
 }
 
 /** Commander/Brawl allow only 1 copy of any non-basic-land card; other formats allow up to

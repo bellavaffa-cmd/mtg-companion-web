@@ -24,8 +24,12 @@ interface Props {
   currentCollectionId?: string
   /** The second face's art, for a transform/modal-DFC/flip card — adds a flip control. */
   backImageUrl?: string | null
-  /** Keywords + heuristic theme tags, shown as chips. */
+  /** What the card does (Mana ramp, Removal…), shown as chips. */
   tags?: string[]
+  /** Tags still being looked up: says so instead of showing none. */
+  tagsLoading?: boolean
+  /** Tapping a tag (a search for it, say). Omit for plain chips. */
+  onTagClick?: (tag: string) => void
   /** Called when a similar card is tapped. Omit to show the similar cards for information only. */
   onSelectSimilar?: (card: ScryfallCard) => void
   /** Hint under "Similar cards" explaining what tapping one does. */
@@ -80,7 +84,7 @@ function TiltCard({ src, alt, children }: { src: string; alt: string; children?:
 /** Enlarged card view with prices, rules text, where else it's used and similar cards. */
 export function CardZoomModal({
   imageUrl, name, typeLine, priceUsd, priceUsdFoil, onClose, children, scryfallId, currentDeckId, currentCollectionId,
-  backImageUrl, tags = [], onSelectSimilar, similarActionLabel, oracleText, manaCost,
+  backImageUrl, tags = [], tagsLoading = false, onTagClick, onSelectSimilar, similarActionLabel, oracleText, manaCost,
 }: Props) {
   const { decks, collections } = useSync()
   const navigate = useNavigate()
@@ -175,9 +179,14 @@ export function CardZoomModal({
           </div>
         )}
 
-        {tags.length > 0 && (
-          <div className="chips wrap">
-            {tags.map((tag) => <span key={tag} className="tag-chip">{tag}</span>)}
+        {(tags.length > 0 || tagsLoading) && (
+          <div className="chips wrap zoom-tags" aria-label="Tags">
+            {tags.map((tag) => onTagClick ? (
+              <button key={tag} type="button" className="tag-chip press" onClick={() => onTagClick(tag)} title={`Find every card tagged ${tag}`}>{tag}</button>
+            ) : (
+              <span key={tag} className="tag-chip">{tag}</span>
+            ))}
+            {tagsLoading && tags.length === 0 && <span className="dim">Finding tags…</span>}
           </div>
         )}
 

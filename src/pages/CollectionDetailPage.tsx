@@ -13,6 +13,7 @@ import { ArtImage, IconButton, SearchPill, SectionHeader, StatFigure, rise, toAr
 import { Dialog } from '../components/Dialog'
 import { isUnsorted, type CollectionEntry } from '../types/models'
 import { askForNotifications, formatUsd, usePrices } from '../collection/priceAlerts'
+import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
 
 export function CollectionDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -22,6 +23,8 @@ export function CollectionDetailPage() {
   // A wishlist shows what each card costs now, and can watch for it to drop.
   const wishlist = collection?.type === 'WISHLIST'
   const prices = usePrices(collection?.entries ?? [], wishlist)
+  // What each card does: found by the search, shown in the zoom.
+  const { tags: roleTags, loading: tagging } = useRoleTags(collection?.entries.map((e) => e.name) ?? [])
   const [alerting, setAlerting] = useState<CollectionEntry | null>(null)
   const [alertText, setAlertText] = useState('')
   const [zoomId, setZoomId] = useState<string | null>(null)
@@ -62,8 +65,9 @@ export function CollectionDetailPage() {
   const foils = collection.entries.reduce((s, e) => s + e.foilQuantity, 0)
   const q = filter.trim().toLowerCase()
   const shown = collection.entries
-    .filter((e) => !q || e.name.toLowerCase().includes(q))
+    .filter((e) => matchesNameOrTag(e.name, tagsOf(roleTags, e.name), q))
     .sort((a, b) => a.name.localeCompare(b.name))
+  const tagHits = q ? [...new Set(shown.filter((e) => !e.name.toLowerCase().includes(q)).flatMap((e) => matchedTags(tagsOf(roleTags, e.name), q)))] : []
   const setQty = (e: CollectionEntry, quantity: number, foilQuantity: number) =>
     setEntryQuantities(collection.id, e.scryfallId, Math.max(0, quantity), Math.max(0, foilQuantity))
 
@@ -107,9 +111,16 @@ export function CollectionDetailPage() {
           Cards you own that aren't in a binder yet. Use <Icon name="more_vert" style={{ fontSize: 16, verticalAlign: -3 }} /> → <b>Move to binder</b> on a card to sort it — into a binder you have, or a new one.
         </p>
       )}
-      {collection.entries.length > 8 && (
+      {(collection.entries.length > 8 || filter) && (
         <div className="rise" style={{ ...rise(2), marginTop: 14, maxWidth: size === 'phone' ? undefined : 480 }}>
-          <SearchPill value={filter} onChange={setFilter} placeholder="Find in this binder" />
+          <SearchPill value={filter} onChange={setFilter} placeholder="Name or tag, e.g. ramp" />
+          {q && (
+            <div className="dim search-note">
+              {shown.length} {shown.length === 1 ? 'card' : 'cards'}
+              {tagHits.length > 0 && ` · tag: ${tagHits.slice(0, 2).map(tagLabel).join(', ')}${tagHits.length > 2 ? '…' : ''}`}
+              {tagging && ' · finding tags…'}
+            </div>
+          )}
         </div>
       )}
       <div className="list wide-list" style={{ marginTop: 14 }}>
@@ -333,7 +344,9 @@ export function CollectionDetailPage() {
           scryfallId={zoomEntry.scryfallId}
           currentCollectionId={collection.id}
           backImageUrl={zoomEntry.backImageUrl}
-          tags={zoomEntry.tags}
+          tags={tagsOf(roleTags, zoomEntry.name).map(tagLabel)}
+          tagsLoading={!!tagging && !roleTags.has(zoomEntry.name.trim().toLowerCase())}
+          onTagClick={(label) => { setZoomId(null); setFilter(label) }}
           onSelectSimilar={(similar) => addEntryToCollection(collection.id, similar)}
           similarActionLabel="Tap a card to add it to this binder"
           onClose={() => setZoomId(null)}
@@ -395,7 +408,6 @@ function EntryRow({
               {entry.priceAlert ? <><Icon name={price != null && price <= entry.priceAlert ? 'notifications_active' : 'notifications'} aria-hidden />{formatUsd(entry.priceAlert)}</> : null}
             </span>
           )}
-          <span>{entry.tags?.slice(0, 3).join(' · ') ?? ''}</span>
         </div>
       </div>
       <div className="qty">

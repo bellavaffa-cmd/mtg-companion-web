@@ -142,6 +142,11 @@ interface SyncContextValue {
   setDeckOwnership: (deckId: string, ownership: DeckOwnership) => void
   setDeckTags: (deckId: string, tags: string[]) => void
   addGameResult: (deckId: string, result: GameResult) => void
+  /**
+   * Adds one copy of each of [cards] to a deck, or to its Considering list — skipping any it (or,
+   * for Considering, the deck itself) already has. Answers how many went in.
+   */
+  addCardsToDeck: (deckId: string, cards: ScryfallCard[], considering: boolean) => number
   removeGameResult: (deckId: string, resultId: string) => void
 
   createCollection: (name: string, type: CollectionType) => Collection
@@ -640,6 +645,28 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [library, updateLibrary, mapDeck],
   )
 
+  const addCardsToDeck = useCallback(
+    (deckId: string, cards: ScryfallCard[], considering: boolean): number => {
+      const deck = library.decks.find((d) => d.id === deckId)
+      if (!deck) return 0
+      const names = (list: DeckCardEntry[] = []) => new Set(list.map((c) => c.name.toLowerCase()))
+      const inDeck = names(deck.cards)
+      const inConsidering = names(deck.considering)
+      const fresh = cards.filter((c, i) => {
+        const n = c.name.toLowerCase()
+        return !inDeck.has(n) && !(considering && inConsidering.has(n)) && cards.findIndex((o) => o.name.toLowerCase() === n) === i
+      })
+      if (fresh.length === 0) return 0
+      updateLibrary((lib) =>
+        mapDeck(lib, deckId, (d) => (considering
+          ? { ...d, considering: [...(d.considering ?? []), ...fresh.map((c) => entryFromCard(c, 1))] }
+          : { ...d, cards: [...d.cards, ...fresh.map((c) => entryFromCard(c, 1))] })),
+      )
+      return fresh.length
+    },
+    [library, updateLibrary, mapDeck],
+  )
+
   const removeCardFromDeck = useCallback(
     (deckId: string, scryfallId: string) => {
       updateLibrary((lib) =>
@@ -935,6 +962,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setDeckOwnership,
       setDeckTags,
       addGameResult,
+      addCardsToDeck,
       removeGameResult,
       createCollection,
       deleteCollection,
@@ -951,7 +979,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       library, account, cloud, mergePrompt, resolveMerge, passwordRecovery, linkNotice, signIn, signUp, signOut,
       syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, addGameResult,
-      removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection,
+      addCardsToDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection,
       setEntryQuantities, setEntryPriceAlert, changeCollections, importIntoCollection, moveEntries, removeEntriesFromCollection,
     ],
   )

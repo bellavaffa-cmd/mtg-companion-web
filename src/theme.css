@@ -2943,3 +2943,190 @@ select.input.sf-sort {
 .crow .price-tag .icon {
   font-size: 15px;
 }
+
+/* ---- Card tags (what a card does) ---- */
+
+.search-note {
+  margin: 8px 2px 0;
+  font-size: 13px;
+}
+button.tag-chip {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gold);
+}
+.meter-button {
+  width: 100%;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.meter-button + .meter-button {
+  border-top: 1px solid var(--line);
+}
+.tag-target {
+  font-size: 11px;
+  border-radius: 999px;
+  padding: 1px 7px;
+  background: var(--g2);
+  color: var(--t2);
+}
+.tag-target.short {
+  background: rgba(230, 180, 94, 0.18);
+  color: var(--gold);
+}
+.tag-target.ok {
+  background: rgba(93, 202, 165, 0.16);
+  color: #5dcaa5;
+}
+.tag-target.over {
+  background: rgba(240, 153, 123, 0.16);
+  color: #f0997b;
+}
+
+/* ---- Automatic tag binders ---- */
+
+.tag-binders {
+  margin-top: 22px;
+}
+.tag-binders-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tag-binders-head > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.tag-binders-head .icon {
+  font-size: 16px;
+  color: var(--gold);
+}
+.tag-binder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.tag-binder {
+  display: grid;
+  border: 0;
+  padding: 0 0 10px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--g1);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tag-binder-cover {
+  position: relative;
+  display: flex;
+  height: 74px;
+  background: var(--g2);
+}
+.tag-binder-cover > * {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+.tag-binder-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.65);
+  color: var(--gold);
+  font-size: 11px;
+  flex: none !important;
+  height: auto !important;
+}
+.tag-binder-badge .icon {
+  font-size: 13px;
+}
+.tag-binder-name {
+  padding: 8px 10px 0;
+  font-weight: 600;
+}
+.tag-binder-count {
+  padding: 0 10px;
+  font-size: 12px;
+  color: var(--t2);
+}
+
+/* ---- Add to a deck ---- */
+
+.seg-choice {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--g2);
+}
+.seg-choice button {
+  border: 0;
+  border-radius: 9px;
+  padding: 8px;
+  background: transparent;
+  color: var(--t1);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.seg-choice button.on {
+  background: var(--g1);
+  color: var(--gold);
+}
+.deck-pick-list {
+  display: grid;
+  gap: 6px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+.deck-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 12px;
+  padding: 6px 10px 6px 6px;
+  background: var(--g1);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.deck-pick.on {
+  box-shadow: inset 0 0 0 2px var(--gold);
+}
+.deck-pick-art {
+  width: 52px;
+  height: 38px;
+  border-radius: 8px;
+  flex: none;
+}
+.deck-pick-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+/* Icons are ligatures: an uppercased heading around one would turn it back into its name. */
+.grp .icon,
+.eyebrow .icon {
+  text-transform: none;
+  letter-spacing: normal;
+}

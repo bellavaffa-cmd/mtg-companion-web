@@ -10,6 +10,7 @@ import { SharedFriendsView } from '../social/SharedFriends'
 import { isUnsorted, type Collection, type CollectionType } from '../types/models'
 import { ExportCollectionDialog, ImportCardsDialog } from '../collection/CardListDialogs'
 import { ShareCollectionDialog } from '../social/ShareWithFriend'
+import { TagBindersSection } from '../collection/TagBinders'
 
 const TYPE_LABELS: Record<CollectionType, string> = { OWNED: 'Owned', WISHLIST: 'Wishlist' }
 
@@ -113,6 +114,7 @@ export function CollectionsPage() {
               ))}
               {shown.length === 0 && <div className="empty-state">No {filter === 'WISHLIST' ? 'wishlists' : 'binders'} here yet.</div>}
             </div>
+            {filter !== 'WISHLIST' && <TagBindersSection />}
           </>
         )}
       </div>

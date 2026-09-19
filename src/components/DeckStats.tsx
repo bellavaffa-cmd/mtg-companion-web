@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { getCardsByIds } from '../api/scryfall'
 import { displayManaCost, type ScryfallCard } from '../types/scryfall'
-import type { Deck } from '../types/models'
+import type { Deck, DeckCardEntry } from '../types/models'
+import { COMMANDER_TARGETS, ROLE_TAGS, tagLabel, tagsOf } from '../tags/roleTags'
 import { ManaSymbol } from './ManaSymbols'
 import { Icon } from './Icon'
 import { MANA, TYPE_GROUPS, TYPE_PLURALS, primaryTypeOf, rise } from './kit'
@@ -90,7 +91,15 @@ export function deckFigures(deck: Deck, cardsById: DeckCardData): { value: numbe
 }
 
 /** The deck's stats: mana curve, card types and mana symbols. Pass [cardsById] from useDeckCardData. */
-export function DeckStats({ deck, cardsById }: { deck: Deck; cardsById: DeckCardData }) {
+export function DeckStats({ deck, cardsById, roleTags, tagging = false, onTag }: {
+  deck: Deck
+  cardsById: DeckCardData
+  /** Card name → tag ids (useRoleTags), for the "What the cards do" panel. */
+  roleTags?: Map<string, string[]>
+  tagging?: boolean
+  /** Tapping a tag's row: show those cards. */
+  onTag?: (label: string) => void
+}) {
   const allEntries = [deck.commander, deck.partnerCommander, ...deck.cards].filter((e) => e !== null)
   // Commanders are also in deck.cards; count each card once.
   const entries = [...new Map(allEntries.map((e) => [e.scryfallId, e])).values()]
@@ -176,9 +185,63 @@ export function DeckStats({ deck, cardsById }: { deck: Deck; cardsById: DeckCard
         )}
       </div>
 
+      {roleTags && <TagCounts deck={deck} entries={entries} roleTags={roleTags} tagging={tagging} onTag={onTag} />}
+
       <DeckLegality deck={deck} cardsById={cardsById} index={3} />
 
       <DeckCombosPanel deck={deck} index={4} />
+    </div>
+  )
+}
+
+/**
+ * How many cards do each job (mana ramp, card draw…), most first. In Commander, the core jobs are
+ * held against the usual targets for a 100-card deck.
+ */
+function TagCounts({ deck, entries, roleTags, tagging, onTag }: {
+  deck: Deck
+  entries: DeckCardEntry[]
+  roleTags: Map<string, string[]>
+  tagging: boolean
+  onTag?: (label: string) => void
+}) {
+  const counts = new Map<string, number>()
+  for (const e of entries) {
+    for (const id of tagsOf(roleTags, e.name)) counts.set(id, (counts.get(id) ?? 0) + e.quantity)
+  }
+  const commander = deck.gameMode === 'COMMANDER'
+  // The core jobs always show in Commander (a 0 there is worth knowing); the rest when present.
+  const ids = ROLE_TAGS.map((t) => t.id).filter((id) => counts.has(id) || (commander && COMMANDER_TARGETS[id]))
+  ids.sort((a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0))
+  const most = Math.max(1, ...ids.map((id) => counts.get(id) ?? 0))
+  return (
+    <div className="panel rise" style={rise(3)}>
+      <div className="p-h"><h3>What the cards do</h3>{tagging && <span className="p-sub">Finding tags…</span>}</div>
+      {ids.length === 0 ? (
+        <div className="dim">{tagging ? 'Looking up what each card does…' : 'No tags for these cards yet.'}</div>
+      ) : ids.map((id, i) => {
+        const n = counts.get(id) ?? 0
+        const target = commander ? COMMANDER_TARGETS[id] : undefined
+        const status = !target ? '' : n < target[0] ? ' short' : n > target[1] ? ' over' : ' ok'
+        const row = (
+          <>
+            <div className="m-top">
+              <span className="grow">{tagLabel(id)}</span>
+              {target && <span className={`tag-target${status}`}>{target[0]}–{target[1]}</span>}
+              <span className="m-n"><b>{n}</b></span>
+            </div>
+            <div className="m-track"><div className="m-fill" style={{ ['--w' as string]: `${(n / most) * 100}%`, ['--i' as string]: i }} /></div>
+          </>
+        )
+        return onTag ? (
+          <button key={id} type="button" className="meter meter-button" onClick={() => onTag(tagLabel(id))}>{row}</button>
+        ) : (
+          <div key={id} className="meter">{row}</div>
+        )
+      })}
+      <div className="dim" style={{ marginTop: 10 }}>
+        From Scryfall Tagger{commander ? '; the ranges are the usual amounts for a Commander deck' : ''}. Tap a tag to see its cards.
+      </div>
     </div>
   )
 }
