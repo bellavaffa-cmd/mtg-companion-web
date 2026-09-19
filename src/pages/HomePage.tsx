@@ -169,7 +169,7 @@ export function HomePage() {
               {hero ?? <EmptyDecks onNew={() => navigate('/decks?new=1')} />}
               <div className="stats-2x2">
                 <StatFigure value={decks.length} label="Decks" onClick={() => navigate('/decks')} />
-                <StatFigure value={collections.length} label="Binders" onClick={() => navigate('/collections')} />
+                <StatFigure value={collections.length} label="Binders" onClick={() => navigate('/collections?tab=binders')} />
                 <StatFigure value={value?.usd ?? null} format={(v) => money.format(v, true)} label="Collection value" onClick={() => navigate('/value')} />
                 <button type="button" className="stat press" style={{ cursor: 'default' }}>
                   <span className="num">{record ?? <span style={{ color: 'var(--t2)' }}>—</span>}</span>
@@ -182,7 +182,7 @@ export function HomePage() {
               <div className="rise" style={rise(1)}>{hero ?? <EmptyDecks onNew={() => navigate('/decks?new=1')} />}</div>
               <div className="stats four rise" style={rise(2)}>
                 <StatFigure value={decks.length} label="Decks" onClick={() => navigate('/decks')} />
-                <StatFigure value={collections.length} label="Binders" onClick={() => navigate('/collections')} />
+                <StatFigure value={collections.length} label="Binders" onClick={() => navigate('/collections?tab=binders')} />
                 <StatFigure value={value?.usd ?? null} format={(v) => money.format(v, true)} label="Collection value" onClick={() => navigate('/value')} />
                 <button type="button" className="stat press" style={{ cursor: 'default' }}>
                   <span className="num">{record ?? <span style={{ color: 'var(--t2)' }}>—</span>}</span>
@@ -207,7 +207,7 @@ export function HomePage() {
 
           <section className="home-bottom rise" style={rise(4)}>
             {cardOfDay ? <CardOfDay card={cardOfDay} onOpen={() => setZoomCard(cardOfDay)} /> : <div />}
-            <BinderSummary collections={collections} onOpen={(id) => navigate(`/collections/${id}`)} onAll={() => navigate('/collections')} />
+            <BinderSummary collections={collections} onOpen={(id) => navigate(`/collections/${id}`)} onAll={() => navigate('/collections?tab=binders')} />
           </section>
 
           <NewsPanel limit={desktop ? 8 : 6} index={5} />
@@ -255,7 +255,7 @@ export function HomePage() {
 
         <div className="stats rise" style={{ ...rise(2), marginTop: 10 }}>
           <StatFigure value={decks.length} label="Decks" onClick={() => navigate('/decks')} />
-          <StatFigure value={collections.length} label="Binders" onClick={() => navigate('/collections')} />
+          <StatFigure value={collections.length} label="Binders" onClick={() => navigate('/collections?tab=binders')} />
           <StatFigure value={value?.usd ?? null} format={(v) => money.format(v, true)} label="Collection value" onClick={() => navigate('/value')} />
         </div>
 

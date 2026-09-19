@@ -18,6 +18,7 @@ import {
   saveCloudState, saveRescue, UnauthorizedError,
 } from './cloudSync'
 import { WISHLIST_ID, isEmptyWishlist, withWishlist } from '../collection/wishlist'
+import { gatherInto, removeEverywhere } from '../collection/allCards'
 
 /** What a user-requested sync ended with. */
 export type RefreshResult =
@@ -163,6 +164,10 @@ interface SyncContextValue {
   importIntoCollection: (collectionId: string, cards: { card: ScryfallCard; quantity: number; foilQuantity: number }[]) => void
   /** Moves every copy of some cards from one binder into another, in one change. */
   moveEntries: (fromId: string, scryfallIds: string[], toId: string) => void
+  /** All cards: gathers every copy of some cards from all the other binders into one. */
+  gatherIntoBinder: (scryfallIds: string[], toId: string) => void
+  /** All cards: removes some cards from every binder (the Unsorted pile too); decks and the Wishlist keep theirs. */
+  removeFromCollection: (scryfallIds: string[]) => void
   /** Moves cards in and out of binders in one change (a trade); answers the ones there weren't enough copies of. */
   changeCollections: (changes: CollectionChange[]) => CollectionChange[]
 }
@@ -866,6 +871,18 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [updateLibrary, mapCollection],
   )
 
+  const gatherIntoBinder = useCallback(
+    (scryfallIds: string[], toId: string) =>
+      updateLibrary((lib) => ({ ...lib, collections: gatherInto(lib.collections, toId, new Set(scryfallIds)) })),
+    [updateLibrary],
+  )
+
+  const removeFromCollection = useCallback(
+    (scryfallIds: string[]) =>
+      updateLibrary((lib) => ({ ...lib, collections: removeEverywhere(lib.collections, new Set(scryfallIds)) })),
+    [updateLibrary],
+  )
+
   const moveEntries = useCallback(
     (fromId: string, scryfallIds: string[], toId: string) => {
       updateLibrary((lib) => {
@@ -988,13 +1005,15 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       changeCollections,
       importIntoCollection,
       moveEntries,
+      gatherIntoBinder,
+      removeFromCollection,
       removeEntriesFromCollection,
     }),
     [
       library, account, cloud, mergePrompt, resolveMerge, passwordRecovery, linkNotice, signIn, signUp, signOut,
       syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, addGameResult,
-      addCardsToDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection,
+      addCardsToDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, gatherIntoBinder, removeFromCollection,
       setEntryQuantities, setEntryPriceAlert, changeCollections, importIntoCollection, moveEntries, removeEntriesFromCollection,
     ],
   )

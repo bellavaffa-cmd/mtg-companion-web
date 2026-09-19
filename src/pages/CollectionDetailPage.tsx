@@ -19,7 +19,7 @@ import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '..
 
 export function CollectionDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const back = useBack('/collections')
+  const back = useBack('/collections?tab=binders')
   const { collections, decks, setEntryQuantities, setEntryPriceAlert, removeEntryFromCollection, removeEntriesFromCollection, addEntryToCollection, moveEntries, createCollection } = useSync()
   const collection = collections.find((c) => c.id === id)
   // A wishlist shows what each card costs now, and can watch for it to drop.

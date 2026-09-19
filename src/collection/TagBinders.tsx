@@ -119,7 +119,7 @@ export function TagBindersSection() {
 /** One tag's automatic binder: every owned card with the tag, to look through and add to decks. */
 export function TagBinderPage() {
   const { tagId = '' } = useParams<{ tagId: string }>()
-  const back = useBack('/collections')
+  const back = useBack('/collections?tab=binders')
   const navigate = useNavigate()
   const size = useLayoutSize()
   const { collections } = useSync()

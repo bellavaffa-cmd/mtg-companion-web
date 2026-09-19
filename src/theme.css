@@ -3589,3 +3589,154 @@ button.tag-chip {
   text-transform: none;
   letter-spacing: normal;
 }
+
+/* ---- Collection: All cards ---- */
+
+.all-dash {
+  display: grid;
+  gap: 14px;
+  max-width: 720px;
+}
+
+.all-dash-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.all-dash-value {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.all-dash-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.all-dash-colors span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.all-dash-types {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.all-dash-pie {
+  flex: none;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  -webkit-mask: radial-gradient(circle, transparent 42%, #000 43%);
+  mask: radial-gradient(circle, transparent 42%, #000 43%);
+}
+
+.all-dash-legend {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 4px 16px;
+  font-size: 13px;
+}
+
+.all-dash-legend > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.all-dash-legend .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.all-dash-legend .grow {
+  flex: 1;
+}
+
+.all-dash-legend b {
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 14px 10px;
+}
+
+.card-cell {
+  min-width: 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.card-cell-img {
+  position: relative;
+  aspect-ratio: 0.72;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--g1);
+}
+
+.card-cell-img > img,
+.card-cell-img > .art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.card-cell.picked .card-cell-img {
+  box-shadow: inset 0 0 0 3px var(--gold);
+}
+
+.card-cell.picked .card-cell-img > img {
+  opacity: 0.85;
+}
+
+.card-cell .pick-mark {
+  top: 6px;
+  left: 6px;
+}
+
+.card-cell .flip-badge {
+  top: auto;
+  left: auto;
+  right: 6px;
+  bottom: 6px;
+}
+
+.card-cell-count {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.65);
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.card-cell-name {
+  margin-top: 5px;
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

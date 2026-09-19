@@ -12,12 +12,15 @@ import { isWishlist } from '../collection/wishlist'
 import { ExportCollectionDialog, ImportCardsDialog } from '../collection/CardListDialogs'
 import { ShareCollectionDialog } from '../social/ShareWithFriend'
 import { TagBindersSection } from '../collection/TagBinders'
+import { AllCardsTab } from '../collection/AllCardsTab'
 
 export function CollectionsPage() {
   const { collections, deleteCollection, accountsAvailable } = useSync()
-  // Your binders, or (with accounts) what friends share with you.
+  // All cards (first, like the Android app), your binders, or (with accounts) what friends share with you.
   const [params, setParams] = useSearchParams()
-  const sharedTab = accountsAvailable && params.get('tab') === 'shared'
+  const tabs = accountsAvailable ? ['all', 'binders', 'shared'] : ['all', 'binders']
+  const tab = tabs.includes(params.get('tab') ?? '') ? params.get('tab')! : 'all'
+  const sharedTab = tab === 'shared'
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
   const [sheet, setSheet] = useState<Collection | null>(null)
@@ -59,16 +62,14 @@ export function CollectionsPage() {
           )}
       />
       <div className={`content-scroll${wide ? '' : ' with-nav'}`}>
-        {accountsAvailable && (
-          <div className="rise" style={{ ...rise(0), marginBottom: 14, maxWidth: 420 }}>
-            <SegmentedTabs
-              labels={['Your binders', 'Shared with you']}
-              selected={sharedTab ? 1 : 0}
-              onSelect={(i) => setParams(i === 1 ? { tab: 'shared' } : {}, { replace: true })}
-            />
-          </div>
-        )}
-        {sharedTab ? <SharedFriendsView /> : binders.length === 0 && unsortedCards === 0 && !wishlist?.entries.length ? (
+        <div className="rise" style={{ ...rise(0), marginBottom: 14, maxWidth: 480 }}>
+          <SegmentedTabs
+            labels={accountsAvailable ? ['All cards', 'Binders', 'Shared'] : ['All cards', 'Binders']}
+            selected={tabs.indexOf(tab)}
+            onSelect={(i) => setParams(i === 0 ? {} : { tab: tabs[i] }, { replace: true })}
+          />
+        </div>
+        {sharedTab ? <SharedFriendsView /> : tab === 'all' ? <AllCardsTab onImport={() => setImporting('new')} /> : binders.length === 0 && unsortedCards === 0 && !wishlist?.entries.length ? (
           <div className="empty-state rise" style={rise(1)}>
             <Icon name="collections" />
             <div>No binders yet. Make one for the cards you own — or import your whole collection from another app and sort it later. Cards you want go in your Wishlist.</div>
