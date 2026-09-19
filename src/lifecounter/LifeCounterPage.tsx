@@ -1,6 +1,6 @@
-import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { canUndo, displayName, highRoll, useLifeCounter, type Game, type GameAction, type ShownCard } from './game'
+import { canUndo, displayName, gameOver, highRoll, lossReason, useLifeCounter, type Game, type GameAction, type ShownCard } from './game'
 import { PlayerTile, seatStyle } from './PlayerTile'
 import { PlaneBanner, PlaneSheet, usePlanechase } from './Planechase'
 import {
@@ -10,9 +10,12 @@ import {
 import { SeatCodeSheet, useSeatLinks } from './LinkSeat'
 import { useRemoteHost } from './remote'
 import { useWakeLock } from './wakeLock'
+import { useSync } from '../sync/SyncContext'
+import { clearTableGames, deleteTableGame, meResultOf, recordTableGame, tableGameOf, useTableGames } from './tableGames'
+import { CommanderSheet, MeSheet, TableGamesSheet } from './TableSheets'
 import './lifecounter.css'
 
-type Overlay = null | 'seating' | 'settings' | 'restart' | 'dice' | 'history' | 'table' | 'plane'
+type Overlay = null | 'seating' | 'settings' | 'restart' | 'dice' | 'history' | 'table' | 'plane' | 'games'
 
 /**
  * Whether the screen is wider than tall, and — when it is — whether the device was turned
@@ -52,6 +55,34 @@ export function LifeCounterPage() {
   const links = useSeatLinks(game, dispatch)
   useRemoteHost(game, settings, dispatch, links.signedIn)
   useWakeLock()
+  const { decks, addGameResult, removeGameResult } = useSync()
+  const tableGames = useTableGames()
+  const [commanderFor, setCommanderFor] = useState<number | null>(null)
+  const [meFor, setMeFor] = useState<number | null>(null)
+
+  // A game that's over goes into the table's games — once, or again if an undo changed how it
+  // ended (it replaces itself). The owner's seat is saved to their deck only while no phone has
+  // joined it: a phone that joins saves the result itself.
+  const recorded = useRef<string | null>(null)
+  useEffect(() => {
+    const over = gameOver(game, settings.autoKill)
+    if (!over) return
+    const outcome = `${game.gameId}:${over.winnerId}:${game.players.map((p) => `${p.id}=${lossReason(p, settings.autoKill)}`).join(',')}`
+    if (outcome === recorded.current) return
+    recorded.current = outcome
+    const record = tableGameOf(game, settings, over.winnerId)
+    // A finished game still on the table after a reload is noted already.
+    const kept = tableGames.find((g) => g.id === record.id)
+    if (kept && kept.winnerSeat === record.winnerSeat && kept.players.every((p, i) => p.out === record.players[i]?.out)) return
+    recordTableGame(record)
+    const deck = decks.find((d) => d.id === settings.meDeckId)
+    const seatLinked = !!game.players.find((p) => p.id === settings.meSeat)?.linked
+    const result = deck ? meResultOf(record, settings.meSeat, seatLinked) : null
+    if (deck && result) {
+      removeGameResult(deck.id, result.id)
+      addGameResult(deck.id, result)
+    }
+  }, [game, settings, decks, tableGames, addGameResult, removeGameResult])
 
   useEffect(() => {
     document.title = 'Life counter · MTG Companion'
@@ -101,6 +132,9 @@ export function LifeCounterPage() {
           onPanelOpenChange={(open) => setPanelsOpen((n) => Math.max(0, n + (open ? 1 : -1)))}
           onLinkSeat={() => void links.showCode(player.id)}
           onUnlink={() => links.unlink(player.id)}
+          onPickCommander={() => setCommanderFor(player.id)}
+          onPickMe={decks.length ? () => setMeFor(player.id) : undefined}
+          meDeck={settings.meSeat === player.id ? decks.find((d) => d.id === settings.meDeckId)?.name ?? '' : null}
         />
       </div>
     )
@@ -129,6 +163,7 @@ export function LifeCounterPage() {
           onDice={() => open('dice')}
           onTable={() => open('table')}
           onHistory={() => open('history')}
+          onGames={() => open('games')}
           canUndo={canUndo(game)}
           onUndo={() => dispatch({ type: 'undo' })}
           onPlanechase={() => {
@@ -156,6 +191,27 @@ export function LifeCounterPage() {
       {overlay === 'dice' && <DiceOverlay onClose={closeAll} />}
       {overlay === 'history' && <HistoryOverlay game={game} onClear={() => dispatch({ type: 'clearHistory' })} onClose={closeAll} />}
       {overlay === 'table' && <TableOverlay game={game} dispatch={dispatch} onClose={closeAll} />}
+      {overlay === 'games' && <TableGamesSheet games={tableGames} onDelete={deleteTableGame} onClear={clearTableGames} onClose={closeAll} Sheet={Sheet} />}
+      {commanderFor !== null && (
+        <CommanderSheet
+          playerName={(() => { const p = game.players.find((x) => x.id === commanderFor); return p ? displayName(p) : `Player ${commanderFor}` })()}
+          current={game.players.find((p) => p.id === commanderFor)?.commander}
+          onPick={(name, art) => { dispatch({ type: 'seatCommander', id: commanderFor, name, art }); setCommanderFor(null) }}
+          onClose={() => setCommanderFor(null)}
+          Sheet={Sheet}
+        />
+      )}
+      {meFor !== null && (
+        <MeSheet
+          decks={decks}
+          currentDeckId={settings.meDeckId}
+          isMe={settings.meSeat === meFor}
+          onPick={(deckId) => { lc.updateSettings({ meSeat: meFor, meDeckId: deckId }); setMeFor(null) }}
+          onNotMe={() => { lc.updateSettings({ meSeat: null, meDeckId: null }); setMeFor(null) }}
+          onClose={() => setMeFor(null)}
+          Sheet={Sheet}
+        />
+      )}
       {links.showing !== null && <SeatCodeSheet game={game} seat={links.showing} links={links} onClose={links.close} Sheet={Sheet} />}
       {game.shownCard && <ShownCardOverlay card={game.shownCard} game={game} onClose={() => dispatch({ type: 'hideCard' })} />}
       {planechase && overlay !== 'plane' && <PlaneBanner state={planechase} onOpen={() => open('plane')} />}
@@ -286,7 +342,7 @@ function MenuButton({ open, hidden, onClick, label }: { open: boolean; hidden: b
 
 function RadialMenu(props: {
   onRestart: () => void; onHighRoll: () => void; onSeating: () => void; onSettings: () => void
-  onDice: () => void; onTable: () => void; onHistory: () => void; onPlanechase: () => void; onExit: () => void
+  onDice: () => void; onTable: () => void; onHistory: () => void; onGames: () => void; onPlanechase: () => void; onExit: () => void
   canUndo: boolean; onUndo: () => void
 }) {
   const items: [string, string, () => void][] = [
@@ -313,6 +369,9 @@ function RadialMenu(props: {
         </button>
         <button type="button" role="menuitem" className="lc-menu-chip" onClick={props.onHistory}>
           <span className="material-symbols-rounded" aria-hidden>history</span>History
+        </button>
+        <button type="button" role="menuitem" className="lc-menu-chip" onClick={props.onGames}>
+          <span className="material-symbols-rounded" aria-hidden>emoji_events</span>Games
         </button>
         <button type="button" role="menuitem" className="lc-menu-chip" onClick={props.onPlanechase}>
           <span className="material-symbols-rounded" aria-hidden>public</span>Planechase

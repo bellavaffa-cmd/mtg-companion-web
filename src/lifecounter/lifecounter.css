@@ -384,6 +384,105 @@
   font-size: 20px;
 }
 
+/* ---- A seat's commander and owner, and the table's games ---- */
+
+.lc-wide-btn.lc-me {
+  background: var(--lc-yellow, #f5c542);
+  color: #000;
+}
+.lc-search {
+  width: 100%;
+  border: 0;
+  border-radius: 14px;
+  background: var(--lc-raised);
+  color: inherit;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 20px;
+}
+.lc-link {
+  border: 0;
+  background: none;
+  color: var(--lc-yellow, #f5c542);
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+.lc-pick-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+.lc-pick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--lc-raised);
+  color: inherit;
+  padding: 8px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.lc-pick.on {
+  background: var(--lc-yellow, #f5c542);
+  color: #000;
+}
+.lc-pick img,
+.lc-pick-art {
+  flex: none;
+  width: 64px;
+  height: 46px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.08);
+}
+.lc-pick-text {
+  display: grid;
+  min-width: 0;
+}
+.lc-pick-text b,
+.lc-pick-text span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lc-pick-text b {
+  font-size: 19px;
+}
+.lc-pick-text span {
+  font-size: 14px;
+  opacity: 0.7;
+}
+.lc-games {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+.lc-games li {
+  border-radius: 14px;
+  background: var(--lc-raised);
+  padding: 10px 14px;
+}
+.lc-game-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 20px;
+  color: var(--lc-yellow, #f5c542);
+}
+.lc-game-player {
+  margin-top: 3px;
+  font-size: 17px;
+}
+.lc-game-player.out {
+  opacity: 0.55;
+}
+
 /* ---- Centre bar, turn strip and menu ---- */
 
 .lc-bar {

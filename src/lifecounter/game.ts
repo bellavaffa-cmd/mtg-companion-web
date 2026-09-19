@@ -64,8 +64,10 @@ export interface Player {
   background?: string | null
   /** The deck the player said they're playing, from their remote. */
   deck?: string | null
-  /** That deck's commander, from their remote. */
+  /** That deck's commander, from their remote — or set at the table (the 'seatCommander' action). */
   commander?: string | null
+  /** The art of a commander set at the table, while it's the tile's background. */
+  commanderArt?: string | null
 }
 
 /** Counters a player can keep besides poison. Storm is cleared when the turn passes. */
@@ -109,6 +111,10 @@ export interface LifeSettings {
   longPressAmount: number
   /** Players who joined a seat by QR code can change their own seat from their phone. */
   remotes: boolean
+  /** The table owner's own seat, when they play without a phone of their own — see tableGames.ts meResultOf. */
+  meSeat?: number | null
+  /** The deck their games there are saved to. */
+  meDeckId?: string | null
 }
 
 export const DEFAULT_SETTINGS: LifeSettings = {
@@ -222,6 +228,8 @@ export type GameAction = { by?: number } & (
   | { type: 'new'; settings: LifeSettings }
   | { type: 'counter'; id: number; counter: CounterKind; delta: number }
   | { type: 'background'; id: number; url: string | null; deck?: string | null; commander?: string | null }
+  /** What a seat without a phone is playing, set at the table: its commander and that commander's art. */
+  | { type: 'seatCommander'; id: number; name: string | null; art: string | null }
   | { type: 'undo' }
   | { type: 'showCard'; card: ShownCard }
   | { type: 'hideCard' }
@@ -378,6 +386,16 @@ function applyAction(game: Game, action: GameAction): Game {
           // An older remote sends no commander: a new deck clears the old one's.
           const commander = action.commander !== undefined ? action.commander : deck === p.deck ? p.commander : null
           return { ...p, background: action.url, deck, commander }
+        }),
+      }
+    case 'seatCommander':
+      return {
+        ...game,
+        players: game.players.map((p) => {
+          if (p.id !== action.id || p.linked) return p
+          // The commander's art goes behind a bare tile, and follows the commander while it's there.
+          const background = !p.background || p.background === p.commanderArt ? action.art : p.background
+          return { ...p, commander: action.name, commanderArt: action.art, background }
         }),
       }
     case 'showCard':

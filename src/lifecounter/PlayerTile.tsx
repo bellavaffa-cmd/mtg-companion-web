@@ -99,6 +99,9 @@ export function PlayerTile({
   onPanelOpenChange,
   onLinkSeat,
   onUnlink,
+  onPickCommander,
+  onPickMe,
+  meDeck,
 }: {
   player: Player
   opponents: Player[]
@@ -119,6 +122,12 @@ export function PlayerTile({
   onLinkSeat: () => void
   /** Frees the seat from the profile sitting there. */
   onUnlink: () => void
+  /** Picks the commander played at this seat (for a player without a phone of their own). */
+  onPickCommander: () => void
+  /** Marks this seat as the table owner's and picks their deck; absent with no decks to save to. */
+  onPickMe?: () => void
+  /** When this seat is the table owner's: the deck their games here are saved to ('' before one's picked). */
+  meDeck?: string | null
 }) {
   const [pending, setPending] = useState(0)
   const [panelOpen, setPanelOpen] = useState(false)
@@ -237,6 +246,9 @@ export function PlayerTile({
             onClose={() => setPanelOpen(false)}
             onLinkSeat={() => { setPanelOpen(false); onLinkSeat() }}
             onUnlink={onUnlink}
+            onPickCommander={() => { setPanelOpen(false); onPickCommander() }}
+            onPickMe={onPickMe && (() => { setPanelOpen(false); onPickMe() })}
+            meDeck={meDeck}
           />
         )}
       </div>
@@ -279,6 +291,9 @@ function PlayerPanel({
   onClose,
   onLinkSeat,
   onUnlink,
+  onPickCommander,
+  onPickMe,
+  meDeck,
 }: {
   player: Player
   opponents: Player[]
@@ -287,6 +302,9 @@ function PlayerPanel({
   onClose: () => void
   onLinkSeat: () => void
   onUnlink: () => void
+  onPickCommander: () => void
+  onPickMe?: () => void
+  meDeck?: string | null
 }) {
   const [name, setName] = useState(player.name ?? '')
   const loss = lossReason(player, settings.autoKill)
@@ -325,10 +343,23 @@ function PlayerPanel({
             <span className="material-symbols-rounded" aria-hidden>link_off</span>Free this seat
           </button>
         ) : (
-          <button type="button" className="lc-wide-btn lc-link-btn" onClick={() => { commit(); onLinkSeat() }}>
-            <span className="material-symbols-rounded" aria-hidden>qr_code_2</span>Join with a profile
-          </button>
+          <>
+            <button type="button" className="lc-wide-btn lc-link-btn" onClick={() => { commit(); onLinkSeat() }}>
+              <span className="material-symbols-rounded" aria-hidden>qr_code_2</span>Join with a profile
+            </button>
+            {/* For a player without a phone: what they're playing, for everyone's game records. */}
+            <button type="button" className="lc-wide-btn" onClick={() => { commit(); onPickCommander() }}>
+              <span className="material-symbols-rounded" aria-hidden>swords</span>{player.commander ?? 'Set commander'}
+            </button>
+            {onPickMe && (
+              <button type="button" className={`lc-wide-btn${meDeck != null ? ' lc-me' : ''}`} onClick={() => { commit(); onPickMe() }}>
+                <span className="material-symbols-rounded" aria-hidden>person</span>
+                {meDeck == null ? 'This is me' : meDeck === '' ? 'Me · pick a deck' : `Me · saving to ${meDeck}`}
+              </button>
+            )}
+          </>
         )}
+        {player.linked && player.commander && <div className="lc-panel-label">Playing {player.commander}</div>}
         {opponents.length > 0 && <div className="lc-panel-label">Commander damage taken</div>}
         {opponents.map((o) => (
           <Counter
