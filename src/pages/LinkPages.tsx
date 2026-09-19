@@ -5,7 +5,6 @@ import { Icon } from '../components/Icon'
 import { rise, useBack } from '../components/kit'
 import * as api from '../social/api'
 import { useOverview } from '../social/SocialContext'
-import { Avatar, handle } from '../social/ui'
 import { SocialGate } from './FriendsPage'
 
 /** Opened from a friend's QR code (/add/username): asks to be friends. */
@@ -79,7 +78,7 @@ export function AddFriendLinkPage() {
   )
 }
 
-type Joined = { state: 'joining' } | { state: 'joined'; host: api.Profile; matchId: string; seat: number } | { state: 'failed'; message: string } | { state: 'left' }
+type Joined = { state: 'joining' } | { state: 'failed'; message: string }
 
 /** Opened from a seat's QR code on someone's life counter (/join/code/seat): sits the user there. */
 export function JoinSeatPage() {
@@ -90,14 +89,16 @@ export function JoinSeatPage() {
       <TopBar title="Join a table" onBack={back} />
       <div className="content-scroll">
         <div className="narrow-width">
-          <SocialGate>{(overview) => <JoinSeat key={`${code}/${seat}`} me={overview.me!} code={code} seat={Number(seat)} />}</SocialGate>
+          <SocialGate>{() => <JoinSeat key={`${code}/${seat}`} code={code} seat={Number(seat)} />}</SocialGate>
         </div>
       </div>
     </>
   )
 }
 
-function JoinSeat({ me, code, seat }: { me: api.Profile; code: string; seat: number }) {
+/** Takes the seat, then turns this phone into the seat's remote (RemotePage). */
+function JoinSeat({ code, seat }: { code: string; seat: number }) {
+  const navigate = useNavigate()
   const [joined, setJoined] = useState<Joined>({ state: 'joining' })
   // Scanning the code is the ask: join straight away, once.
   const started = useRef(false)
@@ -105,9 +106,9 @@ function JoinSeat({ me, code, seat }: { me: api.Profile; code: string; seat: num
     if (started.current) return
     started.current = true
     api.joinMatch(code, seat)
-      .then((r) => setJoined({ state: 'joined', host: r.host, matchId: r.match_id, seat: r.seat }))
+      .then((r) => navigate(`/remote/${r.match_id}/${r.seat}`, { replace: true }))
       .catch((e: unknown) => setJoined({ state: 'failed', message: e instanceof Error ? e.message : 'Something went wrong.' }))
-  }, [code, seat])
+  }, [code, seat, navigate])
 
   return (
     <div className="link-card rise" style={rise(0)}>
@@ -119,24 +120,6 @@ function JoinSeat({ me, code, seat }: { me: api.Profile; code: string; seat: num
           <p className="field-error">{joined.message}</p>
         </>
       )}
-      {joined.state === 'joined' && (
-        <>
-          <Avatar profile={me} size={96} />
-          <h2 className="social-title">You're in seat {joined.seat}</h2>
-          <p className="muted">at {joined.host.display_name}'s table ({handle(joined.host)}). Your name and picture show on their life counter.</p>
-          <button
-            type="button"
-            className="btn line"
-            onClick={() => {
-              void api.clearMatchSeat(joined.matchId, joined.seat).catch(() => {})
-              setJoined({ state: 'left' })
-            }}
-          >
-            Leave this seat
-          </button>
-        </>
-      )}
-      {joined.state === 'left' && <><Icon name="logout" className="link-icon" /><p className="muted">You've left the seat.</p></>}
     </div>
   )
 }

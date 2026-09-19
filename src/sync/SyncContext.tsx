@@ -151,6 +151,8 @@ interface SyncContextValue {
   /** Removes several cards from a binder in one change. */
   removeEntriesFromCollection: (collectionId: string, scryfallIds: string[]) => void
   setEntryQuantities: (collectionId: string, scryfallId: string, quantity: number, foilQuantity: number) => void
+  /** A wishlist card's price alert (USD); null turns it off. */
+  setEntryPriceAlert: (collectionId: string, scryfallId: string, usd: number | null) => void
   /** Adds a whole imported list to a binder in one change (to UNSORTED_COLLECTION_ID: the Unsorted pile, made if needed). */
   importIntoCollection: (collectionId: string, cards: { card: ScryfallCard; quantity: number; foilQuantity: number }[]) => void
   /** Moves every copy of some cards from one binder into another, in one change. */
@@ -871,6 +873,18 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [updateLibrary],
   )
 
+  const setEntryPriceAlert = useCallback(
+    (collectionId: string, scryfallId: string, usd: number | null) => {
+      updateLibrary((lib) =>
+        mapCollection(lib, collectionId, (collection) => ({
+          ...collection,
+          entries: collection.entries.map((e) => (e.scryfallId === scryfallId ? { ...e, priceAlert: usd } : e)),
+        })),
+      )
+    },
+    [updateLibrary, mapCollection],
+  )
+
   const setEntryQuantities = useCallback(
     (collectionId: string, scryfallId: string, quantity: number, foilQuantity: number) => {
       updateLibrary((lib) =>
@@ -927,6 +941,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       addEntryToCollection,
       removeEntryFromCollection,
       setEntryQuantities,
+      setEntryPriceAlert,
       changeCollections,
       importIntoCollection,
       moveEntries,
@@ -937,7 +952,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, addGameResult,
       removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection,
-      setEntryQuantities, changeCollections, importIntoCollection, moveEntries, removeEntriesFromCollection,
+      setEntryQuantities, setEntryPriceAlert, changeCollections, importIntoCollection, moveEntries, removeEntriesFromCollection,
     ],
   )
 

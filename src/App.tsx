@@ -12,6 +12,7 @@ import { DeckDetailPage } from './pages/DeckDetailPage'
 import { SearchPage } from './pages/SearchPage'
 import { AccountPage } from './pages/AccountPage'
 import { LifeCounterPage } from './lifecounter/LifeCounterPage'
+import { RemotePage } from './lifecounter/RemotePage'
 import { RulesPage } from './pages/RulesPage'
 import { ScanPage } from './pages/ScanPage'
 import { SocialProvider } from './social/SocialContext'
@@ -59,6 +60,7 @@ export default function App() {
           </Route>
           {/* The table runs edge to edge, without the app's navigation. */}
           <Route path="/life" element={<LifeCounterPage />} />
+          <Route path="/remote/:matchId/:seat" element={<RemotePage />} />
         </Routes>
         </Suspense>
       </BrowserRouter>

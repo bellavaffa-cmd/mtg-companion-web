@@ -14,6 +14,7 @@ import { getRandomCard } from '../api/scryfall'
 import type { ScryfallCard } from '../types/scryfall'
 import { backImageUrl, cardTags, displayImageUrl, displayManaCost, displayOracleText } from '../types/scryfall'
 import type { Collection, Deck } from '../types/models'
+import { formatUsd, usePriceAlertHits } from '../collection/priceAlerts'
 
 const CARD_OF_DAY_KEY = 'mtgweb_card_of_day'
 
@@ -55,6 +56,10 @@ export function HomePage() {
   const navigate = useNavigate()
   const size = useLayoutSize()
   const { decks, collections, account, accountsAvailable, cloud } = useSync()
+  const priceAlerts = usePriceAlertHits(collections)
+  const alertBanner = priceAlerts.hits.length > 0 && (
+    <PriceAlertBanner hits={priceAlerts.hits} onOpen={(id) => navigate(`/collections/${id}`)} onDismiss={priceAlerts.dismiss} />
+  )
   const deckColors = useDeckColors(decks)
   const cardOfDay = useCardOfDay()
   const [zoomCard, setZoomCard] = useState<ScryfallCard | null>(null)
@@ -128,6 +133,7 @@ export function HomePage() {
               <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
             </button>
           )}
+          {alertBanner}
 
           {desktop ? (
             <section className="home-hero-row rise" style={rise(1)}>
@@ -213,6 +219,7 @@ export function HomePage() {
             <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
           </button>
         )}
+        {alertBanner}
 
         {hero && <div className="rise" style={rise(1)}>{hero}</div>}
 
@@ -363,6 +370,22 @@ function BinderSummary({ collections, onOpen, onAll }: { collections: Collection
           </button>
         )
       })}
+    </div>
+  )
+}
+
+/** Wishlist cards that dropped to (or under) the price the user asked to hear about. */
+function PriceAlertBanner({ hits, onOpen, onDismiss }: { hits: import('../collection/priceAlerts').PriceAlertHit[]; onOpen: (collectionId: string) => void; onDismiss: () => void }) {
+  const first = hits[0]
+  return (
+    <div className="banner rise price-alert-banner" style={{ ...rise(1), marginBottom: 0 }} role="status">
+      <Icon name="notifications_active" />
+      <button type="button" className="price-alert-text" onClick={() => onOpen(first.collectionId)}>
+        {hits.length === 1
+          ? <><b>{first.entry.name}</b> is {formatUsd(first.price)} — under your {formatUsd(first.entry.priceAlert ?? 0)} alert</>
+          : <><b>{hits.length} wishlist cards</b> are under your alert prices: {hits.map((h) => `${h.entry.name} ${formatUsd(h.price)}`).join(', ')}</>}
+      </button>
+      <button type="button" className="icon-btn" aria-label="Dismiss" onClick={onDismiss}><Icon name="close" /></button>
     </div>
   )
 }

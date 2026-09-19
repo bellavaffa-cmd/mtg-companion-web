@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { displayName, highRoll, useLifeCounter, type Game, type GameAction } from './game'
+import { canUndo, displayName, highRoll, useLifeCounter, type Game, type GameAction, type ShownCard } from './game'
 import { PlayerTile, seatStyle } from './PlayerTile'
 import { PlaneBanner, PlaneSheet, usePlanechase } from './Planechase'
 import {
@@ -8,6 +8,8 @@ import {
   type SeatCell, type TableLayout,
 } from './tableLayouts'
 import { SeatCodeSheet, useSeatLinks } from './LinkSeat'
+import { useRemoteHost } from './remote'
+import { useWakeLock } from './wakeLock'
 import './lifecounter.css'
 
 type Overlay = null | 'seating' | 'settings' | 'restart' | 'dice' | 'history' | 'table' | 'plane'
@@ -35,34 +37,6 @@ function useTableOrientation() {
   return state
 }
 
-/** Keeps the screen awake while the life counter is open, where the browser allows it. */
-function useWakeLock() {
-  useEffect(() => {
-    let lock: { release: () => Promise<void> } | null = null
-    let cancelled = false
-    const request = async () => {
-      try {
-        const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } }
-        if (document.visibilityState === 'visible' && nav.wakeLock) {
-          const l = await nav.wakeLock.request('screen')
-          if (cancelled) l.release().catch(() => {})
-          else lock = l
-        }
-      } catch {
-        // Not allowed (battery saver, unsupported browser): the screen may dim as usual.
-      }
-    }
-    request()
-    const onVisible = () => { if (document.visibilityState === 'visible') request() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => {
-      cancelled = true
-      document.removeEventListener('visibilitychange', onVisible)
-      lock?.release().catch(() => {})
-    }
-  }, [])
-}
-
 export function LifeCounterPage() {
   const navigate = useNavigate()
   const lc = useLifeCounter()
@@ -76,6 +50,7 @@ export function LifeCounterPage() {
   const [panelsOpen, setPanelsOpen] = useState(0)
   const { planechase, startPlanechase, planeswalk, rollPlanarDie, stopPlanechase } = usePlanechase()
   const links = useSeatLinks(game, dispatch)
+  useRemoteHost(game, settings, dispatch, links.signedIn)
   useWakeLock()
 
   useEffect(() => {
@@ -154,6 +129,8 @@ export function LifeCounterPage() {
           onDice={() => open('dice')}
           onTable={() => open('table')}
           onHistory={() => open('history')}
+          canUndo={canUndo(game)}
+          onUndo={() => dispatch({ type: 'undo' })}
           onPlanechase={() => {
             if (!planechase) void startPlanechase()
             open('plane')
@@ -180,6 +157,7 @@ export function LifeCounterPage() {
       {overlay === 'history' && <HistoryOverlay game={game} onClear={() => dispatch({ type: 'clearHistory' })} onClose={closeAll} />}
       {overlay === 'table' && <TableOverlay game={game} dispatch={dispatch} onClose={closeAll} />}
       {links.showing !== null && <SeatCodeSheet game={game} seat={links.showing} links={links} onClose={links.close} Sheet={Sheet} />}
+      {game.shownCard && <ShownCardOverlay card={game.shownCard} game={game} onClose={() => dispatch({ type: 'hideCard' })} />}
       {planechase && overlay !== 'plane' && <PlaneBanner state={planechase} onOpen={() => open('plane')} />}
       {overlay === 'plane' && planechase && (
         <PlaneSheet
@@ -309,6 +287,7 @@ function MenuButton({ open, hidden, onClick, label }: { open: boolean; hidden: b
 function RadialMenu(props: {
   onRestart: () => void; onHighRoll: () => void; onSeating: () => void; onSettings: () => void
   onDice: () => void; onTable: () => void; onHistory: () => void; onPlanechase: () => void; onExit: () => void
+  canUndo: boolean; onUndo: () => void
 }) {
   const items: [string, string, () => void][] = [
     ['Exit', 'exit', props.onExit],
@@ -326,6 +305,9 @@ function RadialMenu(props: {
         </button>
       ))}
       <div className="lc-menu-row">
+        <button type="button" role="menuitem" className="lc-menu-chip" onClick={props.onUndo} disabled={!props.canUndo} aria-label="Undo the last change">
+          <span className="material-symbols-rounded" aria-hidden>undo</span>Undo
+        </button>
         <button type="button" role="menuitem" className="lc-menu-chip" onClick={props.onTable}>
           <span className="material-symbols-rounded" aria-hidden>crown</span>Table
         </button>
@@ -337,6 +319,23 @@ function RadialMenu(props: {
         </button>
       </div>
     </div>
+  )
+}
+
+/** A card a player is showing the table from their remote. Tap anywhere to put it away. */
+function ShownCardOverlay({ card, game, onClose }: { card: ShownCard; game: Game; onClose: () => void }) {
+  const by = game.players.find((p) => p.id === card.seat)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return (
+    <button type="button" className="lc-shown-card" onClick={onClose} aria-label={`${card.name} — tap to close`}>
+      {by && <span className="lc-shown-by">{displayName(by)} is showing</span>}
+      <img src={card.imageUrl} alt={card.name} />
+      <span className="lc-shown-hint">Tap to close</span>
+    </button>
   )
 }
 
@@ -523,6 +522,7 @@ function SettingsOverlay({ lc, onClose }: { lc: ReturnType<typeof useLifeCounter
         <Toggle label="Turn tracker" detail="Whose turn it is, with a Next turn button" on={settings.turnTracker} onChange={(v) => updateSettings({ turnTracker: v })} />
         <Toggle label="Knock players out automatically" detail="At 0 life, 10 poison or 21 damage from one commander" on={settings.autoKill} onChange={(v) => updateSettings({ autoKill: v })} />
         <Toggle label="Commander damage costs life" detail="Off if your table tracks life and commander damage separately" on={settings.commanderDamageCostsLife} onChange={(v) => updateSettings({ commanderDamageCostsLife: v })} />
+        <Toggle label="Phones as remotes" detail="Players who joined a seat by QR code can change their own life and counters from their phone" on={settings.remotes} onChange={(v) => updateSettings({ remotes: v })} />
         {typeof document.documentElement.requestFullscreen === 'function' && (
           <Toggle label="Full screen" detail="Hide the browser's toolbars" on={fullscreen} onChange={toggleFullscreen} />
         )}

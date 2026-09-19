@@ -7,6 +7,7 @@ import { PillChip, rise, useBack } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
 import * as api from '../social/api'
 import { TradeCardList } from '../social/CardPicker'
+import { TradeValue } from '../social/TradeValue'
 import { useOverview } from '../social/SocialContext'
 import { awaitingMyUpdate, cardTotal, tradeChanges, tradeSides, type CollectionChange } from '../social/tradeLogic'
 import { Avatar } from '../social/ui'
@@ -125,6 +126,7 @@ function TradeCardView({ trade, overview }: { trade: api.Trade; overview: api.Ov
           <TradeCardList cards={get} empty="Nothing" />
         </div>
       </div>
+      {trade.status === 'open' && <TradeValue get={get} give={give} />}
 
       {trade.message && <div className="trade-message"><b>{trade.from_user === me ? 'You' : theirName}:</b> {trade.message}</div>}
       {trade.reply && <div className="trade-message"><b>{trade.to_user === me ? 'You' : theirName}:</b> {trade.reply}</div>}

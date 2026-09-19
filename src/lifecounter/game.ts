@@ -57,6 +57,30 @@ export interface Player {
   killed: boolean
   /** The account sitting here, when someone joined the seat by QR code. */
   linked?: LinkedPlayer | null
+  /** Counters beyond poison (experience, energy…), keyed by CounterKind. */
+  counters?: Partial<Record<CounterKind, number>>
+  /** A picture behind the tile (commander art, a profile picture, a GIF), chosen from a player's remote. */
+  background?: string | null
+  /** The deck the player said they're playing, from their remote. */
+  deck?: string | null
+}
+
+/** Counters a player can keep besides poison. Storm is cleared when the turn passes. */
+export const COUNTER_KINDS = ['experience', 'energy', 'charge', 'storm', 'tokens', 'loyalty'] as const
+export type CounterKind = (typeof COUNTER_KINDS)[number]
+export const COUNTER_INFO: Record<CounterKind, { label: string; icon: string }> = {
+  experience: { label: 'Experience', icon: 'school' },
+  energy: { label: 'Energy', icon: 'bolt' },
+  charge: { label: 'Charge', icon: 'battery_charging_full' },
+  storm: { label: 'Storm', icon: 'thunderstorm' },
+  tokens: { label: 'Tokens', icon: 'toll' },
+  loyalty: { label: 'Loyalty', icon: 'shield' },
+}
+export const counterOf = (p: Player, kind: CounterKind) => p.counters?.[kind] ?? 0
+
+/** Close to losing: 8+ poison, or 18+ damage from one commander. */
+export function inDanger(p: Player): boolean {
+  return p.poison >= 8 || Object.values(p.commanderDamage).some((d) => d >= 18)
 }
 
 export const displayName = (p: Player) => p.linked?.displayName ?? p.name ?? `Player ${p.id}`
@@ -80,6 +104,8 @@ export interface LifeSettings {
   autoKill: boolean
   commanderDamageCostsLife: boolean
   longPressAmount: number
+  /** Players who joined a seat by QR code can change their own seat from their phone. */
+  remotes: boolean
 }
 
 export const DEFAULT_SETTINGS: LifeSettings = {
@@ -90,6 +116,7 @@ export const DEFAULT_SETTINGS: LifeSettings = {
   autoKill: true,
   commanderDamageCostsLife: true,
   longPressAmount: 10,
+  remotes: true,
 }
 
 export const startingLifeFor = (s: LifeSettings, players: number) =>
@@ -120,7 +147,36 @@ export interface Game {
   touched: boolean
   /** The table players join by QR code, once the host has shown one. */
   match?: { id: string; code: string } | null
+  /** Tells one game from the next (a restart), so players' remotes know a new game began. */
+  gameId?: string
+  startedAt?: number
+  /** Changes that can be taken back, newest first — see UNDO_LIMIT. */
+  undo?: UndoEntry[]
+  /** A card a player is showing everyone from their remote, until someone taps it away. */
+  shownCard?: ShownCard | null
 }
+
+export interface ShownCard { name: string; imageUrl: string; seat: number }
+
+/**
+ * One change that can be undone: the players it touched as they were before, and the turn if it
+ * passed. [by] is the seat whose remote made it, or null for the table itself. Quick taps on the
+ * same thing (life +1 +1 +1) fold into one entry, so one undo takes back the whole burst.
+ */
+export interface UndoEntry {
+  by: number | null
+  key: string
+  at: number
+  before: Player[]
+  turn?: { turnPlayerId: number; turnNumber: number }
+  historyIds: number[]
+}
+
+const UNDO_LIMIT = 60
+/** Changes to the same thing within this long of each other undo together. */
+const UNDO_MERGE_MS = 2_000
+
+const newGameId = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`)
 
 export function newGame(settings: LifeSettings): Game {
   const count = playerCount(layoutById(settings.layoutId))
@@ -137,14 +193,35 @@ export function newGame(settings: LifeSettings): Game {
     initiativeId: null,
     dayNight: null,
     touched: false,
+    gameId: newGameId(),
+    startedAt: Date.now(),
+    undo: [],
+    shownCard: null,
   }
+}
+
+/** Whether the game is decided: at a table of two or more, at most one player is left. */
+export function gameOver(game: Game, autoKill: boolean): { winnerId: number | null } | null {
+  if (game.players.length < 2) return null
+  const alive = game.players.filter((p) => !lossReason(p, autoKill))
+  if (alive.length > 1) return null
+  return { winnerId: alive[0]?.id ?? null }
 }
 
 /** How many history entries a game keeps. */
 const HISTORY_LIMIT = 200
 
-export type GameAction =
+/**
+ * [by]: the seat whose remote asked for the change (see remote.ts); absent for changes made on the
+ * table itself. A remote's undo only takes back its own changes.
+ */
+export type GameAction = { by?: number } & (
   | { type: 'new'; settings: LifeSettings }
+  | { type: 'counter'; id: number; counter: CounterKind; delta: number }
+  | { type: 'background'; id: number; url: string | null; deck?: string | null }
+  | { type: 'undo' }
+  | { type: 'showCard'; card: ShownCard }
+  | { type: 'hideCard' }
   | { type: 'life'; id: number; delta: number }
   | { type: 'setLife'; id: number; value: number }
   | { type: 'commanderDamage'; id: number; from: number; delta: number; costsLife: boolean }
@@ -161,6 +238,90 @@ export type GameAction =
   | { type: 'clearHistory' }
   | { type: 'link'; id: number; player: LinkedPlayer | null }
   | { type: 'match'; match: { id: string; code: string } | null }
+)
+
+/** What an undoable change is about, so quick repeats of it undo together; null if it can't be undone. */
+function undoKey(action: GameAction): string | null {
+  switch (action.type) {
+    case 'life': return `life:${action.id}`
+    case 'commanderDamage': return `cmd:${action.id}:${action.from}`
+    case 'poison': return `poison:${action.id}`
+    case 'counter': return `counter:${action.id}:${action.counter}`
+    case 'kill': case 'revive': return `out:${action.id}`
+    case 'nextTurn': return 'turn'
+    default: return null
+  }
+}
+
+/** Whether two versions of a player have the same life, damage, poison and counters. */
+const samePlayState = (a: Player, b: Player) =>
+  a.life === b.life && a.poison === b.poison && a.killed === b.killed &&
+  JSON.stringify(a.commanderDamage) === JSON.stringify(b.commanderDamage) &&
+  JSON.stringify(a.counters ?? {}) === JSON.stringify(b.counters ?? {})
+
+/** Plays [action], remembering how to take it back when it's an undoable change. */
+export function gameReducer(game: Game, action: GameAction): Game {
+  if (action.type === 'undo') return undo(game, action.by ?? null)
+  const next = applyAction(game, action)
+  const key = undoKey(action)
+  if (key === null || next === game) return next
+
+  const changed = game.players.filter((p) => {
+    const after = next.players.find((x) => x.id === p.id)
+    return after && !samePlayState(p, after)
+  })
+  const turnMoved = next.turnPlayerId !== game.turnPlayerId || next.turnNumber !== game.turnNumber
+  if (changed.length === 0 && !turnMoved) return next
+  const oldIds = new Set(game.history.map((h) => h.id))
+  const historyIds = next.history.filter((h) => !oldIds.has(h.id)).map((h) => h.id)
+  const now = Date.now()
+  const by = action.by ?? null
+  const stack = game.undo ?? []
+  const top = stack[0]
+  if (top && top.key === key && top.by === by && now - top.at < UNDO_MERGE_MS && !turnMoved) {
+    const merged: UndoEntry = {
+      ...top,
+      at: now,
+      before: [...top.before, ...changed.filter((p) => !top.before.some((b) => b.id === p.id))],
+      historyIds: [...top.historyIds, ...historyIds],
+    }
+    return { ...next, undo: [merged, ...stack.slice(1)] }
+  }
+  const entry: UndoEntry = {
+    by, key, at: now, before: changed, historyIds,
+    turn: turnMoved ? { turnPlayerId: game.turnPlayerId, turnNumber: game.turnNumber } : undefined,
+  }
+  return { ...next, undo: [entry, ...stack].slice(0, UNDO_LIMIT) }
+}
+
+/**
+ * Takes back the newest change — the newest one made from seat [by]'s remote when [by] is set. The
+ * players it touched get their life, damage and counters back; who they are and how their tile
+ * looks stay as they are now.
+ */
+function undo(game: Game, by: number | null): Game {
+  const stack = game.undo ?? []
+  const index = by === null ? 0 : stack.findIndex((e) => e.by === by)
+  const entry = stack[index]
+  if (!entry) return game
+  const restore = (p: Player): Player => {
+    const was = entry.before.find((b) => b.id === p.id)
+    return was ? { ...p, life: was.life, poison: was.poison, killed: was.killed, commanderDamage: was.commanderDamage, counters: was.counters } : p
+  }
+  const dropped = new Set(entry.historyIds)
+  return {
+    ...game,
+    touched: true,
+    players: game.players.map(restore),
+    ...(entry.turn ?? {}),
+    history: game.history.filter((h) => !dropped.has(h.id)),
+    undo: stack.filter((_, i) => i !== index),
+  }
+}
+
+/** Whether there's anything to undo — for seat [by]'s remote when it's set. */
+export const canUndo = (game: Game, by: number | null = null) =>
+  (game.undo ?? []).some((e) => by === null || e.by === by)
 
 function updatePlayer(game: Game, id: number, fn: (p: Player) => Player): Game {
   return { ...game, touched: true, players: game.players.map((p) => (p.id === id ? fn(p) : p)) }
@@ -176,18 +337,46 @@ function note(game: Game, playerId: number | null, text: string): Game {
 const nameOf = (game: Game, id: number | null) =>
   id === null ? '' : displayName(game.players.find((p) => p.id === id) ?? { id, name: null } as Player)
 
-export function gameReducer(game: Game, action: GameAction): Game {
+function applyAction(game: Game, action: GameAction): Game {
   switch (action.type) {
     case 'new': {
-      // A restart at the same table keeps who's sitting where; a different number of seats is a new table.
+      // A restart at the same table keeps who's sitting where (and the tile pictures and decks
+      // they chose); a different number of seats is a new table.
       const fresh = newGame(action.settings)
       if (!game.match || fresh.players.length !== game.players.length) return fresh
       return {
         ...fresh,
         match: game.match,
-        players: fresh.players.map((p) => ({ ...p, linked: game.players.find((old) => old.id === p.id)?.linked ?? null })),
+        players: fresh.players.map((p) => {
+          const old = game.players.find((o) => o.id === p.id)
+          return old?.linked ? { ...p, linked: old.linked, background: old.background ?? null, deck: old.deck ?? null } : p
+        }),
       }
     }
+    case 'undo':
+      return game // handled by gameReducer
+    case 'counter': {
+      const p = game.players.find((x) => x.id === action.id)
+      if (!p) return game
+      const value = Math.max(0, counterOf(p, action.counter) + action.delta)
+      if (value === counterOf(p, action.counter)) return game
+      return note(
+        updatePlayer(game, action.id, (x) => ({ ...x, counters: { ...x.counters, [action.counter]: value } })),
+        action.id,
+        `${COUNTER_INFO[action.counter].label}: ${value}`,
+      )
+    }
+    case 'background':
+      return {
+        ...game,
+        players: game.players.map((p) => (p.id === action.id
+          ? { ...p, background: action.url, ...(action.deck !== undefined ? { deck: action.deck } : {}) }
+          : p)),
+      }
+    case 'showCard':
+      return { ...game, shownCard: action.card }
+    case 'hideCard':
+      return game.shownCard ? { ...game, shownCard: null } : game
     case 'life': {
       const before = game.players.find((p) => p.id === action.id)?.life ?? 0
       const after = before + action.delta
@@ -238,8 +427,10 @@ export function gameReducer(game: Game, action: GameAction): Game {
       if (ids.length === 0) return game
       const idx = ids.indexOf(game.turnPlayerId)
       const turnPlayerId = idx === -1 || idx === ids.length - 1 ? ids[0] : ids[idx + 1]
+      // Storm counts spells cast this turn.
+      const players = game.players.map((p) => (p.counters?.storm ? { ...p, counters: { ...p.counters, storm: 0 } } : p))
       return note(
-        { ...game, touched: true, turnPlayerId, turnNumber: game.turnNumber + 1 },
+        { ...game, touched: true, players, turnPlayerId, turnNumber: game.turnNumber + 1 },
         turnPlayerId,
         `Turn ${game.turnNumber + 1}`,
       )
@@ -263,13 +454,20 @@ export function gameReducer(game: Game, action: GameAction): Game {
     case 'link': {
       const current = game.players.find((p) => p.id === action.id)?.linked ?? null
       if (JSON.stringify(current) === JSON.stringify(action.player)) return game
-      return { ...game, players: game.players.map((p) => (p.id === action.id ? { ...p, linked: action.player } : p)) }
+      // Whoever leaves the seat takes their tile picture and deck with them.
+      return {
+        ...game,
+        players: game.players.map((p) => (p.id !== action.id ? p
+          : action.player?.userId === current?.userId ? { ...p, linked: action.player }
+          : { ...p, linked: action.player, background: null, deck: null })),
+      }
     }
     case 'match':
       return {
         ...game,
         match: action.match,
-        players: action.match ? game.players : game.players.map((p) => (p.linked ? { ...p, linked: null } : p)),
+        players: action.match ? game.players : game.players.map((p) => (p.linked ? { ...p, linked: null, background: null, deck: null } : p)),
+        shownCard: action.match ? game.shownCard : null,
       }
   }
 }

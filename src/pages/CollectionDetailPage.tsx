@@ -12,12 +12,18 @@ import { ExportCollectionDialog, ImportCardsDialog } from '../collection/CardLis
 import { ArtImage, IconButton, SearchPill, SectionHeader, StatFigure, rise, toArtCrop, useBack, useLayoutSize, useScrollProgress } from '../components/kit'
 import { Dialog } from '../components/Dialog'
 import { isUnsorted, type CollectionEntry } from '../types/models'
+import { askForNotifications, formatUsd, usePrices } from '../collection/priceAlerts'
 
 export function CollectionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const back = useBack('/collections')
-  const { collections, setEntryQuantities, removeEntryFromCollection, removeEntriesFromCollection, addEntryToCollection, moveEntries, createCollection } = useSync()
+  const { collections, setEntryQuantities, setEntryPriceAlert, removeEntryFromCollection, removeEntriesFromCollection, addEntryToCollection, moveEntries, createCollection } = useSync()
   const collection = collections.find((c) => c.id === id)
+  // A wishlist shows what each card costs now, and can watch for it to drop.
+  const wishlist = collection?.type === 'WISHLIST'
+  const prices = usePrices(collection?.entries ?? [], wishlist)
+  const [alerting, setAlerting] = useState<CollectionEntry | null>(null)
+  const [alertText, setAlertText] = useState('')
   const [zoomId, setZoomId] = useState<string | null>(null)
   const [sheet, setSheet] = useState<CollectionEntry | null>(null)
   const [filter, setFilter] = useState('')
@@ -116,6 +122,7 @@ export function CollectionDetailPage() {
             onToggle={() => toggle(entry)}
             onZoom={() => setZoomId(entry.scryfallId)}
             onMore={() => setSheet(entry)}
+            price={wishlist ? prices?.get(entry.scryfallId) : undefined}
             onIncrement={() => setQty(entry, entry.quantity + 1, entry.foilQuantity)}
             onDecrement={() => setQty(entry, entry.quantity - 1, entry.foilQuantity)}
           />
@@ -173,6 +180,18 @@ export function CollectionDetailPage() {
           imageUrl={sheet.imageUrl}
           actions={[
             { label: 'View card', icon: 'visibility', onClick: () => setZoomId(sheet.scryfallId) },
+            ...(wishlist
+              ? [{
+                  label: 'Price alert',
+                  icon: sheet.priceAlert ? 'notifications_active' : 'notifications',
+                  detail: sheet.priceAlert ? `When it's ${formatUsd(sheet.priceAlert)} or less` : 'Hear when it gets cheaper',
+                  onClick: () => {
+                    const now = prices?.get(sheet.scryfallId)
+                    setAlertText(sheet.priceAlert ? sheet.priceAlert.toFixed(2) : now ? (Math.floor(now * 0.9 * 100) / 100).toFixed(2) : '')
+                    setAlerting(sheet)
+                  },
+                }]
+              : []),
             { label: 'Add a foil copy', icon: 'auto_awesome', tone: 'gold', onClick: () => setQty(sheet, sheet.quantity, sheet.foilQuantity + 1) },
             ...(sheet.foilQuantity > 0
               ? [{ label: 'Remove a foil copy', icon: 'remove_circle_outline', onClick: () => setQty(sheet, sheet.quantity, sheet.foilQuantity - 1) }]
@@ -261,6 +280,48 @@ export function CollectionDetailPage() {
         </Dialog>
       )}
 
+      {alerting && (
+        <Dialog
+          title={`Price alert · ${alerting.name}`}
+          onDismiss={() => setAlerting(null)}
+          actions={
+            <>
+              {alerting.priceAlert ? (
+                <button type="button" className="btn line" onClick={() => { setEntryPriceAlert(collection.id, alerting.scryfallId, null); setAlerting(null) }}>Turn off</button>
+              ) : (
+                <button type="button" className="btn line" onClick={() => setAlerting(null)}>Cancel</button>
+              )}
+              <button
+                type="button"
+                className="btn gold"
+                disabled={!(Number(alertText) > 0)}
+                onClick={() => {
+                  setEntryPriceAlert(collection.id, alerting.scryfallId, Math.round(Number(alertText) * 100) / 100)
+                  askForNotifications()
+                  setAlerting(null)
+                }}
+              >
+                Save
+              </button>
+            </>
+          }
+        >
+          <p className="muted" style={{ marginTop: 0 }}>
+            {prices?.get(alerting.scryfallId) != null ? `It's ${formatUsd(prices.get(alerting.scryfallId)!)} now. ` : ''}
+            Tell me when it's this much or less (USD, non-foil):
+          </p>
+          <input
+            className="input"
+            inputMode="decimal"
+            value={alertText}
+            onChange={(e) => setAlertText(e.target.value.replace(/[^0-9.]/g, ''))}
+            aria-label="Alert price in US dollars"
+            autoFocus
+          />
+          <p className="dim" style={{ marginBottom: 0 }}>Checked when you open the app. The Android app can also send a notification.</p>
+        </Dialog>
+      )}
+
       {listDialog === 'import' && <ImportCardsDialog collection={collection} onDismiss={() => setListDialog(null)} />}
       {listDialog === 'export' && <ExportCollectionDialog collection={collection} onDismiss={() => setListDialog(null)} />}
       {sharing && <ShareDialog kind="collection" itemId={collection.id} name={collection.name} onClose={() => setSharing(false)} />}
@@ -302,9 +363,11 @@ export function CollectionDetailPage() {
 }
 
 function EntryRow({
-  entry, selecting, selected, onToggle, onZoom, onMore, onIncrement, onDecrement,
+  entry, selecting, selected, price, onToggle, onZoom, onMore, onIncrement, onDecrement,
 }: {
   entry: CollectionEntry
+  /** Wishlists: today's price (null: none), undefined elsewhere or while loading. */
+  price?: number | null
   selecting: boolean
   selected: boolean
   onToggle: () => void
@@ -326,6 +389,12 @@ function EntryRow({
         <div className="cname">{entry.name}</div>
         <div className="cmeta">
           {entry.foilQuantity > 0 && <span className="badge gold"><Icon name="auto_awesome" />{entry.foilQuantity} foil</span>}
+          {(price != null || entry.priceAlert) && (
+            <span className={`price-tag${price != null && entry.priceAlert && price <= entry.priceAlert ? ' hit' : ''}`}>
+              {price != null && formatUsd(price)}
+              {entry.priceAlert ? <><Icon name={price != null && price <= entry.priceAlert ? 'notifications_active' : 'notifications'} aria-hidden />{formatUsd(entry.priceAlert)}</> : null}
+            </span>
+          )}
           <span>{entry.tags?.slice(0, 3).join(' · ') ?? ''}</span>
         </div>
       </div>

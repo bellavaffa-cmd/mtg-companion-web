@@ -11,6 +11,7 @@ import { useOverview } from '../social/SocialContext'
 import { cardTotal } from '../social/tradeLogic'
 import { Avatar, handle } from '../social/ui'
 import { SocialGate } from './FriendsPage'
+import { TradeValue } from '../social/TradeValue'
 
 interface TheirBinder { id: string; name: string; entries: CollectionEntry[] }
 
@@ -104,6 +105,8 @@ function Composer({ overview }: { overview: api.Overview }) {
 
       <SectionHeader title={`You offer${give.length ? ` · ${cardTotal(give)}` : ''}`} action="Pick cards" onAction={() => setPicking('mine')} />
       <TradeCardList cards={give} empty="Nothing — or pick cards from your binders to offer." onRemove={(c) => setGive((l) => remove(l, c))} />
+
+      <TradeValue get={want} give={give} />
 
       <label className="field-label" htmlFor="trade-message" style={{ marginTop: 18 }}>Message (optional)</label>
       <textarea id="trade-message" className="input" rows={3} maxLength={500} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="e.g. Can bring them on Friday" />

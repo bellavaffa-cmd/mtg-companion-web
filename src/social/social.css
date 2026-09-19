@@ -693,3 +693,73 @@
   text-align: center;
   padding: 24px 16px;
 }
+
+/* ---- Who has it? ---- */
+
+.who-has {
+  display: grid;
+  gap: 10px;
+}
+.who-card {
+  background: var(--g1);
+  border-radius: 16px;
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+}
+.who-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.who-name {
+  font-weight: 600;
+}
+.who-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.who-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+}
+.who-nobody {
+  margin: 0;
+  font-size: 13.5px;
+}
+
+/* ---- Trade value ---- */
+
+.trade-value {
+  margin-top: 16px;
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: var(--g1);
+  display: grid;
+  gap: 4px;
+}
+.trade-value .tv-row {
+  display: flex;
+  justify-content: space-between;
+  font-variant-numeric: tabular-nums;
+}
+.trade-value .tv-verdict {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(128, 128, 128, 0.2);
+  font-weight: 600;
+}
+.trade-value.fair .tv-verdict .icon {
+  color: #5dcaa5;
+}
+.trade-value.uneven .tv-verdict .icon {
+  color: var(--gold);
+}
+.trade-value .tv-note {
+  font-size: 12.5px;
+}

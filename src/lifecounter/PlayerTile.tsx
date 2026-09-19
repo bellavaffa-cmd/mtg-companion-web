@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
-import { displayName, lossReason, PLAYER_PALETTE, seatColor, startingLifeFor, type GameAction, type LifeSettings, type Player } from './game'
+import {
+  COUNTER_INFO, COUNTER_KINDS, counterOf, displayName, inDanger, lossReason, PLAYER_PALETTE, seatColor, startingLifeFor,
+  type GameAction, type LifeSettings, type Player,
+} from './game'
 import type { SeatFacing } from './tableLayouts'
 import { avatarUrl } from '../social/api'
 
@@ -21,6 +24,17 @@ export function seatStyle(colorIndex: number): CSSProperties {
   return { ['--seat' as string]: c.srgb, ['--seat-p3' as string]: c.p3, ['--ink' as string]: c.whiteText ? '#fff' : '#000' }
 }
 
+/** A picture behind the tile (chosen from the player's remote), darkened so white numbers read on it. */
+function tileStyle(player: Player): CSSProperties {
+  const base = seatStyle(player.colorIndex)
+  if (!player.background) return base
+  return {
+    ...base,
+    ['--ink' as string]: '#fff',
+    backgroundImage: `linear-gradient(rgba(0,0,0,0.28), rgba(0,0,0,0.5)), url("${player.background.replace(/"/g, '%22')}")`,
+  }
+}
+
 /**
  * Turns content to face the player at [facing]'s edge. The wrapper is a size container, so a
  * sideways face is laid out with the cell's width and height swapped and genuinely fills it.
@@ -37,7 +51,7 @@ export function Face({ facing, className = '', children }: { facing: SeatFacing;
  * Tap for ±1, hold for ±[longPressAmount] (repeating while held). A hold stops when [active] turns
  * false — the buttons go away (a high roll starting, say) without ever seeing the finger lift.
  */
-function useStepper(onStep: (amount: number) => void, longPressAmount: number, active: boolean) {
+export function useStepper(onStep: (amount: number) => void, longPressAmount: number, active: boolean) {
   const timer = useRef<number | null>(null)
   const held = useRef(false)
   const stop = () => {
@@ -149,8 +163,8 @@ export function PlayerTile({
   const plusLabel = label(1)
 
   return (
-    <Face facing={facing} className={`lc-tile${activeTurn ? ' active' : ''}${loss ? ' out' : ''}`}>
-      <div className="lc-tile-body" style={seatStyle(player.colorIndex)}>
+    <Face facing={facing} className={`lc-tile${activeTurn ? ' active' : ''}${loss ? ' out' : ''}${!loss && inDanger(player) ? ' danger' : ''}`}>
+      <div className={`lc-tile-body${player.background ? ' has-bg' : ''}`} style={tileStyle(player)}>
         <div className="lc-top">
           {isMonarch && (
             <span className="lc-chip lc-token" title="Monarch">
@@ -181,6 +195,11 @@ export function PlayerTile({
               <span className="material-symbols-rounded" aria-hidden>water_drop</span>{player.poison}
             </button>
           )}
+          {COUNTER_KINDS.filter((k) => counterOf(player, k) > 0).map((k) => (
+            <button key={k} type="button" className="lc-chip" onClick={() => setPanelOpen(true)} aria-label={`${COUNTER_INFO[k].label} ${counterOf(player, k)}`}>
+              <span className="material-symbols-rounded" aria-hidden>{COUNTER_INFO[k].icon}</span>{counterOf(player, k)}
+            </button>
+          ))}
         </div>
 
         <div className="lc-life" key={shake} data-shake={shake > 0 || undefined}>{player.life}</div>
@@ -321,6 +340,15 @@ function PlayerPanel({
           />
         ))}
         <Counter label="Poison" value={player.poison} onChange={(delta) => dispatch({ type: 'poison', id: player.id, delta })} />
+        <div className="lc-panel-label">Counters</div>
+        {COUNTER_KINDS.map((k) => (
+          <Counter key={k} label={COUNTER_INFO[k].label} value={counterOf(player, k)} onChange={(delta) => dispatch({ type: 'counter', id: player.id, counter: k, delta })} />
+        ))}
+        {player.background && (
+          <button type="button" className="lc-wide-btn" onClick={() => dispatch({ type: 'background', id: player.id, url: null })}>
+            <span className="material-symbols-rounded" aria-hidden>hide_image</span>Remove the tile picture
+          </button>
+        )}
 
         <div className="lc-panel-label">Colour</div>
         <div className="lc-swatches">

@@ -176,6 +176,8 @@ const MESSAGES: Record<string, string> = {
   message_too_long: 'Keep the message under 500 characters.',
   too_many_trades: 'You have a lot of open trades — wait for some answers first.',
   trade_closed: 'This trade has already been answered.',
+  not_seated: "You're no longer sitting at this table.",
+  not_host: 'Only the table can do that.',
 }
 
 async function call<T>(fn: string, args: Record<string, unknown> = {}, { signedIn = true } = {}): Promise<T> {
@@ -327,6 +329,12 @@ export const joinMatch = (code: string, seat: number) => call<{ match_id: string
 export const matchSeats = (matchId: string) => call<MatchSeat[]>('match_seats', { p_match: matchId })
 export const clearMatchSeat = (matchId: string, seat: number) => call<void>('clear_match_seat', { p_match: matchId, p_seat: seat })
 export const endMatch = (matchId: string) => call<void>('end_match', { p_match: matchId })
+/** The table shares the game with its players' remotes (match:<id> "state"). */
+export const publishMatchState = (matchId: string, state: unknown) => call<void>('publish_match_state', { p_match: matchId, p_state: state })
+/** A seated player's remote asks the table to change their seat (match:<id> "action"). */
+export const sendMatchAction = (matchId: string, action: object) => call<void>('send_match_action', { p_match: matchId, p_action: action })
+/** Friends' shared binder copies of these exact card names (a deck's missing cards). */
+export const whoHasCards = (names: string[]) => call<SharedCardHit[]>('who_has_cards', { p_names: names })
 
 // ---- Trades ----
 

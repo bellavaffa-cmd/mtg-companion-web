@@ -160,6 +160,8 @@ export interface CollectionEntry {
   backImageUrl?: string | null
   /** Cached from cardTags() at add-time — see DeckCardEntry.tags. */
   tags?: string[]
+  /** Wishlists: tell the user when this card's price (USD, non-foil) is at or under this. */
+  priceAlert?: number | null
 }
 
 export interface Collection {
