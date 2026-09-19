@@ -1,45 +1,52 @@
 // What a card does in a deck — mana ramp, card draw, removal… — from Scryfall Tagger, where the
-// community tags every card by its job (searchable as `otag:ramp`). Far more reliable than reading
-// rules text. A few jobs Tagger has no tag for are a rules-text search instead.
+// community tags every card by its job. Far more reliable than reading rules text. A few jobs
+// Tagger has no tag for are read from the rules text instead.
 //
-// Tags are looked up by card name, a few names per search, one search per tag, and remembered in
-// this browser for a month — so a deck or collection is tagged once, and opens instantly after.
-// The Android app does the same (data/RoleTags.kt) with the same list.
+// Scryfall allows only 2 card searches a second, so nothing here searches per tag. Instead:
+//  - Tagger's oracle tags come as one daily file from Scryfall's file host (no rate limit),
+//    fetched about weekly; only the cards under the tags below are kept.
+//  - Cards are looked up by name, 75 a request, for their Oracle ids (and rules text).
+// Each card's tags are then remembered in this browser for a month — so a deck or collection is
+// tagged once, and opens instantly after. The Android app does the same (data/RoleTags.kt).
 
 import { useEffect, useMemo, useState } from 'react'
-import { searchCards } from '../api/scryfall'
+import { getCollection } from '../api/scryfall'
+import type { ScryfallCard } from '../types/scryfall'
 
 export interface RoleTag {
   id: string
   label: string
-  /** The Scryfall search that finds every card with this tag. */
-  query: string
+  /** The Tagger oracle tags that mean it — with every tag below them. */
+  slugs?: string[]
+  /** A rules-text match instead, for jobs Tagger has no tag for. */
+  text?: RegExp
+  notText?: RegExp
 }
 
-/** The default tags, most useful first. Changing it re-tags every card (see CACHE_VERSION). */
+/** The default tags, most useful first. Changing it re-tags every card (see the VERSIONs). */
 export const ROLE_TAGS: RoleTag[] = [
-  { id: 'ramp', label: 'Mana ramp', query: 'otag:ramp' },
-  { id: 'mana-rock', label: 'Mana rock', query: 'otag:mana-rock' },
-  { id: 'mana-dork', label: 'Mana dork', query: 'otag:mana-dork' },
-  { id: 'land-ramp', label: 'Land ramp', query: 'otag:land-ramp' },
-  { id: 'mana-engine', label: 'Mana engine', query: '(otag:mana-doubler or otag:cost-reducer)' },
-  { id: 'draw', label: 'Card draw', query: 'otag:draw' },
-  { id: 'tutor', label: 'Tutor', query: 'otag:tutor' },
-  { id: 'removal', label: 'Removal', query: 'otag:removal' },
-  { id: 'board-wipe', label: 'Board wipe', query: 'otag:board-wipe' },
-  { id: 'counterspell', label: 'Counterspell', query: 'otag:counterspell' },
-  { id: 'protection', label: 'Protection', query: 'otag:protection' },
-  { id: 'recursion', label: 'Recursion', query: 'otag:recursion' },
-  { id: 'reanimate', label: 'Reanimation', query: 'otag:reanimate' },
-  { id: 'sacrifice-outlet', label: 'Sacrifice outlet', query: 'otag:sacrifice-outlet' },
-  { id: 'tokens', label: 'Token maker', query: '(o:/create[^.]*creature tokens?/ -o:"would create")' },
-  { id: 'treasure', label: 'Treasure', query: 'o:/create[^.]*treasure/' },
-  { id: 'tax', label: 'Tax', query: 'otag:tax' },
-  { id: 'lifegain', label: 'Lifegain', query: 'otag:lifegain' },
-  { id: 'burn', label: 'Burn', query: 'otag:burn' },
-  { id: 'graveyard-hate', label: 'Graveyard hate', query: 'otag:graveyard-hate' },
-  { id: 'extra-turn', label: 'Extra turn', query: 'otag:extra-turn' },
-  { id: 'wheel', label: 'Wheel', query: 'otag:wheel' },
+  { id: 'ramp', label: 'Mana ramp', slugs: ['ramp'] },
+  { id: 'mana-rock', label: 'Mana rock', slugs: ['mana-rock'] },
+  { id: 'mana-dork', label: 'Mana dork', slugs: ['mana-dork'] },
+  { id: 'land-ramp', label: 'Land ramp', slugs: ['land-ramp'] },
+  { id: 'mana-engine', label: 'Mana engine', slugs: ['mana-increaser', 'cost-reducer'] },
+  { id: 'draw', label: 'Card draw', slugs: ['draw'] },
+  { id: 'tutor', label: 'Tutor', slugs: ['tutor'] },
+  { id: 'removal', label: 'Removal', slugs: ['removal'] },
+  { id: 'board-wipe', label: 'Board wipe', slugs: ['sweeper'] },
+  { id: 'counterspell', label: 'Counterspell', slugs: ['counterspell'] },
+  { id: 'protection', label: 'Protection', slugs: ['protection'] },
+  { id: 'recursion', label: 'Recursion', slugs: ['recursion'] },
+  { id: 'reanimate', label: 'Reanimation', slugs: ['reanimate'] },
+  { id: 'sacrifice-outlet', label: 'Sacrifice outlet', slugs: ['sacrifice-outlet'] },
+  { id: 'tokens', label: 'Token maker', text: /create[^.]*creature tokens?/i, notText: /would create/i },
+  { id: 'treasure', label: 'Treasure', text: /create[^.]*treasure/i },
+  { id: 'tax', label: 'Tax', slugs: ['tax'] },
+  { id: 'lifegain', label: 'Lifegain', slugs: ['lifegain'] },
+  { id: 'burn', label: 'Burn', slugs: ['burn'] },
+  { id: 'graveyard-hate', label: 'Graveyard hate', slugs: ['hate-graveyard'] },
+  { id: 'extra-turn', label: 'Extra turn', slugs: ['extra-turn'] },
+  { id: 'wheel', label: 'Wheel', slugs: ['wheel'] },
 ]
 
 const BY_ID = new Map(ROLE_TAGS.map((t) => [t.id, t]))
@@ -55,15 +62,24 @@ export const COMMANDER_TARGETS: Record<string, [number, number]> = {
 }
 
 const CACHE_KEY = 'mtgweb_role_tags'
-const CACHE_VERSION = 2
+/** Per-card tags. */
+const CACHE_VERSION = 3
+const SETS_KEY = 'mtgweb_role_tag_sets'
+/** The tag → cards lists from Tagger's file. */
+const SETS_VERSION = 1
 /** Tags hardly change; a card is looked up again after this long. */
 const FRESH_MS = 30 * 24 * 60 * 60 * 1000
-/** Names per search: keeps the address well under Scryfall's limit. */
-const CHUNK = 40
-/** Scryfall asks for 50–100 ms between requests. */
-const SPACING_MS = 100
+/** Tagger's file is refreshed daily; fetching it weekly is plenty. */
+const SETS_FRESH_MS = 7 * 24 * 60 * 60 * 1000
+/** Names per /cards/collection request (Scryfall's maximum). */
+const CHUNK = 75
+/** Oracle ids are kept by their first 13 characters: unique enough, a third the size. */
+const ID_PREFIX = 13
+/** Scryfall unreachable: the cards left are tried again this much later. */
+const RESUME_MS = 60_000
 
 interface Cache { v: number; cards: Record<string, { t: string[]; at: number }> }
+type TagSets = Map<string, Set<string>>
 
 const key = (name: string) => name.trim().toLowerCase()
 
@@ -88,21 +104,127 @@ export function cachedTags(name: string): string[] | undefined {
   return cache.cards[key(name)]?.t
 }
 
+/** Which of ROLE_TAGS a card has, from its Oracle id (against [sets]) and rules text. */
+export function tagsFor(oracleId: string | undefined, oracleText: string, sets: TagSets): string[] {
+  const prefix = oracleId?.slice(0, ID_PREFIX)
+  return ROLE_TAGS.filter((t) =>
+    (prefix != null && sets.get(t.id)?.has(prefix)) ||
+    (t.text != null && t.text.test(oracleText) && !t.notText?.test(oracleText)),
+  ).map((t) => t.id)
+}
+
+/**
+ * From Tagger's oracle tags file (one JSON tag per line), the Oracle id prefixes of the cards under
+ * each of ROLE_TAGS: tagged with it, one of its other names, or any tag below it.
+ */
+export function parseTagFile(lines: string[]): TagSets {
+  interface Line { id: string; slug: string; aliases?: string[]; child_ids?: string[]; taggings?: { oracle_id?: string }[] }
+  // First pass: the tree — every tag's name, other names and children.
+  const children = new Map<string, string[]>()
+  const bySlug = new Map<string, string>()
+  const byTagId = new Map<string, number>()
+  lines.forEach((line, i) => {
+    if (!line.trim()) return
+    const o = JSON.parse(line) as Line
+    byTagId.set(o.id, i)
+    bySlug.set(o.slug, o.id)
+    for (const a of o.aliases ?? []) {
+      const slug = a.toLowerCase().replace(/ /g, '-')
+      if (!bySlug.has(slug)) bySlug.set(slug, o.id)
+    }
+    children.set(o.id, o.child_ids ?? [])
+  })
+  // Each of our tags stands for its Tagger tags and everything under them.
+  const wanted = new Map<string, Set<string>>() // Tagger tag id -> our tag ids
+  for (const tag of ROLE_TAGS) {
+    const stack = (tag.slugs ?? []).map((s) => bySlug.get(s)).filter((id): id is string => !!id)
+    const seen = new Set<string>()
+    while (stack.length) {
+      const id = stack.pop()!
+      if (seen.has(id)) continue
+      seen.add(id)
+      if (!wanted.has(id)) wanted.set(id, new Set())
+      wanted.get(id)!.add(tag.id)
+      stack.push(...(children.get(id) ?? []))
+    }
+  }
+  // Second pass: the cards under those tags.
+  const out: TagSets = new Map(ROLE_TAGS.map((t) => [t.id, new Set<string>()]))
+  for (const [tagId, ours] of wanted) {
+    const i = byTagId.get(tagId)
+    if (i == null) continue
+    const o = JSON.parse(lines[i]) as Line
+    for (const t of o.taggings ?? []) {
+      if (!t.oracle_id) continue
+      const prefix = t.oracle_id.slice(0, ID_PREFIX)
+      for (const id of ours) out.get(id)!.add(prefix)
+    }
+  }
+  if (![...out.values()].some((s) => s.size > 0)) throw new Error('no tags found')
+  return out
+}
+
+let sets: TagSets | null = null
+let setsAt = 0
+let setsLoading: Promise<TagSets | null> | null = null
+
+/** Fetches Tagger's oracle tags file (about 6 MB, from Scryfall's file host) and reads it. */
+async function downloadSets(): Promise<TagSets> {
+  const meta = await fetch('https://api.scryfall.com/bulk-data/oracle-tags').then((r) => {
+    if (!r.ok) throw new Error(`bulk-data ${r.status}`)
+    return r.json()
+  })
+  const uri: string = meta.jsonl_download_uri ?? meta.download_uri
+  const res = await fetch(uri)
+  if (!res.ok || !res.body) throw new Error(`oracle-tags ${res.status}`)
+  // Served as a .gz file (not gzip-encoded), so it's unpacked here.
+  const text = await new Response(res.body.pipeThrough(new DecompressionStream('gzip'))).text()
+  return parseTagFile(text.split('\n'))
+}
+
+/** Tagger's tag lists: from this browser, or fetched again when a week old (or missing). */
+function loadSets(): Promise<TagSets | null> {
+  if (!sets) {
+    try {
+      const raw = JSON.parse(localStorage.getItem(SETS_KEY) ?? 'null') as { v: number; at: number; sets: Record<string, string> } | null
+      if (raw && raw.v === SETS_VERSION) {
+        sets = new Map(ROLE_TAGS.map((t) => [t.id, new Set(raw.sets[t.id] ? raw.sets[t.id].split(',') : [])]))
+        setsAt = raw.at
+      }
+    } catch { /* fetched below */ }
+  }
+  if (sets && Date.now() - setsAt < SETS_FRESH_MS) return Promise.resolve(sets)
+  setsLoading ??= downloadSets()
+    .then((fresh) => {
+      sets = fresh
+      setsAt = Date.now()
+      const stored: Record<string, string> = {}
+      for (const [id, s] of fresh) stored[id] = [...s].join(',')
+      try { localStorage.setItem(SETS_KEY, JSON.stringify({ v: SETS_VERSION, at: setsAt, sets: stored })) } catch { /* full: fetched again next visit */ }
+      return fresh
+    })
+    // An old list is better than none while offline.
+    .catch(() => sets)
+    .finally(() => { setsLoading = null })
+  return setsLoading
+}
+
+const textOf = (card: ScryfallCard) =>
+  [card.oracle_text, ...(card.card_faces ?? []).map((f) => f.oracle_text)].filter(Boolean).join('\n')
+
 /** Every name being looked up right now (or waiting to be), so two screens don't ask twice. */
 const pending = new Set<string>()
 let queue: Promise<void> = Promise.resolve()
 const progress = { done: 0, total: 0 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
 /**
- * Looks up the tags of whichever [names] aren't known (or are stale), in the background, one
- * request at a time. Cards found by no search get no tags — that's remembered too.
+ * Looks up the tags of whichever [names] aren't known (or are stale), in the background. Cards
+ * Scryfall doesn't know get no tags — that's remembered too.
  */
 export function requestTags(names: string[]): void {
   const now = Date.now()
   const wanted = [...new Set(names.map(key))].filter((n) => {
-    if (!n || n.includes('"') || pending.has(n)) return false
+    if (!n || pending.has(n)) return false
     const hit = cache.cards[n]
     return !hit || now - hit.at > FRESH_MS
   })
@@ -111,39 +233,39 @@ export function requestTags(names: string[]): void {
   progress.total += wanted.length
   changed()
   queue = queue.then(async () => {
-    for (let i = 0; i < wanted.length; i += CHUNK) {
-      const chunk = wanted.slice(i, i + CHUNK)
-      const found = new Map<string, Set<string>>(chunk.map((n) => [n, new Set()]))
-      let failed = false
-      const names = chunk.map((n) => `!"${n}"`).join(' or ')
-      for (const tag of ROLE_TAGS) {
+    let left: string[] = wanted
+    const tagSets = await loadSets()
+    if (tagSets) {
+      for (let i = 0; i < wanted.length; i += CHUNK) {
+        const chunk = wanted.slice(i, i + CHUNK)
+        let data: ScryfallCard[]
         try {
-          // A double-faced card answers to its full name; its front face's is enough to match.
-          const page = await searchCards(`${tag.query} (${names})`)
-          for (const card of page.cards) {
-            const full = key(card.name)
-            const front = key(card.name.split(' // ')[0])
-            found.get(full)?.add(tag.id)
-            found.get(front)?.add(tag.id)
-          }
+          // api/scryfall paces these within Scryfall's limits.
+          data = (await getCollection(chunk.map((name) => ({ name })))).data
         } catch {
-          failed = true // offline, or Scryfall busy: try these names again next time
-          break
+          break // offline: the rest are tried again below
         }
-        await sleep(SPACING_MS)
+        const found = new Map<string, string[]>()
+        for (const card of data) {
+          const tags = tagsFor(card.oracle_id, textOf(card), tagSets)
+          // A double-faced card answers to its full name; its front face's is enough too.
+          found.set(key(card.name), tags)
+          found.set(key(card.name.split(' // ')[0]), tags)
+        }
+        const at = Date.now()
+        for (const n of chunk) {
+          pending.delete(n)
+          cache.cards[n] = { t: found.get(n) ?? [], at }
+        }
+        progress.done += chunk.length
+        persist()
+        changed()
+        left = wanted.slice(i + CHUNK)
       }
-      const at = Date.now()
-      for (const n of chunk) {
-        pending.delete(n)
-        if (!failed) cache.cards[n] = { t: ROLE_TAGS.filter((t) => found.get(n)?.has(t.id)).map((t) => t.id), at }
-      }
-      progress.done += chunk.length
-      if (!failed) persist()
-      changed()
-      if (failed) break
     }
-    // Anything left over from a failed run goes back to being askable.
-    for (const n of wanted) pending.delete(n)
+    // Anything left over goes back to being askable — and is asked again in a minute.
+    for (const n of left) pending.delete(n)
+    if (left.length) setTimeout(() => requestTags(left), RESUME_MS)
     if (pending.size === 0) { progress.done = 0; progress.total = 0 }
     changed()
   })

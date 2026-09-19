@@ -13,12 +13,46 @@ export class OfflineError extends Error {
   }
 }
 
-/** fetch(), with a dropped connection turned into a message worth showing someone. */
+/**
+ * Scryfall's hard rate limits (scryfall.com/docs/api/rate-limits): card searches, named and random
+ * lookups and /cards/collection at most 2 a second, everything else 10 a second. A 429 locks the
+ * app out for 30 seconds — and ignoring it risks a ban — so after one every request waits the
+ * lockout out. The Android app does the same (network/ScryfallPacer.kt).
+ */
+const SLOW_PATHS = ['/cards/search', '/cards/named', '/cards/random', '/cards/collection']
+const SLOW_GAP_MS = 550
+const FAST_GAP_MS = 110
+const LOCKOUT_MS = 31_000
+let nextSlow = 0
+let nextFast = 0
+let blockedUntil = 0
+
+/** Waits for this request's turn: its endpoint's spacing, and any lockout. */
+async function waitTurn(path: string) {
+  const slow = SLOW_PATHS.some((p) => path.startsWith(p))
+  const now = Date.now()
+  const start = Math.max(now, blockedUntil, slow ? nextSlow : nextFast)
+  if (slow) nextSlow = start + SLOW_GAP_MS
+  else nextFast = start + FAST_GAP_MS
+  if (start > now) await new Promise((r) => setTimeout(r, start - now))
+}
+
+/**
+ * fetch(), paced to Scryfall's limits, with a dropped connection turned into a message worth
+ * showing someone. A request refused with 429 is asked once more, after the lockout.
+ */
 async function get(url: string | URL, init?: RequestInit): Promise<Response> {
-  try {
-    return await fetch(url, { headers: HEADERS, ...init })
-  } catch {
-    throw new OfflineError()
+  const path = new URL(url).pathname
+  for (let attempt = 0; ; attempt++) {
+    await waitTurn(path)
+    let res: Response
+    try {
+      res = await fetch(url, { headers: HEADERS, ...init })
+    } catch {
+      throw new OfflineError()
+    }
+    if (res.status !== 429 || attempt > 0) return res
+    blockedUntil = Math.max(blockedUntil, Date.now() + LOCKOUT_MS)
   }
 }
 
