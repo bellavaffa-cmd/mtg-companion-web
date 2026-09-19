@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from 'react'
 import { TopBar } from '../components/TopBar'
-import { PillChip, rise, useBack } from '../components/kit'
+import { ArtImage, PillChip, rise, toArtCrop, useBack } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
 import { useMoney, type Money } from '../money/currency'
+import { MOVER_RANGES, moversOf, usePriceStore, type Mover, type MoverRangeId } from '../collection/priceMovers'
 import { VALUE_RANGES, changeOf, pointsIn, useCollectionValue, useValueHistory, type ValuePoint, type ValueRangeId } from '../collection/valueHistory'
 
 // The collection's value over time: a line of the daily values Home has noted, over the last month,
@@ -70,11 +71,61 @@ export function ValueHistoryPage() {
               )}
             </>
           )}
+          <MoversSection money={money} />
           <p className="dim" style={{ fontSize: 12.5, marginTop: 20 }}>
             The value of your binders (not wishlists) at TCGplayer's market prices
             {money.isUsd ? '' : `, in ${money.currency.code} at today's exchange rate`}. It's noted in this browser, once a day.
           </p>
         </div>
+      </div>
+    </>
+  )
+}
+
+/** Which cards moved the value most, up and down, over the last day, week or month. */
+function MoversSection({ money }: { money: Money }) {
+  const store = usePriceStore()
+  const [range, setRange] = useState<MoverRangeId>('7D')
+  const movers = useMemo(() => moversOf(store, range), [store, range])
+  return (
+    <section className="movers">
+      <div className="movers-head">
+        <h3>Movers</h3>
+        <div>{MOVER_RANGES.map((r) => <PillChip key={r.id} label={r.id} selected={range === r.id} onClick={() => setRange(r.id)} />)}</div>
+      </div>
+      {!movers ? (
+        <p className="muted">Each card's price is noted once a day, with the value. Come back tomorrow to see which moved.</p>
+      ) : (
+        <>
+          <div className="dim" style={{ fontSize: 12 }}>Since {day(movers.since)}</div>
+          {movers.up.length === 0 && movers.down.length === 0 && <p className="muted">None of your cards changed price.</p>}
+          {movers.up.length > 0 && <MoverList title="Up" movers={movers.up} money={money} />}
+          {movers.down.length > 0 && <MoverList title="Down" movers={movers.down} money={money} />}
+        </>
+      )}
+    </section>
+  )
+}
+
+function MoverList({ title, movers, money }: { title: string; movers: Mover[]; money: Money }) {
+  return (
+    <>
+      <div className="movers-sub">{title}</div>
+      <div className="list">
+        {movers.map((m) => (
+          <div key={m.card.id} className="crow read-only mover">
+            <ArtImage className="thumb" src={toArtCrop(m.card.imageUrl)} seed={m.card.name} />
+            <div className="cmain">
+              <div className="cname">{m.card.name}</div>
+              <div className="cmeta">
+                <span className="dim">
+                  {money.format(m.from)} → {money.format(m.to)} ({m.percent >= 0 ? '+' : '−'}{Math.abs(m.percent).toFixed(0)}%){m.card.copies > 1 ? ` · ×${m.card.copies}` : ''}
+                </span>
+              </div>
+            </div>
+            <b className={`mover-change ${m.change > 0 ? 'up' : 'down'}`}>{m.change > 0 ? '+' : '−'}{money.format(Math.abs(m.change))}</b>
+          </div>
+        ))}
       </div>
     </>
   )

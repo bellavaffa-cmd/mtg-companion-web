@@ -3015,6 +3015,42 @@ select.input.sf-sort {
   font-size: 22px;
 }
 
+.movers {
+  margin-top: 28px;
+}
+.movers-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.movers-head h3 {
+  margin: 0;
+  font-size: 17px;
+}
+.movers-head .chip {
+  margin-left: 6px;
+}
+.movers-sub {
+  margin: 14px 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t1);
+}
+.mover-change {
+  font-family: var(--num);
+  font-weight: 400;
+  font-size: 17px;
+  white-space: nowrap;
+}
+.mover-change.up {
+  color: var(--gold);
+}
+.mover-change.down {
+  color: #d3402f;
+}
+
 /* ---- Opening-hand odds ---- */
 
 .land-spread {

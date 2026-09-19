@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react'
 import { getCardsByIds } from '../api/scryfall'
 import type { Collection } from '../types/models'
+import { recordPrices, type PricedCard } from './priceMovers'
 
 /** [date]: "2026-09-20". [cards]: how many cards the value is of. */
 export interface ValuePoint { date: string; usd: number; cards: number }
@@ -122,7 +123,21 @@ export function useCollectionValue(collections: Collection[]): { usd: number; ca
       lastValue = { key, at: Date.now(), usd, cards: count }
       setValue({ usd, cards: count })
       // Only a full answer counts: a dropped request mustn't read as a crash in value.
-      if (cards.length >= ids.length * 0.98) recordValue(usd, count)
+      if (cards.length >= ids.length * 0.98) {
+        recordValue(usd, count)
+        // And each card's price, for which of them moved.
+        const owned = new Map<string, PricedCard>()
+        for (const c of collections) {
+          if (c.type === 'WISHLIST') continue
+          for (const e of c.entries) {
+            const copies = e.quantity + e.foilQuantity
+            const had = owned.get(e.scryfallId)
+            owned.set(e.scryfallId, { id: e.scryfallId, name: e.name, imageUrl: e.imageUrl, copies: (had?.copies ?? 0) + copies })
+          }
+        }
+        const prices = new Map(cards.flatMap((c) => (c.prices?.usd ? [[c.id, Number(c.prices.usd)] as [string, number]] : [])))
+        recordPrices(today(), [...owned.values()].filter((c) => c.copies > 0), prices)
+      }
     })
     return () => { cancelled = true }
     // key stands for the quantities.
