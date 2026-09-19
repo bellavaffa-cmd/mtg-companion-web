@@ -2944,6 +2944,22 @@ select.input.sf-sort {
   font-size: 15px;
 }
 
+/* ---- Opening-hand odds ---- */
+
+.land-spread {
+  height: 110px;
+  margin-top: 14px;
+}
+.land-spread .bnum {
+  font-size: 13px;
+}
+.land-spread .bcol:not(.keep) .bar {
+  background: var(--g2);
+}
+.land-spread .bcol.keep .blbl {
+  color: var(--t0);
+}
+
 /* ---- Goldfish: solo playtesting ---- */
 
 .goldfish {

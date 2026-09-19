@@ -11,6 +11,7 @@ import { Icon } from './Icon'
 import { MANA, TYPE_GROUPS, TYPE_PLURALS, primaryTypeOf, rise } from './kit'
 import { DeckCombosPanel } from './RelayPanels'
 import { DeckLegality } from './DeckLegality'
+import { HandOddsPanel } from './HandOddsPanel'
 
 /** Canonical mana-color order, with generic {C} last. Mirrors the Android app's pipTotals. */
 const PIP_ORDER = ['W', 'U', 'B', 'R', 'G', 'Colorless'] as const
@@ -189,6 +190,8 @@ export function DeckStats({ deck, cardsById, roleTags, tagging = false, onTag }:
       </div>
 
       {roleTags && <TagCounts deck={deck} entries={entries} roleTags={roleTags} tagging={tagging} onTag={onTag} />}
+
+      <HandOddsPanel deck={deck} cardsById={cardsById} roleTags={roleTags} index={3} />
 
       <DeckLegality deck={deck} cardsById={cardsById} index={3} />
 
