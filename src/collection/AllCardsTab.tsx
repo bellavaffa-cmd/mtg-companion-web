@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { Icon } from '../components/Icon'
 import { ActionSheet } from '../components/ActionSheet'
-import { CardZoomModal } from '../components/CardZoomModal'
+import { CardZoomModal, zoomSteps } from '../components/CardZoomModal'
 import { Dialog } from '../components/Dialog'
 import { ManaSymbol } from '../components/ManaSymbols'
 import { useLongPress } from '../components/useLongPress'
@@ -289,6 +289,7 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
           tagsLoading={!!tagging && !roleTags.has(zoomCard.name.trim().toLowerCase())}
           onTagClick={(label) => { setZoomId(null); setQuery(label) }}
           onClose={() => setZoomId(null)}
+          {...zoomSteps(shown, zoomCard, (card) => setZoomId(card.scryfallId))}
         >
           <div className="panel">
             <div className="row-between">

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
-import { CardZoomModal } from '../components/CardZoomModal'
+import { CardZoomModal, zoomSteps } from '../components/CardZoomModal'
 import { ArtImage, SearchPill, SectionHeader, StatFigure, TYPE_GROUPS, TYPE_PLURALS, primaryTypeOf, rise, toArtCrop, useBack } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
 import { GAME_MODE_LABELS, normalizeDeck, type Collection, type CollectionEntry, type Deck, type DeckCardEntry, type GameMode } from '../types/models'
@@ -11,20 +11,6 @@ import { BinderPicker } from '../social/CardPicker'
 import { useSocial } from '../social/SocialContext'
 import { Avatar, handle } from '../social/ui'
 import { useNameTagSearch } from '../tags/useNameTagSearch'
-
-/**
- * Next and previous for a zoom opened from [list], in the order the cards are listed — a swipe, the
- * arrow keys or the chevrons move along it. Nothing when the card isn't in the list or it's alone.
- */
-function zoomSteps<T extends { scryfallId: string }>(list: T[], current: T, go: (card: T) => void) {
-  const i = list.findIndex((c) => c.scryfallId === current.scryfallId)
-  if (i < 0 || list.length < 2) return {}
-  return {
-    onPrev: i > 0 ? () => go(list[i - 1]) : undefined,
-    onNext: i < list.length - 1 ? () => go(list[i + 1]) : undefined,
-    position: { index: i + 1, total: list.length },
-  }
-}
 
 type Loaded = { state: 'loading' } | { state: 'missing' } | { state: 'error'; message: string } | { state: 'ok'; item: api.SharedItem }
 

@@ -47,6 +47,20 @@ interface Props {
   position?: { index: number; total: number }
 }
 
+/**
+ * Next and previous for a zoom opened from [list], in the order the cards are listed — a swipe, the
+ * arrow keys or the chevrons move along it. Nothing when the card isn't in the list or it's alone.
+ */
+export function zoomSteps<T extends { scryfallId: string }>(list: T[], current: T, go: (card: T) => void) {
+  const i = list.findIndex((c) => c.scryfallId === current.scryfallId)
+  if (i < 0 || list.length < 2) return {}
+  return {
+    onPrev: i > 0 ? () => go(list[i - 1]) : undefined,
+    onNext: i < list.length - 1 ? () => go(list[i + 1]) : undefined,
+    position: { index: i + 1, total: list.length },
+  }
+}
+
 /** A tilting card that catches a foil sheen under the pointer — the Android app's card detail. */
 function TiltCard({ src, alt, children }: { src: string; alt: string; children?: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)

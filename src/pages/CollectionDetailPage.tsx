@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
-import { CardZoomModal } from '../components/CardZoomModal'
+import { CardZoomModal, zoomSteps } from '../components/CardZoomModal'
 import { ActionSheet } from '../components/ActionSheet'
 import { useLongPress } from '../components/useLongPress'
 import { CardSearchResults } from '../components/CardSearchResults'
@@ -362,6 +362,7 @@ export function CollectionDetailPage() {
           onSelectSimilar={(similar) => addEntryToCollection(collection.id, similar)}
           similarActionLabel="Tap a card to add it to this binder"
           onClose={() => setZoomId(null)}
+          {...zoomSteps(shown, zoomEntry, (card) => setZoomId(card.scryfallId))}
         >
           <div className="panel detail-grid">
             <div className="row-between">
