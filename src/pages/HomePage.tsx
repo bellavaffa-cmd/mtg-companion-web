@@ -14,7 +14,9 @@ import { getRandomCard } from '../api/scryfall'
 import type { ScryfallCard } from '../types/scryfall'
 import { backImageUrl, cardTags, displayImageUrl, displayManaCost, displayOracleText } from '../types/scryfall'
 import type { Collection, Deck } from '../types/models'
-import { formatUsd, usePriceAlertHits } from '../collection/priceAlerts'
+import { usePriceAlertHits } from '../collection/priceAlerts'
+import { useCollectionValue } from '../collection/valueHistory'
+import { useMoney } from '../money/currency'
 import { isAndroid } from './GetAppPage'
 
 const CARD_OF_DAY_KEY = 'mtgweb_card_of_day'
@@ -95,9 +97,9 @@ export function HomePage() {
   const lastDeck = decks.find((d) => d.id === lastId) ?? null
   const continueDeck = lastDeck ?? decks[0] ?? null
   const railDecks = [...decks].sort((a, b) => Number(b.id === lastId) - Number(a.id === lastId))
-  const ownedCards = collections
-    .filter((c) => c.type !== 'WISHLIST')
-    .reduce((sum, c) => sum + c.entries.reduce((s, e) => s + e.quantity + e.foilQuantity, 0), 0)
+  // The owned binders' value, noted once a day for the value history (/value).
+  const value = useCollectionValue(collections)
+  const money = useMoney()
   const results = decks.flatMap((d) => d.gameResults)
   const wins = results.filter((r) => r.result === 'WIN').length
   const losses = results.filter((r) => r.result === 'LOSS').length
@@ -168,7 +170,7 @@ export function HomePage() {
               <div className="stats-2x2">
                 <StatFigure value={decks.length} label="Decks" onClick={() => navigate('/decks')} />
                 <StatFigure value={collections.length} label="Binders" onClick={() => navigate('/collections')} />
-                <StatFigure value={ownedCards} label="Cards owned" onClick={() => navigate('/collections')} />
+                <StatFigure value={value?.usd ?? null} format={(v) => money.format(v, true)} label="Collection value" onClick={() => navigate('/value')} />
                 <button type="button" className="stat press" style={{ cursor: 'default' }}>
                   <span className="num">{record ?? <span style={{ color: 'var(--t2)' }}>—</span>}</span>
                   <span className="lbl">{record ? `Match record · ${Math.round((wins * 100) / results.length)}% wins` : 'No games logged yet'}</span>
@@ -181,7 +183,7 @@ export function HomePage() {
               <div className="stats four rise" style={rise(2)}>
                 <StatFigure value={decks.length} label="Decks" onClick={() => navigate('/decks')} />
                 <StatFigure value={collections.length} label="Binders" onClick={() => navigate('/collections')} />
-                <StatFigure value={ownedCards} label="Cards owned" onClick={() => navigate('/collections')} />
+                <StatFigure value={value?.usd ?? null} format={(v) => money.format(v, true)} label="Collection value" onClick={() => navigate('/value')} />
                 <button type="button" className="stat press" style={{ cursor: 'default' }}>
                   <span className="num">{record ?? <span style={{ color: 'var(--t2)' }}>—</span>}</span>
                   <span className="lbl">Match record</span>
@@ -254,7 +256,7 @@ export function HomePage() {
         <div className="stats rise" style={{ ...rise(2), marginTop: 10 }}>
           <StatFigure value={decks.length} label="Decks" onClick={() => navigate('/decks')} />
           <StatFigure value={collections.length} label="Binders" onClick={() => navigate('/collections')} />
-          <StatFigure value={ownedCards} label="Cards owned" onClick={() => navigate('/collections')} />
+          <StatFigure value={value?.usd ?? null} format={(v) => money.format(v, true)} label="Collection value" onClick={() => navigate('/value')} />
         </div>
 
         <button type="button" className="banner press rise" style={{ ...rise(3), marginTop: 10 }} onClick={() => navigate('/life')}>
@@ -355,6 +357,7 @@ function EmptyDecks({ onNew }: { onNew: () => void }) {
 }
 
 function CardOfDay({ card, onOpen }: { card: ScryfallCard; onOpen: () => void }) {
+  const money = useMoney()
   return (
     <button type="button" className="cotd press" onClick={onOpen}>
       <div className="foil" style={{ borderRadius: 7 }}>
@@ -364,7 +367,7 @@ function CardOfDay({ card, onOpen }: { card: ScryfallCard; onOpen: () => void })
         <div className="eyebrow">Card of the day</div>
         <div className="cotd-name">{card.name}</div>
         <div className="cotd-meta">
-          <span>{card.prices?.usd ? `$${card.prices.usd} · ` : ''}{card.type_line}</span>
+          <span>{card.prices?.usd ? `${money.formatPrice(card.prices.usd)} · ` : ''}{card.type_line}</span>
           <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
         </div>
       </div>
@@ -405,6 +408,8 @@ function BinderSummary({ collections, onOpen, onAll }: { collections: Collection
 /** Wishlist cards that dropped to (or under) the price the user asked to hear about. */
 function PriceAlertBanner({ hits, onOpen, onDismiss }: { hits: import('../collection/priceAlerts').PriceAlertHit[]; onOpen: (collectionId: string) => void; onDismiss: () => void }) {
   const first = hits[0]
+  const money = useMoney()
+  const formatUsd = (v: number) => money.format(v)
   return (
     <div className="banner rise price-alert-banner" style={{ ...rise(1), marginBottom: 0 }} role="status">
       <Icon name="notifications_active" />

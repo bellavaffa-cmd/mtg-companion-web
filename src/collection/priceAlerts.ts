@@ -2,6 +2,7 @@
 // is at or under it. The web app checks when it's opened (Home); the Android app also checks in the
 // background. Prices are Scryfall's (USD, non-foil), which it updates once a day.
 
+import { currentMoney } from '../money/currency'
 import { useEffect, useState } from 'react'
 import { getCardsByIds } from '../api/scryfall'
 import type { Collection, CollectionEntry } from '../types/models'
@@ -17,7 +18,8 @@ const CHECK_EVERY_MS = 60 * 60 * 1000
 const SEEN_KEY = 'mtgweb_price_alerts_seen'
 const CHECKED_KEY = 'mtgweb_price_alerts_checked'
 
-export const formatUsd = (v: number) => `$${v.toFixed(2)}`
+/** A US dollar price in the currency prices show in (Account → Prices). Components use useMoney() so they follow a change. */
+export const formatUsd = (v: number) => currentMoney().format(v)
 
 /** The prices (USD, non-foil) of [entries] — undefined while loading, null for a card with none. */
 export function usePrices(entries: CollectionEntry[], enabled = true): Map<string, number | null> | undefined {

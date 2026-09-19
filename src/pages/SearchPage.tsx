@@ -7,7 +7,7 @@ const EXAMPLES = [
   { label: 'Green creatures', query: 'c:g t:creature' },
   { label: 'Commanders', query: 'is:commander' },
   { label: 'Card draw', query: 'o:"draw a card" c<=u' },
-  { label: 'Ramp under $1', query: 'otag:ramp usd<1' },
+  { label: 'Cheap ramp', query: 'otag:ramp usd<1' },
   { label: 'Board wipes', query: 'otag:board-wipe' },
 ]
 

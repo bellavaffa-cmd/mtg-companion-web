@@ -12,7 +12,8 @@ import { ExportCollectionDialog, ImportCardsDialog } from '../collection/CardLis
 import { ArtImage, IconButton, SearchPill, SectionHeader, StatFigure, rise, toArtCrop, useBack, useLayoutSize, useScrollProgress } from '../components/kit'
 import { Dialog } from '../components/Dialog'
 import { isUnsorted, type CollectionEntry } from '../types/models'
-import { askForNotifications, formatUsd, usePrices } from '../collection/priceAlerts'
+import { askForNotifications, usePrices } from '../collection/priceAlerts'
+import { useMoney } from '../money/currency'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
 
 export function CollectionDetailPage() {
@@ -23,6 +24,10 @@ export function CollectionDetailPage() {
   // A wishlist shows what each card costs now, and can watch for it to drop.
   const wishlist = collection?.type === 'WISHLIST'
   const prices = usePrices(collection?.entries ?? [], wishlist)
+  // Prices show — and alerts are typed — in the chosen currency; they're kept in US dollars.
+  const money = useMoney()
+  const formatUsd = (v: number) => money.format(v)
+  const decimals = money.currency.decimals ?? 2
   // What each card does: found by the search, shown in the zoom.
   const { tags: roleTags, loading: tagging } = useRoleTags(collection?.entries.map((e) => e.name) ?? [])
   const [alerting, setAlerting] = useState<CollectionEntry | null>(null)
@@ -198,7 +203,7 @@ export function CollectionDetailPage() {
                   detail: sheet.priceAlert ? `When it's ${formatUsd(sheet.priceAlert)} or less` : 'Hear when it gets cheaper',
                   onClick: () => {
                     const now = prices?.get(sheet.scryfallId)
-                    setAlertText(sheet.priceAlert ? sheet.priceAlert.toFixed(2) : now ? (Math.floor(now * 0.9 * 100) / 100).toFixed(2) : '')
+                    setAlertText(sheet.priceAlert ? money.toLocal(sheet.priceAlert).toFixed(decimals) : now ? (money.toLocal(now) * 0.9).toFixed(decimals) : '')
                     setAlerting(sheet)
                   },
                 }]
@@ -307,7 +312,7 @@ export function CollectionDetailPage() {
                 className="btn gold"
                 disabled={!(Number(alertText) > 0)}
                 onClick={() => {
-                  setEntryPriceAlert(collection.id, alerting.scryfallId, Math.round(Number(alertText) * 100) / 100)
+                  setEntryPriceAlert(collection.id, alerting.scryfallId, Math.round(money.toUsd(Number(alertText)) * 10_000) / 10_000)
                   askForNotifications()
                   setAlerting(null)
                 }}
@@ -319,14 +324,14 @@ export function CollectionDetailPage() {
         >
           <p className="muted" style={{ marginTop: 0 }}>
             {prices?.get(alerting.scryfallId) != null ? `It's ${formatUsd(prices.get(alerting.scryfallId)!)} now. ` : ''}
-            Tell me when it's this much or less (USD, non-foil):
+            Tell me when it's this much or less ({money.currency.code}, non-foil):
           </p>
           <input
             className="input"
             inputMode="decimal"
             value={alertText}
             onChange={(e) => setAlertText(e.target.value.replace(/[^0-9.]/g, ''))}
-            aria-label="Alert price in US dollars"
+            aria-label={`Alert price in ${money.currency.code}`}
             autoFocus
           />
           <p className="dim" style={{ marginBottom: 0 }}>Checked when you open the app. The Android app can also send a notification.</p>
@@ -389,6 +394,8 @@ function EntryRow({
   onIncrement: () => void
   onDecrement: () => void
 }) {
+  const money = useMoney()
+  const formatUsd = (v: number) => money.format(v)
   // Press and hold picks the card; while picking, a tap adds or drops it.
   const longPress = useLongPress({ onLongPress: onToggle, onClick: selecting ? onToggle : onZoom })
   return (

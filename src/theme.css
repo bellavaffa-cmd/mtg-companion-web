@@ -2944,6 +2944,77 @@ select.input.sf-sort {
   font-size: 15px;
 }
 
+/* ---- The collection's value over time ---- */
+
+.value-page {
+  padding-top: 8px;
+}
+.value-now {
+  font-family: var(--num);
+  font-size: 44px;
+  line-height: 1.1;
+}
+.value-change {
+  margin-top: 2px;
+  font-size: 14px;
+  color: var(--t1);
+}
+.value-change.up {
+  color: var(--gold);
+}
+.value-change.down {
+  color: #d3402f;
+}
+.value-page .chip {
+  margin-right: 8px;
+}
+.value-chart {
+  display: block;
+  width: 100%;
+  height: 220px;
+  margin-top: 18px;
+  touch-action: pan-y;
+  cursor: crosshair;
+}
+.value-grid {
+  stroke: var(--g2);
+  stroke-width: 1;
+}
+.value-line {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.value-cursor {
+  stroke: var(--gold);
+  stroke-opacity: 0.5;
+  stroke-width: 1.5;
+}
+.value-dot {
+  fill: var(--gold);
+}
+.value-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 12px;
+}
+.value-figures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+}
+.value-figures .panel + .panel {
+  margin-top: 0;
+}
+.value-figure {
+  font-family: var(--num);
+  font-size: 22px;
+}
+
 /* ---- Opening-hand odds ---- */
 
 .land-spread {

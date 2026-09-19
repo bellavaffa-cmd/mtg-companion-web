@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useMoney } from '../money/currency'
 import { searchCards } from '../api/scryfall'
 import type { ScryfallCard } from '../types/scryfall'
 import { backImageUrl, cardTags, displayImageUrl, displayManaCost, displayOracleText, hasFlipSides } from '../types/scryfall'
@@ -30,6 +31,7 @@ interface Props {
 }
 
 export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. c:g t:creature', examples, autoFocus, initialQuery = '', wide, filterable }: Props) {
+  const money = useMoney()
   const { decks, collections, addCardToDeck, addEntryToCollection } = useSync()
   const [query, setQuery] = useState(initialQuery)
   const [cards, setCards] = useState<ScryfallCard[]>([])
@@ -141,7 +143,7 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
       {sheetCard && (
         <ActionSheet
           title={sheetCard.name}
-          subtitle={[sheetCard.type_line, sheetCard.prices?.usd ? `$${sheetCard.prices.usd}` : null].filter(Boolean).join(' · ')}
+          subtitle={[sheetCard.type_line, money.formatPrice(sheetCard.prices?.usd)].filter(Boolean).join(' · ')}
           imageUrl={displayImageUrl(sheetCard)}
           actions={actionsFor(sheetCard)}
           onClose={() => setSheetCard(null)}
@@ -179,6 +181,7 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
 }
 
 function ResultRow({ card, onZoom, onMore, onAdd }: { card: ScryfallCard; onZoom: () => void; onMore: () => void; onAdd?: () => void }) {
+  const money = useMoney()
   const longPress = useLongPress({ onLongPress: onMore, onClick: onZoom })
   return (
     <div className="crow no-qty" style={{ gridTemplateColumns: '56px minmax(0, 1fr) auto auto' }}>
@@ -190,7 +193,7 @@ function ResultRow({ card, onZoom, onMore, onAdd }: { card: ScryfallCard; onZoom
         <div className="cname">{card.name}</div>
         <div className="cmeta"><span>{card.type_line ?? ''}</span></div>
       </div>
-      {card.prices?.usd ? <span className="cprice">${card.prices.usd}</span> : <span />}
+      {card.prices?.usd ? <span className="cprice">{money.formatPrice(card.prices.usd)}</span> : <span />}
       {onAdd ? (
         <button type="button" className="more" onClick={onAdd} aria-label={`Add ${card.name}`} style={{ color: 'var(--gold)' }}>
           <Icon name="add_circle" style={{ fontSize: 24 }} />

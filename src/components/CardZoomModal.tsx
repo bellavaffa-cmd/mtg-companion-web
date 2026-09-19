@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useMoney } from '../money/currency'
 import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { findSimilarCards, getByFuzzyName } from '../api/scryfall'
@@ -86,6 +87,7 @@ export function CardZoomModal({
   imageUrl, name, typeLine, priceUsd, priceUsdFoil, onClose, children, scryfallId, currentDeckId, currentCollectionId,
   backImageUrl, tags = [], tagsLoading = false, onTagClick, onSelectSimilar, similarActionLabel, oracleText, manaCost,
 }: Props) {
+  const money = useMoney()
   const { decks, collections } = useSync()
   const navigate = useNavigate()
   const [flipped, setFlipped] = useState(false)
@@ -168,8 +170,8 @@ export function CardZoomModal({
 
         {(priceUsd || priceUsdFoil) && (
           <div className="prices rise" style={{ ['--i' as string]: 2 }}>
-            <div className="price"><span className="lbl">Market</span><b>{priceUsd ? `$${priceUsd}` : '—'}</b></div>
-            <div className="price"><span className="lbl">Foil</span><b>{priceUsdFoil ? `$${priceUsdFoil}` : '—'}</b></div>
+            <div className="price"><span className="lbl">Market</span><b>{money.formatPrice(priceUsd) ?? '—'}</b></div>
+            <div className="price"><span className="lbl">Foil</span><b>{money.formatPrice(priceUsdFoil) ?? '—'}</b></div>
           </div>
         )}
 

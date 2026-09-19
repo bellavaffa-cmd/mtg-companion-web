@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
+import { useMoney } from '../money/currency'
 import { Icon } from '../components/Icon'
 import { getCardsByIds } from '../api/scryfall'
 import type { TradeCard } from './api'
-
-const usd = (v: number) => `$${v.toFixed(2)}`
 
 /** Prices of [cards] (USD, and the foil price for foil copies), fetched when the list changes. */
 function useTradePrices(cards: TradeCard[]) {
@@ -32,6 +31,9 @@ function useTradePrices(cards: TradeCard[]) {
  */
 export function TradeValue({ get, give }: { get: TradeCard[]; give: TradeCard[] }) {
   const prices = useTradePrices([...get, ...give])
+  // Worked out in US dollars (within $2 or a tenth is fair), shown in the chosen currency.
+  const money = useMoney()
+  const usd = (v: number) => money.format(v)
   if (get.length + give.length === 0) return null
   if (!prices) return <div className="trade-value dim">Couldn't load prices.</div>
   const total = (cards: TradeCard[]) => {

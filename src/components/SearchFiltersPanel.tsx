@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useMoney } from '../money/currency'
 import {
   activeFilterCount, FINISHES, NO_FILTERS, RARITIES, SORT_OPTIONS, WUBRG,
   type ManaColor, type SearchFilters, type SearchSort,
@@ -20,6 +21,7 @@ export function SearchFiltersPanel({
   open: boolean
   onToggle: () => void
 }) {
+  const money = useMoney()
   const count = activeFilterCount(filters)
   const set = <K extends keyof SearchFilters>(key: K, value: SearchFilters[K]) => onChange((f) => ({ ...f, [key]: value }))
   const toggle = <T,>(list: T[], item: T) => (list.includes(item) ? list.filter((x) => x !== item) : [...list, item])
@@ -85,7 +87,7 @@ export function SearchFiltersPanel({
               ))}
             </div>
           </Row>
-          <Row label="Price (USD)">
+          <Row label={`Price (${money.currency.code})`}>
             <Range min={filters.priceMin} max={filters.priceMax} onMin={(v) => set('priceMin', v)} onMax={(v) => set('priceMax', v)} step="0.01" />
           </Row>
           <Row label="Power">

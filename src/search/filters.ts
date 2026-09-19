@@ -1,6 +1,8 @@
 // Structured search filters compiled into a Scryfall query — the same fields and the same query
 // syntax as the Android app's SearchFilters / buildScryfallQuery (ui/search/SearchViewModel.kt).
 
+import { currentMoney } from '../money/currency'
+
 export type ManaColor = 'W' | 'U' | 'B' | 'R' | 'G'
 
 /** Canonical colour order, for the pickers and for stable query strings. */
@@ -95,7 +97,10 @@ export function buildScryfallQuery(text: string, filters: SearchFilters): string
     if (lo !== null) parts.push(`${key}>=${lo}`)
     if (hi !== null) parts.push(`${key}<=${hi}`)
   }
-  range('usd', filters.priceMin, filters.priceMax)
+  // Prices are typed in the chosen currency; Scryfall searches in US dollars.
+  const money = currentMoney()
+  const usd = (v: string) => (money.isUsd || asNumber(v) === null ? v : money.toUsd(Number(v)).toFixed(2))
+  range('usd', usd(filters.priceMin), usd(filters.priceMax))
   range('pow', filters.powerMin, filters.powerMax)
   range('tou', filters.toughnessMin, filters.toughnessMax)
 

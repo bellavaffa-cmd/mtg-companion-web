@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useMoney } from '../money/currency'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { TopBar } from '../components/TopBar'
@@ -31,6 +32,7 @@ import {
 import type { Deck, DeckCardEntry, GameMode } from '../types/models'
 
 export function DeckDetailPage() {
+  const money = useMoney()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const back = useBack('/decks')
@@ -212,14 +214,14 @@ export function DeckDetailPage() {
               <span><b>{totalCards}</b>cards</span>
               {usesCommander && commanders.length > 0 && <span>{GAME_MODE_LABELS[deck.gameMode as GameMode]}</span>}
               <span className="bchip">{DECK_OWNERSHIP_LABELS[deck.ownership]}</span>
-              {size === 'tablet' && figures && figures.value > 0 && <span><b>${Math.round(figures.value).toLocaleString('en-US')}</b>value</span>}
+              {size === 'tablet' && figures && figures.value > 0 && <span><b>{money.format(figures.value, true)}</b>value</span>}
             </div>
           </div>
           {size === 'desktop' && (
             <div className="hero-figures">
               <div className="stat">
                 <span className="lbl">Deck value</span>
-                <span className="num">{figures ? <CountUp value={figures.value} format={(v) => `$${Math.round(v).toLocaleString('en-US')}`} /> : '—'}</span>
+                <span className="num">{figures ? <CountUp value={figures.value} format={(v) => money.format(v, true)} /> : '—'}</span>
               </div>
               <div className="stat">
                 <span className="lbl">Avg. mana value</span>
