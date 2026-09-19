@@ -47,7 +47,7 @@ function Composer({ overview }: { overview: api.Overview }) {
 
   // A counter starts from their trade turned around: what they offered is what the user asks for.
   const [want, setWant] = useState<api.TradeCard[]>(() => replyTo?.give ?? (location.state as { want?: api.TradeCard[] } | null)?.want ?? [])
-  const [give, setGive] = useState<api.TradeCard[]>(() => replyTo?.want ?? [])
+  const [give, setGive] = useState<api.TradeCard[]>(() => replyTo?.want ?? (location.state as { give?: api.TradeCard[] } | null)?.give ?? [])
   const [message, setMessage] = useState('')
   const [picking, setPicking] = useState<'theirs' | 'mine' | null>(null)
   const [theirBinders, setTheirBinders] = useState<TheirBinder[] | null>(null)

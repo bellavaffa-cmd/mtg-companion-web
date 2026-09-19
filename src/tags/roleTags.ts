@@ -62,8 +62,8 @@ export const COMMANDER_TARGETS: Record<string, [number, number]> = {
 }
 
 const CACHE_KEY = 'mtgweb_role_tags'
-/** Per-card tags. */
-const CACHE_VERSION = 3
+/** Per-card tags (and colour identity). */
+const CACHE_VERSION = 4
 const SETS_KEY = 'mtgweb_role_tag_sets'
 /** The tag → cards lists from Tagger's file. */
 const SETS_VERSION = 1
@@ -78,7 +78,8 @@ const ID_PREFIX = 13
 /** Scryfall unreachable: the cards left are tried again this much later. */
 const RESUME_MS = 60_000
 
-interface Cache { v: number; cards: Record<string, { t: string[]; at: number }> }
+/** [c]: the card's colour identity ("WU"; "" colourless), when Scryfall knew the card. */
+interface Cache { v: number; cards: Record<string, { t: string[]; at: number; c?: string }> }
 type TagSets = Map<string, Set<string>>
 
 const key = (name: string) => name.trim().toLowerCase()
@@ -102,6 +103,11 @@ const changed = () => listeners.forEach((l) => l())
 /** A card's tag ids, if it has been looked up. */
 export function cachedTags(name: string): string[] | undefined {
   return cache.cards[key(name)]?.t
+}
+
+/** A card's colour identity ("WU"; "" for colourless), if it has been looked up. */
+export function cachedIdentity(name: string): string | undefined {
+  return cache.cards[key(name)]?.c
 }
 
 /** Which of ROLE_TAGS a card has, from its Oracle id (against [sets]) and rules text. */
@@ -245,17 +251,18 @@ export function requestTags(names: string[]): void {
         } catch {
           break // offline: the rest are tried again below
         }
-        const found = new Map<string, string[]>()
+        const found = new Map<string, { t: string[]; c: string }>()
         for (const card of data) {
-          const tags = tagsFor(card.oracle_id, textOf(card), tagSets)
+          const known = { t: tagsFor(card.oracle_id, textOf(card), tagSets), c: (card.color_identity ?? []).join('') }
           // A double-faced card answers to its full name; its front face's is enough too.
-          found.set(key(card.name), tags)
-          found.set(key(card.name.split(' // ')[0]), tags)
+          found.set(key(card.name), known)
+          found.set(key(card.name.split(' // ')[0]), known)
         }
         const at = Date.now()
         for (const n of chunk) {
           pending.delete(n)
-          cache.cards[n] = { t: found.get(n) ?? [], at }
+          const known = found.get(n)
+          cache.cards[n] = known ? { ...known, at } : { t: [], at }
         }
         progress.done += chunk.length
         persist()

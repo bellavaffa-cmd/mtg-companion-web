@@ -2967,6 +2967,52 @@ button.tag-chip {
   text-align: left;
   cursor: pointer;
 }
+.tag-row + .tag-row {
+  border-top: 1px solid var(--line);
+}
+/* The owned cards that would fill a core job's gap. */
+.owned-gap {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 8px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--gold-light, var(--gold));
+  cursor: pointer;
+}
+.owned-gap.short {
+  color: var(--gold);
+}
+.owned-gap .icon {
+  font-size: 16px;
+}
+.owned-pick {
+  flex-wrap: wrap;
+  cursor: default;
+}
+/* A long name keeps its room: on a phone the buttons move to their own line. */
+.owned-pick .deck-pick-name {
+  display: flex;
+  flex: 1 1 150px;
+  flex-direction: column;
+}
+.owned-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.owned-where {
+  font-size: 12px;
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .meter-button + .meter-button {
   border-top: 1px solid var(--line);
 }

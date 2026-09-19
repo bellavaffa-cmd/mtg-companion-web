@@ -2,8 +2,8 @@
 // binders they were in, and the cards they get go into the binder they choose. Each side applies
 // only their own half, on their own device — nobody's app ever writes into someone else's library.
 
-import type { Collection } from '../types/models'
-import type { Trade, TradeCard } from './api'
+import type { Collection, CollectionEntry } from '../types/models'
+import type { SharedCardHit, Trade, TradeCard } from './api'
 
 export interface CollectionChange {
   collectionId: string
@@ -80,3 +80,61 @@ export function applyCollectionChanges(collections: Collection[], changes: Colle
 
 /** How many cards a list holds, counting copies. */
 export const cardTotal = (cards: TradeCard[]) => cards.reduce((n, c) => n + c.quantity, 0)
+
+/** A card of the user's that's on one of a friend's shared wishlists. [card]: one copy, ready to offer. */
+export interface WantedCard {
+  name: string
+  imageUrl: string | null
+  copies: number
+  wishlist: string
+  card: TradeCard
+}
+
+/**
+ * The user's cards (in their own binders, not wishlists) that are on a friend's wishlists among
+ * [theirs] — one line each, offered from the binder with the most regular copies (or foil, if
+ * that's all there is). The Android app's cardsTheyWant is the same.
+ */
+export function cardsTheyWant(mine: Collection[], theirs: Collection[]): WantedCard[] {
+  const wants = new Map<string, string>() // card name -> the wishlist it's on
+  for (const c of theirs) {
+    if (c.type !== 'WISHLIST') continue
+    for (const e of c.entries ?? []) {
+      const key = e.name.trim().toLowerCase()
+      if (!wants.has(key)) wants.set(key, c.name)
+    }
+  }
+  if (wants.size === 0) return []
+  const held = new Map<string, { collectionId: string; entry: CollectionEntry }[]>()
+  for (const c of mine) {
+    if (c.type === 'WISHLIST') continue
+    for (const e of c.entries) {
+      const key = e.name.trim().toLowerCase()
+      if (wants.has(key) && e.quantity + e.foilQuantity > 0) held.set(key, [...(held.get(key) ?? []), { collectionId: c.id, entry: e }])
+    }
+  }
+  return [...held.entries()].map(([key, copies]) => {
+    const best = copies.reduce((a, b) => (b.entry.quantity > a.entry.quantity || (b.entry.quantity === a.entry.quantity && b.entry.foilQuantity > a.entry.foilQuantity) ? b : a))
+    const e = best.entry
+    return {
+      name: e.name,
+      imageUrl: e.imageUrl,
+      copies: copies.reduce((n, c) => n + c.entry.quantity + c.entry.foilQuantity, 0),
+      wishlist: wants.get(key)!,
+      card: { scryfallId: e.scryfallId, name: e.name, imageUrl: e.imageUrl, foil: e.quantity <= 0, quantity: 1, collectionId: best.collectionId },
+    }
+  }).sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/** A friend's cards on the user's wishlists (from wishlistMatches) as trade lines: one copy of each card. */
+export function hitsAsTrade(hits: SharedCardHit[]): TradeCard[] {
+  const seen = new Set<string>()
+  const out: TradeCard[] = []
+  for (const h of hits) {
+    const key = h.name.trim().toLowerCase()
+    if (h.quantity + h.foil_quantity <= 0 || seen.has(key)) continue
+    seen.add(key)
+    out.push({ scryfallId: h.scryfall_id, name: h.name, imageUrl: h.image_url, foil: h.quantity <= 0, quantity: 1, collectionId: h.item_id })
+  }
+  return out
+}

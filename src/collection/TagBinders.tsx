@@ -8,39 +8,61 @@ import { CardZoomModal } from '../components/CardZoomModal'
 import { useLongPress } from '../components/useLongPress'
 import { ArtImage, SearchPill, rise, toArtCrop, useBack, useLayoutSize } from '../components/kit'
 import { getCardsByIds } from '../api/scryfall'
-import type { Collection } from '../types/models'
+import type { Deck } from '../types/models'
+import { ownedCards, type OwnedCard } from './owned'
 import { ROLE_TAGS, matchedTags, matchesNameOrTag, tagById, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
 
-/** One card the user owns, however many binders its copies are spread over. */
-export interface OwnedCard {
-  key: string
-  name: string
-  scryfallId: string
-  imageUrl: string | null
-  backImageUrl?: string | null
-  copies: number
-  /** Where the copies are: binder name and how many. */
-  where: { collectionId: string; name: string; copies: number }[]
-}
+/**
+ * The cards the user owns that do [label]'s job and aren't in [deck]: each can go into the deck,
+ * or onto its Considering list.
+ */
+export function OwnedForTagDialog({ label, deck, cards, onDismiss }: { label: string; deck: Deck; cards: OwnedCard[]; onDismiss: () => void }) {
+  const { addCardsToDeck } = useSync()
+  const [busy, setBusy] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+  const considering = new Set((deck.considering ?? []).map((c) => c.name.trim().toLowerCase()))
 
-/** Every card in the user's own binders (and the Unsorted pile) — not their wishlists. */
-export function ownedCards(collections: Collection[]): OwnedCard[] {
-  const byName = new Map<string, OwnedCard>()
-  for (const c of collections) {
-    if (c.type === 'WISHLIST') continue
-    for (const e of c.entries) {
-      const copies = e.quantity + e.foilQuantity
-      if (copies <= 0) continue
-      const key = e.name.trim().toLowerCase()
-      const card = byName.get(key) ?? { key, name: e.name, scryfallId: e.scryfallId, imageUrl: e.imageUrl, backImageUrl: e.backImageUrl, copies: 0, where: [] }
-      card.copies += copies
-      const here = card.where.find((w) => w.collectionId === c.id)
-      if (here) here.copies += copies
-      else card.where.push({ collectionId: c.id, name: c.name, copies })
-      byName.set(key, card)
+  const add = async (card: OwnedCard, toConsidering: boolean) => {
+    setBusy(card.key)
+    try {
+      // A deck entry needs the full card (type, commander-ness…), which a binder entry doesn't keep.
+      const full = await getCardsByIds([card.scryfallId], true)
+      addCardsToDeck(deck.id, full, toConsidering)
+      setMessage(`Added ${card.name} to ${toConsidering ? 'Considering' : 'the deck'}.`)
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Couldn't reach Scryfall — try again when you're online.")
+    } finally {
+      setBusy(null)
     }
   }
-  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name))
+
+  return (
+    <Dialog title={`${label} you own`} onDismiss={onDismiss} actions={<button type="button" className="btn gold" onClick={onDismiss}>Done</button>}>
+      <p className="dim" style={{ margin: '0 0 10px', fontSize: 13 }}>{message ?? 'In your binders, not in this deck yet.'}</p>
+      {cards.length === 0 ? (
+        <p className="muted" style={{ margin: 0 }}>All added.</p>
+      ) : (
+        <div className="deck-pick-list">
+          {cards.map((card) => {
+            const onList = considering.has(card.key)
+            return (
+              <div key={card.key} className="deck-pick owned-pick">
+                <ArtImage className="deck-pick-art" src={toArtCrop(card.imageUrl)} seed={card.name} />
+                <span className="deck-pick-name">
+                  {card.name}
+                  <span className="dim owned-where">{onList ? 'On Considering' : card.where.map((w) => w.name).join(', ')}</span>
+                </span>
+                <span className="owned-actions">
+                  {!onList && <button type="button" className="btn line sm" disabled={busy != null} onClick={() => void add(card, true)}>Consider</button>}
+                  <button type="button" className="btn gold sm" disabled={busy != null} onClick={() => void add(card, false)}>{busy === card.key ? 'Adding…' : 'Add to deck'}</button>
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </Dialog>
+  )
 }
 
 const TAGS_SHOWN = 8

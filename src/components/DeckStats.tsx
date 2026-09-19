@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getCardsByIds } from '../api/scryfall'
 import { displayManaCost, type ScryfallCard } from '../types/scryfall'
 import type { Deck, DeckCardEntry } from '../types/models'
-import { COMMANDER_TARGETS, ROLE_TAGS, tagLabel, tagsOf } from '../tags/roleTags'
+import { COMMANDER_TARGETS, ROLE_TAGS, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
+import { useSync } from '../sync/SyncContext'
+import { OwnedForTagDialog } from '../collection/TagBinders'
+import { ownedCards, ownedForTag, type OwnedCard } from '../collection/owned'
 import { ManaSymbol } from './ManaSymbols'
 import { Icon } from './Icon'
 import { MANA, TYPE_GROUPS, TYPE_PLURALS, primaryTypeOf, rise } from './kit'
@@ -214,6 +217,24 @@ function TagCounts({ deck, entries, roleTags, tagging, onTag }: {
   const ids = ROLE_TAGS.map((t) => t.id).filter((id) => counts.has(id) || (commander && COMMANDER_TARGETS[id]))
   ids.sort((a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0))
   const most = Math.max(1, ...ids.map((id) => counts.get(id) ?? 0))
+
+  // For the core jobs: the cards already in the user's binders that would fill the gap.
+  const { collections } = useSync()
+  const owned = useMemo(() => ownedCards(collections), [collections])
+  const commanders = [deck.commander, deck.partnerCommander].flatMap((c) => (c ? [c.name] : []))
+  const { tags: ownedTags } = useRoleTags([...owned.map((c) => c.name), ...commanders])
+  const gaps = useMemo(() => {
+    const m = new Map<string, OwnedCard[]>()
+    for (const id of Object.keys(COMMANDER_TARGETS)) {
+      const found = ownedForTag(owned, deck, id)
+      if (found.length) m.set(id, found)
+    }
+    return m
+    // ownedTags: the tag cache filled in underneath.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [owned, deck, ownedTags])
+  const [ownedFor, setOwnedFor] = useState<string | null>(null)
+
   return (
     <div className="panel rise" style={rise(3)}>
       <div className="p-h"><h3>What the cards do</h3>{tagging && <span className="p-sub">Finding tags…</span>}</div>
@@ -233,12 +254,25 @@ function TagCounts({ deck, entries, roleTags, tagging, onTag }: {
             <div className="m-track"><div className="m-fill" style={{ ['--w' as string]: `${(n / most) * 100}%`, ['--i' as string]: i }} /></div>
           </>
         )
-        return onTag ? (
-          <button key={id} type="button" className="meter meter-button" onClick={() => onTag(tagLabel(id))}>{row}</button>
-        ) : (
-          <div key={id} className="meter">{row}</div>
+        const have = gaps.get(id) ?? []
+        return (
+          <div key={id} className="tag-row">
+            {onTag ? (
+              <button type="button" className="meter meter-button" onClick={() => onTag(tagLabel(id))}>{row}</button>
+            ) : (
+              <div className="meter">{row}</div>
+            )}
+            {have.length > 0 && status !== ' over' && (
+              <button type="button" className={`owned-gap${status === ' short' ? ' short' : ''}`} onClick={() => setOwnedFor(id)}>
+                <Icon name="add_circle" aria-hidden />You own {have.length} more · add from your binders
+              </button>
+            )}
+          </div>
         )
       })}
+      {ownedFor && (
+        <OwnedForTagDialog label={tagLabel(ownedFor)} deck={deck} cards={gaps.get(ownedFor) ?? []} onDismiss={() => setOwnedFor(null)} />
+      )}
       <div className="dim" style={{ marginTop: 10 }}>
         From Scryfall Tagger{commander ? '; the ranges are the usual amounts for a Commander deck' : ''}. Tap a tag to see its cards.
       </div>

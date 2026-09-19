@@ -3,8 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
 import { ArtImage, SearchPill, SectionHeader, rise, toArtCrop, useBack } from '../components/kit'
-import { UNSORTED_COLLECTION_ID } from '../types/models'
+import { UNSORTED_COLLECTION_ID, type Collection } from '../types/models'
+import { useSync } from '../sync/SyncContext'
 import * as api from './api'
+import { cardsTheyWant, hitsAsTrade, type WantedCard } from './tradeLogic'
 import { useOverview } from './SocialContext'
 import { Avatar, handle } from './ui'
 import { SocialGate } from '../pages/FriendsPage'
@@ -48,6 +50,16 @@ interface FriendShares {
 }
 
 const isWishlist = (s: api.SharedSummary) => s.type === 'WISHLIST'
+
+/** The user's cards on [owner]'s shared wishlists — empty if they share none, or can't be reached. */
+async function loadTheyWant(owner: string, mine: Collection[]): Promise<WantedCard[]> {
+  try {
+    const shared = await api.getSharedCollection(owner)
+    return shared ? cardsTheyWant(mine, shared.binders as unknown as Collection[]) : []
+  } catch {
+    return []
+  }
+}
 const byName = (a: api.SharedSummary, b: api.SharedSummary) => (a.name ?? '').localeCompare(b.name ?? '')
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`
 
@@ -90,6 +102,22 @@ function SharedFriendsGrid({ overview, onAddFriend }: { overview: api.Overview; 
   const [hits, setHits] = useState<api.SharedCardHit[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [wanted, setWanted] = useState<Record<string, number>>({})
+  const [theyWant, setTheyWant] = useState<Record<string, number>>({})
+  const { collections } = useSync()
+
+  // And the other way: how many of the user's cards are on each friend's shared wishlists.
+  const withWishlists = friends.filter((f) => f.wishlists.length > 0).map((f) => f.owner).join(',')
+  useEffect(() => {
+    let cancelled = false
+    const counts: Record<string, number> = {}
+    void (async () => {
+      for (const owner of withWishlists ? withWishlists.split(',') : []) {
+        counts[owner] = (await loadTheyWant(owner, collections)).length
+        if (!cancelled) setTheyWant({ ...counts })
+      }
+    })()
+    return () => { cancelled = true }
+  }, [withWishlists, collections])
 
   useEffect(() => {
     let cancelled = false
@@ -141,7 +169,7 @@ function SharedFriendsGrid({ overview, onAddFriend }: { overview: api.Overview; 
           )}
           <div className="tiles">
             {friends.map((f, i) => (
-              <FriendTile key={f.owner} f={f} index={i} updated={f.latest > (seen[f.owner] ?? 0)} wanted={wanted[f.owner] ?? 0} onOpen={() => navigate(`/shared/${f.owner}`)} />
+              <FriendTile key={f.owner} f={f} index={i} updated={f.latest > (seen[f.owner] ?? 0)} wanted={wanted[f.owner] ?? 0} theyWant={theyWant[f.owner] ?? 0} onOpen={() => navigate(`/shared/${f.owner}`)} />
             ))}
             <button type="button" className="tile add-tile press rise" style={rise(Math.min(friends.length, 8) + 3)} onClick={onAddFriend}>
               <span className="add-icon"><Icon name="person_add" /></span>
@@ -189,7 +217,7 @@ function HitList({ hits, overview, onOpen }: { hits: api.SharedCardHit[]; overvi
 }
 
 /** A friend, the way the Decks page shows a deck: their picture full-size, what they share over it. */
-function FriendTile({ f, index, updated, wanted, onOpen }: { f: FriendShares; index: number; updated: boolean; wanted: number; onOpen: () => void }) {
+function FriendTile({ f, index, updated, wanted, theyWant, onOpen }: { f: FriendShares; index: number; updated: boolean; wanted: number; theyWant: number; onOpen: () => void }) {
   const photo = api.avatarUrl(f.profile?.avatar_path)
   const name = f.profile?.display_name ?? 'A friend'
   const what = [
@@ -216,6 +244,7 @@ function FriendTile({ f, index, updated, wanted, onOpen }: { f: FriendShares; in
         {f.profile && <div className="t-cmd">{handle(f.profile)}</div>}
         <div className="t-cmd">{what}</div>
         {wanted > 0 && <div className="t-cmd wanted">{wanted} on your wishlist</div>}
+        {theyWant > 0 && <div className="t-cmd wanted">Wants {theyWant} of yours</div>}
         <div className="t-row"><span /><span className="t-val">{f.cards.toLocaleString()}<small>{f.cards === 1 ? 'card' : 'cards'}</small></span></div>
       </div>
     </button>
@@ -244,7 +273,14 @@ function FriendFolders({ overview, owner }: { overview: api.Overview; owner: str
   const navigate = useNavigate()
   const f = useMemo(() => friendShares(overview).find((x) => x.owner === owner) ?? null, [overview, owner])
   const [wanted, setWanted] = useState<api.SharedCardHit[]>([])
+  const [theyWant, setTheyWant] = useState<WantedCard[]>([])
+  const { collections } = useSync()
   useEffect(() => { if (f) markSeen(owner, f.latest) }, [f, owner])
+  useEffect(() => {
+    let cancelled = false
+    void loadTheyWant(owner, collections).then((w) => { if (!cancelled) setTheyWant(w) })
+    return () => { cancelled = true }
+  }, [overview, owner, collections])
   useEffect(() => {
     let cancelled = false
     api.wishlistMatches().then((m) => { if (!cancelled) setWanted(m.filter((x) => x.owner === owner)) }).catch(() => {})
@@ -264,11 +300,28 @@ function FriendFolders({ overview, owner }: { overview: api.Overview; owner: str
           <div className="dim">{[f.profile ? handle(f.profile) : null, plural(f.cards, 'card')].filter(Boolean).join(' · ')}</div>
         </div>
       </div>
-      {f.binders.length > 0 && (
-        <button type="button" className="btn gold block rise" style={rise(1)} onClick={() => navigate(`/trades/new?to=${owner}`)}>
-          <Icon name="swap_horiz" aria-hidden />Propose a trade
-        </button>
-      )}
+      {(f.binders.length > 0 || theyWant.length > 0) && (() => {
+        // With matches either way, the trade starts from them: their cards the user wishes for,
+        // and the user's cards on their wishlists.
+        const ask = hitsAsTrade(wanted)
+        const offer = theyWant.map((w) => w.card)
+        const matched = ask.length > 0 || offer.length > 0
+        return (
+          <>
+            <button type="button" className="btn gold block rise" style={rise(1)} onClick={() => navigate(`/trades/new?to=${owner}`, matched ? { state: { want: ask, give: offer } } : undefined)}>
+              <Icon name="swap_horiz" aria-hidden />{matched ? 'Suggest a trade' : 'Propose a trade'}
+            </button>
+            {matched && (
+              <p className="dim" style={{ fontSize: 12.5, margin: '6px 0 0' }}>
+                Starts with {[
+                  ask.length ? `${plural(ask.length, 'card')} of theirs on your wishlist` : null,
+                  offer.length ? `${plural(offer.length, 'card')} of yours on theirs` : null,
+                ].filter(Boolean).join(' and ')}. Change anything before you send it.
+              </p>
+            )}
+          </>
+        )
+      })()}
       {wanted.length > 0 && (
         <>
           <SectionHeader title={`On your wishlist · ${wanted.length}`} />
@@ -285,6 +338,24 @@ function FriendFolders({ overview, owner }: { overview: api.Overview; owner: str
             ))}
           </div>
           {wanted.length > 6 && <div className="dim" style={{ marginTop: 8 }}>…and {wanted.length - 6} more in their binders.</div>}
+        </>
+      )}
+      {theyWant.length > 0 && (
+        <>
+          <SectionHeader title={`On their wishlist · ${theyWant.length}`} />
+          <div className="list wide-list">
+            {theyWant.slice(0, 6).map((w) => (
+              <div key={w.name} className="crow read-only">
+                <ArtImage className="thumb" src={toArtCrop(w.imageUrl)} seed={w.name} />
+                <div className="cmain">
+                  <div className="cname">{w.name}</div>
+                  <div className="cmeta"><span className="dim">You have {w.copies} · wanted in {w.wishlist}</span></div>
+                </div>
+                <span className="ro-qty">{w.copies}×</span>
+              </div>
+            ))}
+          </div>
+          {theyWant.length > 6 && <div className="dim" style={{ marginTop: 8 }}>…and {theyWant.length - 6} more of yours.</div>}
         </>
       )}
       {f.binders.length > 0 && (
