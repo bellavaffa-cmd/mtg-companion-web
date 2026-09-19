@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { DEFAULT_LAYOUT_ID, layoutById, playerCount } from './tableLayouts'
+import { avatarUrl } from '../social/api'
 
 /** A seat colour: Display P3 where the screen supports it, with an sRGB stand-in, and its text ink. */
 export interface SeatColor { p3: string; srgb: string; whiteText?: boolean }
@@ -454,12 +455,20 @@ function applyAction(game: Game, action: GameAction): Game {
     case 'link': {
       const current = game.players.find((p) => p.id === action.id)?.linked ?? null
       if (JSON.stringify(current) === JSON.stringify(action.player)) return game
-      // Whoever leaves the seat takes their tile picture and deck with them.
+      // Someone sitting down gets their profile picture behind their tile (until they choose
+      // another from their remote); whoever leaves takes their picture and deck with them.
+      const oldAvatar = avatarUrl(current?.avatarPath)
+      const newAvatar = avatarUrl(action.player?.avatarPath)
       return {
         ...game,
-        players: game.players.map((p) => (p.id !== action.id ? p
-          : action.player?.userId === current?.userId ? { ...p, linked: action.player }
-          : { ...p, linked: action.player, background: null, deck: null })),
+        players: game.players.map((p) => {
+          if (p.id !== action.id) return p
+          if (action.player?.userId === current?.userId) {
+            // Same person, new profile picture: the tile follows it, unless they chose something else.
+            return { ...p, linked: action.player, background: (p.background ?? null) === oldAvatar ? newAvatar : p.background }
+          }
+          return { ...p, linked: action.player, background: newAvatar, deck: null }
+        }),
       }
     }
     case 'match':

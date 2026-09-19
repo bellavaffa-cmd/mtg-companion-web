@@ -71,7 +71,7 @@ export function RemotePage() {
   const [gone, setGone] = useState(false)
   const [sheet, setSheet] = useState<Sheet>(null)
   const [big, setBig] = useState(false)
-  const [prefs, setPrefsState] = useState<RemotePrefs>(() => readJson(PREFS_KEY, { background: 'colour', customUrl: null, deckId: null }))
+  const [prefs, setPrefsState] = useState<RemotePrefs>(() => readJson(PREFS_KEY, { background: 'profile', customUrl: null, deckId: null }))
   const setPrefs = (next: RemotePrefs) => { setPrefsState(next); writeJson(PREFS_KEY, next) }
   const deck = decks.find((d) => d.id === prefs.deckId) ?? null
 

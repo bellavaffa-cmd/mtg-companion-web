@@ -81,3 +81,24 @@ test('a restart at the same table keeps who is sitting where; new seating drops 
   const closed = gameReducer(game, { type: 'match', match: null })
   assert.ok(closed.players.every((p) => !p.linked))
 })
+
+test("sitting down puts the player's profile picture behind their tile, and leaving takes it away", () => {
+  const bob = { userId: 'b', username: 'bob', displayName: 'Bob', avatarPath: 'b/one.png' }
+  const tile = (g: ReturnType<typeof newGame>) => g.players.find((p) => p.id === 1)?.background ?? null
+  let game = gameReducer(newGame(DEFAULT_SETTINGS), { type: 'match', match: { id: 'm1', code: 'c' } })
+  game = gameReducer(game, { type: 'link', id: 1, player: bob })
+  assert.equal(tile(game), 'https://sync.test/storage/v1/object/public/avatars/b/one.png')
+
+  // A new profile picture follows onto the tile…
+  game = gameReducer(game, { type: 'link', id: 1, player: { ...bob, avatarPath: 'b/two.png' } })
+  assert.equal(tile(game), 'https://sync.test/storage/v1/object/public/avatars/b/two.png')
+  // …unless the player chose something else from their remote.
+  const art = 'https://cards.scryfall.io/art_crop/front/e/3/x.jpg'
+  game = gameReducer(game, { type: 'background', id: 1, url: art })
+  game = gameReducer(game, { type: 'link', id: 1, player: { ...bob, avatarPath: 'b/three.png' } })
+  assert.equal(tile(game), art)
+
+  // No profile picture: the seat's colour. Leaving clears it.
+  assert.equal(tile(gameReducer(newGame(DEFAULT_SETTINGS), { type: 'link', id: 1, player: { ...bob, avatarPath: null } })), null)
+  assert.equal(tile(gameReducer(game, { type: 'link', id: 1, player: null })), null)
+})
