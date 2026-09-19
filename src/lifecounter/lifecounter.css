@@ -4,7 +4,6 @@
 .lc-root {
   --lc-gap: 6px;
   --lc-radius: 22px;
-  --lc-bar: 38px;
   --lc-surface: #1f1e27;
   --lc-raised: #2f2e39;
   --lc-muted: #9898a4;
@@ -70,6 +69,12 @@
 }
 .lc-col {
   flex-direction: column;
+}
+.lc-grow,
+.lc-col,
+.lc-row,
+.lc-cell {
+  transition: flex-grow 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .lc-cell {
   flex: 1 1 0;
@@ -157,14 +162,9 @@
   60% { transform: translateX(-2%); }
   80% { transform: translateX(1%); }
 }
-.lc-roll {
-  display: inline-block;
-  animation: lc-pop 0.5s cubic-bezier(0.49, 0.2, 0.19, 1.48) both;
-}
 @keyframes lc-pop {
   from { transform: scale(0); opacity: 0; }
 }
-.lc-roll-note,
 .lc-out-note {
   position: absolute;
   left: 0;
@@ -402,107 +402,6 @@
   margin: 0 calc(var(--lc-gap) / -2);
   align-self: stretch;
 }
-.lc-bar.horizontal.lc-has-strip {
-  height: var(--lc-bar);
-  margin: 0;
-}
-.lc-bar.vertical.lc-has-strip {
-  width: var(--lc-bar);
-  margin: 0;
-}
-
-.lc-strip-wrap {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 100cqw;
-  height: 100cqh;
-  transform: translate(-50%, -50%);
-  border-radius: 14px;
-  background: var(--lc-surface);
-  container-type: inline-size;
-}
-/* Down a portrait table the strip reads sideways, like a tile facing the right-hand edge. */
-.lc-bar.vertical .lc-strip-wrap {
-  width: 100cqh;
-  height: 100cqw;
-  transform: translate(-50%, -50%) rotate(-90deg);
-}
-.lc-strip {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  padding: 0 10px;
-  font-size: 16px;
-  line-height: 1;
-}
-.lc-strip-side {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-  overflow: hidden;
-}
-.lc-strip-side.end {
-  justify-content: flex-end;
-}
-.lc-strip-side > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.lc-menu-slot {
-  flex: none;
-  width: 72px;
-}
-.lc-strip-short {
-  display: none;
-}
-.lc-timer {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 0;
-  background: transparent;
-  color: var(--lc-muted);
-  padding: 2px;
-}
-.lc-timer.paused {
-  color: var(--lc-yellow);
-}
-.lc-timer .material-symbols-rounded {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--lc-raised);
-  color: #fff;
-  font-size: 16px;
-  display: grid;
-  place-items: center;
-}
-.lc-next {
-  flex: none;
-  border: 0;
-  border-radius: 999px;
-  background: var(--lc-yellow);
-  color: #000;
-  padding: 4px 10px 3px;
-  font-size: 14px;
-}
-@container (max-width: 520px) {
-  .lc-next .lc-strip-long { display: none; }
-  .lc-next .lc-strip-short { display: inline; }
-}
-@container (max-width: 400px) {
-  .lc-strip { font-size: 13px; padding: 0 8px; }
-  .lc-strip-side > .lc-strip-long,
-  .lc-timer .lc-strip-long { display: none; }
-  .lc-strip-side > .lc-strip-short,
-  .lc-timer .lc-strip-short { display: inline; }
-  .lc-next { font-size: 12px; padding: 3px 8px 2px; }
-}
-
 .lc-menu-btn {
   position: absolute;
   left: 50%;
@@ -887,8 +786,13 @@
     display: inline;
   }
 }
+/* Day or night floats just above the menu button. */
 .lc-daynight {
-  flex: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  transform: translate(-50%, calc(-50% - 62px));
   display: grid;
   place-items: center;
   width: 24px;
@@ -904,11 +808,6 @@
 }
 .lc-daynight.night {
   color: #9ba8ff;
-}
-/* While a player's panel is open, the strip behind it fades (the menu button is handled in React). */
-.lc-panel-open .lc-strip-wrap {
-  opacity: 0.12;
-  pointer-events: none;
 }
 .lc-menu-btn {
   transition: opacity 0.2s;
@@ -1145,4 +1044,83 @@
 .lc-qr-code .qr {
   width: min(260px, 70vw);
   height: auto;
+}
+
+/* ---- Whose turn it is ---- */
+
+/* The corners of the tile whose turn it is: out of the way of the life total in the middle. */
+.lc-turn-label {
+  position: absolute;
+  top: 14px;
+  left: 18px;
+  z-index: 2;
+  font-size: min(9cqh, 22px);
+  pointer-events: none;
+}
+.lc-end-turn {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 2;
+  width: 54px;
+  height: 54px;
+  border: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  padding: 0;
+  animation: lc-pop 0.3s cubic-bezier(0.49, 0.2, 0.19, 1.48) both;
+}
+.lc-end-turn .material-symbols-rounded {
+  font-size: 30px;
+}
+
+/* ---- High roll: just the roll, big; the winner's seat rainbow with twinkling stars ---- */
+
+.lc-roll-face {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: inherit;
+  background: #262628;
+  /* Covers the hairline of the seat's own colour that anti-aliasing leaves along the curve. */
+  box-shadow: 0 0 0 2px #262628;
+  animation: lc-fade-in 0.3s ease both;
+}
+.lc-roll-face.win {
+  background: conic-gradient(from 180deg, #c7d172, #b9eb80, #7fe0d6, #8fb6ff, #c79bff, #ff9bd2, #ffc27a, #c7d172);
+  box-shadow: none;
+}
+.lc-roll-num {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  font-size: min(58cqh, 34cqw);
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+.lc-roll-face.win .lc-roll-num {
+  color: #000;
+}
+.lc-star {
+  position: absolute;
+  line-height: 1;
+  pointer-events: none;
+  animation: lc-twinkle 1.4s ease-in-out infinite both;
+}
+@keyframes lc-twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.4) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.1) rotate(40deg); }
+}
+@keyframes lc-fade-in {
+  from { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lc-star { animation: none; opacity: 0.8; }
+  .lc-grow, .lc-col, .lc-row, .lc-cell { transition: none; }
 }

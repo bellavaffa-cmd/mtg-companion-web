@@ -77,7 +77,6 @@ export interface LifeSettings {
   multiplayerStartingLife: number
   twoPlayerStartingLife: number
   turnTracker: boolean
-  gameTimer: boolean
   autoKill: boolean
   commanderDamageCostsLife: boolean
   longPressAmount: number
@@ -88,7 +87,6 @@ export const DEFAULT_SETTINGS: LifeSettings = {
   multiplayerStartingLife: 40,
   twoPlayerStartingLife: 20,
   turnTracker: false,
-  gameTimer: false,
   autoKill: true,
   commanderDamageCostsLife: true,
   longPressAmount: 10,
@@ -112,9 +110,6 @@ export interface Game {
   players: Player[]
   turnPlayerId: number
   turnNumber: number
-  turnSeconds: number
-  matchSeconds: number
-  timerRunning: boolean
   /** Newest first, capped — see HISTORY_LIMIT. */
   history: HistoryEntry[]
   monarchId: number | null
@@ -137,9 +132,6 @@ export function newGame(settings: LifeSettings): Game {
     })),
     turnPlayerId: 1,
     turnNumber: 1,
-    turnSeconds: 0,
-    matchSeconds: 0,
-    timerRunning: true,
     history: [],
     monarchId: null,
     initiativeId: null,
@@ -163,8 +155,6 @@ export type GameAction =
   | { type: 'color'; id: number; colorIndex: number }
   | { type: 'nextTurn' }
   | { type: 'firstPlayer'; id: number }
-  | { type: 'toggleTimer' }
-  | { type: 'tick' }
   | { type: 'monarch'; id: number | null }
   | { type: 'initiative'; id: number | null }
   | { type: 'dayNight'; value: DayNight | null }
@@ -249,17 +239,13 @@ export function gameReducer(game: Game, action: GameAction): Game {
       const idx = ids.indexOf(game.turnPlayerId)
       const turnPlayerId = idx === -1 || idx === ids.length - 1 ? ids[0] : ids[idx + 1]
       return note(
-        { ...game, touched: true, turnPlayerId, turnNumber: game.turnNumber + 1, turnSeconds: 0 },
+        { ...game, touched: true, turnPlayerId, turnNumber: game.turnNumber + 1 },
         turnPlayerId,
         `Turn ${game.turnNumber + 1}`,
       )
     }
     case 'firstPlayer':
-      return { ...game, turnPlayerId: action.id, turnNumber: 1, turnSeconds: 0, matchSeconds: 0, timerRunning: true }
-    case 'toggleTimer':
-      return { ...game, timerRunning: !game.timerRunning }
-    case 'tick':
-      return game.timerRunning ? { ...game, turnSeconds: game.turnSeconds + 1, matchSeconds: game.matchSeconds + 1 } : game
+      return note({ ...game, turnPlayerId: action.id, turnNumber: 1 }, action.id, 'Goes first')
     case 'monarch':
       if (game.monarchId === action.id) return game
       return note({ ...game, touched: true, monarchId: action.id }, action.id,
@@ -288,23 +274,17 @@ export function gameReducer(game: Game, action: GameAction): Game {
   }
 }
 
-/** Rolls a d20 for every player, rerolling only those tied for highest until one remains. */
-export function highRoll(ids: number[]): { rolls: Record<number, number[]>; winnerId: number } {
-  const rolls: Record<number, number[]> = Object.fromEntries(ids.map((id) => [id, []]))
-  let contenders = ids
+/**
+ * Rolls a d20 for every player. A tie for highest re-rolls the whole table, so what everyone sees
+ * is one clean roll with a single, highest winner.
+ */
+export function highRoll(ids: number[]): { rolls: Record<number, number>; winnerId: number } {
   for (;;) {
-    for (const id of contenders) rolls[id].push(1 + Math.floor(Math.random() * 20))
-    const best = Math.max(...contenders.map((id) => rolls[id][rolls[id].length - 1]))
-    contenders = contenders.filter((id) => rolls[id][rolls[id].length - 1] === best)
-    if (contenders.length === 1) return { rolls, winnerId: contenders[0] }
+    const rolls: Record<number, number> = Object.fromEntries(ids.map((id) => [id, 1 + Math.floor(Math.random() * 20)]))
+    const best = Math.max(...ids.map((id) => rolls[id]))
+    const leaders = ids.filter((id) => rolls[id] === best)
+    if (leaders.length === 1) return { rolls, winnerId: leaders[0] }
   }
-}
-
-export const formatElapsed = (seconds: number) => {
-  const h = Math.floor(seconds / 3600)
-  const m = Math.floor((seconds % 3600) / 60)
-  const s = String(seconds % 60).padStart(2, '0')
-  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`
 }
 
 // ---- Persistence (this browser only — life counter games don't sync between devices) ----
@@ -341,7 +321,6 @@ export function useLifeCounter() {
   })
 
   useEffect(() => save(SETTINGS_KEY, settings), [settings])
-  // The timer ticks every second; writing the whole game that often is harmless at this size.
   useEffect(() => save(GAME_KEY, game), [game])
 
   const updateSettings = useCallback((patch: Partial<LifeSettings>) => {
@@ -370,14 +349,5 @@ export function useLifeCounter() {
 
   const restart = useCallback(() => dispatch({ type: 'new', settings: settingsRef.current }), [])
 
-  const showStrip = settings.turnTracker || settings.gameTimer
-  useEffect(() => {
-    if (!settings.gameTimer) return
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') dispatch({ type: 'tick' })
-    }, 1000)
-    return () => window.clearInterval(timer)
-  }, [settings.gameTimer])
-
-  return { settings, updateSettings, selectLayout, setStartingLife, restart, game, dispatch, showStrip }
+  return { settings, updateSettings, selectLayout, setStartingLife, restart, game, dispatch }
 }

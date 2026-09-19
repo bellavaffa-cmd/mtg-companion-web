@@ -79,6 +79,8 @@ export function PlayerTile({
   isMonarch,
   hasInitiative,
   highRoll,
+  turnNumber,
+  onEndTurn,
   dispatch,
   onPanelOpenChange,
   onLinkSeat,
@@ -91,8 +93,11 @@ export function PlayerTile({
   activeTurn: boolean
   isMonarch: boolean
   hasInitiative: boolean
-  /** This player's high-roll dice (last one counts) and whether they won, while results are up. */
-  highRoll: { rolls: number[]; winner: boolean } | null
+  /** This player's high roll and whether it was the highest, while one is showing. */
+  highRoll: { value: number; winner: boolean } | null
+  /** Shown on the tile whose turn it is, with the button that ends it. */
+  turnNumber: number
+  onEndTurn: () => void
   dispatch: (a: GameAction) => void
   /** The page dims the menu button while a panel covers a tile. */
   onPanelOpenChange: (open: boolean) => void
@@ -178,19 +183,18 @@ export function PlayerTile({
           )}
         </div>
 
-        <div className="lc-life" key={shake} data-shake={shake > 0 || undefined}>
-          {highRoll ? (
-            <span className="lc-roll">{highRoll.rolls[highRoll.rolls.length - 1]}</span>
-          ) : (
-            player.life
-          )}
-        </div>
-        {highRoll && (
-          <div className="lc-roll-note">
-            {highRoll.winner ? 'Goes first' : highRoll.rolls.length > 1 ? `Rolled ${highRoll.rolls.join(' · ')}` : ' '}
-          </div>
-        )}
+        <div className="lc-life" key={shake} data-shake={shake > 0 || undefined}>{player.life}</div>
         {loss && !highRoll && <div className="lc-out-note">{LOSS_TEXT[loss]}</div>}
+
+        {/* The corners of the tile whose turn it is: out of the way of the life total in the middle. */}
+        {activeTurn && !loss && !highRoll && (
+          <>
+            <span className="lc-turn-label">Turn {turnNumber}</span>
+            <button type="button" className="lc-end-turn" onClick={onEndTurn} aria-label="End turn" title="End turn">
+              <span className="material-symbols-rounded" aria-hidden>check</span>
+            </button>
+          </>
+        )}
 
         {!highRoll && (
           <>
@@ -202,6 +206,8 @@ export function PlayerTile({
             </button>
           </>
         )}
+
+        {highRoll && <RollFace value={highRoll.value} winner={highRoll.winner} />}
 
         {panelOpen && (
           <PlayerPanel
@@ -216,6 +222,32 @@ export function PlayerTile({
         )}
       </div>
     </Face>
+  )
+}
+
+const STAR_COLORS = ['#ff005f', '#ffc600', '#4352ff', '#2bd98f', '#fff', '#c79bff']
+
+/**
+ * A seat during a high roll: just the roll, big, in the middle. Everyone else's goes dark grey; the
+ * winner's turns rainbow with stars twinkling across it.
+ */
+function RollFace({ value, winner }: { value: number; winner: boolean }) {
+  const [stars] = useState(() =>
+    Array.from({ length: 18 }, (_, i) => ({
+      left: Math.random() * 92,
+      top: Math.random() * 92,
+      delay: Math.random() * 1.4,
+      size: 12 + Math.random() * 14,
+      color: STAR_COLORS[i % STAR_COLORS.length],
+    })),
+  )
+  return (
+    <div className={`lc-roll-face${winner ? ' win' : ''}`} role="img" aria-label={winner ? `Rolled ${value}, goes first` : `Rolled ${value}`}>
+      {winner && stars.map((s, i) => (
+        <span key={i} className="lc-star" style={{ left: `${s.left}%`, top: `${s.top}%`, animationDelay: `${s.delay}s`, fontSize: s.size, color: s.color }}>★</span>
+      ))}
+      <span className="lc-roll-num">{value}</span>
+    </div>
   )
 }
 

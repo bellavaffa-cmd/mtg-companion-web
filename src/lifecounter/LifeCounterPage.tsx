@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { displayName, formatElapsed, highRoll, useLifeCounter, type Game, type GameAction, type LifeSettings } from './game'
+import { displayName, highRoll, useLifeCounter, type Game, type GameAction } from './game'
 import { PlayerTile, seatStyle } from './PlayerTile'
 import { PlaneBanner, PlaneSheet, usePlanechase } from './Planechase'
 import {
@@ -66,7 +66,7 @@ function useWakeLock() {
 export function LifeCounterPage() {
   const navigate = useNavigate()
   const lc = useLifeCounter()
-  const { settings, game, dispatch, showStrip } = lc
+  const { settings, game, dispatch } = lc
   const layout = layoutById(game.layoutId)
   const { landscape, clockwise } = useTableOrientation()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -83,33 +83,45 @@ export function LifeCounterPage() {
     return () => { document.title = 'MTG Companion' }
   }, [])
 
-  // High-roll dice stay on the tiles for a few seconds, then the winner takes the first turn.
+  // A high roll stays on the tiles until the centre button (or Escape) closes it; closing starts
+  // the game with its winner.
+  const closeRoll = () => {
+    if (roll) dispatch({ type: 'firstPlayer', id: roll.winnerId })
+    setRoll(null)
+  }
   useEffect(() => {
     if (!roll) return
-    const t = window.setTimeout(() => {
-      dispatch({ type: 'firstPlayer', id: roll.winnerId })
-      setRoll(null)
-    }, 3500)
-    return () => window.clearTimeout(t)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        dispatch({ type: 'firstPlayer', id: roll.winnerId })
+        setRoll(null)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [roll, dispatch])
+  // Whose turn it is — their tile grows — unless the tracker's off or a high roll is showing.
+  const activeSeat = settings.turnTracker && !roll && game.players.length > 1 ? game.turnPlayerId : null
 
   const closeAll = () => { setMenuOpen(false); setOverlay(null) }
   const open = (o: Overlay) => { setMenuOpen(false); setOverlay(o) }
 
-  const seat = (cell: SeatCell, key: string) => {
+  const seat = (cell: SeatCell, key: string, grow = 1) => {
     const player = cell.seat === null ? undefined : game.players.find((p) => p.id === cell.seat)
-    if (!player) return <div key={key} className="lc-cell lc-empty" />
+    if (!player) return <div key={key} className="lc-cell lc-empty" style={{ flexGrow: grow }} />
     return (
-      <div key={key} className="lc-cell">
+      <div key={key} className="lc-cell" style={{ flexGrow: grow }}>
         <PlayerTile
           player={player}
           opponents={game.players.filter((p) => p.id !== player.id)}
           facing={cell.facing}
           settings={settings}
-          activeTurn={settings.turnTracker && game.turnPlayerId === player.id && game.players.length > 1}
+          activeTurn={player.id === activeSeat}
+          turnNumber={game.turnNumber}
+          onEndTurn={() => dispatch({ type: 'nextTurn' })}
           isMonarch={game.monarchId === player.id}
           hasInitiative={game.initiativeId === player.id}
-          highRoll={roll ? { rolls: roll.rolls[player.id] ?? [], winner: roll.winnerId === player.id } : null}
+          highRoll={roll ? { value: roll.rolls[player.id], winner: roll.winnerId === player.id } : null}
           dispatch={dispatch}
           onPanelOpenChange={(open) => setPanelsOpen((n) => Math.max(0, n + (open ? 1 : -1)))}
           onLinkSeat={() => void links.showCode(player.id)}
@@ -120,9 +132,19 @@ export function LifeCounterPage() {
   }
 
   const bar = (vertical: boolean) => (
-    <CentreBar key="bar" vertical={vertical} showStrip={showStrip}>
-      {showStrip && <TurnStrip game={game} settings={settings} dispatch={dispatch} />}
-      <MenuButton open={menuOpen} hidden={panelsOpen > 0} onClick={() => (overlay ? closeAll() : setMenuOpen((m) => !m))} />
+    <CentreBar key="bar" vertical={vertical}>
+      {game.dayNight && (
+        <span className={`lc-daynight ${game.dayNight.toLowerCase()}`} title={game.dayNight === 'DAY' ? 'Day' : 'Night'}>
+          <span className="material-symbols-rounded" aria-hidden>{game.dayNight === 'DAY' ? 'wb_sunny' : 'bedtime'}</span>
+        </span>
+      )}
+      {/* While a high roll shows, the centre button closes it. */}
+      <MenuButton
+        open={menuOpen || !!roll}
+        hidden={panelsOpen > 0}
+        label={roll ? 'Close the high roll and start' : undefined}
+        onClick={() => (roll ? closeRoll() : overlay ? closeAll() : setMenuOpen((m) => !m))}
+      />
       {menuOpen && (
         <RadialMenu
           onRestart={() => open('restart')}
@@ -144,7 +166,7 @@ export function LifeCounterPage() {
 
   return (
     <div className={`lc-root${panelsOpen > 0 ? ' lc-panel-open' : ''}`}>
-      <TableSurface layout={layout} landscape={landscape} clockwise={clockwise} seat={seat} bar={bar} />
+      <TableSurface layout={layout} landscape={landscape} clockwise={clockwise} seat={seat} bar={bar} activeSeat={activeSeat} />
       {menuOpen && <button type="button" className="lc-scrim" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
 
       {overlay === 'restart' && (
@@ -178,16 +200,24 @@ export function LifeCounterPage() {
  * table turned a quarter turn with the device, bar running across.
  */
 function TableSurface({
-  layout, landscape, clockwise, seat, bar,
+  layout, landscape, clockwise, seat, bar, activeSeat,
 }: {
   layout: TableLayout
   landscape: boolean
   clockwise: boolean
-  seat: (cell: SeatCell, key: string) => ReactNode
+  seat: (cell: SeatCell, key: string, grow?: number) => ReactNode
   bar: (vertical: boolean) => ReactNode
+  /** Whose turn it is: their seat, their side of the table and their band of pairs grow. */
+  activeSeat: number | null
 }) {
   const secs = sections(layout)
   const hasPairs = secs.some((s) => s.kind === 'pairs')
+  const hasEnds = secs.some((s) => s.kind === 'end')
+  const isActive = (cell: SeatCell) => cell.seat !== null && cell.seat === activeSeat
+  const seatGrow = (cell: SeatCell) => (isActive(cell) ? SEAT_GROW : 1)
+  const sideGrow = (rows: { cells: SeatCell[] }[], side: number) => (rows.some((r) => isActive(r.cells[side])) ? SIDE_GROW : 1)
+  const bandGrow = (rows: { cells: SeatCell[] }[]) =>
+    rows.length * (hasEnds && rows.some((r) => isActive(r.cells[0]) || isActive(r.cells[1])) ? BAND_GROW : 1)
 
   if (!landscape || !hasPairs) {
     // Without pairs the bar goes between the end seats (or above a lone seat).
@@ -198,12 +228,16 @@ function TableSurface({
         {secs.map((section, i) => (
           <Fragment key={i}>
             {section.kind === 'end' ? (
-              <div className="lc-grow" style={{ flexGrow: 1 }}>{seat(section.cell, `e${i}`)}</div>
+              <div className="lc-grow" style={{ flexGrow: seatGrow(section.cell) }}>{seat(section.cell, `e${i}`)}</div>
             ) : (
-              <div className="lc-grow lc-horz" style={{ flexGrow: section.rows.length }}>
-                <div className="lc-col">{section.rows.map((row, r) => seat(row.cells[0], `l${i}-${r}`))}</div>
+              <div className="lc-grow lc-horz" style={{ flexGrow: bandGrow(section.rows) }}>
+                <div className="lc-col" style={{ flexGrow: sideGrow(section.rows, 0) }}>
+                  {section.rows.map((row, r) => seat(row.cells[0], `l${i}-${r}`, seatGrow(row.cells[0])))}
+                </div>
                 {bar(true)}
-                <div className="lc-col">{section.rows.map((row, r) => seat(row.cells[1], `r${i}-${r}`))}</div>
+                <div className="lc-col" style={{ flexGrow: sideGrow(section.rows, 1) }}>
+                  {section.rows.map((row, r) => seat(row.cells[1], `r${i}-${r}`, seatGrow(row.cells[1])))}
+                </div>
               </div>
             )}
             {i === barAfter && bar(false)}
@@ -219,7 +253,7 @@ function TableSurface({
       {ordered.map((section, i) => {
         if (section.kind === 'end') {
           return (
-            <div key={i} className="lc-grow" style={{ flexGrow: 1 }}>
+            <div key={i} className="lc-grow" style={{ flexGrow: seatGrow(section.cell) }}>
               {seat({ ...section.cell, facing: turned(section.cell.facing, clockwise) }, `e${i}`)}
             </div>
           )
@@ -227,13 +261,13 @@ function TableSurface({
         const cols = clockwise ? [...section.rows].reverse() : section.rows
         const top = clockwise ? 0 : 1
         return (
-          <div key={i} className="lc-grow lc-vert" style={{ flexGrow: section.rows.length }}>
-            <div className="lc-row">
-              {cols.map((row, r) => seat({ ...row.cells[top], facing: turned(row.cells[top].facing, clockwise) }, `t${i}-${r}`))}
+          <div key={i} className="lc-grow lc-vert" style={{ flexGrow: bandGrow(section.rows) }}>
+            <div className="lc-row" style={{ flexGrow: sideGrow(section.rows, top) }}>
+              {cols.map((row, r) => seat({ ...row.cells[top], facing: turned(row.cells[top].facing, clockwise) }, `t${i}-${r}`, seatGrow(row.cells[top])))}
             </div>
             {bar(false)}
-            <div className="lc-row">
-              {cols.map((row, r) => seat({ ...row.cells[1 - top], facing: turned(row.cells[1 - top].facing, clockwise) }, `b${i}-${r}`))}
+            <div className="lc-row" style={{ flexGrow: sideGrow(section.rows, 1 - top) }}>
+              {cols.map((row, r) => seat({ ...row.cells[1 - top], facing: turned(row.cells[1 - top].facing, clockwise) }, `b${i}-${r}`, seatGrow(row.cells[1 - top])))}
             </div>
           </div>
         )
@@ -242,65 +276,26 @@ function TableSurface({
   )
 }
 
-/** The bar between facing players; the turn strip (when on) reads along it. The menu sits at its middle. */
-function CentreBar({ vertical, showStrip, children }: { vertical: boolean; showStrip: boolean; children: ReactNode }) {
-  return <div className={`lc-bar ${vertical ? 'vertical' : 'horizontal'}${showStrip ? ' lc-has-strip' : ''}`}>{children}</div>
-}
+// How much more room the player whose turn it is gets: their seat, their side of the table (a
+// column of pairs), and — at a table with seats at the ends — the band of pairs they sit in.
+const SEAT_GROW = 1.7
+const SIDE_GROW = 1.3
+const BAND_GROW = 1.45
 
-function TurnStrip({ game, settings, dispatch }: { game: Game; settings: LifeSettings; dispatch: (a: GameAction) => void }) {
-  const current = game.players.find((p) => p.id === game.turnPlayerId)
-  return (
-    <div className="lc-strip-wrap">
-      <div className="lc-strip">
-        <div className="lc-strip-side">
-          {settings.turnTracker && current && (
-            <>
-              <i className="lc-dot" style={seatStyle(current.colorIndex)} />
-              <span className="lc-strip-long">Turn {game.turnNumber} · {displayName(current)}</span>
-              <span className="lc-strip-short">T{game.turnNumber} · {displayName(current)}</span>
-            </>
-          )}
-        </div>
-        {game.dayNight && (
-          <span className={`lc-daynight ${game.dayNight.toLowerCase()}`} title={game.dayNight === 'DAY' ? 'Day' : 'Night'}>
-            <span className="material-symbols-rounded" aria-hidden>{game.dayNight === 'DAY' ? 'wb_sunny' : 'bedtime'}</span>
-          </span>
-        )}
-        <div className="lc-menu-slot" />
-        <div className="lc-strip-side end">
-          {settings.gameTimer && (
-            <button
-              type="button"
-              className={`lc-timer${game.timerRunning ? '' : ' paused'}`}
-              onClick={() => dispatch({ type: 'toggleTimer' })}
-              aria-label={game.timerRunning ? 'Pause timer' : 'Resume timer'}
-            >
-              <span className="lc-strip-long">{formatElapsed(game.turnSeconds)} / {formatElapsed(game.matchSeconds)}</span>
-              <span className="lc-strip-short">{formatElapsed(game.turnSeconds)}</span>
-              <span className="material-symbols-rounded lc-strip-long">{game.timerRunning ? 'pause' : 'play_arrow'}</span>
-            </button>
-          )}
-          {settings.turnTracker && (
-            <button type="button" className="lc-next" onClick={() => dispatch({ type: 'nextTurn' })}>
-              <span className="lc-strip-long">Next turn</span>
-              <span className="lc-strip-short">Next</span>
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
+/** The seam between facing players. It takes no room; the menu button floats at its middle. */
+function CentreBar({ vertical, children }: { vertical: boolean; children: ReactNode }) {
+  return <div className={`lc-bar ${vertical ? 'vertical' : 'horizontal'}`}>{children}</div>
 }
 
 /** [hidden]: a player's panel is covering its tile, and the button would sit on top of it. */
-function MenuButton({ open, hidden, onClick }: { open: boolean; hidden: boolean; onClick: () => void }) {
+function MenuButton({ open, hidden, onClick, label }: { open: boolean; hidden: boolean; onClick: () => void; label?: string }) {
   return (
     <button
       type="button"
       className={`lc-menu-btn${open ? ' open' : ''}`}
       style={hidden ? { opacity: 0.12, pointerEvents: 'none' } : undefined}
       onClick={onClick}
-      aria-label={open ? 'Close game menu' : 'Game menu'}
+      aria-label={label ?? (open ? 'Close game menu' : 'Game menu')}
       aria-expanded={open}
       aria-hidden={hidden}
     >
@@ -526,7 +521,6 @@ function SettingsOverlay({ lc, onClose }: { lc: ReturnType<typeof useLifeCounter
       <section>
         <h3>Table</h3>
         <Toggle label="Turn tracker" detail="Whose turn it is, with a Next turn button" on={settings.turnTracker} onChange={(v) => updateSettings({ turnTracker: v })} />
-        <Toggle label="Game timer" detail="Time this turn and the whole game" on={settings.gameTimer} onChange={(v) => updateSettings({ gameTimer: v })} />
         <Toggle label="Knock players out automatically" detail="At 0 life, 10 poison or 21 damage from one commander" on={settings.autoKill} onChange={(v) => updateSettings({ autoKill: v })} />
         <Toggle label="Commander damage costs life" detail="Off if your table tracks life and commander damage separately" on={settings.commanderDamageCostsLife} onChange={(v) => updateSettings({ commanderDamageCostsLife: v })} />
         {typeof document.documentElement.requestFullscreen === 'function' && (
