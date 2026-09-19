@@ -64,6 +64,8 @@ export interface Player {
   background?: string | null
   /** The deck the player said they're playing, from their remote. */
   deck?: string | null
+  /** That deck's commander, from their remote. */
+  commander?: string | null
 }
 
 /** Counters a player can keep besides poison. Storm is cleared when the turn passes. */
@@ -219,7 +221,7 @@ const HISTORY_LIMIT = 200
 export type GameAction = { by?: number } & (
   | { type: 'new'; settings: LifeSettings }
   | { type: 'counter'; id: number; counter: CounterKind; delta: number }
-  | { type: 'background'; id: number; url: string | null; deck?: string | null }
+  | { type: 'background'; id: number; url: string | null; deck?: string | null; commander?: string | null }
   | { type: 'undo' }
   | { type: 'showCard'; card: ShownCard }
   | { type: 'hideCard' }
@@ -350,7 +352,7 @@ function applyAction(game: Game, action: GameAction): Game {
         match: game.match,
         players: fresh.players.map((p) => {
           const old = game.players.find((o) => o.id === p.id)
-          return old?.linked ? { ...p, linked: old.linked, background: old.background ?? null, deck: old.deck ?? null } : p
+          return old?.linked ? { ...p, linked: old.linked, background: old.background ?? null, deck: old.deck ?? null, commander: old.commander ?? null } : p
         }),
       }
     }
@@ -370,9 +372,13 @@ function applyAction(game: Game, action: GameAction): Game {
     case 'background':
       return {
         ...game,
-        players: game.players.map((p) => (p.id === action.id
-          ? { ...p, background: action.url, ...(action.deck !== undefined ? { deck: action.deck } : {}) }
-          : p)),
+        players: game.players.map((p) => {
+          if (p.id !== action.id) return p
+          const deck = action.deck !== undefined ? action.deck : p.deck
+          // An older remote sends no commander: a new deck clears the old one's.
+          const commander = action.commander !== undefined ? action.commander : deck === p.deck ? p.commander : null
+          return { ...p, background: action.url, deck, commander }
+        }),
       }
     case 'showCard':
       return { ...game, shownCard: action.card }
@@ -467,7 +473,7 @@ function applyAction(game: Game, action: GameAction): Game {
             // Same person, new profile picture: the tile follows it, unless they chose something else.
             return { ...p, linked: action.player, background: (p.background ?? null) === oldAvatar ? newAvatar : p.background }
           }
-          return { ...p, linked: action.player, background: newAvatar, deck: null }
+          return { ...p, linked: action.player, background: newAvatar, deck: null, commander: null }
         }),
       }
     }
@@ -475,7 +481,7 @@ function applyAction(game: Game, action: GameAction): Game {
       return {
         ...game,
         match: action.match,
-        players: action.match ? game.players : game.players.map((p) => (p.linked ? { ...p, linked: null, background: null, deck: null } : p)),
+        players: action.match ? game.players : game.players.map((p) => (p.linked ? { ...p, linked: null, background: null, deck: null, commander: null } : p)),
         shownCard: action.match ? game.shownCard : null,
       }
   }

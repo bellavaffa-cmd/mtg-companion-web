@@ -4,3 +4,4 @@ export const apiHeaders = (token?: string): Record<string, string> => (token ? {
 export class OfflineError extends Error {}
 /** Tests are never signed in to the real server. */
 export const accessToken = async (): Promise<string | null> => null
+export const realtimeSocketUrl = () => 'wss://sync.test/realtime/v1/websocket'

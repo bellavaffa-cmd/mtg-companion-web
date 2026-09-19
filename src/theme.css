@@ -2944,6 +2944,198 @@ select.input.sf-sort {
   font-size: 15px;
 }
 
+/* ---- A deck's match record ---- */
+
+.match-panel {
+  margin-bottom: 10px;
+}
+.match-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.match-score {
+  font-family: var(--num);
+  font-size: 40px;
+  line-height: 1;
+}
+.match-rate {
+  color: var(--gold-light);
+  font-size: 14px;
+}
+.match-form {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  font-size: 12.5px;
+}
+.match-form .dim {
+  margin-left: 6px;
+}
+.form-chip {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--g0);
+  background: var(--g2);
+}
+.form-chip.win {
+  background: var(--gold);
+}
+.form-chip.loss {
+  background: #d3402f;
+}
+.form-chip.draw {
+  color: var(--t1);
+}
+.match-length {
+  margin-top: 10px;
+  font-size: 13px;
+}
+.match-sub {
+  margin: 14px 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t1);
+}
+.matchup {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 14px;
+}
+.matchup .grow {
+  flex: 1;
+  min-width: 0;
+}
+.matchup-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.matchup .dim {
+  font-size: 12px;
+}
+.matchup b {
+  font-family: var(--num);
+  font-weight: 400;
+  font-size: 17px;
+  color: var(--t1);
+}
+.matchup b.up {
+  color: var(--gold);
+}
+.matchup b.down {
+  color: #d3402f;
+}
+.match-games {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 4px;
+}
+.match-game {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.match-result {
+  width: 40px;
+  font-weight: 700;
+  color: var(--t1);
+}
+.match-result.win {
+  color: var(--gold);
+}
+.match-result.loss {
+  color: #d3402f;
+}
+.match-detail {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.match-remove {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--t2);
+  cursor: pointer;
+}
+.match-remove:hover {
+  background: var(--g2);
+}
+.cmd-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.cmd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 4px 4px 11px;
+  border-radius: 999px;
+  background: var(--g2);
+  font-size: 13px;
+  font-weight: 600;
+}
+.cmd-chip button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--t2);
+  cursor: pointer;
+}
+.cmd-chip .icon {
+  font-size: 15px;
+}
+.cmd-suggestions {
+  display: grid;
+  margin-top: 6px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--g2);
+}
+.cmd-suggestions button {
+  padding: 9px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.cmd-suggestions button + button {
+  border-top: 1px solid var(--line);
+}
+.cmd-suggestions button:hover {
+  background: var(--g3, var(--g1));
+}
+.match-remove .icon {
+  font-size: 16px;
+}
+
 /* ---- Card tags (what a card does) ---- */
 
 .search-note {

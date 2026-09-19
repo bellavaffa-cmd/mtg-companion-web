@@ -15,6 +15,7 @@ import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '..
 import { useAddWarning } from '../components/useAddWarning'
 import { DeckSuggestions } from '../components/DeckSuggestions'
 import { DeckStats, deckFigures, useDeckCardData } from '../components/DeckStats'
+import { MatchRecordPanel } from '../components/MatchRecordPanel'
 import { Dialog } from '../components/Dialog'
 import {
   ArtImage, CountUp, IconButton, ManaPips, PillChip, SearchPill, SectionHeader, SegmentedTabs, TYPE_GROUPS, TYPE_PLURALS,
@@ -239,6 +240,7 @@ export function DeckDetailPage() {
               {tab === 'Cards' ? cardList : tab === 'Suggestions' ? suggestions : details}
             </div>
             <aside className="deck-aside">
+              <MatchRecordPanel deck={deck} />
               <DeckStats deck={deck} cardsById={cardData} roleTags={roleTags} tagging={!!tagging} onTag={(label) => { setTabName('Cards'); setFilter(label) }} />
               <div className="panel">
                 <div className="p-h"><h3>Add cards</h3></div>
@@ -263,7 +265,7 @@ export function DeckDetailPage() {
                 {addCards}
               </>
             )}
-            {tab === 'Stats' && <div style={{ marginTop: 12 }}><DeckStats deck={deck} cardsById={cardData} roleTags={roleTags} tagging={!!tagging} onTag={(label) => { setTabName('Cards'); setFilter(label) }} /></div>}
+            {tab === 'Stats' && <div style={{ marginTop: 12 }}><MatchRecordPanel deck={deck} /><DeckStats deck={deck} cardsById={cardData} roleTags={roleTags} tagging={!!tagging} onTag={(label) => { setTabName('Cards'); setFilter(label) }} /></div>}
             {tab === 'Suggestions' && <div style={{ marginTop: 12 }}>{suggestions}</div>}
             {tab === 'Details' && details}
           </>

@@ -4,6 +4,7 @@ import { applyCollectionChanges, awaitingMyUpdate, tradeChanges, tradeSides } fr
 import type { Trade } from '../../src/social/api.ts'
 import type { Collection } from '../../src/types/models.ts'
 import { DEFAULT_SETTINGS, gameReducer, newGame } from '../../src/lifecounter/game.ts'
+import { buildRemoteState } from '../../src/lifecounter/remote.ts'
 
 const A = 'user-a'
 const B = 'user-b'
@@ -101,4 +102,23 @@ test("sitting down puts the player's profile picture behind their tile, and leav
   // No profile picture: the seat's colour. Leaving clears it.
   assert.equal(tile(gameReducer(newGame(DEFAULT_SETTINGS), { type: 'link', id: 1, player: { ...bob, avatarPath: null } })), null)
   assert.equal(tile(gameReducer(game, { type: 'link', id: 1, player: null })), null)
+})
+
+test("a remote's deck and commander reach the table, for the other players' game records", () => {
+  const bob = { userId: 'b', username: 'bob', displayName: 'Bob', avatarPath: null }
+  const seat = (g: ReturnType<typeof newGame>) => g.players.find((p) => p.id === 1)!
+  let game = gameReducer(newGame(DEFAULT_SETTINGS), { type: 'match', match: { id: 'm1', code: 'c' } })
+  game = gameReducer(game, { type: 'link', id: 1, player: bob })
+  game = gameReducer(game, { type: 'background', id: 1, url: null, deck: 'Superfriends', commander: "Atraxa, Praetors' Voice" })
+  assert.equal(seat(game).commander, "Atraxa, Praetors' Voice")
+  assert.equal(buildRemoteState(game, DEFAULT_SETTINGS).players.find((p) => p.seat === 1)?.commander, "Atraxa, Praetors' Voice")
+  // A new picture, same deck: the commander stays, even from a remote too old to send it.
+  game = gameReducer(game, { type: 'background', id: 1, url: null })
+  assert.equal(seat(game).commander, "Atraxa, Praetors' Voice")
+  // A different deck from an old remote: the old commander goes.
+  game = gameReducer(game, { type: 'background', id: 1, url: null, deck: 'Goblins' })
+  assert.equal(seat(game).commander, null)
+  // Whoever leaves takes it with them.
+  game = gameReducer(game, { type: 'background', id: 1, url: null, deck: 'Goblins', commander: 'Krenko, Mob Boss' })
+  assert.equal(seat(gameReducer(game, { type: 'link', id: 1, player: { ...bob, userId: 'c' } })).commander, null)
 })

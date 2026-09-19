@@ -23,8 +23,14 @@ export interface DeckCardEntry {
 export interface GameResult {
   id: string
   result: 'WIN' | 'LOSS' | 'DRAW'
+  /** Who they played, as names joined by ", ". */
   opponent: string | null
   playedAt: number
+  /** How long the game ran, when a life counter table kept track. */
+  turns?: number | null
+  minutes?: number | null
+  /** The commanders the opponents played (a partner pair as "A & B"). */
+  commanders?: string[]
 }
 
 export const GAME_MODES = [

@@ -9,7 +9,7 @@ import { GiphyPicker } from '../social/GiphyPicker'
 import { autocomplete, getByExactName } from '../api/scryfall'
 import { displayImageUrl } from '../types/scryfall'
 import { toArtCrop } from '../components/kit'
-import type { Deck } from '../types/models'
+import type { Deck, GameResult } from '../types/models'
 import { COUNTER_INFO, COUNTER_KINDS } from './game'
 import { useStepper } from './PlayerTile'
 import { useWakeLock } from './wakeLock'
@@ -48,6 +48,9 @@ function readText(key: string): string {
 }
 
 const commanderArt = (deck: Deck | undefined | null) => toArtCrop(deck?.commander?.imageUrl ?? null)
+/** The deck's commander, "A & B" with a partner — what the other players' records will say they faced. */
+const commanderOf = (deck: Deck | undefined | null) =>
+  [deck?.commander?.name, deck?.partnerCommander?.name].filter(Boolean).join(' & ') || null
 
 /**
  * A player's phone as the remote for their seat at someone's life counter (opened after joining a
@@ -129,7 +132,7 @@ export function RemotePage() {
     if (!mine || !state?.remotes || applied.current) return
     applied.current = true
     if (mine.background || mine.deck || !hasSavedPrefs()) return
-    if (preferredUrl || deck) send({ type: 'background', url: preferredUrl, deck: deck?.name ?? null })
+    if (preferredUrl || deck) send({ type: 'background', url: preferredUrl, deck: deck?.name ?? null, commander: commanderOf(deck) })
   }, [mine, state?.remotes, preferredUrl, deck, send])
 
   const chooseBackground = (kind: BackgroundKind, customUrl: string | null = prefs.customUrl, deckId = prefs.deckId) => {
@@ -137,7 +140,7 @@ export function RemotePage() {
     setPrefs(next)
     const d = decks.find((x) => x.id === deckId) ?? null
     const url = kind === 'commander' ? commanderArt(d) : kind === 'profile' ? api.avatarUrl(me?.avatar_path) : kind === 'custom' ? customUrl : null
-    send({ type: 'background', url, deck: d?.name ?? null })
+    send({ type: 'background', url, deck: d?.name ?? null, commander: commanderOf(d) })
   }
   const chooseDeck = (d: Deck) => {
     const kind = prefs.background === 'colour' && commanderArt(d) ? 'commander' : prefs.background
@@ -264,7 +267,7 @@ export function RemotePage() {
           state={state}
           seat={seatNo}
           deck={deck}
-          log={(result, opponent) => { if (deck) addGameResult(deck.id, { id: crypto.randomUUID(), result, opponent, playedAt: Date.now() }) }}
+          log={(result) => { if (deck) addGameResult(deck.id, { id: crypto.randomUUID(), ...result, playedAt: Date.now() }) }}
           onPickDeck={() => setSheet('deck')}
         />
       )}
@@ -598,7 +601,7 @@ function GameOver({
   state: RemoteState
   seat: number
   deck: Deck | null
-  log: (result: 'WIN' | 'LOSS', opponent: string | null) => void
+  log: (result: Pick<GameResult, 'result' | 'opponent' | 'turns' | 'minutes' | 'commanders'>) => void
   onPickDeck: () => void
 }) {
   const [closed, setClosed] = useState(false)
@@ -611,8 +614,14 @@ function GameOver({
     const keys = readJson<{ keys: string[] }>(LOGGED_KEY, { keys: [] }).keys
     if (!keys.includes(logKey)) {
       writeJson(LOGGED_KEY, { keys: [...keys, logKey].slice(-100) })
-      const opponents = state.players.filter((p) => p.seat !== seat).map((p) => p.name).join(', ')
-      log(over.winner === seat ? 'WIN' : 'LOSS', opponents || null)
+      const others = state.players.filter((p) => p.seat !== seat)
+      log({
+        result: over.winner === seat ? 'WIN' : 'LOSS',
+        opponent: others.map((p) => p.name).join(', ') || null,
+        turns: over.turns > 0 ? over.turns : null,
+        minutes: over.minutes > 0 ? over.minutes : null,
+        commanders: others.flatMap((p) => (p.commander ? [p.commander] : [])),
+      })
     }
     setLogged(true)
   }, [logged, deck, state.players, seat, over.winner, logKey, log])

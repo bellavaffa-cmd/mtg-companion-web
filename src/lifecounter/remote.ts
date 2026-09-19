@@ -36,6 +36,8 @@ export interface RemoteSeat {
   commanderDamage: { from: number; slot: number; amount: number }[]
   background: string | null
   deck: string | null
+  /** The commander of that deck ("A & B" for partners), for the other players' game records. */
+  commander?: string | null
   userId: string | null
   avatarPath: string | null
   /** Whether this seat has a change of its own it could undo. */
@@ -69,7 +71,7 @@ export type RemoteAction =
   | { type: 'dealtDamage'; to: number; slot: number; delta: number }
   | { type: 'endTurn' }
   | { type: 'undo' }
-  | { type: 'background'; url: string | null; deck?: string | null }
+  | { type: 'background'; url: string | null; deck?: string | null; commander?: string | null }
   | { type: 'showCard'; name: string; imageUrl: string }
   | { type: 'hideCard' }
 
@@ -113,6 +115,7 @@ export function buildRemoteState(game: Game, settings: LifeSettings): RemoteStat
           .map(([from, amount]) => ({ from: Number(from), slot: 0, amount })),
         background: p.background ?? null,
         deck: p.deck ?? null,
+        commander: p.commander ?? null,
         userId: p.linked?.userId ?? null,
         avatarPath: p.linked?.avatarPath ?? null,
         canUndo: canUndo(game, p.id),
@@ -164,7 +167,8 @@ export function remoteToGameAction(game: Game, settings: LifeSettings, seat: num
     case 'background': {
       if (a.url !== null && !allowedImage(a.url)) return null
       const deck = typeof a.deck === 'string' ? a.deck.slice(0, 80) : a.deck === null ? null : undefined
-      return { type: 'background', id: seat, url: a.url as string | null, deck }
+      const commander = typeof a.commander === 'string' ? a.commander.slice(0, 150) : a.commander === null ? null : undefined
+      return { type: 'background', id: seat, url: a.url as string | null, deck, commander }
     }
     case 'showCard':
       if (typeof a.name !== 'string' || !allowedImage(a.imageUrl) || new URL(a.imageUrl).hostname !== 'cards.scryfall.io') return null
