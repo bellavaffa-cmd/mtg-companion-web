@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
@@ -10,6 +10,7 @@ import * as api from '../social/api'
 import { BinderPicker } from '../social/CardPicker'
 import { useSocial } from '../social/SocialContext'
 import { Avatar, handle } from '../social/ui'
+import { useNameTagSearch } from '../tags/useNameTagSearch'
 
 type Loaded = { state: 'loading' } | { state: 'missing' } | { state: 'error'; message: string } | { state: 'ok'; item: api.SharedItem }
 
@@ -75,13 +76,16 @@ function SharedDeck({ item }: { item: api.SharedItem }) {
   const deck = normalizeDeck({ ...(item.data as Partial<Deck>), id: String(item.data.id ?? ''), name: String(item.data.name ?? 'Deck') })
   const [zoom, setZoom] = useState<DeckCardEntry | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const search = useNameTagSearch(deck.cards, query)
   const count = deck.cards.reduce((n, c) => n + c.quantity, 0)
   const groups = new Map<string, DeckCardEntry[]>()
-  for (const card of [...deck.cards].sort((a, b) => a.name.localeCompare(b.name))) {
+  for (const card of [...search.shown].sort((a, b) => a.name.localeCompare(b.name))) {
     const type = TYPE_GROUPS.includes(primaryTypeOf(card.typeLine)) ? primaryTypeOf(card.typeLine) : 'Other'
     groups.set(type, [...(groups.get(type) ?? []), card])
   }
   const commanders = [deck.commander, deck.partnerCommander].filter((c): c is DeckCardEntry => !!c)
+    .filter((c) => !query.trim() || search.shown.some((x) => x.scryfallId === c.scryfallId))
 
   const copy = () => {
     const mine = createDeckWithCards(`${deck.name}`, deck.cards.map((c) => ({ ...c })), deck.commander, deck.partnerCommander)
@@ -112,6 +116,12 @@ function SharedDeck({ item }: { item: api.SharedItem }) {
           <button type="button" className="btn line" style={{ marginTop: 12 }} onClick={copy}><Icon name="content_copy" aria-hidden />Copy to my decks</button>
         )
       )}
+      {deck.cards.length > 8 && (
+        <div style={{ marginTop: 14, maxWidth: 480 }}>
+          <SearchPill value={query} onChange={setQuery} placeholder="Name or tag, e.g. ramp" />
+          {search.note}
+        </div>
+      )}
       {commanders.length > 0 && (
         <>
           <SectionHeader title={commanders.length > 1 ? 'Commanders' : 'Commander'} />
@@ -125,7 +135,19 @@ function SharedDeck({ item }: { item: api.SharedItem }) {
         </div>
       ))}
       {deck.cards.length === 0 && <div className="empty-state">This deck has no cards yet.</div>}
-      {zoom && <CardZoomModal imageUrl={zoom.imageUrl} name={zoom.name} typeLine={zoom.typeLine} backImageUrl={zoom.backImageUrl} onClose={() => setZoom(null)} />}
+      {deck.cards.length > 0 && search.shown.length === 0 && <div className="empty-state">No cards match “{query}”.</div>}
+      {zoom && (
+        <CardZoomModal
+          imageUrl={zoom.imageUrl}
+          name={zoom.name}
+          typeLine={zoom.typeLine}
+          backImageUrl={zoom.backImageUrl}
+          tags={search.labelsOf(zoom.name)}
+          tagsLoading={search.tagsLoading(zoom.name)}
+          onTagClick={(label) => { setZoom(null); setQuery(label) }}
+          onClose={() => setZoom(null)}
+        />
+      )}
     </>
   )
 }
@@ -190,15 +212,11 @@ export function SharedCollectionPage() {
   }, [owner, account?.userId])
 
   const name = loaded.state === 'ok' ? loaded.data.owner.display_name : null
-  let body: ReactNode
-  if (loaded.state === 'loading') body = <div className="empty-state"><Icon name="hourglass_empty" />Loading…</div>
-  else if (loaded.state === 'error') body = <div className="empty-state"><Icon name="cloud_off" />{loaded.message}</div>
-  else if (loaded.state === 'missing') body = <div className="empty-state"><Icon name="link_off" />Nothing of theirs is shared with you any more.</div>
-  else {
-    const binders = loaded.data.binders.map((b) => b as unknown as Partial<Collection>)
-    const owned = binders.filter((b) => b.type !== 'WISHLIST')
+  // Every card across the binders they share (wishlists aren't cards they own).
+  const binders = useMemo(() => (loaded.state === 'ok' ? loaded.data.binders.map((b) => b as unknown as Partial<Collection>) : []), [loaded])
+  const cards = useMemo(() => {
     const byCard = new Map<string, OwnedCard>()
-    for (const b of owned) {
+    for (const b of binders.filter((x) => x.type !== 'WISHLIST')) {
       for (const e of Array.isArray(b.entries) ? b.entries : []) {
         const card = byCard.get(e.scryfallId) ?? { scryfallId: e.scryfallId, name: e.name, imageUrl: e.imageUrl, backImageUrl: e.backImageUrl, quantity: 0, foilQuantity: 0, binders: [] }
         card.quantity += e.quantity
@@ -207,10 +225,17 @@ export function SharedCollectionPage() {
         byCard.set(e.scryfallId, card)
       }
     }
-    const cards = [...byCard.values()].sort((a, b) => a.name.localeCompare(b.name))
+    return [...byCard.values()].sort((a, b) => a.name.localeCompare(b.name))
+  }, [binders])
+  const search = useNameTagSearch(cards, query)
+  let body: ReactNode
+  if (loaded.state === 'loading') body = <div className="empty-state"><Icon name="hourglass_empty" />Loading…</div>
+  else if (loaded.state === 'error') body = <div className="empty-state"><Icon name="cloud_off" />{loaded.message}</div>
+  else if (loaded.state === 'missing') body = <div className="empty-state"><Icon name="link_off" />Nothing of theirs is shared with you any more.</div>
+  else {
     const total = cards.reduce((n, c) => n + c.quantity + c.foilQuantity, 0)
-    const q = query.trim().toLowerCase()
-    const shown = q ? cards.filter((c) => c.name.toLowerCase().includes(q)) : cards
+    const q = query.trim()
+    const shown = search.shown
     body = (
       <>
         <div className="binder-head rise" style={rise(0)}>
@@ -231,7 +256,8 @@ export function SharedCollectionPage() {
           </div>
         )}
         <div style={{ marginTop: 14, maxWidth: 480 }}>
-          <SearchPill value={query} onChange={setQuery} placeholder={`Search ${cards.length} cards`} />
+          <SearchPill value={query} onChange={setQuery} placeholder="Name or tag, e.g. ramp" />
+          {search.note}
         </div>
         <div className="list wide-list" style={{ marginTop: 14 }}>
           {shown.slice(0, COLLECTION_LIST_LIMIT).map((c) => (
@@ -275,7 +301,17 @@ export function SharedCollectionPage() {
     <>
       <TopBar title={name ? `${name}'s collection` : 'Collection'} onBack={back} />
       <div className="content-scroll">{body}</div>
-      {zoom && <CardZoomModal imageUrl={zoom.imageUrl} name={zoom.name} backImageUrl={zoom.backImageUrl} onClose={() => setZoom(null)} />}
+      {zoom && (
+        <CardZoomModal
+          imageUrl={zoom.imageUrl}
+          name={zoom.name}
+          backImageUrl={zoom.backImageUrl}
+          tags={search.labelsOf(zoom.name)}
+          tagsLoading={search.tagsLoading(zoom.name)}
+          onTagClick={(label) => { setZoom(null); setQuery(label) }}
+          onClose={() => setZoom(null)}
+        />
+      )}
     </>
   )
 }
@@ -288,6 +324,8 @@ function SharedBinder({ item, canTrade, ownerId }: { item: api.SharedItem; canTr
   const [zoom, setZoom] = useState<CollectionEntry | null>(null)
   const [trading, setTrading] = useState(false)
   const [picked, setPicked] = useState<api.TradeCard[]>([])
+  const [query, setQuery] = useState('')
+  const search = useNameTagSearch(entries, query)
   const cards = entries.reduce((n, e) => n + e.quantity, 0)
   const foils = entries.reduce((n, e) => n + e.foilQuantity, 0)
   const isFriend = !!overview?.friends.some((f) => f.user_id === ownerId && f.status === 'accepted')
@@ -319,11 +357,20 @@ function SharedBinder({ item, canTrade, ownerId }: { item: api.SharedItem; canTr
         ) : entries.length === 0 ? (
           <div className="empty-state">This binder is empty.</div>
         ) : (
-          <div className="list wide-list">
-            {[...entries].sort((a, b) => a.name.localeCompare(b.name)).map((e) => (
-              <ReadOnlyCard key={e.scryfallId} card={e} foil={e.foilQuantity} onZoom={() => setZoom(e)} />
-            ))}
-          </div>
+          <>
+            {(entries.length > 8 || query) && (
+              <div style={{ marginBottom: 14, maxWidth: 480 }}>
+                <SearchPill value={query} onChange={setQuery} placeholder="Name or tag, e.g. ramp" />
+                {search.note}
+              </div>
+            )}
+            <div className="list wide-list">
+              {[...search.shown].sort((a, b) => a.name.localeCompare(b.name)).map((e) => (
+                <ReadOnlyCard key={e.scryfallId} card={e} foil={e.foilQuantity} onZoom={() => setZoom(e)} />
+              ))}
+              {search.shown.length === 0 && <div className="empty-state">No cards match “{query}”.</div>}
+            </div>
+          </>
         )}
       </div>
       {trading && pickedCount > 0 && (
@@ -334,7 +381,7 @@ function SharedBinder({ item, canTrade, ownerId }: { item: api.SharedItem; canTr
           </button>
         </div>
       )}
-      {zoom && <CardZoomModal imageUrl={zoom.imageUrl} name={zoom.name} backImageUrl={zoom.backImageUrl} onClose={() => setZoom(null)} />}
+      {zoom && <CardZoomModal imageUrl={zoom.imageUrl} name={zoom.name} backImageUrl={zoom.backImageUrl} tags={search.labelsOf(zoom.name)} tagsLoading={search.tagsLoading(zoom.name)} onTagClick={(label) => { setZoom(null); setQuery(label) }} onClose={() => setZoom(null)} />}
     </>
   )
 }
