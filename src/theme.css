@@ -1965,6 +1965,36 @@ select.input {
   z-index: 46;
 }
 
+.zoom-left {
+  position: relative;
+}
+
+/* Next/previous card, when the zoom was opened from a list. */
+.zoom-step {
+  position: absolute !important;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+
+.zoom-step.prev {
+  left: 0;
+}
+
+.zoom-step.next {
+  right: 0;
+}
+
+@media (max-width: 560px) {
+  .zoom-step.prev {
+    left: -6px;
+  }
+
+  .zoom-step.next {
+    right: -6px;
+  }
+}
+
 .stage3d {
   display: grid;
   justify-items: center;

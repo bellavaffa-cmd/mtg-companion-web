@@ -12,6 +12,20 @@ import { useSocial } from '../social/SocialContext'
 import { Avatar, handle } from '../social/ui'
 import { useNameTagSearch } from '../tags/useNameTagSearch'
 
+/**
+ * Next and previous for a zoom opened from [list], in the order the cards are listed — a swipe, the
+ * arrow keys or the chevrons move along it. Nothing when the card isn't in the list or it's alone.
+ */
+function zoomSteps<T extends { scryfallId: string }>(list: T[], current: T, go: (card: T) => void) {
+  const i = list.findIndex((c) => c.scryfallId === current.scryfallId)
+  if (i < 0 || list.length < 2) return {}
+  return {
+    onPrev: i > 0 ? () => go(list[i - 1]) : undefined,
+    onNext: i < list.length - 1 ? () => go(list[i + 1]) : undefined,
+    position: { index: i + 1, total: list.length },
+  }
+}
+
 type Loaded = { state: 'loading' } | { state: 'missing' } | { state: 'error'; message: string } | { state: 'ok'; item: api.SharedItem }
 
 /**
@@ -146,6 +160,11 @@ function SharedDeck({ item }: { item: api.SharedItem }) {
           tagsLoading={search.tagsLoading(zoom.name)}
           onTagClick={(label) => { setZoom(null); setQuery(label) }}
           onClose={() => setZoom(null)}
+          {...zoomSteps(
+            [...commanders, ...[...groups.values()].flat()].filter((c, i, all) => all.findIndex((o) => o.scryfallId === c.scryfallId) === i),
+            zoom,
+            setZoom,
+          )}
         />
       )}
     </>
@@ -228,6 +247,8 @@ export function SharedCollectionPage() {
     return [...byCard.values()].sort((a, b) => a.name.localeCompare(b.name))
   }, [binders])
   const search = useNameTagSearch(cards, query)
+  // The cards as they're listed, which the zoom swipes along.
+  const listed = search.shown.slice(0, COLLECTION_LIST_LIMIT)
   let body: ReactNode
   if (loaded.state === 'loading') body = <div className="empty-state"><Icon name="hourglass_empty" />Loading…</div>
   else if (loaded.state === 'error') body = <div className="empty-state"><Icon name="cloud_off" />{loaded.message}</div>
@@ -260,7 +281,7 @@ export function SharedCollectionPage() {
           {search.note}
         </div>
         <div className="list wide-list" style={{ marginTop: 14 }}>
-          {shown.slice(0, COLLECTION_LIST_LIMIT).map((c) => (
+          {listed.map((c) => (
             <ReadOnlyCard
               key={c.scryfallId}
               card={{ ...c, quantity: c.quantity + c.foilQuantity }}
@@ -310,6 +331,7 @@ export function SharedCollectionPage() {
           tagsLoading={search.tagsLoading(zoom.name)}
           onTagClick={(label) => { setZoom(null); setQuery(label) }}
           onClose={() => setZoom(null)}
+          {...zoomSteps(listed, zoom, setZoom)}
         />
       )}
     </>
@@ -331,6 +353,8 @@ function SharedBinder({ item, canTrade, ownerId }: { item: api.SharedItem; canTr
   const isFriend = !!overview?.friends.some((f) => f.user_id === ownerId && f.status === 'accepted')
   const pickedCount = picked.reduce((n, c) => n + c.quantity, 0)
   const itemId = String(collection.id ?? '')
+  // The cards as they're listed, which the zoom swipes along.
+  const listed = [...search.shown].sort((a, b) => a.name.localeCompare(b.name))
 
   return (
     <>
@@ -365,7 +389,7 @@ function SharedBinder({ item, canTrade, ownerId }: { item: api.SharedItem; canTr
               </div>
             )}
             <div className="list wide-list">
-              {[...search.shown].sort((a, b) => a.name.localeCompare(b.name)).map((e) => (
+              {listed.map((e) => (
                 <ReadOnlyCard key={e.scryfallId} card={e} foil={e.foilQuantity} onZoom={() => setZoom(e)} />
               ))}
               {search.shown.length === 0 && <div className="empty-state">No cards match “{query}”.</div>}
@@ -381,7 +405,18 @@ function SharedBinder({ item, canTrade, ownerId }: { item: api.SharedItem; canTr
           </button>
         </div>
       )}
-      {zoom && <CardZoomModal imageUrl={zoom.imageUrl} name={zoom.name} backImageUrl={zoom.backImageUrl} tags={search.labelsOf(zoom.name)} tagsLoading={search.tagsLoading(zoom.name)} onTagClick={(label) => { setZoom(null); setQuery(label) }} onClose={() => setZoom(null)} />}
+      {zoom && (
+        <CardZoomModal
+          imageUrl={zoom.imageUrl}
+          name={zoom.name}
+          backImageUrl={zoom.backImageUrl}
+          tags={search.labelsOf(zoom.name)}
+          tagsLoading={search.tagsLoading(zoom.name)}
+          onTagClick={(label) => { setZoom(null); setQuery(label) }}
+          onClose={() => setZoom(null)}
+          {...zoomSteps(listed, zoom, setZoom)}
+        />
+      )}
     </>
   )
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react'
 import { useMoney } from '../money/currency'
 import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
@@ -39,6 +39,12 @@ interface Props {
   oracleText?: string | null
   /** Printed cast cost in `{X}` syntax. */
   manaCost?: string | null
+  /** The card before and after this one in the list it was opened from — a swipe, the arrow keys or
+   * the chevrons move between them. Omit either one at the ends of the list. */
+  onPrev?: () => void
+  onNext?: () => void
+  /** Where this card sits in that list, 1-based, e.g. "3 of 40". */
+  position?: { index: number; total: number }
 }
 
 /** A tilting card that catches a foil sheen under the pointer — the Android app's card detail. */
@@ -86,6 +92,7 @@ function TiltCard({ src, alt, children }: { src: string; alt: string; children?:
 export function CardZoomModal({
   imageUrl, name, typeLine, priceUsd, priceUsdFoil, onClose, children, scryfallId, currentDeckId, currentCollectionId,
   backImageUrl, tags = [], tagsLoading = false, onTagClick, onSelectSimilar, similarActionLabel, oracleText, manaCost,
+  onPrev, onNext, position,
 }: Props) {
   const money = useMoney()
   const { decks, collections } = useSync()
@@ -113,7 +120,11 @@ export function CardZoomModal({
   }, [name])
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      if (e.key === 'ArrowLeft') onPrev?.()
+      if (e.key === 'ArrowRight') onNext?.()
+    }
     window.addEventListener('keydown', onKey)
     const overflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -121,7 +132,23 @@ export function CardZoomModal({
       window.removeEventListener('keydown', onKey)
       document.body.style.overflow = overflow
     }
-  }, [onClose])
+  }, [onClose, onPrev, onNext])
+
+  // Swiping across the card moves to the next or previous one, as it does in the Android app.
+  const swipe = useRef<{ x: number; y: number } | null>(null)
+  const swipeHandlers = onPrev || onNext ? {
+    onTouchStart: (e: ReactTouchEvent) => { swipe.current = { x: e.touches[0].clientX, y: e.touches[0].clientY } },
+    onTouchEnd: (e: ReactTouchEvent) => {
+      const from = swipe.current
+      swipe.current = null
+      if (!from) return
+      const dx = e.changedTouches[0].clientX - from.x
+      const dy = e.changedTouches[0].clientY - from.y
+      if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return
+      if (dx < 0) onNext?.()
+      else onPrev?.()
+    },
+  } : {}
 
   async function findSimilar() {
     setSimilar(null)
@@ -147,14 +174,18 @@ export function CardZoomModal({
     <div className="zoom-overlay" onClick={onClose}>
       <div className="zoom-content" onClick={(e) => e.stopPropagation()}>
         {shownImageUrl && (
-          <div className="zoom-left">
+          <div className="zoom-left" {...swipeHandlers}>
+            {onPrev && <IconButton icon="chevron_left" label="Previous card" variant="glass" className="zoom-step prev" onClick={onPrev} />}
+            {onNext && <IconButton icon="chevron_right" label="Next card" variant="glass" className="zoom-step next" onClick={onNext} />}
             <div className="stage3d rise" style={{ ['--i' as string]: 0 }}>
               <TiltCard src={shownImageUrl} alt={name}>
                 {backImageUrl && (
                   <IconButton icon="autorenew" label="Flip card" variant="glass" className="flip-btn" onClick={() => setFlipped((f) => !f)} />
                 )}
               </TiltCard>
-              <div className="tilt-hint">Move across the card to catch the foil</div>
+              <div className="tilt-hint">
+                {position ? `${position.index} of ${position.total} · swipe or use the arrow keys` : 'Move across the card to catch the foil'}
+              </div>
             </div>
           </div>
         )}
