@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { getByExactName, getByFuzzyName, getBySetAndNumber, OfflineError } from '../api/scryfall'
 import { ActionSheet, type SheetAction } from '../components/ActionSheet'
 import { Icon } from '../components/Icon'
@@ -8,6 +9,7 @@ import { cardNameIndex, MIN_MATCH } from '../scan/cardNames'
 import { guideInVideo } from '../scan/guide'
 import { readCardName, readSmallPrint, titleReader } from '../scan/ocr'
 import { parseSetAndNumber, sameCardName, ScanTracker } from '../scan/scanLogic'
+import { appLinkPath, qrReader } from '../scan/qr'
 import { useSync } from '../sync/SyncContext'
 import { displayImageUrl, type ScryfallCard } from '../types/scryfall'
 
@@ -15,6 +17,8 @@ import { displayImageUrl, type ScryfallCard } from '../types/scryfall'
 const CARD_ASPECT = 63 / 88
 /** A pause between reads, so the phone isn't reading flat out. */
 const BETWEEN_READS_MS = 150
+/** How often the camera is checked for a QR code. */
+const QR_EVERY_MS = 400
 
 type Camera = 'starting' | 'on' | 'denied' | 'unsupported' | 'failed'
 
@@ -35,9 +39,11 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 /**
  * Scan cards with the camera, like the phone app: hold one in the frame and its name is read and
  * looked up; each card goes into a list, and the list is added to a deck or binder in one go.
+ * The app's QR codes are read too — a friend's, a life counter seat's, a share link — and opened.
  */
 export function ScanPage() {
   const back = useBack('/search')
+  const navigate = useNavigate()
   const { decks, collections, addCardToDeck, addEntryToCollection } = useSync()
   const videoRef = useRef<HTMLVideoElement>(null)
   const guideRef = useRef<HTMLDivElement>(null)
@@ -45,7 +51,7 @@ export function ScanPage() {
   const [camera, setCamera] = useState<Camera>('starting')
   const [cameraAttempt, setCameraAttempt] = useState(0)
   const [loading, setLoading] = useState<string | null>('Getting the card reader ready…')
-  const [status, setStatus] = useState('Hold a card inside the frame, its name in the gold strip.')
+  const [status, setStatus] = useState("Hold a card inside the frame, its name in the gold strip — or a friend's QR code.")
   const [seen, setSeen] = useState('')
   const [scanned, setScanned] = useState<Scanned[]>([])
   const [flash, setFlash] = useState(0)
@@ -181,6 +187,36 @@ export function ScanPage() {
     return () => { stopped = true }
   }, [camera])
 
+  // QR codes, alongside cards and from the start (they don't wait for the card reader): one of the
+  // app's opens where it leads — a friend's code asks to add them.
+  useEffect(() => {
+    if (camera !== 'on') return
+    let stopped = false
+    let unknown = ''
+    void (async () => {
+      const read = await qrReader().catch(() => null)
+      while (read && !stopped) {
+        const video = videoRef.current
+        if (video && !document.hidden && video.readyState >= 2) {
+          const text = await read(video).catch(() => null)
+          if (stopped) break
+          const path = text ? appLinkPath(text) : null
+          if (path) {
+            navigator.vibrate?.(30)
+            navigate(path)
+            return
+          }
+          if (text && text !== unknown) {
+            unknown = text
+            setStatus("That QR code isn't an MTG Companion one.")
+          }
+        }
+        await sleep(QR_EVERY_MS)
+      }
+    })()
+    return () => { stopped = true }
+  }, [camera, navigate])
+
   const addTyped = async () => {
     const name = typed.trim()
     if (!name || lookingUp) return
@@ -238,7 +274,7 @@ export function ScanPage() {
 
   return (
     <>
-      <TopBar title="Scan cards" onBack={back} />
+      <TopBar title="Scan" onBack={back} />
       <div className="content-scroll scan-page">
         <div className="scan-view" data-no-pull>
           <video ref={videoRef} className="scan-video" playsInline muted autoPlay />

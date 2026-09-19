@@ -229,7 +229,7 @@ function ProfileTab({ me }: { me: api.Profile }) {
         <div className="p-h" style={{ marginTop: 0, alignSelf: 'stretch' }}><h3>Add me as a friend</h3></div>
         <QrCode text={api.friendLink(me.username)} size={200} label={`QR code to add ${handle(me)}`} />
         <p className="dim" style={{ fontSize: 12.5, margin: '10px 0 0', maxWidth: 360 }}>
-          Friends scan this with their phone’s camera or the Android app’s scanner — or add {handle(me)}.
+          Friends scan this with their phone’s camera or the app’s scanner — or add {handle(me)}.
         </p>
       </div>
       <NotificationsPanel />
@@ -278,6 +278,7 @@ export function WholeCollectionRow({ owner, name, binders, whole }: { owner: str
 }
 
 function AddFriend({ onAdded }: { onAdded: () => Promise<void> }) {
+  const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null)
@@ -311,6 +312,10 @@ function AddFriend({ onAdded }: { onAdded: () => Promise<void> }) {
         <button type="submit" className="btn gold" disabled={busy || !username.trim()}>Add</button>
       </form>
       {message && <div className={`dim${message.ok ? '' : ' field-error'}`} style={{ marginTop: 8, fontSize: 13 }} aria-live="polite">{message.text}</div>}
+      {/* Or their QR code, with the camera — the Scan page reads the app's codes as well as cards. */}
+      <button type="button" className="btn line block" style={{ marginTop: 10 }} onClick={() => navigate('/scan')}>
+        <Icon name="qr_code_scanner" aria-hidden />Scan their QR code
+      </button>
     </div>
   )
 }
