@@ -47,6 +47,10 @@ export function TradeValue({ get, give }: { get: TradeCard[]; give: TradeCard[] 
   }
   const mine = total(get)
   const theirs = total(give)
+  // Nothing priced: no verdict to give.
+  if (mine.sum === 0 && theirs.sum === 0) {
+    return <div className="trade-value dim">There are no prices for these cards, so their value can't be compared.</div>
+  }
   const diff = mine.sum - theirs.sum
   const fair = Math.abs(diff) <= Math.max(2, 0.1 * Math.max(mine.sum, theirs.sum))
   const unpriced = mine.unpriced + theirs.unpriced
