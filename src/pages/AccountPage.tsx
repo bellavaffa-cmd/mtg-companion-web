@@ -1,4 +1,6 @@
+import { Link } from 'react-router-dom'
 import { TopBar } from '../components/TopBar'
+import { Icon } from '../components/Icon'
 import { AccountPanel } from '../components/AccountPanel'
 import { rise, useBack } from '../components/kit'
 
@@ -9,7 +11,14 @@ export function AccountPage() {
     <>
       <TopBar title="Account & sync" onBack={back} />
       <div className="content-scroll rise" style={{ ...rise(0), paddingTop: 8 }}>
-        <div className="narrow-width"><AccountPanel /></div>
+        <div className="narrow-width">
+          <AccountPanel />
+          <Link to="/app" className="banner press" style={{ marginTop: 16, textDecoration: 'none' }}>
+            <Icon name="android" />
+            <span style={{ flex: 1 }}>Get the Android app: the same account, with notifications and offline card search.</span>
+            <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
+          </Link>
+        </div>
       </div>
     </>
   )

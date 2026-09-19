@@ -15,8 +15,11 @@ import type { ScryfallCard } from '../types/scryfall'
 import { backImageUrl, cardTags, displayImageUrl, displayManaCost, displayOracleText } from '../types/scryfall'
 import type { Collection, Deck } from '../types/models'
 import { formatUsd, usePriceAlertHits } from '../collection/priceAlerts'
+import { isAndroid } from './GetAppPage'
 
 const CARD_OF_DAY_KEY = 'mtgweb_card_of_day'
+/** Set once the "Get the Android app" banner has been dismissed. */
+const APP_BANNER_KEY = 'mtgweb_app_banner_dismissed'
 
 function greeting(): string {
   const h = new Date().getHours()
@@ -57,6 +60,29 @@ export function HomePage() {
   const size = useLayoutSize()
   const { decks, collections, account, accountsAvailable, cloud } = useSync()
   const priceAlerts = usePriceAlertHits(collections)
+  // On an Android phone, point at the app once (until it's dismissed).
+  const [appBannerHidden, setAppBannerHidden] = useState(() => {
+    try { return localStorage.getItem(APP_BANNER_KEY) === '1' } catch { return true }
+  })
+  const appBanner = isAndroid() && !appBannerHidden && (
+    <div className="banner rise app-banner" style={{ ...rise(1), marginBottom: 0 }}>
+      <Icon name="android" />
+      <button type="button" className="banner-text" onClick={() => navigate('/app')}>
+        <b>Get the Android app</b>: the same account, with notifications, price alerts and offline card search.
+      </button>
+      <button
+        type="button"
+        className="icon-btn"
+        aria-label="Not now"
+        onClick={() => {
+          setAppBannerHidden(true)
+          try { localStorage.setItem(APP_BANNER_KEY, '1') } catch { /* shows again next time */ }
+        }}
+      >
+        <Icon name="close" />
+      </button>
+    </div>
+  )
   const alertBanner = priceAlerts.hits.length > 0 && (
     <PriceAlertBanner hits={priceAlerts.hits} onOpen={(id) => navigate(`/collections/${id}`)} onDismiss={priceAlerts.dismiss} />
   )
@@ -134,6 +160,7 @@ export function HomePage() {
             </button>
           )}
           {alertBanner}
+          {appBanner}
 
           {desktop ? (
             <section className="home-hero-row rise" style={rise(1)}>
@@ -220,6 +247,7 @@ export function HomePage() {
           </button>
         )}
         {alertBanner}
+        {appBanner}
 
         {hero && <div className="rise" style={rise(1)}>{hero}</div>}
 
@@ -380,7 +408,7 @@ function PriceAlertBanner({ hits, onOpen, onDismiss }: { hits: import('../collec
   return (
     <div className="banner rise price-alert-banner" style={{ ...rise(1), marginBottom: 0 }} role="status">
       <Icon name="notifications_active" />
-      <button type="button" className="price-alert-text" onClick={() => onOpen(first.collectionId)}>
+      <button type="button" className="banner-text" onClick={() => onOpen(first.collectionId)}>
         {hits.length === 1
           ? <><b>{first.entry.name}</b> is {formatUsd(first.price)} — under your {formatUsd(first.entry.priceAlert ?? 0)} alert</>
           : <><b>{hits.length} wishlist cards</b> are under your alert prices: {hits.map((h) => `${h.entry.name} ${formatUsd(h.price)}`).join(', ')}</>}

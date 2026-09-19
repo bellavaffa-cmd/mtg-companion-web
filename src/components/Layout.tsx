@@ -145,6 +145,10 @@ function Sidebar() {
         </>
       )}
       <div style={{ flex: 1 }} />
+      <NavLink to="/app" className={({ isActive }) => `side-nav${isActive ? ' active' : ''}`}>
+        <Icon name="android" />
+        Get the Android app
+      </NavLink>
       <AccountStatus />
     </nav>
   )
@@ -177,6 +181,10 @@ function NavRail() {
         <span>Friends</span>
       </NavLink>
       <div style={{ flex: 1 }} />
+      <NavLink to="/app" className={({ isActive }) => `nav-tab${isActive ? ' active' : ''}`}>
+        <span className="pill"><Icon name="android" /></span>
+        <span>App</span>
+      </NavLink>
       <AccountStatus compact />
     </nav>
   )

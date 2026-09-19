@@ -2883,7 +2883,7 @@ select.input.sf-sort {
 
 /* ---- Price alerts ---- */
 
-.price-alert-banner .price-alert-text {
+.banner .banner-text {
   flex: 1;
   min-width: 0;
   border: 0;
@@ -2894,8 +2894,41 @@ select.input.sf-sort {
   text-align: left;
   cursor: pointer;
 }
-.price-alert-banner .icon-btn {
+.banner .icon-btn {
   flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: transparent;
+  color: var(--t2);
+  cursor: pointer;
+}
+.banner .icon-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* ---- Get the Android app ---- */
+
+.get-app-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 8px;
+}
+.get-app-qr {
+  margin-top: 14px;
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+.get-app-qr .qr {
+  background: #fff;
+  padding: 10px;
+  border-radius: 12px;
 }
 .crow .price-tag {
   display: inline-flex;

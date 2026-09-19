@@ -13,6 +13,7 @@ import { SearchPage } from './pages/SearchPage'
 import { AccountPage } from './pages/AccountPage'
 import { LifeCounterPage } from './lifecounter/LifeCounterPage'
 import { RemotePage } from './lifecounter/RemotePage'
+import { GetAppPage } from './pages/GetAppPage'
 import { RulesPage } from './pages/RulesPage'
 import { ScanPage } from './pages/ScanPage'
 import { SocialProvider } from './social/SocialContext'
@@ -57,6 +58,7 @@ export default function App() {
             <Route path="/s/:token" element={<SharedItemPage />} />
             <Route path="/add/:username" element={<AddFriendLinkPage />} />
             <Route path="/join/:code/:seat" element={<JoinSeatPage />} />
+            <Route path="/app" element={<GetAppPage />} />
           </Route>
           {/* The table runs edge to edge, without the app's navigation. */}
           <Route path="/life" element={<LifeCounterPage />} />
