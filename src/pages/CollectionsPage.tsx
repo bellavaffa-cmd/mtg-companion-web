@@ -5,14 +5,13 @@ import { Icon } from '../components/Icon'
 import { Dialog } from '../components/Dialog'
 import { ActionSheet } from '../components/ActionSheet'
 import { useLongPress } from '../components/useLongPress'
-import { ArtImage, IconButton, PageHeader, PillChip, SegmentedTabs, StatFigure, rise, toArtCrop, useLayoutSize } from '../components/kit'
+import { ArtImage, IconButton, PageHeader, SegmentedTabs, StatFigure, rise, toArtCrop, useLayoutSize } from '../components/kit'
 import { SharedFriendsView } from '../social/SharedFriends'
-import { isUnsorted, type Collection, type CollectionType } from '../types/models'
+import { isUnsorted, type Collection } from '../types/models'
+import { isWishlist } from '../collection/wishlist'
 import { ExportCollectionDialog, ImportCardsDialog } from '../collection/CardListDialogs'
 import { ShareCollectionDialog } from '../social/ShareWithFriend'
 import { TagBindersSection } from '../collection/TagBinders'
-
-const TYPE_LABELS: Record<CollectionType, string> = { OWNED: 'Owned', WISHLIST: 'Wishlist' }
 
 export function CollectionsPage() {
   const { collections, deleteCollection, accountsAvailable } = useSync()
@@ -21,7 +20,6 @@ export function CollectionsPage() {
   const sharedTab = accountsAvailable && params.get('tab') === 'shared'
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
-  const [filter, setFilter] = useState<CollectionType | 'ALL'>('ALL')
   const [sheet, setSheet] = useState<Collection | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Collection | null>(null)
   const [importing, setImporting] = useState<Collection | 'new' | null>(null)
@@ -34,9 +32,11 @@ export function CollectionsPage() {
   const unique = new Set(owned.flatMap((c) => c.entries.map((e) => e.scryfallId))).size
   // The Unsorted pile counts as owned cards, but isn't listed or counted as a binder.
   const unsorted = collections.find(isUnsorted)
-  const binders = collections.filter((c) => !isUnsorted(c))
+  const binders = collections.filter((c) => !isUnsorted(c) && !isWishlist(c))
   const unsortedCards = unsorted?.entries.reduce((n, e) => n + e.quantity + e.foilQuantity, 0) ?? 0
-  const shown = binders.filter((c) => filter === 'ALL' || c.type === filter)
+  // The Wishlist first; it's always there.
+  const wishlist = collections.find(isWishlist)
+  const shown = wishlist ? [wishlist, ...binders] : binders
 
   return (
     <>
@@ -68,10 +68,10 @@ export function CollectionsPage() {
             />
           </div>
         )}
-        {sharedTab ? <SharedFriendsView /> : binders.length === 0 && unsortedCards === 0 ? (
+        {sharedTab ? <SharedFriendsView /> : binders.length === 0 && unsortedCards === 0 && !wishlist?.entries.length ? (
           <div className="empty-state rise" style={rise(1)}>
             <Icon name="collections" />
-            <div>No binders yet. Make one for the cards you own, or a wishlist for the ones you want — or import your whole collection from another app and sort it later.</div>
+            <div>No binders yet. Make one for the cards you own — or import your whole collection from another app and sort it later. Cards you want go in your Wishlist.</div>
             <div className="row" style={{ gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
               <button type="button" className="btn gold" onClick={() => setShowCreate(true)}><Icon name="add" />New binder</button>
               <button type="button" className="btn line" onClick={() => setImporting('new')}><Icon name="playlist_add" />Import your collection</button>
@@ -96,12 +96,6 @@ export function CollectionsPage() {
                 </button>
               </div>
             )}
-            <div className="chips rise" style={rise(2)}>
-              <PillChip label="All" count={binders.length} selected={filter === 'ALL'} onClick={() => setFilter('ALL')} />
-              {(['OWNED', 'WISHLIST'] as const).map((t) => (
-                <PillChip key={t} label={TYPE_LABELS[t]} count={binders.filter((c) => c.type === t).length} selected={filter === t} onClick={() => setFilter(t)} />
-              ))}
-            </div>
             <div className="list wide-list">
               {shown.map((c, i) => (
                 <BinderRow
@@ -112,9 +106,8 @@ export function CollectionsPage() {
                   onMore={() => setSheet(c)}
                 />
               ))}
-              {shown.length === 0 && <div className="empty-state">No {filter === 'WISHLIST' ? 'wishlists' : 'binders'} here yet.</div>}
             </div>
-            {filter !== 'WISHLIST' && <TagBindersSection />}
+            <TagBindersSection />
           </>
         )}
       </div>
@@ -122,13 +115,14 @@ export function CollectionsPage() {
       {sheet && (
         <ActionSheet
           title={sheet.name}
-          subtitle={`${TYPE_LABELS[sheet.type]} · ${sheet.entries.length} unique cards`}
+          subtitle={`${isWishlist(sheet) ? 'Wishlist' : 'Binder'} · ${sheet.entries.length} unique cards`}
           imageUrl={sheet.entries[0]?.imageUrl ?? null}
           actions={[
             { label: 'Open binder', icon: 'folder_open', onClick: () => navigate(`/collections/${sheet.id}`) },
             { label: 'Import cards', icon: 'playlist_add', detail: 'A list from Moxfield, ManaBox, Archidekt…', onClick: () => setImporting(sheet) },
             { label: 'Export as text', icon: 'ios_share', detail: 'For other apps, or a .txt file', onClick: () => setExporting(sheet) },
-            { label: 'Delete binder', icon: 'delete', tone: 'danger', onClick: () => setConfirmDelete(sheet) },
+            // The Wishlist is always there.
+            ...(isWishlist(sheet) ? [] : [{ label: 'Delete binder', icon: 'delete', tone: 'danger' as const, onClick: () => setConfirmDelete(sheet) }]),
           ]}
           onClose={() => setSheet(null)}
         />
@@ -180,9 +174,9 @@ function BinderRow({ collection, index, onOpen, onMore }: { collection: Collecti
       <div style={{ minWidth: 0 }}>
         <div className="brow-name">{collection.name}</div>
         <div className="brow-meta">
-          {collection.type === 'WISHLIST' && <span className="badge soft">Wishlist</span>}
-          <span><b>{total}</b>cards</span>
-          <span><b>{collection.entries.length}</b>unique</span>
+          {isWishlist(collection)
+            ? <><span>Cards you want</span><span><b>{total}</b>{total === 1 ? 'card' : 'cards'}</span><span>not counted as owned</span></>
+            : <><span><b>{total}</b>cards</span><span><b>{collection.entries.length}</b>unique</span></>}
         </div>
       </div>
       <button
@@ -200,10 +194,10 @@ function BinderRow({ collection, index, onOpen, onMore }: { collection: Collecti
 function CreateCollectionDialog({ onDismiss, onCreated }: { onDismiss: () => void; onCreated: (id: string) => void }) {
   const { createCollection } = useSync()
   const [name, setName] = useState('')
-  const [type, setType] = useState<CollectionType>('OWNED')
+  // New binders are owned binders: the Wishlist is the only wishlist.
   const create = () => {
     if (!name.trim()) return
-    onCreated(createCollection(name.trim(), type).id)
+    onCreated(createCollection(name.trim(), 'OWNED').id)
   }
 
   return (
@@ -219,15 +213,7 @@ function CreateCollectionDialog({ onDismiss, onCreated }: { onDismiss: () => voi
     >
       <div className="field-label">Binder name</div>
       <input className="input" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && create()} autoFocus />
-      <div className="field-label" style={{ marginTop: 16 }}>Type</div>
-      <div className="chips wrap">
-        {(['OWNED', 'WISHLIST'] as const).map((t) => (
-          <PillChip key={t} label={TYPE_LABELS[t]} selected={type === t} onClick={() => setType(t)} className="on-g2" />
-        ))}
-      </div>
-      <div className="dim" style={{ marginTop: 10 }}>
-        {type === 'OWNED' ? 'Cards you own. They count toward your collection.' : "Cards you want. They don't count as owned."}
-      </div>
+      <div className="dim" style={{ marginTop: 10 }}>Cards you own. Cards you want go in your Wishlist.</div>
     </Dialog>
   )
 }

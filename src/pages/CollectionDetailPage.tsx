@@ -12,6 +12,7 @@ import { ExportCollectionDialog, ImportCardsDialog } from '../collection/CardLis
 import { ArtImage, IconButton, SearchPill, SectionHeader, StatFigure, rise, toArtCrop, useBack, useLayoutSize, useScrollProgress } from '../components/kit'
 import { Dialog } from '../components/Dialog'
 import { isUnsorted, type CollectionEntry } from '../types/models'
+import { decksConsidering, isWishlist } from '../collection/wishlist'
 import { askForNotifications, usePrices } from '../collection/priceAlerts'
 import { useMoney } from '../money/currency'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
@@ -19,7 +20,7 @@ import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '..
 export function CollectionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const back = useBack('/collections')
-  const { collections, setEntryQuantities, setEntryPriceAlert, removeEntryFromCollection, removeEntriesFromCollection, addEntryToCollection, moveEntries, createCollection } = useSync()
+  const { collections, decks, setEntryQuantities, setEntryPriceAlert, removeEntryFromCollection, removeEntriesFromCollection, addEntryToCollection, moveEntries, createCollection } = useSync()
   const collection = collections.find((c) => c.id === id)
   // A wishlist shows what each card costs now, and can watch for it to drop.
   const wishlist = collection?.type === 'WISHLIST'
@@ -139,6 +140,7 @@ export function CollectionDetailPage() {
             onZoom={() => setZoomId(entry.scryfallId)}
             onMore={() => setSheet(entry)}
             price={wishlist ? prices?.get(entry.scryfallId) : undefined}
+            considering={entry.auto ? decksConsidering(decks, entry.name).join(', ') || undefined : undefined}
             onIncrement={() => setQty(entry, entry.quantity + 1, entry.foilQuantity)}
             onDecrement={() => setQty(entry, entry.quantity - 1, entry.foilQuantity)}
           />
@@ -169,6 +171,11 @@ export function CollectionDetailPage() {
           <div className="eyebrow">{unsorted ? 'Not in a binder yet' : collection.type === 'WISHLIST' ? 'Wishlist' : 'Binder'}</div>
           <h1>{collection.name}</h1>
         </div>
+        {isWishlist(collection) && (
+          <p className="muted rise" style={{ ...rise(1), margin: '6px 0 0', maxWidth: 720 }}>
+            Cards you want. They don't count as owned. Cards your decks are considering that you don't own are added here by themselves, until you own them.
+          </p>
+        )}
         {size === 'desktop' ? (
           <div className="binder-columns" style={{ marginTop: 12 }}>
             <div style={{ minWidth: 0 }}>{summary}{entryList}</div>
@@ -381,9 +388,11 @@ export function CollectionDetailPage() {
 }
 
 function EntryRow({
-  entry, selecting, selected, price, onToggle, onZoom, onMore, onIncrement, onDecrement,
+  entry, selecting, selected, price, considering, onToggle, onZoom, onMore, onIncrement, onDecrement,
 }: {
   entry: CollectionEntry
+  /** The Wishlist: the decks considering a card it has because of them. */
+  considering?: string
   /** Wishlists: today's price (null: none), undefined elsewhere or while loading. */
   price?: number | null
   selecting: boolean
@@ -415,6 +424,7 @@ function EntryRow({
               {entry.priceAlert ? <><Icon name={price != null && price <= entry.priceAlert ? 'notifications_active' : 'notifications'} aria-hidden />{formatUsd(entry.priceAlert)}</> : null}
             </span>
           )}
+          {considering && <span className="dim considering">Considering in {considering}</span>}
         </div>
       </div>
       <div className="qty">

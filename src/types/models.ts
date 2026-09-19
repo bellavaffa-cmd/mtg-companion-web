@@ -170,6 +170,8 @@ export interface CollectionEntry {
   tags?: string[]
   /** Wishlists: tell the user when this card's price (USD, non-foil) is at or under this. */
   priceAlert?: number | null
+  /** The Wishlist: added by itself because a deck is considering the card (see collection/wishlist.ts). */
+  auto?: boolean
 }
 
 export interface Collection {

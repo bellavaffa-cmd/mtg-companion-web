@@ -17,6 +17,7 @@ import {
   libraryIsAnotherAccounts, loadCloudState, loadRescue, pullChanges, pushPending, recordLocalEdits, RESCUE_MAX_AGE_MS,
   saveCloudState, saveRescue, UnauthorizedError,
 } from './cloudSync'
+import { WISHLIST_ID, isEmptyWishlist, withWishlist } from '../collection/wishlist'
 
 /** What a user-requested sync ended with. */
 export type RefreshResult =
@@ -370,10 +371,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     accountRef.current = acct
     setAccount(acct)
     const lib = libraryRef.current
-    if (loadCloudState().userId !== acct.userId && (lib.decks.length > 0 || lib.collections.length > 0)) {
+    // An empty Wishlist is there in every library, so it isn't something to ask about.
+    const binders = lib.collections.filter((c) => !isEmptyWishlist(c)).length
+    if (loadCloudState().userId !== acct.userId && (lib.decks.length > 0 || binders > 0)) {
       mergePending.current = true
       localStorage.setItem(MERGE_PENDING_KEY, acct.userId)
-      setMergePrompt({ decks: lib.decks.length, collections: lib.collections.length, email: acct.email })
+      setMergePrompt({ decks: lib.decks.length, collections: binders, email: acct.email })
       return
     }
     void runSync()
@@ -536,6 +539,17 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     },
     [adoptStoredLibrary, commitLibrary, scheduleSync],
   )
+
+  // The Wishlist: always there, holding what decks are considering that isn't owned. Not while
+  // "this browser already has a library" is being asked — that library isn't the account's yet.
+  useEffect(() => {
+    if (mergePending.current) return
+    if (withWishlist(library.collections, library.decks) === library.collections) return
+    updateLibrary((lib) => {
+      const collections = withWishlist(lib.collections, lib.decks)
+      return collections === lib.collections ? lib : { ...lib, collections }
+    })
+  }, [library, updateLibrary, mergePrompt])
 
   const signIn = useCallback(async (email: string, password: string) => {
     startAccount(await auth.signIn(email, password))
@@ -783,7 +797,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   )
 
   const deleteCollection = useCallback(
-    (collectionId: string) =>
+    // Never the Wishlist, which is always there.
+    (collectionId: string) => collectionId === WISHLIST_ID ? undefined :
       updateLibrary((lib) => ({ ...lib, collections: lib.collections.filter((c) => c.id !== collectionId) })),
     [updateLibrary],
   )
