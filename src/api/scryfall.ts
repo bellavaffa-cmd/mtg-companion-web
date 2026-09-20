@@ -182,12 +182,22 @@ export async function getCollection(identifiers: CardIdentifier[]): Promise<{ da
  * Every printing of a card, newest first — the alternate arts, the borderless one, the Secret Lair.
  * Empty when Scryfall knows no such card.
  */
+/** Pages of printings to follow at most. A basic land runs to five; nothing runs to ten. */
+const MOST_PRINTING_PAGES = 10
+
 export async function getPrintings(name: string): Promise<ScryfallCard[]> {
   const query = new URLSearchParams({ q: `!"${name}"`, unique: 'prints', order: 'released', dir: 'desc' })
-  const res = await get(`${BASE}/cards/search?${query}`)
-  if (!res.ok) return []
-  const json = await res.json()
-  return (json.data ?? []) as ScryfallCard[]
+  let next: string | null = `${BASE}/cards/search?${query}`
+  const all: ScryfallCard[] = []
+  // Scryfall answers 175 printings at a time; a basic land has hundreds of them.
+  for (let page = 0; next && page < MOST_PRINTING_PAGES; page++) {
+    const res = await get(next)
+    if (!res.ok) break
+    const json = await res.json()
+    all.push(...((json.data ?? []) as ScryfallCard[]))
+    next = json.has_more ? (json.next_page as string) : null
+  }
+  return all
 }
 
 export async function getRandomCard(): Promise<ScryfallCard> {

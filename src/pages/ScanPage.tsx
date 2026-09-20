@@ -10,6 +10,7 @@ import { useKeepAwake } from '../components/useKeepAwake'
 import { TopBar } from '../components/TopBar'
 import { cardNameIndex, MIN_MATCH } from '../scan/cardNames'
 import { guideInVideo } from '../scan/guide'
+import { matchPrinting, signatureOfSource, type ArtSignature } from '../scan/printingMatch'
 import { readCardName, readSmallPrint, STRIP_STYLES, titleReader } from '../scan/ocr'
 import { confirmRead, parseSetAndNumber, sameCardName, ScanTracker } from '../scan/scanLogic'
 import { appLinkPath, qrReader } from '../scan/qr'
@@ -30,6 +31,16 @@ type Camera = 'starting' | 'on' | 'denied' | 'unsupported' | 'failed'
 /** A row of the list: the same card as foil and non-foil are separate rows. */
 /** Scans counted up, so each row stays its own even when the same card comes round twice. */
 let nextScanId = 1
+
+/**
+ * Printings looked up this session, by card name. Scanning a pile of lands asks after the same
+ * eight hundred Plains printings over and over otherwise, and Scryfall is owed better than that.
+ */
+const printingsByName = new Map<string, Promise<ScryfallCard[]>>()
+
+/** Which printing a card is, in words: the set it came in, and its number within that set. */
+const printingName = (card: ScryfallCard) =>
+  [card.set_name ?? card.set?.toUpperCase(), card.collector_number && `#${card.collector_number}`].filter(Boolean).join(' · ')
 
 /**
  * The pile is kept for this tab while the app is open: a card scanned isn't lost to a reload, a
@@ -96,9 +107,10 @@ export function ScanPage() {
   const [notice, setNotice] = useState<string | null>(null)
 
   /** Every scan is its own row, newest first, so a card read twice shows twice. */
-  const addScanned = (card: ScryfallCard, exact = false) => {
+  const addScanned = (card: ScryfallCard, exact = false): number => {
+    const id = nextScanId++
     setScanned((list) => {
-      const row: ScanRow = { id: nextScanId++, card, foil: false, at: Date.now(), exact }
+      const row: ScanRow = { id, card, foil: false, at: Date.now(), exact }
       const next = [row, ...list]
       const copy = copyNumber(next, row)
       setStatus(copy > 1
@@ -108,6 +120,32 @@ export function ScanPage() {
     })
     setFlash((n) => n + 1)
     navigator.vibrate?.(30)
+    return id
+  }
+
+  /**
+   * Works out which printing was really in the frame from what the card looked like, and corrects
+   * the row without being asked. This runs behind the scan rather than in front of it: fetching a
+   * card's printings and their pictures takes a moment, and nobody should have to hold a card still
+   * while it happens. The row is left alone if it's been deleted, or its printing already picked by
+   * hand, since the scan.
+   */
+  const matchArt = async (id: number, scanned: ScryfallCard, camera: ArtSignature) => {
+    let asked = printingsByName.get(scanned.name)
+    if (!asked) {
+      asked = getPrintings(scanned.name).catch(() => [])
+      printingsByName.set(scanned.name, asked)
+    }
+    const printings = await asked
+    // Nothing came back — offline, most likely. Don't hold on to that as the answer.
+    if (printings.length === 0) printingsByName.delete(scanned.name)
+    if (printings.length < 2) return
+    const found = await matchPrinting(camera, printings).catch(() => null)
+    if (!found) return
+    setScanned((list) => list.map((s) => (
+      s.id === id && s.card.id === scanned.id && !s.exact ? { ...s, card: found.pick, exact: found.only } : s
+    )))
+    if (found.pick.id !== scanned.id) setStatus(`${scanned.name} — matched the art to ${printingName(found.pick)}`)
   }
 
   // The camera: the back one on a phone, as sharp as it offers. It's let go while the page is hidden
@@ -226,7 +264,11 @@ export function ScanPage() {
               continue
             }
             tracker.added(card.name)
-            addScanned(card, !!printing)
+            // What the card looked like, taken now while it's still in the frame. When the set code
+            // was read there's nothing left to work out; otherwise this decides the printing.
+            const look = printing ? null : signatureOfSource(video, box)
+            const id = addScanned(card, !!printing)
+            if (look) void matchArt(id, card, look)
           } catch (e) {
             if (stopped) break
             tracker.failed()
@@ -424,7 +466,7 @@ export function ScanPage() {
                     <div className="cmeta">
                       {!s.exact && (
                         <button type="button" className="chip scan-art" onClick={() => setPickingArt(s)}>
-                          <Icon name="image_search" aria-hidden />Usual printing · pick art
+                          <Icon name="image_search" aria-hidden />Best guess · pick art
                         </button>
                       )}
                       {copy > 1 && (
@@ -432,7 +474,7 @@ export function ScanPage() {
                           {justNow ? `copy ${copy} · scanned just now` : `copy ${copy}`}
                         </span>
                       )}
-                      <span>{[s.card.set_name ?? s.card.set?.toUpperCase(), s.card.collector_number && `#${s.card.collector_number}`].filter(Boolean).join(' · ')}</span>
+                      <span>{printingName(s.card)}</span>
                     </div>
                     {canBeFoil(s.card) && (
                       <button type="button" className="chip scan-foil" aria-pressed={s.foil} aria-label={`Foil: ${s.card.name}`} onClick={() => toggleFoil(s.id)}>
@@ -522,7 +564,7 @@ function PrintingPicker({ row, onPick, onClose }: { row: ScanRow; onPick: (card:
               <div className="card-cell-img">
                 {displayImageUrl(card) ? <img src={displayImageUrl(card)!} alt={card.name} loading="lazy" /> : <ArtImage src={null} seed={card.name} />}
               </div>
-              <div className="card-cell-name">{card.set_name ?? card.set?.toUpperCase()}{card.collector_number ? ` · #${card.collector_number}` : ''}</div>
+              <div className="card-cell-name">{printingName(card)}</div>
             </button>
           ))}
         </div>
