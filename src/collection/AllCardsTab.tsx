@@ -14,6 +14,7 @@ import { ManaSymbol } from '../components/ManaSymbols'
 import { useLongPress } from '../components/useLongPress'
 import { ArtImage, IconButton, SearchPill, rise, toArtCrop, useLayoutSize } from '../components/kit'
 import { getCardsByIds } from '../api/scryfall'
+import { buyCardUrl } from '../api/buy'
 import type { ScryfallCard } from '../types/scryfall'
 import { isUnsorted, type Collection } from '../types/models'
 import { isWishlist } from './wishlist'
@@ -284,6 +285,7 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
           typeLine={known.get(zoomCard.scryfallId)?.type_line}
           priceUsd={known.get(zoomCard.scryfallId)?.prices?.usd}
           priceUsdFoil={known.get(zoomCard.scryfallId)?.prices?.usd_foil}
+          buyUrl={buyCardUrl(known.get(zoomCard.scryfallId), zoomCard.name)}
           backImageUrl={zoomCard.backImageUrl}
           tags={tagsOf(roleTags, zoomCard.name).map(tagLabel)}
           tagsLoading={!!tagging && !roleTags.has(zoomCard.name.trim().toLowerCase())}

@@ -48,7 +48,8 @@ export function withWishlist(collections: Collection[], decks: Deck[]): Collecti
 
   // Taken off by hand ("not interested"), and still considered — a card nobody considers any more
   // is forgotten, so putting it back in a deck's Considering list offers it again.
-  const notWanted = new Set((existing?.notWanted ?? []).map(key))
+  const notWanted = existing?.notWanted ?? []
+  const notWantedKeys = new Set(notWanted.map(key))
 
   // Owned: in any binder that isn't a wishlist (the Unsorted pile too).
   const owned = new Set(
@@ -63,10 +64,10 @@ export function withWishlist(collections: Collection[], decks: Deck[]): Collecti
     for (const card of deck.considering ?? []) {
       const k = key(card.name)
       considered.add(k)
-      if (!owned.has(k) && !wanted.has(k) && !(notWanted.has(k) && !byHand.has(k))) wanted.set(k, card)
+      if (!owned.has(k) && !wanted.has(k) && !(notWantedKeys.has(k) && !byHand.has(k))) wanted.set(k, card)
     }
   }
-  const stillNotWanted = [...notWanted].filter((k) => considered.has(k) && !byHand.has(k))
+  const stillNotWanted = notWanted.filter((n) => considered.has(key(n)) && !byHand.has(key(n)))
 
   const kept = entries.filter((e) => !e.auto || wanted.has(key(e.name)))
   const have = new Set(kept.map((e) => key(e.name)))
@@ -137,8 +138,16 @@ export function withoutWishlistCard(collections: Collection[], cardName: string)
   return collections.map((c) => (!isWishlist(c) ? c : {
     ...c,
     entries: c.entries.filter((e) => key(e.name) !== key(cardName)),
-    notWanted: [...new Set([...(c.notWanted ?? []), key(cardName)])],
+    notWanted: [...(c.notWanted ?? []), cardName.trim()].filter((n, i, all) => all.findIndex((o) => key(o) === key(n)) === i),
   }))
+}
+
+/**
+ * [collections] with [cardName] wanted again — undoing "not interested". The card comes back by
+ * itself while a deck considers it.
+ */
+export function withWishlistCardWantedAgain(collections: Collection[], cardName: string): Collection[] {
+  return collections.map((c) => (!isWishlist(c) ? c : { ...c, notWanted: (c.notWanted ?? []).filter((n) => key(n) !== key(cardName)) }))
 }
 
 /** The names of [decks] considering [cardName] — for "Considering in …" on a card added from them. */

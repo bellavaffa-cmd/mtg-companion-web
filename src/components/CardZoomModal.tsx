@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react'
 import { useMoney } from '../money/currency'
+import { buyCardUrl } from '../api/buy'
 import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { findSimilarCards, getByFuzzyName } from '../api/scryfall'
@@ -39,6 +40,8 @@ interface Props {
   oracleText?: string | null
   /** Printed cast cost in `{X}` syntax. */
   manaCost?: string | null
+  /** Where to buy this printing; without one the Buy chip searches TCGplayer for the name. */
+  buyUrl?: string | null
   /** The card before and after this one in the list it was opened from — a swipe, the arrow keys or
    * the chevrons move between them. Omit either one at the ends of the list. */
   onPrev?: () => void
@@ -112,7 +115,7 @@ function TiltCard({ src, alt, children }: { src: string; alt: string; children?:
 export function CardZoomModal({
   imageUrl, name, typeLine, priceUsd, priceUsdFoil, onClose, children, scryfallId, currentDeckId, currentCollectionId,
   backImageUrl, tags = [], tagsLoading = false, onTagClick, onSelectSimilar, similarActionLabel, oracleText, manaCost,
-  onPrev, onNext, position,
+  onPrev, onNext, position, buyUrl,
 }: Props) {
   const money = useMoney()
   const { decks, collections } = useSync()
@@ -245,6 +248,11 @@ export function CardZoomModal({
 
         <div className="chips wrap">
           <PillChip label="Rulings" icon="gavel" onClick={() => goTo(`/rules?tab=rulings&card=${encodeURIComponent(name)}`)} />
+          <PillChip
+            label="Buy"
+            icon="shopping_cart"
+            onClick={() => window.open(buyUrl ?? buyCardUrl(null, name), '_blank', 'noopener,noreferrer')}
+          />
         </div>
 
         {children}

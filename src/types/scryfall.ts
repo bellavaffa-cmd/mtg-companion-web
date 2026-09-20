@@ -43,6 +43,8 @@ export interface ScryfallCard {
   released_at?: string
   legalities?: Record<string, string>
   prices?: { usd?: string | null; usd_foil?: string | null }
+  /** Where to buy this printing (see api/buy.ts). */
+  purchase_uris?: { tcgplayer?: string | null; cardmarket?: string | null; cardhoarder?: string | null }
   image_uris?: ScryfallImageUris
   card_faces?: ScryfallCardFace[]
   game_changer?: boolean

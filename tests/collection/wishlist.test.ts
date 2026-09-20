@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { WISHLIST_ID, WISHLIST_NAME, decksConsidering, isWishlist, withWantedCards, withWishlist, withoutWishlistCard } from '../../src/collection/wishlist.ts'
+import { WISHLIST_ID, WISHLIST_NAME, decksConsidering, isWishlist, withWantedCards, withWishlist, withWishlistCardWantedAgain, withoutWishlistCard } from '../../src/collection/wishlist.ts'
 import type { Collection, CollectionEntry, Deck, DeckCardEntry } from '../../src/types/models.ts'
 
 // The one Wishlist: always there, old wishlists folded in, and the cards decks are considering that
@@ -86,11 +86,22 @@ test("a deck's missing cards go on the Wishlist, as many as the deck plays", () 
 
   // Asking for a card undoes "not interested", and a card added by itself becomes one you asked for.
   const dismissed = withoutWishlistCard(again, 'Lightning Bolt')
-  assert.deepEqual(dismissed.find(isWishlist)!.notWanted, ['lightning bolt'])
+  assert.deepEqual(dismissed.find(isWishlist)!.notWanted, ['Lightning Bolt'])
   const asked = withWantedCards(dismissed, [want('Lightning Bolt', 1)])
   assert.deepEqual(asked.find(isWishlist)!.notWanted, [])
   assert.ok(asked.find(isWishlist)!.entries.some((e) => e.name === 'Lightning Bolt'))
 
   // Nothing missing changes nothing at all.
   assert.equal(withWantedCards(asked, []), asked)
+})
+
+test('a card you said no to can be wanted again', () => {
+  const decks = [deck('Omnath', 'Cultivate')]
+  const dismissed = withWishlist(withoutWishlistCard(withWishlist([binder('b', 'Binder', [])], decks), 'Cultivate'), decks)
+  assert.deepEqual(dismissed.find(isWishlist)!.notWanted, ['Cultivate'])
+  assert.deepEqual(dismissed.find(isWishlist)!.entries, [])
+
+  const wanted = withWishlist(withWishlistCardWantedAgain(dismissed, 'CULTIVATE'), decks)
+  assert.deepEqual(wanted.find(isWishlist)!.notWanted, [])
+  assert.deepEqual(wanted.find(isWishlist)!.entries.map((e) => [e.name, !!e.auto]), [['Cultivate', true]])
 })

@@ -9,10 +9,11 @@ import { useLongPress } from '../components/useLongPress'
 import { CardSearchResults } from '../components/CardSearchResults'
 import { ShareDialog } from '../social/ShareDialog'
 import { ExportCollectionDialog, ImportCardsDialog } from '../collection/CardListDialogs'
-import { ArtImage, IconButton, SearchPill, SectionHeader, StatFigure, rise, toArtCrop, useBack, useLayoutSize, useScrollProgress } from '../components/kit'
+import { ArtImage, IconButton, PillChip, SearchPill, SectionHeader, StatFigure, rise, toArtCrop, useBack, useLayoutSize, useScrollProgress } from '../components/kit'
 import { Dialog } from '../components/Dialog'
 import { isUnsorted, type CollectionEntry } from '../types/models'
 import { decksConsidering, isWishlist } from '../collection/wishlist'
+import { buyCardUrl, buyListUrl } from '../api/buy'
 import { askForNotifications, usePrices } from '../collection/priceAlerts'
 import { useMoney } from '../money/currency'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
@@ -20,7 +21,7 @@ import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '..
 export function CollectionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const back = useBack('/collections?tab=binders')
-  const { collections, decks, setEntryQuantities, setEntryPriceAlert, removeEntryFromCollection, removeEntriesFromCollection, addEntryToCollection, moveEntries, createCollection, notInterested } = useSync()
+  const { collections, decks, setEntryQuantities, setEntryPriceAlert, removeEntryFromCollection, removeEntriesFromCollection, addEntryToCollection, moveEntries, createCollection, notInterested, wantAgain } = useSync()
   const collection = collections.find((c) => c.id === id)
   // A wishlist shows what each card costs now, and can watch for it to drop.
   const wishlist = collection?.type === 'WISHLIST'
@@ -51,6 +52,8 @@ export function CollectionDetailPage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [selected.size])
   const [newName, setNewName] = useState('')
+  // The Wishlist: cards said no to, shown on request so they can be asked for again.
+  const [showNotWanted, setShowNotWanted] = useState(false)
   // The big title scrolls away; the bar's title fades in to replace it.
   const titleProgress = useScrollProgress(90)
   const size = useLayoutSize()
@@ -171,6 +174,17 @@ export function CollectionDetailPage() {
           <>
             <IconButton icon="playlist_add" label="Import cards from another app" variant={titleProgress < 0.6 ? 'glass' : ''} onClick={() => setListDialog('import')} />
             <IconButton icon="ios_share" label="Export as text" variant={titleProgress < 0.6 ? 'glass' : ''} onClick={() => setListDialog('export')} />
+            {isWishlist(collection) && collection.entries.length > 0 && (
+              <IconButton
+                icon="shopping_cart"
+                label="Buy these cards at TCGplayer"
+                variant={titleProgress < 0.6 ? 'glass' : ''}
+                onClick={() => {
+                  const url = buyListUrl(collection.entries.map((e) => ({ name: e.name, quantity: e.quantity })))
+                  if (url) window.open(url, '_blank', 'noopener,noreferrer')
+                }}
+              />
+            )}
             <IconButton icon="group_add" label="Share with friends" variant={titleProgress < 0.6 ? 'glass' : ''} onClick={() => setSharing(true)} />
           </>
         }
@@ -180,6 +194,26 @@ export function CollectionDetailPage() {
           <div className="eyebrow">{unsorted ? 'Not in a binder yet' : collection.type === 'WISHLIST' ? 'Wishlist' : 'Binder'}</div>
           <h1>{collection.name}</h1>
         </div>
+        {isWishlist(collection) && (collection.notWanted ?? []).length > 0 && (
+          <div className="rise" style={{ ...rise(1), margin: '10px 0 0', maxWidth: 720 }}>
+            <button type="button" className="btn line sm" onClick={() => setShowNotWanted((v) => !v)}>
+              <Icon name={showNotWanted ? 'expand_less' : 'expand_more'} aria-hidden />
+              {(collection.notWanted ?? []).length} {(collection.notWanted ?? []).length === 1 ? 'card' : 'cards'} you said no to
+            </button>
+            {showNotWanted && (
+              <div className="chips wrap" style={{ marginTop: 8 }}>
+                {(collection.notWanted ?? []).map((cardName) => (
+                  <PillChip
+                    key={cardName}
+                    label={`${cardName} · want it`}
+                    icon="undo"
+                    onClick={() => wantAgain(cardName)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {isWishlist(collection) && (
           <p className="muted rise" style={{ ...rise(1), margin: '6px 0 0', maxWidth: 720 }}>
             Cards you want. They don't count as owned. Cards your decks are considering that you don't own are added here by themselves, until you own them — take one off and it stays off.
@@ -372,6 +406,7 @@ export function CollectionDetailPage() {
           backImageUrl={zoomEntry.backImageUrl}
           tags={tagsOf(roleTags, zoomEntry.name).map(tagLabel)}
           tagsLoading={!!tagging && !roleTags.has(zoomEntry.name.trim().toLowerCase())}
+          buyUrl={buyCardUrl(null, zoomEntry.name)}
           onTagClick={(label) => { setZoomId(null); setFilter(label) }}
           onSelectSimilar={(similar) => addEntryToCollection(collection.id, similar)}
           similarActionLabel="Tap a card to add it to this binder"

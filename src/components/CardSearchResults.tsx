@@ -9,6 +9,7 @@ import type { SheetAction } from './ActionSheet'
 import { Icon } from './Icon'
 import { useLongPress } from './useLongPress'
 import { CardZoomModal, zoomSteps } from './CardZoomModal'
+import { buyCardUrl } from '../api/buy'
 import { useAddWarning } from './useAddWarning'
 import { ArtImage, PillChip, SearchPill, toArtCrop } from './kit'
 import { SearchFiltersPanel } from './SearchFiltersPanel'
@@ -163,6 +164,7 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
           oracleText={displayOracleText(zoomCard)}
           manaCost={displayManaCost(zoomCard)}
           onSelectSimilar={setZoomCard}
+          buyUrl={buyCardUrl(zoomCard)}
           onClose={() => setZoomCard(null)}
           {...zoomSteps(cards, zoomCard, setZoomCard, (card) => card.id)}
         >

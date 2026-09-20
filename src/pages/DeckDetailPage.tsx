@@ -12,6 +12,7 @@ import { CardSearchResults } from '../components/CardSearchResults'
 import { ExportDeckDialog } from '../components/ExportDeckDialog'
 import { ShareDialog } from '../social/ShareDialog'
 import { missingCards, WhoHasItSheet } from '../social/WhoHasIt'
+import { buyCardUrl, buyListUrl } from '../api/buy'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
 import { useAddWarning } from '../components/useAddWarning'
 import { DeckSuggestions } from '../components/DeckSuggestions'
@@ -317,6 +318,15 @@ export function DeckDetailPage() {
             { label: 'Who has it?', icon: 'person_search', detail: "Friends who own the cards you're missing", onClick: () => setWhoHas(true) },
             ...(missing.length > 0
               ? [{
+                  label: 'Buy missing cards',
+                  icon: 'shopping_cart',
+                  detail: `${missing.length} ${missing.length === 1 ? 'card' : 'cards'} at TCGplayer`,
+                  onClick: () => {
+                    const url = buyListUrl(missing.map((c) => ({ name: c.name, quantity: c.quantity })))
+                    if (url) window.open(url, '_blank', 'noopener,noreferrer')
+                    setDeckSheet(false)
+                  },
+                }, {
                   label: 'Add missing to Wishlist',
                   icon: 'star',
                   tone: 'gold' as const,
@@ -363,6 +373,7 @@ export function DeckDetailPage() {
           imageUrl={zoomEntry.imageUrl}
           name={zoomEntry.name}
           typeLine={zoomEntry.typeLine}
+          buyUrl={buyCardUrl(cardData?.get(zoomEntry.scryfallId), zoomEntry.name)}
           priceUsd={cardData?.get(zoomEntry.scryfallId)?.prices?.usd}
           priceUsdFoil={cardData?.get(zoomEntry.scryfallId)?.prices?.usd_foil}
           oracleText={cardData?.get(zoomEntry.scryfallId)?.oracle_text}

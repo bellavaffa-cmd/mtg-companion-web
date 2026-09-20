@@ -17,7 +17,7 @@ import {
   libraryIsAnotherAccounts, loadCloudState, loadRescue, pullChanges, pushPending, recordLocalEdits, RESCUE_MAX_AGE_MS,
   saveCloudState, saveRescue, UnauthorizedError,
 } from './cloudSync'
-import { WISHLIST_ID, isEmptyWishlist, withWantedCards, withWishlist, withoutWishlistCard, type WantedCard } from '../collection/wishlist'
+import { WISHLIST_ID, isEmptyWishlist, withWantedCards, withWishlist, withWishlistCardWantedAgain, withoutWishlistCard, type WantedCard } from '../collection/wishlist'
 import { gatherInto, removeEverywhere } from '../collection/allCards'
 
 /** What a user-requested sync ended with. */
@@ -172,6 +172,8 @@ interface SyncContextValue {
   notInterested: (cardName: string) => void
   /** Puts cards on the Wishlist (making it if needed), keeping the larger count of any already there. */
   addToWishlist: (cards: WantedCard[]) => void
+  /** Undoes "not interested": the card comes back while a deck considers it. */
+  wantAgain: (cardName: string) => void
   /** Moves cards in and out of binders in one change (a trade); answers the ones there weren't enough copies of. */
   changeCollections: (changes: CollectionChange[]) => CollectionChange[]
 }
@@ -887,6 +889,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [updateLibrary],
   )
 
+  const wantAgain = useCallback(
+    (cardName: string) => updateLibrary((lib) => ({ ...lib, collections: withWishlistCardWantedAgain(lib.collections, cardName) })),
+    [updateLibrary],
+  )
+
   const addToWishlist = useCallback(
     (cards: WantedCard[]) => updateLibrary((lib) => ({ ...lib, collections: withWantedCards(lib.collections, cards) })),
     [updateLibrary],
@@ -1023,13 +1030,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       removeFromCollection,
       notInterested,
       addToWishlist,
+      wantAgain,
       removeEntriesFromCollection,
     }),
     [
       library, account, cloud, mergePrompt, resolveMerge, passwordRecovery, linkNotice, signIn, signUp, signOut,
       syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, addGameResult,
-      addCardsToDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist,
+      addCardsToDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain,
       setEntryQuantities, setEntryPriceAlert, changeCollections, importIntoCollection, moveEntries, removeEntriesFromCollection,
     ],
   )
