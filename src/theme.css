@@ -3773,6 +3773,19 @@ button.tag-chip {
   font-variant-numeric: tabular-nums;
 }
 
+/* A card in a deck built with proxies. */
+.card-cell-proxy {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.65);
+  color: var(--t1);
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .card-cell-name {
   margin-top: 5px;
   font-size: 12.5px;

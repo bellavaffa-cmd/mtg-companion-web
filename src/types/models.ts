@@ -59,18 +59,20 @@ export const GAME_MODES_USING_COMMANDER: ReadonlySet<GameMode> = new Set(['COMMA
  * - PROTOTYPE: a deck still being built/tested, incomplete by design — same as Virtual, not
  *   counted as owned until the deck is finished and marked Physical.
  */
-export const DECK_OWNERSHIP_OPTIONS = ['PHYSICAL', 'VIRTUAL', 'PROTOTYPE'] as const
+export const DECK_OWNERSHIP_OPTIONS = ['PHYSICAL', 'PROXY', 'VIRTUAL', 'PROTOTYPE'] as const
 export type DeckOwnership = (typeof DECK_OWNERSHIP_OPTIONS)[number]
 export const DECK_OWNERSHIP_DEFAULT: DeckOwnership = 'PHYSICAL'
 
 export const DECK_OWNERSHIP_LABELS: Record<DeckOwnership, string> = {
   PHYSICAL: 'Physical',
+  PROXY: 'Proxy',
   VIRTUAL: 'Virtual',
   PROTOTYPE: 'Prototype',
 }
 
 export const DECK_OWNERSHIP_DESCRIPTIONS: Record<DeckOwnership, string> = {
   PHYSICAL: "You own this deck's cards — they count toward your collection.",
+  PROXY: "A real deck built with proxies. It counts as built, but its cards are worth nothing and aren't real copies you can trade.",
   VIRTUAL: "You don't own this deck physically — its cards aren't counted as owned.",
   PROTOTYPE: "Still being built — its cards aren't counted as owned yet.",
 }

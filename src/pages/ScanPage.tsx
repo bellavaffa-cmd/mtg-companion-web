@@ -6,6 +6,7 @@ import { Icon } from '../components/Icon'
 import { ArtImage, PillChip, toArtCrop, useBack } from '../components/kit'
 import { Dialog } from '../components/Dialog'
 import { useLeaveGuard } from '../components/useLeaveGuard'
+import { useKeepAwake } from '../components/useKeepAwake'
 import { TopBar } from '../components/TopBar'
 import { cardNameIndex, MIN_MATCH } from '../scan/cardNames'
 import { guideInVideo } from '../scan/guide'
@@ -84,6 +85,8 @@ export function ScanPage() {
   // Leaving with cards still in the list would throw them away, so it asks first.
   const [leaving, setLeaving] = useState<(() => void) | null>(null)
   useEffect(() => { savePile(scanned) }, [scanned])
+  // Scanning a pile is minutes of not touching the screen: don't let it dim and lock.
+  useKeepAwake(camera === 'on')
   const [flash, setFlash] = useState(0)
   const [typed, setTyped] = useState('')
   const [lookingUp, setLookingUp] = useState(false)

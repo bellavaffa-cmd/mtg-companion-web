@@ -13,6 +13,8 @@ const BASICS = new Set(['plains', 'island', 'swamp', 'mountain', 'forest', 'wast
 
 /** The deck's cards the user has in none of their own binders (basic lands left out). */
 export function missingCards(deck: Deck, ownedNames: Set<string>): DeckCardEntry[] {
+  // A proxy deck is built and sitting on the shelf; its cards are print-outs, not ones to go and buy.
+  if (deck.ownership === 'PROXY') return []
   const seen = new Set<string>()
   const out: DeckCardEntry[] = []
   for (const e of [deck.commander, deck.partnerCommander, ...deck.cards]) {

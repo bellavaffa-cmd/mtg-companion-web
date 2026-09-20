@@ -10,7 +10,8 @@ import type { ScryfallCard } from '../../src/types/scryfall.ts'
 const entry = (scryfallId: string, name: string, quantity = 1, foilQuantity = 0): CollectionEntry => ({ scryfallId, name, imageUrl: null, quantity, foilQuantity })
 const binder = (id: string, entries: CollectionEntry[], type: Collection['type'] = 'OWNED'): Collection => ({ id, name: id, entries, createdAt: 0, type })
 const deck = (name: string, ...cards: [string, string, number][]) =>
-  ({ id: name, name, cards: cards.map(([scryfallId, n, quantity]) => ({ scryfallId, name: n, imageUrl: null, quantity })) }) as unknown as Deck
+  ({ id: name, name, ownership: 'PHYSICAL', cards: cards.map(([scryfallId, n, quantity]) => ({ scryfallId, name: n, imageUrl: null, quantity })) }) as unknown as Deck
+const proxyDeck = (name: string, ...cards: [string, string, number][]) => ({ ...deck(name, ...cards), ownership: 'PROXY' }) as unknown as Deck
 
 const collections = [
   binder('Blue', [entry('study', 'Rhystic Study'), entry('sol', 'Sol Ring', 1, 1)]),
@@ -57,4 +58,25 @@ test('the totals: value, colours and types', () => {
   assert.deepEqual(d.colorCounts, [['U', 1], ['G', 1], ['Colorless', 5]])
   assert.deepEqual(d.typeCounts[0], ['Artifact', 5])
   assert.equal(primaryType('Artifact Creature — Golem'), 'Creature')
+})
+
+test('a proxy deck is cards you hold, but they are worth nothing', () => {
+  const decks = [deck('Omnath', ['sol', 'Sol Ring', 1]), proxyDeck('Proxy pile', ['sol', 'Sol Ring', 1], ['bolt', 'Lightning Bolt', 4])]
+  const cards = allCardsOf([binder('Blue', [entry('bolt', 'Lightning Bolt')])], decks)
+  const sol = cards.find((c) => c.scryfallId === 'sol')!
+  const bolt = cards.find((c) => c.scryfallId === 'bolt')!
+  // Held: both copies of Sol Ring are counted, one of them a proxy.
+  assert.equal(sol.total, 2)
+  assert.equal(sol.proxies, 1)
+  assert.equal(bolt.total, 5)
+  assert.equal(bolt.proxies, 4)
+  assert.ok(bolt.sources.some((s) => s.proxy))
+
+  // Worth nothing: only the real copies are valued and counted in the totals.
+  const card = (id: string, usd: string) => ({ id, name: id, prices: { usd }, color_identity: [], type_line: 'Artifact' }) as unknown as ScryfallCard
+  const byId = new Map([['sol', card('sol', '2.00')], ['bolt', card('bolt', '1.00')]])
+  const d = dashboardOf(cards, byId)!
+  assert.equal(d.totalUsd, 2 + 1)
+  assert.equal(d.pricedCount, 2)
+  assert.equal(d.cards, 2)
 })

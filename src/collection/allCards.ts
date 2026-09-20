@@ -6,7 +6,14 @@
 import type { Collection, CollectionEntry, Deck } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 
-export interface CardSource { kind: 'binder' | 'deck'; id: string; name: string; quantity: number }
+export interface CardSource {
+  kind: 'binder' | 'deck'
+  id: string
+  name: string
+  quantity: number
+  /** A deck built with proxies: the cards are there, but they're print-outs, not the real thing. */
+  proxy?: boolean
+}
 
 export interface AllCard {
   scryfallId: string
@@ -16,6 +23,8 @@ export interface AllCard {
   tags?: string[]
   total: number
   sources: CardSource[]
+  /** How many of [total] are proxies — held, but worth nothing and not cards you can trade. */
+  proxies: number
 }
 
 const owns = (c: Collection) => c.type !== 'WISHLIST'
@@ -27,10 +36,11 @@ export function allCardsOf(collections: Collection[], decks: Deck[]): AllCard[] 
     if (quantity <= 0) return
     let card = byCard.get(e.scryfallId)
     if (!card) {
-      card = { scryfallId: e.scryfallId, name: e.name, imageUrl: e.imageUrl, backImageUrl: e.backImageUrl ?? null, tags: e.tags, total: 0, sources: [] }
+      card = { scryfallId: e.scryfallId, name: e.name, imageUrl: e.imageUrl, backImageUrl: e.backImageUrl ?? null, tags: e.tags, total: 0, sources: [], proxies: 0 }
       byCard.set(e.scryfallId, card)
     }
     card.total += quantity
+    if (source.proxy) card.proxies += quantity
     card.sources.push(source)
   }
   for (const c of collections.filter(owns)) {
@@ -40,7 +50,8 @@ export function allCardsOf(collections: Collection[], decks: Deck[]): AllCard[] 
     }
   }
   for (const d of decks) {
-    for (const e of d.cards) add(e, e.quantity, { kind: 'deck', id: d.id, name: d.name, quantity: e.quantity })
+    const proxy = d.ownership === 'PROXY'
+    for (const e of d.cards) add(e, e.quantity, { kind: 'deck', id: d.id, name: d.name, quantity: e.quantity, proxy })
   }
   return [...byCard.values()].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
 }
@@ -112,16 +123,19 @@ export function primaryType(typeLine: string | null | undefined): string {
 }
 
 /** The totals for [cards], from Scryfall's data for them ([cardsById]); null with nothing to count. */
-export function dashboardOf(cards: { scryfallId: string; total: number }[], cardsById: Map<string, ScryfallCard>): CollectionDashboard | null {
+export function dashboardOf(cards: { scryfallId: string; total: number; proxies?: number }[], cardsById: Map<string, ScryfallCard>): CollectionDashboard | null {
   if (cards.length === 0 || cardsById.size === 0) return null
   let totalUsd = 0
   let pricedCount = 0
   const colors = new Map<string, number>(['W', 'U', 'B', 'R', 'G', 'Colorless'].map((c) => [c, 0]))
   const types = new Map<string, number>()
   const prices = new Map<string, number>()
-  for (const { scryfallId, total } of cards) {
+  for (const card_ of cards) {
+    const { scryfallId } = card_
+    // Proxies are print-outs: they're counted as cards held, but they're worth nothing.
+    const total = card_.total - (card_.proxies ?? 0)
     const card = cardsById.get(scryfallId)
-    if (!card) continue
+    if (!card || total <= 0) continue
     const usd = card.prices?.usd ? Number(card.prices.usd) : NaN
     if (Number.isFinite(usd)) {
       totalUsd += usd * total
@@ -139,7 +153,7 @@ export function dashboardOf(cards: { scryfallId: string; total: number }[], card
     pricedCount,
     colorCounts: [...colors].filter(([, n]) => n > 0),
     typeCounts: [...types].sort((a, b) => b[1] - a[1]),
-    cards: cards.reduce((n, c) => n + c.total, 0),
+    cards: cards.reduce((n, c) => n + c.total - (c.proxies ?? 0), 0),
     prices,
   }
 }

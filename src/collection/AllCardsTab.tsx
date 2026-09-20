@@ -77,8 +77,10 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
   }, [notice])
 
   const q = query.trim().toLowerCase()
-  const shown = cards.filter((c) => matchesNameOrTag(c.name, tagsOf(roleTags, c.name), q))
-  const tagHits = q ? [...new Set(shown.filter((c) => !c.name.toLowerCase().includes(q)).flatMap((c) => matchedTags(tagsOf(roleTags, c.name), q)))] : []
+  // "proxy" reads as a tag of its own, so a search finds the cards standing in for real ones.
+  const tagsFor = (c: AllCard) => (c.proxies > 0 ? [...tagsOf(roleTags, c.name), 'proxy'] : tagsOf(roleTags, c.name))
+  const shown = cards.filter((c) => matchesNameOrTag(c.name, tagsFor(c), q))
+  const tagHits = q ? [...new Set(shown.filter((c) => !c.name.toLowerCase().includes(q)).flatMap((c) => matchedTags(tagsFor(c), q)))] : []
 
   // Cards picked by pressing and holding (scryfall ids); ones no longer owned drop from the pick.
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -287,7 +289,7 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
           priceUsdFoil={known.get(zoomCard.scryfallId)?.prices?.usd_foil}
           buyUrl={buyCardUrl(known.get(zoomCard.scryfallId), zoomCard.name)}
           backImageUrl={zoomCard.backImageUrl}
-          tags={tagsOf(roleTags, zoomCard.name).map(tagLabel)}
+          tags={tagsFor(zoomCard).map(tagLabel)}
           tagsLoading={!!tagging && !roleTags.has(zoomCard.name.trim().toLowerCase())}
           onTagClick={(label) => { setZoomId(null); setQuery(label) }}
           onClose={() => setZoomId(null)}
@@ -295,7 +297,12 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
         >
           <div className="panel">
             <div className="row-between">
-              <div><div className="p-h" style={{ margin: 0 }}><h3>{zoomCard.total} owned</h3></div><div className="dim">In your binders and decks</div></div>
+              <div>
+                <div className="p-h" style={{ margin: 0 }}><h3>{zoomCard.total} owned</h3></div>
+                <div className="dim">
+                  In your binders and decks{zoomCard.proxies > 0 && ` · ${zoomCard.proxies} ${zoomCard.proxies === 1 ? 'is a proxy' : 'are proxies'}`}
+                </div>
+              </div>
               {dashboard?.prices.has(zoomCard.scryfallId) && (
                 <div style={{ textAlign: 'right' }}>
                   <div className="p-h" style={{ margin: 0 }}><h3>{money.format(dashboard.prices.get(zoomCard.scryfallId)! * zoomCard.total)}</h3></div>
@@ -374,6 +381,7 @@ function CardRow({ card, price, selecting, selected, onToggle, onZoom }: {
         <div className="cname">{card.name}</div>
         <div className="cmeta">
           <span><b>{card.total}</b> total</span>
+          {card.proxies > 0 && <span className="badge soft">{card.proxies === card.total ? 'proxy' : `${card.proxies} proxy`}</span>}
           <span>in {where.slice(0, 2).join(', ')}{where.length > 2 ? ` +${where.length - 2} more` : ''}</span>
         </div>
       </div>
@@ -392,6 +400,7 @@ function CardTile({ card, selecting, selected, onToggle, onZoom }: {
         {card.imageUrl ? <img src={card.imageUrl} alt={card.name} loading="lazy" /> : <ArtImage src={null} seed={card.name} />}
         {selecting && <span className={`pick-mark${selected ? ' on' : ''}`} aria-label={selected ? 'Selected' : 'Not selected'}>{selected && <Icon name="check" />}</span>}
         <span className="card-cell-count">×{card.total}</span>
+        {card.proxies > 0 && <span className="card-cell-proxy">proxy</span>}
         {card.backImageUrl && <span className="flip-badge"><Icon name="autorenew" /></span>}
       </div>
       <div className="card-cell-name">{card.name}</div>
