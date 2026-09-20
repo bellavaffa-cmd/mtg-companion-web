@@ -1,5 +1,5 @@
 import { NewsPanel } from '../components/RelayPanels'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { Icon } from '../components/Icon'
@@ -17,6 +17,7 @@ import type { Collection, Deck } from '../types/models'
 import { usePriceAlertHits } from '../collection/priceAlerts'
 import { useCollectionValue } from '../collection/valueHistory'
 import { useMoney } from '../money/currency'
+import { proxySwaps } from '../decks/proxies'
 import { isAndroid } from './GetAppPage'
 
 const CARD_OF_DAY_KEY = 'mtgweb_card_of_day'
@@ -87,6 +88,24 @@ export function HomePage() {
   )
   const alertBanner = priceAlerts.hits.length > 0 && (
     <PriceAlertBanner hits={priceAlerts.hits} onOpen={(id) => navigate(`/collections/${id}`)} onDismiss={priceAlerts.dismiss} />
+  )
+  // Proxies you've since bought for real: worth saying here, rather than only inside the deck.
+  const swaps = useMemo(() => proxySwaps(collections, decks), [collections, decks])
+  const swapBanner = swaps.length > 0 && (
+    <button
+      type="button"
+      className="banner press rise"
+      style={{ ...rise(1), marginBottom: 0 }}
+      onClick={() => navigate(`/decks/${swaps[0].deck.id}?tab=Stats`)}
+    >
+      <Icon name="swap_horiz" />
+      <span className="banner-text">
+        {swaps.length === 1
+          ? <><b>{swaps[0].entry.name}</b> is a proxy in {swaps[0].deck.name}, and you own a real one — swap it in</>
+          : <><b>{swaps.length} proxies</b> in your decks are cards you now own for real — swap them in</>}
+      </span>
+      <Icon name="chevron_right" />
+    </button>
   )
   const deckColors = useDeckColors(decks)
   const cardOfDay = useCardOfDay()
@@ -162,6 +181,7 @@ export function HomePage() {
             </button>
           )}
           {alertBanner}
+            {swapBanner}
           {appBanner}
 
           {desktop ? (
@@ -249,6 +269,7 @@ export function HomePage() {
           </button>
         )}
         {alertBanner}
+            {swapBanner}
         {appBanner}
 
         {hero && <div className="rise" style={rise(1)}>{hero}</div>}

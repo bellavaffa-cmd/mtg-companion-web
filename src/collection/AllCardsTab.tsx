@@ -12,13 +12,15 @@ import { CardZoomModal, zoomSteps } from '../components/CardZoomModal'
 import { Dialog } from '../components/Dialog'
 import { ManaSymbol } from '../components/ManaSymbols'
 import { useLongPress } from '../components/useLongPress'
-import { ArtImage, IconButton, SearchPill, rise, toArtCrop, useLayoutSize } from '../components/kit'
+import { ArtImage, IconButton, PillChip, SearchPill, rise, toArtCrop, useLayoutSize } from '../components/kit'
 import { getCardsByIds } from '../api/scryfall'
 import { buyCardUrl } from '../api/buy'
 import type { ScryfallCard } from '../types/scryfall'
 import { isUnsorted, type Collection } from '../types/models'
 import { isWishlist } from './wishlist'
 import { allCardsOf, copiesInBinders, dashboardOf, exportEntries, type AllCard, type CollectionDashboard } from './allCards'
+import { spares } from './spares'
+import { TradeOfferSheet } from '../social/TradeOffer'
 import { ExportCollectionDialog } from './CardListDialogs'
 import { useMoney } from '../money/currency'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
@@ -69,6 +71,11 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
     try { localStorage.setItem(VIEW_KEY, next) } catch { /* this visit only */ }
   }
   const [zoomId, setZoomId] = useState<string | null>(null)
+  // Spares: binder cards no deck of yours plays — the obvious things to trade away.
+  const [sparesOnly, setSparesOnly] = useState(false)
+  const spareCards = useMemo(() => spares(collections, decks), [collections, decks])
+  const spareIds = useMemo(() => new Set(spareCards.map((s) => s.entry.scryfallId)), [spareCards])
+  const [offering, setOffering] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   useEffect(() => {
     if (!notice) return
@@ -77,9 +84,10 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
   }, [notice])
 
   const q = query.trim().toLowerCase()
+  const inSpares = (c: AllCard) => spareIds.has(c.scryfallId)
   // "proxy" reads as a tag of its own, so a search finds the cards standing in for real ones.
   const tagsFor = (c: AllCard) => (c.proxies > 0 ? [...tagsOf(roleTags, c.name), 'proxy'] : tagsOf(roleTags, c.name))
-  const shown = cards.filter((c) => matchesNameOrTag(c.name, tagsFor(c), q))
+  const shown = cards.filter((c) => matchesNameOrTag(c.name, tagsFor(c), q)).filter((c) => !sparesOnly || inSpares(c))
   const tagHits = q ? [...new Set(shown.filter((c) => !c.name.toLowerCase().includes(q)).flatMap((c) => matchedTags(tagsFor(c), q)))] : []
 
   // Cards picked by pressing and holding (scryfall ids); ones no longer owned drop from the pick.
@@ -160,10 +168,27 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
         </div>
         <IconButton icon={view === 'list' ? 'grid_view' : 'view_list'} label={view === 'list' ? 'Show as a grid' : 'Show as a list'} onClick={switchView} />
       </div>
+      {spareCards.length > 0 && (
+        <div className="chips" style={{ marginTop: 10 }}>
+          <PillChip
+            label={`Spares · ${spareCards.length}`}
+            icon="swap_horiz"
+            selected={sparesOnly}
+            onClick={() => setSparesOnly((v) => !v)}
+          />
+          {sparesOnly && (
+            <button type="button" className="btn gold sm" onClick={() => setOffering(true)}>
+              <Icon name="handshake" aria-hidden />Offer in a trade
+            </button>
+          )}
+        </div>
+      )}
       <div className="dim search-note">
-        {q
-          ? <>{shown.length} of {cards.length} unique match{tagHits.length > 0 && ` · tag: ${tagHits.slice(0, 2).map(tagLabel).join(', ')}${tagHits.length > 2 ? '…' : ''}`}</>
-          : <>{cards.reduce((n, c) => n + c.total, 0)} cards · {cards.length} unique (across all binders &amp; decks)</>}
+        {sparesOnly
+          ? <>{shown.length} spare {shown.length === 1 ? 'card' : 'cards'} — in your binders, in none of your decks</>
+          : q
+            ? <>{shown.length} of {cards.length} unique match{tagHits.length > 0 && ` · tag: ${tagHits.slice(0, 2).map(tagLabel).join(', ')}${tagHits.length > 2 ? '…' : ''}`}</>
+            : <>{cards.reduce((n, c) => n + c.total, 0)} cards · {cards.length} unique (across all binders &amp; decks)</>}
         {tagging && ' · finding tags…'}
       </div>
       {notice && <div className="notice" style={{ marginTop: 10 }}><Icon name="check_circle" style={{ color: 'var(--ok)', fontSize: 18, marginRight: 6 }} />{notice}</div>}
@@ -278,6 +303,14 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
           </Dialog>
         )
       })()}
+
+      {offering && (
+        <TradeOfferSheet
+          cards={spareCards}
+          prices={dashboard?.prices}
+          onClose={() => setOffering(false)}
+        />
+      )}
 
       {zoomCard && (
         <CardZoomModal
