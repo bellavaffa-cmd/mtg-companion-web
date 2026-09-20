@@ -4,7 +4,7 @@ import { useSync } from '../sync/SyncContext'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
 import { Dialog } from '../components/Dialog'
-import { CardZoomModal } from '../components/CardZoomModal'
+import { CardZoomModal, zoomSteps } from '../components/CardZoomModal'
 import { useLongPress } from '../components/useLongPress'
 import { ArtImage, SearchPill, rise, toArtCrop, useBack, useLayoutSize } from '../components/kit'
 import { getCardsByIds } from '../api/scryfall'
@@ -212,6 +212,7 @@ export function TagBinderPage() {
             if (next && next.id !== tag.id) navigate(`/collections/tag/${next.id}`)
           }}
           onClose={() => setZoom(null)}
+          {...zoomSteps(shown, zoom, setZoom, (card) => card.key)}
         >
           <div className="panel detail-grid">
             <div>

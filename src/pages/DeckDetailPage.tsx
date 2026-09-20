@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
-import { CardZoomModal } from '../components/CardZoomModal'
+import { CardZoomModal, zoomSteps } from '../components/CardZoomModal'
 import { ActionSheet } from '../components/ActionSheet'
 import type { SheetAction } from '../components/ActionSheet'
 import { useLongPress } from '../components/useLongPress'
@@ -99,6 +99,8 @@ export function DeckDetailPage() {
     return { type, cards, count: cards.reduce((s, c) => s + c.quantity, 0) }
   }).filter((g) => g.cards.length > 0)
   const shownCommanders = commanders.filter(matches)
+  // The cards as the list shows them, which the zoom swipes along.
+  const listed = [...shownCommanders, ...groups.flatMap((g) => g.cards)]
 
   function canPartner(entry: DeckCardEntry): boolean {
     const main = deck!.commander
@@ -341,6 +343,7 @@ export function DeckDetailPage() {
           onSelectSimilar={(similar) => setAddWarning(addCardToDeck(deck.id, similar))}
           similarActionLabel="Tap a card to add it to this deck"
           onClose={() => setZoomId(null)}
+          {...zoomSteps(listed, zoomEntry, (card) => setZoomId(card.scryfallId))}
         >
           {!commanderIds.has(zoomEntry.scryfallId) && (
             <div className="row-between panel" style={{ padding: '14px 16px' }}>

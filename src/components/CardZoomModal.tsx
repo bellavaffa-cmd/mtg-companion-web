@@ -51,8 +51,14 @@ interface Props {
  * Next and previous for a zoom opened from [list], in the order the cards are listed — a swipe, the
  * arrow keys or the chevrons move along it. Nothing when the card isn't in the list or it's alone.
  */
-export function zoomSteps<T extends { scryfallId: string }>(list: T[], current: T, go: (card: T) => void) {
-  const i = list.findIndex((c) => c.scryfallId === current.scryfallId)
+export function zoomSteps<T>(
+  list: T[],
+  current: T,
+  go: (card: T) => void,
+  keyOf: (card: T) => string = (card) => (card as { scryfallId: string }).scryfallId,
+) {
+  const key = keyOf(current)
+  const i = list.findIndex((c) => keyOf(c) === key)
   if (i < 0 || list.length < 2) return {}
   return {
     onPrev: i > 0 ? () => go(list[i - 1]) : undefined,

@@ -8,7 +8,7 @@ import { ActionSheet } from './ActionSheet'
 import type { SheetAction } from './ActionSheet'
 import { Icon } from './Icon'
 import { useLongPress } from './useLongPress'
-import { CardZoomModal } from './CardZoomModal'
+import { CardZoomModal, zoomSteps } from './CardZoomModal'
 import { useAddWarning } from './useAddWarning'
 import { ArtImage, PillChip, SearchPill, toArtCrop } from './kit'
 import { SearchFiltersPanel } from './SearchFiltersPanel'
@@ -164,6 +164,7 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
           manaCost={displayManaCost(zoomCard)}
           onSelectSimilar={setZoomCard}
           onClose={() => setZoomCard(null)}
+          {...zoomSteps(cards, zoomCard, setZoomCard, (card) => card.id)}
         >
           {onAdd ? (
             <button type="button" className="btn gold block" onClick={() => { add(zoomCard); setZoomCard(null) }}>
