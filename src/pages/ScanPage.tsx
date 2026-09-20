@@ -8,7 +8,7 @@ import { TopBar } from '../components/TopBar'
 import { cardNameIndex, MIN_MATCH } from '../scan/cardNames'
 import { guideInVideo } from '../scan/guide'
 import { readCardName, readSmallPrint, titleReader } from '../scan/ocr'
-import { parseSetAndNumber, sameCardName, ScanTracker } from '../scan/scanLogic'
+import { confirmRead, parseSetAndNumber, sameCardName, ScanTracker } from '../scan/scanLogic'
 import { appLinkPath, qrReader } from '../scan/qr'
 import { copyNumber, grouped, onlyRepeats, repeatedCards, scannedTwiceOver, type ScanRow } from '../scan/scanLog'
 import { useSync } from '../sync/SyncContext'
@@ -150,6 +150,8 @@ export function ScanPage() {
         const step = tracker.onRead(read?.match?.name ?? null, forced)
         if (forced && !read?.match) setStatus("Couldn't read a name there — hold the card flat and still, or type it below.")
         if (step.kind === 'lookup') {
+          // What the camera actually read, to hold the card it found up against.
+          const seenNow = read?.seen?.trim() || step.name
           try {
             // The exact printing, from the small print at the bottom — kept only if it names the same
             // card as the title (a misread number mustn't swap in a different card). Otherwise the
@@ -170,6 +172,16 @@ export function ScanPage() {
               card = byName
             }
             if (stopped) break
+            // A fuzzy lookup answers half a title with a real card, so the read has to account for
+            // the whole name before it's added. Tapping Scan now says "yes, really" and skips this.
+            const confirmation = forced ? 'yes' : confirmRead(seenNow, card.name)
+            if (confirmation !== 'yes') {
+              tracker.unconfirmed()
+              setStatus(confirmation === 'partial'
+                ? `Only read “${seenNow}” — hold the whole card in the frame, its name in the gold strip.`
+                : `Read “${seenNow}”, which looks like ${card.name} — hold the card still and try again.`)
+              continue
+            }
             tracker.added(card.name)
             addScanned(card)
           } catch (e) {

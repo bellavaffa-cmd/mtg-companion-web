@@ -1,7 +1,7 @@
 // The scanner's decisions (src/scan/scanLogic.ts), frame by frame.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { BLANK_FRAMES_TO_RESET, cleanTitle, looksLikeSameCard, parseSetAndNumber, sameCardName, sameRead, ScanTracker } from '../../src/scan/scanLogic.ts'
+import { BLANK_FRAMES_TO_RESET, cleanTitle, confirmRead, looksLikeSameCard, parseSetAndNumber, sameCardName, sameRead, ScanTracker } from '../../src/scan/scanLogic.ts'
 
 test('the name is the first line with three letters, without the mana cost or stray marks', () => {
   assert.equal(cleanTitle('Lightning Bolt {R}'), 'Lightning Bolt')
@@ -32,10 +32,11 @@ test('two frames read the same title within a letter', () => {
   assert.equal(sameRead('Sol Ring', 'Mox Ruby'), false)
 })
 
-test('a card is looked up once it reads the same twice, and not again while it stays in view', () => {
+test('a card is looked up once it reads the same three times, and not again while it stays in view', () => {
   const t = new ScanTracker()
   assert.deepEqual(t.onRead('Lightning Bolt'), { kind: 'wait' }) // first sight
-  assert.deepEqual(t.onRead('Lightnlng Bolt'), { kind: 'lookup', name: 'Lightnlng Bolt' }) // steady
+  assert.deepEqual(t.onRead('Lightnlng Bolt'), { kind: 'wait' }) // twice isn't steady: a card moving through reads twice
+  assert.deepEqual(t.onRead('Lightning Bolt'), { kind: 'lookup', name: 'Lightning Bolt' }) // steady
   t.added('Lightning Bolt')
   for (let i = 0; i < 5; i++) assert.deepEqual(t.onRead('Lightning Bolt'), { kind: 'wait' }) // still there
   assert.deepEqual(t.onRead(null), { kind: 'wait' }) // one glared frame isn't "gone"
@@ -44,30 +45,54 @@ test('a card is looked up once it reads the same twice, and not again while it s
 
 test('once the card has left, the next one (even another copy) is new', () => {
   const t = new ScanTracker()
-  t.onRead('Sol Ring'); t.onRead('Sol Ring'); t.added('Sol Ring')
+  t.onRead('Sol Ring'); t.onRead('Sol Ring'); t.onRead('Sol Ring'); t.added('Sol Ring')
   for (let i = 0; i < BLANK_FRAMES_TO_RESET; i++) t.onRead(null)
+  assert.deepEqual(t.onRead('Sol Ring'), { kind: 'wait' })
   assert.deepEqual(t.onRead('Sol Ring'), { kind: 'wait' })
   assert.deepEqual(t.onRead('Sol Ring'), { kind: 'lookup', name: 'Sol Ring' })
 })
 
 test('a new card swapped in is looked up without waiting for blank frames', () => {
   const t = new ScanTracker()
-  t.onRead('Sol Ring'); t.onRead('Sol Ring'); t.added('Sol Ring')
+  t.onRead('Sol Ring'); t.onRead('Sol Ring'); t.onRead('Sol Ring'); t.added('Sol Ring')
+  assert.deepEqual(t.onRead('Arcane Signet'), { kind: 'wait' })
   assert.deepEqual(t.onRead('Arcane Signet'), { kind: 'wait' })
   assert.deepEqual(t.onRead('Arcane Signet'), { kind: 'lookup', name: 'Arcane Signet' })
 })
 
 test('Scan now reads the card in view at once, even the one just added', () => {
   const t = new ScanTracker()
-  t.onRead('Sol Ring'); t.onRead('Sol Ring'); t.added('Sol Ring')
+  t.onRead('Sol Ring'); t.onRead('Sol Ring'); t.onRead('Sol Ring'); t.added('Sol Ring')
   assert.deepEqual(t.onRead('Sol Ring', true), { kind: 'lookup', name: 'Sol Ring' })
 })
 
-test('two different reads in a row wait for a steady one', () => {
+test('reads that keep changing wait for a steady one', () => {
   const t = new ScanTracker()
   assert.deepEqual(t.onRead('Sol Ring'), { kind: 'wait' })
   assert.deepEqual(t.onRead('Arcane Signet'), { kind: 'wait' })
+  assert.deepEqual(t.onRead('Sol Ring'), { kind: 'wait' })
+  assert.deepEqual(t.onRead('Arcane Signet'), { kind: 'wait' })
+  assert.deepEqual(t.onRead('Arcane Signet'), { kind: 'wait' })
   assert.deepEqual(t.onRead('Arcane Signet'), { kind: 'lookup', name: 'Arcane Signet' })
+})
+
+test('a card is only added when the read accounts for its whole name', () => {
+  assert.equal(confirmRead('Lightning Bolt', 'Lightning Bolt'), 'yes')
+  assert.equal(confirmRead('lightning bolt', 'Lightning Bolt'), 'yes')
+  // Punctuation and a misread letter or two across a full name still name that card.
+  assert.equal(confirmRead('Kenriths Transformation', "Kenrith's Transformation"), 'yes')
+  assert.equal(confirmRead('Rhystic Studv', 'Rhystic Study'), 'yes')
+  assert.equal(confirmRead('Delver of Secrets', 'Delver of Secrets // Insectile Aberration'), 'yes')
+
+  // The very thing that fouls up a scan: part of a name, answered with a real card.
+  assert.equal(confirmRead('Lightning B', 'Lightning Bolt'), 'partial')
+  assert.equal(confirmRead('Sol', 'Sol Ring'), 'partial')
+  assert.equal(confirmRead('of Secrets', 'Delver of Secrets'), 'partial')
+  // More than the name was read — another card's title in the frame, say.
+  assert.equal(confirmRead('Sol Ring Cultivate', 'Sol Ring'), 'partial')
+
+  assert.equal(confirmRead('Lightning Helix', 'Lightning Bolt'), 'different')
+  assert.equal(confirmRead('', 'Lightning Bolt'), 'different')
 })
 
 test('the exact printing is read from the small print at the bottom', () => {
@@ -98,9 +123,23 @@ test('a printing from the small print must name exactly the card the title read'
 
 test('a failed lookup is tried again while the card stays in view', () => {
   const tracker = new ScanTracker()
-  tracker.onRead('Sol Ring')
+  tracker.onRead('Sol Ring'); tracker.onRead('Sol Ring')
   assert.deepEqual(tracker.onRead('Sol Ring'), { kind: 'lookup', name: 'Sol Ring' })
   assert.deepEqual(tracker.onRead('Sol Ring'), { kind: 'wait' }) // still looking it up
   tracker.failed()
+  // Steady again — the card hasn't moved, so it's read three more times and tried once more.
+  tracker.onRead('Sol Ring'); tracker.onRead('Sol Ring')
   assert.deepEqual(tracker.onRead('Sol Ring'), { kind: 'lookup', name: 'Sol Ring' })
+})
+
+test("a card the lookup couldn't confirm isn't looked up again on the same reading", () => {
+  const tracker = new ScanTracker()
+  tracker.onRead('Lightning B'); tracker.onRead('Lightning B')
+  assert.deepEqual(tracker.onRead('Lightning B'), { kind: 'lookup', name: 'Lightning B' })
+  // It came back as Lightning Bolt, which that reading doesn't account for.
+  tracker.unconfirmed()
+  for (let i = 0; i < 5; i++) assert.deepEqual(tracker.onRead('Lightning B'), { kind: 'wait' })
+  // The whole card in the frame reads differently, and that is looked up.
+  tracker.onRead('Lightning Bolt'); tracker.onRead('Lightning Bolt')
+  assert.deepEqual(tracker.onRead('Lightning Bolt'), { kind: 'lookup', name: 'Lightning Bolt' })
 })

@@ -98,6 +98,35 @@ export function sameRead(a: string, b: string): boolean {
   return x === y || distanceWithin(x, y, Math.max(1, Math.floor(Math.min(x.length, y.length) / 10)))
 }
 
+/**
+ * Reads of the same title in a row before the card is looked up. A card halfway into the frame, or
+ * caught mid-motion, rarely reads the same three times running.
+ */
+export const STEADY_READS = 3
+
+/**
+ * What came back for a read title: the card itself, a piece of a card's name (the card wasn't all
+ * in the frame, or its title was cut off), or a different card altogether.
+ */
+export type Confirmation = 'yes' | 'partial' | 'different'
+
+/**
+ * Whether the card a lookup found is really the card that was read. A fuzzy lookup answers a
+ * half-read title with a real card — "Lightning B" comes back as Lightning Bolt — so the read has
+ * to account for the whole name before the card is added.
+ */
+export function confirmRead(title: string, cardName: string): Confirmation {
+  const read = letters(title)
+  const name = letters(cardName.split(' // ')[0])
+  if (!read || !name) return 'different'
+  if (read === name) return 'yes'
+  // A letter or two misread across a full-length name is still that card.
+  if (Math.abs(read.length - name.length) <= 2 && distanceWithin(read, name, Math.max(1, Math.floor(name.length / 8)))) return 'yes'
+  // Anything less than the whole name is a card that wasn't all in the frame.
+  if (name.includes(read) || read.includes(name)) return 'partial'
+  return 'different'
+}
+
 export type ScanStep = { kind: 'wait' } | { kind: 'lookup'; name: string }
 
 /**
@@ -107,6 +136,8 @@ export type ScanStep = { kind: 'wait' } | { kind: 'lookup'; name: string }
  */
 export class ScanTracker {
   private lastRead: string | null = null
+  /** How many reads in a row have said the same thing (see STEADY_READS). */
+  private steadyReads = 0
   private lastLookedUp: string | null = null
   private lastAdded: string | null = null
   private blankStreak = 0
@@ -117,6 +148,7 @@ export class ScanTracker {
       this.blankStreak += 1
       if (this.blankStreak >= BLANK_FRAMES_TO_RESET) {
         // The card has really left: the next one in view is new, even if it's another copy.
+        this.steadyReads = 0
         this.lastRead = null
         this.lastLookedUp = null
         this.lastAdded = null
@@ -128,7 +160,8 @@ export class ScanTracker {
       this.lastRead = title
       return { kind: 'wait' }
     }
-    const steady = forced || (this.lastRead !== null && sameRead(title, this.lastRead))
+    this.steadyReads = this.lastRead !== null && sameRead(title, this.lastRead) ? this.steadyReads + 1 : 1
+    const steady = forced || this.steadyReads >= STEADY_READS
     this.lastRead = title
     if (!steady || (!forced && this.lastLookedUp !== null && sameRead(title, this.lastLookedUp))) return { kind: 'wait' }
     this.lastLookedUp = title
@@ -138,6 +171,16 @@ export class ScanTracker {
   /** The lookup failed (offline, say): the card in view is tried again on its next steady read. */
   failed() {
     this.lastLookedUp = null
+    this.steadyReads = 0
+  }
+
+  /**
+   * The lookup answered with a card that isn't what was read — a piece of a name, or another card.
+   * Nothing is added, and the same reading isn't spent on another lookup; more of the card coming
+   * into the frame reads differently, and that is looked up.
+   */
+  unconfirmed() {
+    this.steadyReads = 0
   }
 
   /** The lookup found [cardName]: it's the card in view now, and isn't added again while it stays. */
