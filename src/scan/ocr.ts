@@ -140,17 +140,40 @@ function oneAtATime<T>(job: () => Promise<T>): Promise<T> {
  * collector number) and returns it as text; [parseSetAndNumber] makes the printing of it. Read once
  * per new card, not every frame: it's two short lines of tiny text.
  */
-export function readSmallPrint(source: CanvasImageSource, card: Box): Promise<string> {
-  return oneAtATime(() => readSmallPrintAlone(source, card))
+/**
+ * How to cut the strip at the bottom of the card. The set line sits bottom-left, but a card held at
+ * an angle, or one with a pale border, reads better from a taller strip or without the flip — so
+ * there are a few ways to try before giving up on the printing.
+ */
+export interface StripStyle {
+  /** Where the strip starts and ends, as a share of the card's height. */
+  from: number
+  to: number
+  /** How much of the card's width it covers. */
+  width: number
+  /** Light text on a dark border is flipped; a pale border reads better as it is. */
+  flip: boolean
 }
 
-async function readSmallPrintAlone(source: CanvasImageSource, card: Box): Promise<string> {
+export const STRIP_STYLES: StripStyle[] = [
+  { from: 0.91, to: 0.99, width: 0.55, flip: true },
+  // Taller and wider: a card held at an angle, or one whose line sits a little higher.
+  { from: 0.86, to: 1.0, width: 0.75, flip: true },
+  // A pale border — a full-art or borderless card — has dark text already.
+  { from: 0.88, to: 1.0, width: 0.75, flip: false },
+]
+
+export function readSmallPrint(source: CanvasImageSource, card: Box, style: StripStyle = STRIP_STYLES[0]): Promise<string> {
+  return oneAtATime(() => readSmallPrintAlone(source, card, style))
+}
+
+async function readSmallPrintAlone(source: CanvasImageSource, card: Box, style: StripStyle): Promise<string> {
   const worker = await titleReader()
   const sx = card.x + card.width * 0.03
-  const sw = card.width * 0.55
-  const sy = card.y + card.height * 0.91
-  const sh = card.height * 0.08
-  const height = 120
+  const sw = card.width * style.width
+  const sy = card.y + card.height * style.from
+  const sh = card.height * (style.to - style.from)
+  const height = 160
   const canvas = document.createElement('canvas')
   canvas.width = Math.max(1, Math.round((sw * height) / sh))
   canvas.height = height
@@ -168,8 +191,11 @@ async function readSmallPrintAlone(source: CanvasImageSource, card: Box): Promis
     if (grey > max) max = grey
   }
   const range = Math.max(1, max - min)
-  // Small print is light on a dark border: flipped, so it's dark text on light as the reader prefers.
-  for (let i = 0; i < px.length; i += 4) px[i] = px[i + 1] = px[i + 2] = 255 - ((px[i] - min) * 255) / range
+  // Small print is usually light on a dark border: flipped, it's the dark-on-light the reader likes.
+  for (let i = 0; i < px.length; i += 4) {
+    const stretched = ((px[i] - min) * 255) / range
+    px[i] = px[i + 1] = px[i + 2] = style.flip ? 255 - stretched : stretched
+  }
   ctx.putImageData(image, 0, 0)
   const { PSM } = await import('tesseract.js')
   await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK })

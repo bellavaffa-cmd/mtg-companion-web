@@ -113,9 +113,16 @@ export type Confirmation = 'yes' | 'partial' | 'different'
 /**
  * Whether the card a lookup found is really the card that was read. A fuzzy lookup answers a
  * half-read title with a real card — "Lightning B" comes back as Lightning Bolt — so the read has
- * to account for the whole name before the card is added.
+ * to account for the whole name before the card is added. [flavorName] is the name printed large on
+ * a Universes Beyond card ("Kefka's Tower" over "Bolas's Citadel"), which is what the camera reads.
  */
-export function confirmRead(title: string, cardName: string): Confirmation {
+export function confirmRead(title: string, cardName: string, flavorName?: string | null): Confirmation {
+  const answers = [cardName, ...(flavorName ? [flavorName] : [])].map((name) => against(title, name))
+  if (answers.includes('yes')) return 'yes'
+  return answers.includes('partial') ? 'partial' : 'different'
+}
+
+function against(title: string, cardName: string): Confirmation {
   const read = letters(title)
   const name = letters(cardName.split(' // ')[0])
   if (!read || !name) return 'different'

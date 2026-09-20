@@ -178,6 +178,18 @@ export async function getCollection(identifiers: CardIdentifier[]): Promise<{ da
   }
 }
 
+/**
+ * Every printing of a card, newest first — the alternate arts, the borderless one, the Secret Lair.
+ * Empty when Scryfall knows no such card.
+ */
+export async function getPrintings(name: string): Promise<ScryfallCard[]> {
+  const query = new URLSearchParams({ q: `!"${name}"`, unique: 'prints', order: 'released', dir: 'desc' })
+  const res = await get(`${BASE}/cards/search?${query}`)
+  if (!res.ok) return []
+  const json = await res.json()
+  return (json.data ?? []) as ScryfallCard[]
+}
+
 export async function getRandomCard(): Promise<ScryfallCard> {
   const res = await get(`${BASE}/cards/random`)
   if (!res.ok) throw new Error('Random card lookup failed')

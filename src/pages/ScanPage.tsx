@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getByExactName, getByFuzzyName, getBySetAndNumber, OfflineError } from '../api/scryfall'
+import { getByExactName, getByFuzzyName, getBySetAndNumber, getPrintings, OfflineError } from '../api/scryfall'
 import { ActionSheet, type SheetAction } from '../components/ActionSheet'
 import { Icon } from '../components/Icon'
 import { ArtImage, PillChip, toArtCrop, useBack } from '../components/kit'
@@ -10,7 +10,7 @@ import { useKeepAwake } from '../components/useKeepAwake'
 import { TopBar } from '../components/TopBar'
 import { cardNameIndex, MIN_MATCH } from '../scan/cardNames'
 import { guideInVideo } from '../scan/guide'
-import { readCardName, readSmallPrint, titleReader } from '../scan/ocr'
+import { readCardName, readSmallPrint, STRIP_STYLES, titleReader } from '../scan/ocr'
 import { confirmRead, parseSetAndNumber, sameCardName, ScanTracker } from '../scan/scanLogic'
 import { appLinkPath, qrReader } from '../scan/qr'
 import { copyNumber, grouped, onlyRepeats, repeatedCards, scannedTwiceOver, type ScanRow } from '../scan/scanLog'
@@ -91,12 +91,14 @@ export function ScanPage() {
   const [typed, setTyped] = useState('')
   const [lookingUp, setLookingUp] = useState(false)
   const [picking, setPicking] = useState(false)
+  // The row whose art is being chosen, when the printing was guessed from the name.
+  const [pickingArt, setPickingArt] = useState<ScanRow | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
   /** Every scan is its own row, newest first, so a card read twice shows twice. */
-  const addScanned = (card: ScryfallCard) => {
+  const addScanned = (card: ScryfallCard, exact = false) => {
     setScanned((list) => {
-      const row: ScanRow = { id: nextScanId++, card, foil: false, at: Date.now() }
+      const row: ScanRow = { id: nextScanId++, card, foil: false, at: Date.now(), exact }
       const next = [row, ...list]
       const copy = copyNumber(next, row)
       setStatus(copy > 1
@@ -192,7 +194,13 @@ export function ScanPage() {
             // card as the title (a misread number mustn't swap in a different card). Otherwise the
             // card's usual printing, by name.
             let card: ScryfallCard | null = null
-            const printing = parseSetAndNumber(await readSmallPrint(video, box).catch(() => ''))
+            // Which printing it is — the alternate art, the borderless one — is only knowable from
+            // the tiny line at the bottom, so it's worth a few goes at reading it.
+            let printing: ReturnType<typeof parseSetAndNumber> = null
+            for (const style of STRIP_STYLES) {
+              printing = parseSetAndNumber(await readSmallPrint(video, box, style).catch(() => ''))
+              if (printing || stopped) break
+            }
             if (stopped) break
             if (printing) {
               const key = `${printing.set}:${printing.number}`
@@ -209,16 +217,16 @@ export function ScanPage() {
             if (stopped) break
             // A fuzzy lookup answers half a title with a real card, so the read has to account for
             // the whole name before it's added. Tapping Scan now says "yes, really" and skips this.
-            const confirmation = forced ? 'yes' : confirmRead(seenNow, card.name)
+            const confirmation = forced ? 'yes' : confirmRead(seenNow, card.name, card.flavor_name)
             if (confirmation !== 'yes') {
               tracker.unconfirmed()
               setStatus(confirmation === 'partial'
                 ? `Only read “${seenNow}” — hold the whole card in the frame, its name in the gold strip.`
-                : `Read “${seenNow}”, which looks like ${card.name} — hold the card still and try again.`)
+                : `Read “${seenNow}”, which looks like ${card.flavor_name ?? card.name} — hold the card still and try again.`)
               continue
             }
             tracker.added(card.name)
-            addScanned(card)
+            addScanned(card, !!printing)
           } catch (e) {
             if (stopped) break
             tracker.failed()
@@ -285,6 +293,12 @@ export function ScanPage() {
   const toggleFoil = (id: number) => {
     setScanned((list) => list.map((s) => (s.id === id ? { ...s, foil: !s.foil } : s)))
   }
+  /** The printing on a row, swapped for the art the user picked. */
+  const setPrinting = (id: number, card: ScryfallCard) => {
+    setScanned((list) => list.map((s) => (s.id === id ? { ...s, card, exact: true } : s)))
+    setPickingArt(null)
+  }
+
   /** Takes one scan off the pile — a card read twice, or read wrongly. */
   const removeScan = (id: number) => {
     setScanned((list) => list.filter((s) => s.id !== id))
@@ -408,6 +422,11 @@ export function ScanPage() {
                   <div className="cmain">
                     <div className="cname">{s.card.name}</div>
                     <div className="cmeta">
+                      {!s.exact && (
+                        <button type="button" className="chip scan-art" onClick={() => setPickingArt(s)}>
+                          <Icon name="image_search" aria-hidden />Usual printing · pick art
+                        </button>
+                      )}
                       {copy > 1 && (
                         <span className={`badge ${justNow ? 'warn' : 'soft'}`}>
                           {justNow ? `copy ${copy} · scanned just now` : `copy ${copy}`}
@@ -450,6 +469,14 @@ export function ScanPage() {
         </Dialog>
       )}
 
+      {pickingArt && (
+        <PrintingPicker
+          row={pickingArt}
+          onPick={(card) => setPrinting(pickingArt.id, card)}
+          onClose={() => setPickingArt(null)}
+        />
+      )}
+
       {picking && (
         <ActionSheet
           title={`Add ${total} ${total === 1 ? 'card' : 'cards'} to…`}
@@ -458,5 +485,48 @@ export function ScanPage() {
         />
       )}
     </>
+  )
+}
+
+/**
+ * Which printing is in your hand. The camera reads a card's name easily; the tiny set code that
+ * says *which* printing often isn't readable at all, and then the card comes in as its usual
+ * printing. This shows every printing there is, so the right art can be picked in a tap.
+ */
+function PrintingPicker({ row, onPick, onClose }: { row: ScanRow; onPick: (card: ScryfallCard) => void; onClose: () => void }) {
+  const [printings, setPrintings] = useState<ScryfallCard[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    getPrintings(row.card.name)
+      .then((found) => { if (!cancelled) setPrintings(found) })
+      .catch(() => { if (!cancelled) setError("Couldn't load the other printings — check your connection.") })
+    return () => { cancelled = true }
+  }, [row.card.name])
+
+  return (
+    <Dialog title={row.card.name} onDismiss={onClose} actions={<button type="button" className="btn line" onClick={onClose}>Close</button>}>
+      <p className="muted" style={{ marginTop: 0 }}>Pick the printing you're holding.</p>
+      {error && <div className="muted">{error}</div>}
+      {!printings && !error && <div className="muted">Looking up printings…</div>}
+      {printings && printings.length === 0 && <div className="muted">Only one printing of this card.</div>}
+      {printings && printings.length > 0 && (
+        <div className="card-grid">
+          {printings.map((card) => (
+            <button
+              type="button"
+              key={card.id}
+              className={`card-cell press${card.id === row.card.id ? ' picked' : ''}`}
+              onClick={() => onPick(card)}
+            >
+              <div className="card-cell-img">
+                {displayImageUrl(card) ? <img src={displayImageUrl(card)!} alt={card.name} loading="lazy" /> : <ArtImage src={null} seed={card.name} />}
+              </div>
+              <div className="card-cell-name">{card.set_name ?? card.set?.toUpperCase()}{card.collector_number ? ` · #${card.collector_number}` : ''}</div>
+            </button>
+          ))}
+        </div>
+      )}
+    </Dialog>
   )
 }

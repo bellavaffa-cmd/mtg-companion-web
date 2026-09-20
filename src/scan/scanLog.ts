@@ -12,6 +12,11 @@ export interface ScanRow {
   id: number
   card: ScryfallCard
   foil: boolean
+  /**
+   * Whether the printing was read off the card (its set code and collector number) rather than
+   * guessed from the name. A guess is the card's usual printing, which may not be the one in hand.
+   */
+  exact?: boolean
   /** When it was scanned (ms), for spotting a card read twice in the same breath. */
   at: number
 }

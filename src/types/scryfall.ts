@@ -38,6 +38,11 @@ export interface ScryfallCard {
   set?: string
   set_name?: string
   collector_number?: string
+  /**
+   * The name printed large on a Universes Beyond card, with the real name in smaller type beneath
+   * it ("Kefka's Tower" over "Bolas's Citadel"). It's what the camera reads.
+   */
+  flavor_name?: string
   /** The finishes this printing comes in: 'nonfoil', 'foil', 'etched'. */
   finishes?: string[]
   released_at?: string

@@ -2653,6 +2653,17 @@ html {
   min-width: 18px;
   text-align: center;
 }
+/* A scanned row whose printing was guessed from the name, not read off the card. */
+.scan-art {
+  margin-top: 4px;
+  color: var(--t1);
+}
+
+.scan-art .icon {
+  font-size: 14px;
+  margin-right: 4px;
+}
+
 .scan-foil {
   margin-top: 6px;
   height: 28px;

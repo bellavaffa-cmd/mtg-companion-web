@@ -95,6 +95,17 @@ test('a card is only added when the read accounts for its whole name', () => {
   assert.equal(confirmRead('', 'Lightning Bolt'), 'different')
 })
 
+test('a card printed under another name answers to the name on the card', () => {
+  // Universes Beyond: "Kefka's Tower" is printed large, "Bolas's Citadel" in smaller type beneath.
+  assert.equal(confirmRead("Kefka's ToWer", "Bolas's Citadel", "Kefka's Tower"), 'yes')
+  // The real name underneath is just as good a read.
+  assert.equal(confirmRead("Bolas's Citadel", "Bolas's Citadel", "Kefka's Tower"), 'yes')
+  // Half of the flavour name is still half a card.
+  assert.equal(confirmRead("Kefka's", "Bolas's Citadel", "Kefka's Tower"), 'partial')
+  // And something else entirely is still something else.
+  assert.equal(confirmRead('Sol Ring', "Bolas's Citadel", "Kefka's Tower"), 'different')
+})
+
 test('the exact printing is read from the small print at the bottom', () => {
   assert.deepEqual(parseSetAndNumber('U 0211\nMSC • EN  ARTIST NAME'), { set: 'msc', number: '211' })
   assert.deepEqual(parseSetAndNumber('0211/0280 U\nMSC · EN'), { set: 'msc', number: '211' })
