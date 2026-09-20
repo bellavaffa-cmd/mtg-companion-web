@@ -8,37 +8,15 @@ import * as api from './api'
 import { PickerSheet } from './CardPicker'
 import { SocialGate } from '../pages/FriendsPage'
 import { Avatar } from './ui'
-
-const BASICS = new Set(['plains', 'island', 'swamp', 'mountain', 'forest', 'wastes'])
-
-/** The deck's cards the user has in none of their own binders (basic lands left out). */
-export function missingCards(deck: Deck, ownedNames: Set<string>): DeckCardEntry[] {
-  // A proxy deck is built and sitting on the shelf; its cards are print-outs, not ones to go and buy.
-  if (deck.ownership === 'PROXY') return []
-  const seen = new Set<string>()
-  const out: DeckCardEntry[] = []
-  for (const e of [deck.commander, deck.partnerCommander, ...deck.cards]) {
-    if (!e) continue
-    const name = e.name.toLowerCase()
-    if (seen.has(name) || ownedNames.has(name) || BASICS.has(name.replace(/^snow-covered /, ''))) continue
-    seen.add(name)
-    out.push(e)
-  }
-  return out.sort((a, b) => a.name.localeCompare(b.name))
-}
+import { missingCards } from '../decks/missing'
 
 /**
  * "Who has it?": the deck's missing cards, each with the friends whose shared binders hold a copy
  * (who_has_cards on the server), and a button to ask them for it in a trade.
  */
 export function WhoHasItSheet({ deck, onClose }: { deck: Deck; onClose: () => void }) {
-  const { collections } = useSync()
-  const owned = useMemo(() => new Set(
-    collections
-      .filter((c) => c.type !== 'WISHLIST')
-      .flatMap((c) => c.entries.filter((e) => e.quantity + e.foilQuantity > 0).map((e) => e.name.toLowerCase())),
-  ), [collections])
-  const missing = useMemo(() => missingCards(deck, owned), [deck, owned])
+  const { collections, decks } = useSync()
+  const missing = useMemo(() => missingCards(deck, collections, decks), [deck, collections, decks])
   return (
     <PickerSheet title="Who has it?" subtitle={`${deck.name} · ${missing.length} ${missing.length === 1 ? 'card' : 'cards'} you don't own`} onClose={onClose}>
       <SocialGate>{(overview) => <WhoHasList overview={overview} missing={missing} />}</SocialGate>

@@ -11,7 +11,8 @@ import { useLongPress } from '../components/useLongPress'
 import { CardSearchResults } from '../components/CardSearchResults'
 import { ExportDeckDialog } from '../components/ExportDeckDialog'
 import { ShareDialog } from '../social/ShareDialog'
-import { missingCards, WhoHasItSheet } from '../social/WhoHasIt'
+import { WhoHasItSheet } from '../social/WhoHasIt'
+import { missingCards } from '../decks/missing'
 import { buyCardUrl, buyListUrl } from '../api/buy'
 import { deckProxyCopies, proxySwaps } from '../decks/proxies'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
@@ -59,12 +60,9 @@ export function DeckDetailPage() {
   const [goldfish, setGoldfish] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [addWarning, setAddWarning] = useAddWarning()
-  // What the deck asks for that no binder of yours holds — for "Who has it?" and the Wishlist.
-  const owned = useMemo(() => new Set(
-    collections.filter((c) => c.type !== 'WISHLIST')
-      .flatMap((c) => c.entries.filter((e) => e.quantity + e.foilQuantity > 0).map((e) => e.name.toLowerCase())),
-  ), [collections])
-  const missing = useMemo(() => (deck ? missingCards(deck, owned) : []), [deck, owned])
+  // What the deck asks for that your binders and the decks you hold don't cover — for
+  // "Who has it?", buying, and the Wishlist. Copies in another deck of yours count.
+  const missing = useMemo(() => (deck ? missingCards(deck, collections, decks) : []), [deck, collections, decks])
   const [notice, setNotice] = useState<string | null>(null)
   // A deck built with proxies: how many are left, and which you already own a real copy of.
   const proxiesLeft = deck ? deckProxyCopies(deck) : 0
