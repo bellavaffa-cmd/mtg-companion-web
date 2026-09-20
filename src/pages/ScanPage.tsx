@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getByExactName, getByFuzzyName, getBySetAndNumber, OfflineError } from '../api/scryfall'
 import { ActionSheet, type SheetAction } from '../components/ActionSheet'
 import { Icon } from '../components/Icon'
 import { ArtImage, PillChip, toArtCrop, useBack } from '../components/kit'
+import { Dialog } from '../components/Dialog'
+import { useLeaveGuard } from '../components/useLeaveGuard'
 import { TopBar } from '../components/TopBar'
 import { cardNameIndex, MIN_MATCH } from '../scan/cardNames'
 import { guideInVideo } from '../scan/guide'
@@ -28,6 +30,32 @@ type Camera = 'starting' | 'on' | 'denied' | 'unsupported' | 'failed'
 /** Scans counted up, so each row stays its own even when the same card comes round twice. */
 let nextScanId = 1
 
+/**
+ * The pile is kept for this tab while the app is open: a card scanned isn't lost to a reload, a
+ * phone's back gesture, or a wander off to look something up.
+ */
+const PILE_KEY = 'mtgweb_scan_pile'
+const PILE_KEEP = 300
+
+function loadPile(): ScanRow[] {
+  try {
+    const rows = JSON.parse(sessionStorage.getItem(PILE_KEY) ?? '[]') as ScanRow[]
+    if (!Array.isArray(rows)) return []
+    nextScanId = Math.max(nextScanId, ...rows.map((r) => r.id + 1))
+    return rows
+  } catch {
+    return []
+  }
+}
+
+function savePile(rows: ScanRow[]) {
+  try {
+    sessionStorage.setItem(PILE_KEY, JSON.stringify(rows.slice(0, PILE_KEEP)))
+  } catch {
+    // A tab that won't store it still has the pile on screen.
+  }
+}
+
 /** Whether this printing comes in foil (Scryfall lists its finishes; unknown means maybe). */
 const canBeFoil = (card: ScryfallCard) => !card.finishes || card.finishes.includes('foil')
 
@@ -50,9 +78,12 @@ export function ScanPage() {
   const [loading, setLoading] = useState<string | null>('Getting the card reader ready…')
   const [status, setStatus] = useState("Hold a card inside the frame, its name in the gold strip — or a friend's QR code.")
   const [seen, setSeen] = useState('')
-  const [scanned, setScanned] = useState<ScanRow[]>([])
+  const [scanned, setScanned] = useState<ScanRow[]>(loadPile)
   // "Only the ones I may have scanned twice."
   const [repeatsOnly, setRepeatsOnly] = useState(false)
+  // Leaving with cards still in the list would throw them away, so it asks first.
+  const [leaving, setLeaving] = useState<(() => void) | null>(null)
+  useEffect(() => { savePile(scanned) }, [scanned])
   const [flash, setFlash] = useState(0)
   const [typed, setTyped] = useState('')
   const [lookingUp, setLookingUp] = useState(false)
@@ -257,6 +288,8 @@ export function ScanPage() {
   }
 
   const total = scanned.length
+  // The nav bar and the sidebar are the app's own links: caught here, asked about, then followed.
+  useLeaveGuard(scanned.length > 0, useCallback((go: () => void) => setLeaving(() => go), []))
   const repeats = repeatedCards(scanned)
   // With nothing scanned twice the filter has nothing to hide — and its chip is gone, so leaving it
   // on would leave an empty list and no way back.
@@ -298,7 +331,7 @@ export function ScanPage() {
 
   return (
     <>
-      <TopBar title="Scan" onBack={back} />
+      <TopBar title="Scan" onBack={() => (scanned.length > 0 ? setLeaving(() => back) : back())} />
       <div className="content-scroll scan-page">
         <div className="scan-view" data-no-pull>
           <video ref={videoRef} className="scan-video" playsInline muted autoPlay />
@@ -398,6 +431,21 @@ export function ScanPage() {
           </>
         )}
       </div>
+
+      {leaving && (
+        <Dialog
+          title={`Leave ${total} ${total === 1 ? 'scan' : 'scans'} behind?`}
+          onDismiss={() => setLeaving(null)}
+          actions={
+            <>
+              <button type="button" className="btn line" onClick={() => { setLeaving(null); setPicking(true) }}>Put them away</button>
+              <button type="button" className="btn danger" onClick={() => { const go = leaving; setScanned([]); setLeaving(null); go?.() }}>Leave</button>
+            </>
+          }
+        >
+          <p className="muted" style={{ margin: 0 }}>They haven't been put into a deck or binder yet, and leaving throws them away.</p>
+        </Dialog>
+      )}
 
       {picking && (
         <ActionSheet
