@@ -12,6 +12,7 @@ import { confirmRead, parseSetAndNumber, sameCardName, ScanTracker } from '../sc
 import { appLinkPath, qrReader } from '../scan/qr'
 import { copyNumber, grouped, onlyRepeats, repeatedCards, scannedTwiceOver, type ScanRow } from '../scan/scanLog'
 import { useSync } from '../sync/SyncContext'
+import { isUnsorted, UNSORTED_COLLECTION_ID } from '../types/models'
 import { displayImageUrl, type ScryfallCard } from '../types/scryfall'
 
 /** A card's shape: the guide box matches it. */
@@ -40,7 +41,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 export function ScanPage() {
   const back = useBack('/search')
   const navigate = useNavigate()
-  const { decks, collections, addCardToDeck, addEntryToCollection } = useSync()
+  const { decks, collections, addCardToDeck, addEntryToCollection, importIntoCollection } = useSync()
   const videoRef = useRef<HTMLVideoElement>(null)
   const guideRef = useRef<HTMLDivElement>(null)
   const scanNow = useRef(false)
@@ -261,7 +262,7 @@ export function ScanPage() {
   // on would leave an empty list and no way back.
   const filtered = repeatsOnly && repeats.size > 0
   const shownScans = filtered ? onlyRepeats(scanned) : scanned
-  const addAllTo = (target: { kind: 'deck' | 'binder'; id: string; name: string }) => {
+  const addAllTo = (target: { kind: 'deck' | 'binder' | 'unsorted'; id: string; name: string }) => {
     const warnings: string[] = []
     // Copies are added together only here: the list itself stays one row per scan.
     for (const s of grouped(scanned)) {
@@ -269,15 +270,27 @@ export function ScanPage() {
       if (target.kind === 'deck') {
         const warning = addCardToDeck(target.id, s.card, s.quantity)
         if (warning) warnings.push(warning)
+      } else if (target.kind === 'unsorted') {
+        // The pile straight into the collection, making the Unsorted pile if there isn't one.
+        importIntoCollection(UNSORTED_COLLECTION_ID, [{ card: s.card, quantity: s.foil ? 0 : s.quantity, foilQuantity: s.foil ? s.quantity : 0 }])
       } else addEntryToCollection(target.id, s.card, s.foil ? 0 : s.quantity, s.foil ? s.quantity : 0)
     }
     setNotice([`Added ${total} ${total === 1 ? 'card' : 'cards'} to ${target.name}.`, ...warnings].join(' '))
     setScanned([])
     setPicking(false)
   }
+  const unsorted = collections.find(isUnsorted)
   const targets: SheetAction[] = [
+    // Cards you own but haven't sorted yet: the pile goes in as it is, to be sorted later.
+    {
+      label: 'Unsorted',
+      icon: 'inbox',
+      tone: 'gold',
+      detail: 'Into your collection, to sort into binders later',
+      onClick: () => addAllTo({ kind: 'unsorted', id: UNSORTED_COLLECTION_ID, name: 'Unsorted' }),
+    },
     ...decks.map((d): SheetAction => ({ label: d.name, icon: 'style', detail: 'Deck', onClick: () => addAllTo({ kind: 'deck', id: d.id, name: d.name }) })),
-    ...collections.map((c): SheetAction => ({
+    ...collections.filter((c) => c.id !== unsorted?.id).map((c): SheetAction => ({
       label: c.name, icon: c.type === 'WISHLIST' ? 'star' : 'collections', detail: c.type === 'WISHLIST' ? 'Wishlist' : 'Binder',
       onClick: () => addAllTo({ kind: 'binder', id: c.id, name: c.name }),
     })),
