@@ -85,8 +85,8 @@ export function LifeCounterPage() {
   }, [game, settings, decks, tableGames, addGameResult, removeGameResult])
 
   useEffect(() => {
-    document.title = 'Life counter · MTG Companion'
-    return () => { document.title = 'MTG Companion' }
+    document.title = 'Life counter · Manabind'
+    return () => { document.title = 'Manabind' }
   }, [])
 
   // A high roll stays on the tiles until the centre button (or Escape) closes it; closing starts

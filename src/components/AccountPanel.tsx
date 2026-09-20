@@ -133,7 +133,7 @@ export function AccountPanel() {
         </div>
       )}
       <div className="muted">
-        Sign in with your MTG Companion account to sync decks and binders with the Android app. Everything still works signed out.
+        Sign in with your Manabind account to sync decks and binders with the Android app. Everything still works signed out.
       </div>
       <input
         className="input" type="email" autoComplete="email" placeholder="Email"

@@ -154,7 +154,7 @@ export function HomePage() {
         <header className="home-wide-top rise" style={rise(0)}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="eyebrow">{greeting()}</div>
-            <h1>{desktop ? 'Welcome back' : 'MTG Companion'}</h1>
+            <h1>{desktop ? 'Welcome back' : 'Manabind'}</h1>
           </div>
           <form
             className="searchpill"
@@ -242,7 +242,7 @@ export function HomePage() {
       <header className="home-top rise" style={rise(0)}>
         <div>
           <div className="eyebrow">{greeting()}</div>
-          <div className="brand">MTG Companion</div>
+          <div className="brand">Manabind</div>
         </div>
         {accountsAvailable && (
           <div className="row" style={{ gap: 8 }}>

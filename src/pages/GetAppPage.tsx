@@ -55,7 +55,7 @@ export function GetAppPage() {
         <div className="narrow-width">
           <div className="link-card rise" style={rise(0)}>
             <Icon name="android" className="link-icon" />
-            <h2 className="social-title">MTG Companion for Android</h2>
+            <h2 className="social-title">Manabind for Android</h2>
             <p className="muted">
               The same decks, binders and friends as here — sign in with the same account and they sync. Plus
               phone notifications, price alerts checked in the background, and card search that works offline.

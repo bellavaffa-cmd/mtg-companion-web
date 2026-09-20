@@ -1,6 +1,6 @@
 {
-  "name": "MTG Companion",
-  "short_name": "MTG Companion",
+  "name": "Manabind",
+  "short_name": "Manabind",
   "description": "Decks, binders, card search, rules and a life counter for Magic: The Gathering, synced with the Android app.",
   "id": "./",
   "start_url": "./",

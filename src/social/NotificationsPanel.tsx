@@ -49,7 +49,7 @@ export function NotificationsPanel() {
       {state === 'unsupported' ? (
         <p className="dim" style={{ margin: '4px 0 8px', fontSize: 13 }}>
           {push.needsHomeScreen()
-            ? 'On iPhone and iPad, add MTG Companion to your Home Screen first (Share → Add to Home Screen), then turn notifications on from there.'
+            ? 'On iPhone and iPad, add Manabind to your Home Screen first (Share → Add to Home Screen), then turn notifications on from there.'
             : "This browser can't show notifications."}
         </p>
       ) : (

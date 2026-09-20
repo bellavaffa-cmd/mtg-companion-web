@@ -1,0 +1,30 @@
+<!--
+  The Manabind lockup: the mark beside the name.
+
+  This is the display cut — the M smaller and lighter than the icon cut in favicon.svg — which is
+  what gives it room to breathe at the sizes a wordmark actually gets used at: a store listing, a
+  splash, a site header. Nobody ever sees the two cuts side by side, so they can differ.
+
+  Built for the app's near-black ground: the gaps holding the fan apart, and the M itself, are
+  painted in #07080E rather than punched through. On a lighter background they would show. For a
+  light-background version, swap every #07080E for the background behind it.
+
+  The name is set in Bebas Neue, the app's display face, with a fallback stack for anywhere the font
+  isn't loaded — a file referenced by <img>, for one, never sees the page's webfonts. textLength
+  pins the name to the same width either way, so the lockup can't reflow or overrun its box; the
+  fallback is squeezed to fit rather than allowed to sprawl. For anything leaving the app — a store
+  listing, print — convert the text to outlines first and crop to it.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 108" role="img" aria-label="Manabind">
+  <g transform="translate(54 54) scale(0.82) translate(-36 -50.5)">
+    <g transform="rotate(-18 36 86) translate(0 -8)">
+      <path d="M21,26 L51,26 A5,5 0 0 1 56,31 L56,79 A5,5 0 0 1 51,84 L21,84 A5,5 0 0 1 16,79 L16,31 A5,5 0 0 1 21,26 Z" fill="#C4893A" stroke="#07080E" stroke-width="6"/>
+    </g>
+    <g transform="rotate(18 36 86) translate(0 -8)">
+      <path d="M21,26 L51,26 A5,5 0 0 1 56,31 L56,79 A5,5 0 0 1 51,84 L21,84 A5,5 0 0 1 16,79 L16,31 A5,5 0 0 1 21,26 Z" fill="#C4893A" stroke="#07080E" stroke-width="6"/>
+    </g>
+    <path d="M21,26 L51,26 A5,5 0 0 1 56,31 L56,79 A5,5 0 0 1 51,84 L21,84 A5,5 0 0 1 16,79 L16,31 A5,5 0 0 1 21,26 Z" fill="#E6B45E" stroke="#07080E" stroke-width="6"/>
+    <path d="M24,66 L24,44 L36,57 L48,44 L48,66" fill="none" stroke="#07080E" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="112" y="73" textLength="228" lengthAdjust="spacingAndGlyphs" font-family="'Bebas Neue', Oswald, 'Arial Narrow', sans-serif" font-size="58" letter-spacing="2" fill="#E6B45E">Manabind</text>
+</svg>

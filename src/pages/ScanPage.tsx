@@ -304,7 +304,7 @@ export function ScanPage() {
           }
           if (text && text !== unknown) {
             unknown = text
-            setStatus("That QR code isn't an MTG Companion one.")
+            setStatus("That QR code isn't a Manabind one.")
           }
         }
         await sleep(QR_EVERY_MS)

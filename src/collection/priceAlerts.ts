@@ -91,7 +91,7 @@ export function usePriceAlertHits(collections: Collection[]): { hits: PriceAlert
           const body = fresh.length === 1
             ? `${first.entry.name} is ${formatUsd(first.price)} — under your ${formatUsd(first.entry.priceAlert ?? 0)} alert`
             : `${fresh.length} wishlist cards are under your alert prices`
-          try { new Notification('MTG Companion', { body, icon: first.entry.imageUrl ?? undefined }) } catch { /* not allowed here */ }
+          try { new Notification('Manabind', { body, icon: first.entry.imageUrl ?? undefined }) } catch { /* not allowed here */ }
         }
       })
       .catch(() => {})

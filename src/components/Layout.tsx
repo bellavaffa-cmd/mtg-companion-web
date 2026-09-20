@@ -101,7 +101,7 @@ function Sidebar() {
     <nav className="sidebar" aria-label="Main">
       <NavLink to="/" className="side-logo">
         <span className="mark">M</span>
-        <span>MTG Companion</span>
+        <span>Manabind</span>
       </NavLink>
       {NAV_TABS.map((tab) => (
         <NavLink key={tab.to} to={tab.to} end={tab.end} className={({ isActive }) => `side-nav${isActive ? ' active' : ''}`}>

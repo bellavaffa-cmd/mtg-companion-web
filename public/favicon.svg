@@ -1,1 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108"><rect width="108" height="108" rx="24" fill="#07080E"/><path fill="#C4893A" d="M54 30 74 54 54 78 34 54Z"/><path fill="#E0A84E" d="M54 42 64 54 54 66 44 54Z"/></svg>
+<!--
+  Manabind's mark: three cards in a fan, an M cut out of the front one. This is the icon cut — the M
+  a size larger and heavier than the display cut in wordmark.svg — because a knocked-out letterform
+  closes up as it shrinks and the notch between the diagonals goes first.
+
+  The mark sits inside the middle 72 of the 108 box so a launcher masking it to a circle doesn't
+  clip the outer cards, and every card is stroked in the background colour so the fan reads as three
+  cards rather than one lumpy shape. Mirrors the Android app's res/drawable/ic_launcher_foreground.xml
+  and the PNGs beside this file; change one and change all of them.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" role="img" aria-label="Manabind">
+  <rect width="108" height="108" rx="24" fill="#07080E"/>
+  <g transform="translate(54 54) scale(0.82) translate(-36 -50.5)">
+    <g transform="rotate(-18 36 86) translate(0 -8)">
+      <path d="M21,26 L51,26 A5,5 0 0 1 56,31 L56,79 A5,5 0 0 1 51,84 L21,84 A5,5 0 0 1 16,79 L16,31 A5,5 0 0 1 21,26 Z" fill="#C4893A" stroke="#07080E" stroke-width="6"/>
+    </g>
+    <g transform="rotate(18 36 86) translate(0 -8)">
+      <path d="M21,26 L51,26 A5,5 0 0 1 56,31 L56,79 A5,5 0 0 1 51,84 L21,84 A5,5 0 0 1 16,79 L16,31 A5,5 0 0 1 21,26 Z" fill="#C4893A" stroke="#07080E" stroke-width="6"/>
+    </g>
+    <path d="M21,26 L51,26 A5,5 0 0 1 56,31 L56,79 A5,5 0 0 1 51,84 L21,84 A5,5 0 0 1 16,79 L16,31 A5,5 0 0 1 21,26 Z" fill="#E6B45E" stroke="#07080E" stroke-width="6"/>
+    <path d="M23,67 L23,43 L36,57 L49,43 L49,67" fill="none" stroke="#07080E" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

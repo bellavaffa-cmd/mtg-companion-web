@@ -79,8 +79,8 @@ export function RemotePage() {
   const deck = decks.find((d) => d.id === prefs.deckId) ?? null
 
   useEffect(() => {
-    document.title = 'Remote · MTG Companion'
-    return () => { document.title = 'MTG Companion' }
+    document.title = 'Remote · Manabind'
+    return () => { document.title = 'Manabind' }
   }, [])
   useEffect(() => {
     const t = window.setInterval(() => setNow(Date.now()), 5_000)
