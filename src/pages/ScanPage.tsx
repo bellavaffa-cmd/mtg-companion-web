@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { getByExactName, getByFuzzyName, getBySetAndNumber, OfflineError } from '../api/scryfall'
 import { ActionSheet, type SheetAction } from '../components/ActionSheet'
 import { Icon } from '../components/Icon'
-import { ArtImage, toArtCrop, useBack } from '../components/kit'
+import { ArtImage, PillChip, toArtCrop, useBack } from '../components/kit'
 import { TopBar } from '../components/TopBar'
 import { cardNameIndex, MIN_MATCH } from '../scan/cardNames'
 import { guideInVideo } from '../scan/guide'
 import { readCardName, readSmallPrint, titleReader } from '../scan/ocr'
 import { parseSetAndNumber, sameCardName, ScanTracker } from '../scan/scanLogic'
 import { appLinkPath, qrReader } from '../scan/qr'
+import { copyNumber, grouped, onlyRepeats, repeatedCards, scannedTwiceOver, type ScanRow } from '../scan/scanLog'
 import { useSync } from '../sync/SyncContext'
 import { displayImageUrl, type ScryfallCard } from '../types/scryfall'
 
@@ -22,14 +23,9 @@ const QR_EVERY_MS = 400
 
 type Camera = 'starting' | 'on' | 'denied' | 'unsupported' | 'failed'
 
-interface Scanned {
-  card: ScryfallCard
-  quantity: number
-  foil: boolean
-}
-
 /** A row of the list: the same card as foil and non-foil are separate rows. */
-const rowKey = (s: { card: ScryfallCard; foil: boolean }) => `${s.card.id}${s.foil ? ':foil' : ''}`
+/** Scans counted up, so each row stays its own even when the same card comes round twice. */
+let nextScanId = 1
 
 /** Whether this printing comes in foil (Scryfall lists its finishes; unknown means maybe). */
 const canBeFoil = (card: ScryfallCard) => !card.finishes || card.finishes.includes('foil')
@@ -53,22 +49,25 @@ export function ScanPage() {
   const [loading, setLoading] = useState<string | null>('Getting the card reader ready…')
   const [status, setStatus] = useState("Hold a card inside the frame, its name in the gold strip — or a friend's QR code.")
   const [seen, setSeen] = useState('')
-  const [scanned, setScanned] = useState<Scanned[]>([])
+  const [scanned, setScanned] = useState<ScanRow[]>([])
+  // "Only the ones I may have scanned twice."
+  const [repeatsOnly, setRepeatsOnly] = useState(false)
   const [flash, setFlash] = useState(0)
   const [typed, setTyped] = useState('')
   const [lookingUp, setLookingUp] = useState(false)
   const [picking, setPicking] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
 
+  /** Every scan is its own row, newest first, so a card read twice shows twice. */
   const addScanned = (card: ScryfallCard) => {
     setScanned((list) => {
-      const existing = list.find((s) => s.card.id === card.id && !s.foil)
-      if (existing) {
-        setStatus(`${card.name} ×${existing.quantity + 1}`)
-        return list.map((s) => (s === existing ? { ...s, quantity: s.quantity + 1 } : s))
-      }
-      setStatus(`Added ${card.name}`)
-      return [{ card, quantity: 1, foil: false }, ...list]
+      const row: ScanRow = { id: nextScanId++, card, foil: false, at: Date.now() }
+      const next = [row, ...list]
+      const copy = copyNumber(next, row)
+      setStatus(copy > 1
+        ? `${card.name} again — copy ${copy}${scannedTwiceOver(next, row) ? ', scanned just now' : ''}`
+        : `Added ${card.name}`)
+      return next
     })
     setFlash((n) => n + 1)
     navigator.vibrate?.(30)
@@ -234,26 +233,26 @@ export function ScanPage() {
     }
   }
 
-  // Rows are found by their key, not the row seen at render: a scan may have replaced it since.
-  /** Switches a row between foil and not, joining the other row of the same card if there is one. */
-  const toggleFoil = (key: string) => {
-    setScanned((list) => {
-      const row = list.find((s) => rowKey(s) === key)
-      if (!row) return list
-      const other = list.find((s) => s.card.id === row.card.id && s.foil !== row.foil)
-      if (!other) return list.map((s) => (s === row ? { ...s, foil: !s.foil } : s))
-      return list.filter((s) => s !== row).map((s) => (s === other ? { ...s, quantity: s.quantity + row.quantity } : s))
-    })
+  // Rows are found by their scan, not the row seen at render: a scan may have arrived since.
+  /** Switches one scan between foil and not. */
+  const toggleFoil = (id: number) => {
+    setScanned((list) => list.map((s) => (s.id === id ? { ...s, foil: !s.foil } : s)))
   }
-  /** One more or one less of a row; the last one taken away removes it. */
-  const changeQuantity = (key: string, by: number) => {
-    setScanned((list) => list.flatMap((s) => (rowKey(s) !== key ? [s] : s.quantity + by > 0 ? [{ ...s, quantity: s.quantity + by }] : [])))
+  /** Takes one scan off the pile — a card read twice, or read wrongly. */
+  const removeScan = (id: number) => {
+    setScanned((list) => list.filter((s) => s.id !== id))
   }
 
-  const total = scanned.reduce((n, s) => n + s.quantity, 0)
+  const total = scanned.length
+  const repeats = repeatedCards(scanned)
+  // With nothing scanned twice the filter has nothing to hide — and its chip is gone, so leaving it
+  // on would leave an empty list and no way back.
+  const filtered = repeatsOnly && repeats.size > 0
+  const shownScans = filtered ? onlyRepeats(scanned) : scanned
   const addAllTo = (target: { kind: 'deck' | 'binder'; id: string; name: string }) => {
     const warnings: string[] = []
-    for (const s of scanned) {
+    // Copies are added together only here: the list itself stays one row per scan.
+    for (const s of grouped(scanned)) {
       // A deck doesn't track foils; a binder counts them separately.
       if (target.kind === 'deck') {
         const warning = addCardToDeck(target.id, s.card, s.quantity)
@@ -320,39 +319,56 @@ export function ScanPage() {
         {scanned.length > 0 && (
           <>
             <div className="scan-list-head">
-              <span>{total} {total === 1 ? 'card' : 'cards'} scanned</span>
+              <span>
+                {total} {total === 1 ? 'scan' : 'scans'}
+                {repeats.size > 0 && ` · ${repeats.size} ${repeats.size === 1 ? 'card' : 'cards'} scanned more than once`}
+              </span>
               <button type="button" className="btn gold" onClick={() => setPicking(true)}>
                 <Icon name="add" aria-hidden />Add to a deck or binder
               </button>
             </div>
+            {repeats.size > 0 && (
+              <div className="chips" style={{ marginBottom: 10 }}>
+                <PillChip
+                  label={filtered ? 'Showing repeats only' : 'Show repeats only'}
+                  icon="filter_alt"
+                  selected={filtered}
+                  onClick={() => setRepeatsOnly((v) => !v)}
+                />
+              </div>
+            )}
             <div className="list">
-              {scanned.map((s) => (
-                <div key={rowKey(s)} className="crow no-qty scan-row">
+              {shownScans.map((s) => {
+                const copy = copyNumber(scanned, s)
+                const justNow = copy > 1 && scannedTwiceOver(scanned, s)
+                return (
+                <div key={s.id} className={`crow no-qty scan-row${justNow ? ' scan-double' : ''}`}>
                   <ArtImage className="thumb" src={toArtCrop(displayImageUrl(s.card))} seed={s.card.name} colors={s.card.color_identity} />
                   <div className="cmain">
                     <div className="cname">{s.card.name}</div>
                     <div className="cmeta">
+                      {copy > 1 && (
+                        <span className={`badge ${justNow ? 'warn' : 'soft'}`}>
+                          {justNow ? `copy ${copy} · scanned just now` : `copy ${copy}`}
+                        </span>
+                      )}
                       <span>{[s.card.set_name ?? s.card.set?.toUpperCase(), s.card.collector_number && `#${s.card.collector_number}`].filter(Boolean).join(' · ')}</span>
                     </div>
                     {canBeFoil(s.card) && (
-                      <button type="button" className="chip scan-foil" aria-pressed={s.foil} aria-label={`Foil: ${s.card.name}`} onClick={() => toggleFoil(rowKey(s))}>
+                      <button type="button" className="chip scan-foil" aria-pressed={s.foil} aria-label={`Foil: ${s.card.name}`} onClick={() => toggleFoil(s.id)}>
                         <Icon name="auto_awesome" aria-hidden />Foil
                       </button>
                     )}
                   </div>
                   <div className="scan-qty">
-                    <button type="button" className="ib" aria-label={`One less ${s.card.name}`}
-                      onClick={() => changeQuantity(rowKey(s), -1)}>
-                      <Icon name={s.quantity > 1 ? 'remove' : 'delete'} aria-hidden />
-                    </button>
-                    <b>{s.quantity}</b>
-                    <button type="button" className="ib" aria-label={`One more ${s.card.name}`}
-                      onClick={() => changeQuantity(rowKey(s), 1)}>
-                      <Icon name="add" aria-hidden />
+                    <button type="button" className="ib" aria-label={`Take off this scan of ${s.card.name}`} onClick={() => removeScan(s.id)}>
+                      <Icon name="delete" aria-hidden />
                     </button>
                   </div>
                 </div>
-              ))}
+                )
+              })}
+              {filtered && shownScans.length === 0 && <div className="empty-state">Nothing scanned twice.</div>}
             </div>
           </>
         )}

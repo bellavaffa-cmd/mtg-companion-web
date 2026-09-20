@@ -591,6 +591,16 @@ select.input {
   color: var(--t0);
 }
 
+/* A card the camera caught twice within seconds. */
+.badge.warn {
+  background: rgba(243, 182, 74, 0.18);
+  color: var(--warn);
+}
+
+.scan-row.scan-double {
+  box-shadow: inset 0 0 0 1px rgba(243, 182, 74, 0.5);
+}
+
 .badge.cut {
   background: var(--cut);
   color: #1e0d02;
