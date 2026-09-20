@@ -13,6 +13,7 @@ import { ExportDeckDialog } from '../components/ExportDeckDialog'
 import { ShareDialog } from '../social/ShareDialog'
 import { missingCards, WhoHasItSheet } from '../social/WhoHasIt'
 import { buyCardUrl, buyListUrl } from '../api/buy'
+import { deckProxyCopies, proxySwaps } from '../decks/proxies'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
 import { useAddWarning } from '../components/useAddWarning'
 import { DeckSuggestions } from '../components/DeckSuggestions'
@@ -40,6 +41,7 @@ export function DeckDetailPage() {
   const size = useLayoutSize()
   const {
     decks, collections, setCardQuantity, removeCardFromDeck, addCardToDeck, setCommander, setPartnerCommander, deleteDeck, addToWishlist,
+    setDeckOwnership, swapInProxy,
   } = useSync()
   const deck = decks.find((d) => d.id === id)
   const deckColors = useDeckColors(deck ? [deck] : [])
@@ -64,6 +66,12 @@ export function DeckDetailPage() {
   ), [collections])
   const missing = useMemo(() => (deck ? missingCards(deck, owned) : []), [deck, owned])
   const [notice, setNotice] = useState<string | null>(null)
+  // A deck built with proxies: how many are left, and which you already own a real copy of.
+  const proxiesLeft = deck ? deckProxyCopies(deck) : 0
+  const swaps = useMemo(
+    () => (deck ? proxySwaps(collections, [deck]) : []),
+    [collections, deck],
+  )
   useEffect(() => {
     if (!notice) return
     const t = window.setTimeout(() => setNotice(null), 3500)
@@ -299,6 +307,47 @@ export function DeckDetailPage() {
           actions={cardActions(cardSheet)}
           onClose={() => setCardSheet(null)}
         />
+      )}
+
+      {(proxiesLeft > 0 || (deck.ownership === 'PROXY' && swaps.length === 0)) && (
+        <div className="panel rise" style={{ ...rise(1), marginBottom: 12 }}>
+          <div className="p-h">
+            <h3>Proxies</h3>
+            <span className="p-sub">Left<b>{proxiesLeft}</b></span>
+          </div>
+          {proxiesLeft === 0 ? (
+            <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+              <span className="dim" style={{ flex: 1, minWidth: 180 }}>Every card in here is the real thing now.</span>
+              <button type="button" className="btn gold sm" onClick={() => { setDeckOwnership(deck.id, 'PHYSICAL'); setNotice('Marked as a physical deck.') }}>
+                Mark it Physical
+              </button>
+            </div>
+          ) : swaps.length === 0 ? (
+            <div className="dim">None of these are sitting spare in your binders yet — the Wishlist is where to note the ones to buy.</div>
+          ) : (
+            <>
+              <div className="dim" style={{ marginBottom: 8 }}>
+                You already own {swaps.length === 1 ? 'one of these' : `${swaps.length} of these`} for real. Swapping one in takes the copy out of your binder and stops counting it as a proxy.
+              </div>
+              <div className="list">
+                {swaps.map((s) => (
+                  <div key={s.entry.scryfallId} className="crow no-qty" style={{ gridTemplateColumns: '56px minmax(0, 1fr) auto' }}>
+                    <div className="thumb-wrap">
+                      <ArtImage className="thumb" src={toArtCrop(s.entry.imageUrl)} seed={s.entry.name} />
+                    </div>
+                    <div className="cmain">
+                      <div className="cname">{s.entry.name}</div>
+                      <div className="cmeta"><span>{s.spare} spare in your binders</span></div>
+                    </div>
+                    <button type="button" className="btn gold sm" onClick={() => { swapInProxy(deck.id, s.entry.scryfallId); setNotice(`Swapped in ${s.entry.name}.`) }}>
+                      Swap in
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       )}
 
       {notice && (

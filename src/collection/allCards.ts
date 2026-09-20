@@ -5,6 +5,7 @@
 
 import type { Collection, CollectionEntry, Deck } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
+import { proxyCopies } from '../decks/proxies'
 
 export interface CardSource {
   kind: 'binder' | 'deck'
@@ -50,8 +51,12 @@ export function allCardsOf(collections: Collection[], decks: Deck[]): AllCard[] 
     }
   }
   for (const d of decks) {
-    const proxy = d.ownership === 'PROXY'
-    for (const e of d.cards) add(e, e.quantity, { kind: 'deck', id: d.id, name: d.name, quantity: e.quantity, proxy })
+    for (const e of d.cards) {
+      // A deck marked Proxy is proxies until real copies are swapped in, card by card.
+      const proxies = proxyCopies(d, e)
+      add(e, e.quantity - proxies, { kind: 'deck', id: d.id, name: d.name, quantity: e.quantity - proxies })
+      add(e, proxies, { kind: 'deck', id: d.id, name: d.name, quantity: proxies, proxy: true })
+    }
   }
   return [...byCard.values()].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
 }

@@ -18,6 +18,11 @@ export interface DeckCardEntry {
   /** Cached from cardTags() at add-time — see types/scryfall.ts. Undefined for entries added
    * before this field existed. */
   tags?: string[]
+  /**
+   * How many of this entry's copies are proxies (see decks/proxies.ts). Undefined means "whatever
+   * the deck is": all of them in a deck marked Proxy, none in any other.
+   */
+  proxyQuantity?: number
 }
 
 export interface GameResult {

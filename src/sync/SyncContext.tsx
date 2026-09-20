@@ -19,6 +19,7 @@ import {
 } from './cloudSync'
 import { WISHLIST_ID, isEmptyWishlist, withWantedCards, withWishlist, withWishlistCardWantedAgain, withoutWishlistCard, type WantedCard } from '../collection/wishlist'
 import { gatherInto, removeEverywhere } from '../collection/allCards'
+import { withSwapIn } from '../decks/proxies'
 
 /** What a user-requested sync ended with. */
 export type RefreshResult =
@@ -172,6 +173,8 @@ interface SyncContextValue {
   notInterested: (cardName: string) => void
   /** Puts cards on the Wishlist (making it if needed), keeping the larger count of any already there. */
   addToWishlist: (cards: WantedCard[]) => void
+  /** One proxy in a deck swapped for a real copy out of a binder (see decks/proxies.ts). */
+  swapInProxy: (deckId: string, scryfallId: string) => void
   /** Undoes "not interested": the card comes back while a deck considers it. */
   wantAgain: (cardName: string) => void
   /** Moves cards in and out of binders in one change (a trade); answers the ones there weren't enough copies of. */
@@ -889,6 +892,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [updateLibrary],
   )
 
+  const swapInProxy = useCallback(
+    (deckId: string, scryfallId: string) => updateLibrary((lib) => ({ ...lib, ...withSwapIn(lib.collections, lib.decks, deckId, scryfallId) })),
+    [updateLibrary],
+  )
+
   const wantAgain = useCallback(
     (cardName: string) => updateLibrary((lib) => ({ ...lib, collections: withWishlistCardWantedAgain(lib.collections, cardName) })),
     [updateLibrary],
@@ -1031,13 +1039,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       notInterested,
       addToWishlist,
       wantAgain,
+      swapInProxy,
       removeEntriesFromCollection,
     }),
     [
       library, account, cloud, mergePrompt, resolveMerge, passwordRecovery, linkNotice, signIn, signUp, signOut,
       syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, addGameResult,
-      addCardsToDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain,
+      addCardsToDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
       setEntryQuantities, setEntryPriceAlert, changeCollections, importIntoCollection, moveEntries, removeEntriesFromCollection,
     ],
   )
