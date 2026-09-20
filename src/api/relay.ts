@@ -4,7 +4,7 @@
  * RSS feeds don't allow cross-origin requests. Scryfall, EDHREC and MTGJSON do, and are called directly.
  */
 
-import { cacheKey, cachedCombos, keepCombos } from './comboCache'
+import { cacheKey, cachedCombos, cachedDeckCombos, deckKey, keepCombos, keepDeckCombos } from './comboCache'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
@@ -63,18 +63,37 @@ export interface ComboVariant {
 }
 export interface DeckCombos { included: ComboVariant[]; almostIncluded: ComboVariant[] }
 
-/** Combos a decklist contains, and those it's exactly one card short of (within its colours). */
+/**
+ * Combos a decklist contains, and those it's exactly one card short of (within its colours). Kept
+ * for a week under that exact list, so opening a deck again is instant while an edited deck asks
+ * afresh.
+ */
 export async function findCombosInDeck(commanders: string[], main: string[]): Promise<DeckCombos> {
+  const key = deckKey(commanders, main)
+  const kept = cachedDeckCombos(key)
+  if (kept) return kept
+  const started = deckRequests.get(key)
+  if (started) return started
   const body = JSON.stringify({
     commanders: commanders.map((card) => ({ card })),
     main: main.map((card) => ({ card })),
   })
-  const res = await relay<{ results?: { included?: ComboVariant[]; almostIncluded?: ComboVariant[] } }>('/combos/find-my-combos', {
+  const request = relay<{ results?: { included?: ComboVariant[]; almostIncluded?: ComboVariant[] } }>('/combos/find-my-combos', {
     method: 'POST',
     body,
   })
-  return { included: res.results?.included ?? [], almostIncluded: res.results?.almostIncluded ?? [] }
+    .then((res) => {
+      const combos = { included: res.results?.included ?? [], almostIncluded: res.results?.almostIncluded ?? [] }
+      keepDeckCombos(key, combos)
+      return combos
+    })
+    .finally(() => { deckRequests.delete(key) })
+  deckRequests.set(key, request)
+  return request
 }
+
+/** Deck lookups under way, so two panels asking for the same decklist make one request. */
+const deckRequests = new Map<string, Promise<DeckCombos>>()
 
 /** Lookups under way, so two panels asking for the same card make one request. */
 const comboRequests = new Map<string, Promise<ComboVariant[]>>()

@@ -48,13 +48,11 @@ export function NewsPanel({ limit = 6, index = 0 }: { limit?: number; index?: nu
   )
 }
 
-// One lookup per decklist per page load, shared by the Stats tab and the desktop side panel.
-const comboCache = new Map<string, Promise<DeckCombos>>()
-
 /** Combos this deck contains, and those it's one card short of, from Commander Spellbook. */
 export function DeckCombosPanel({ deck, index = 3 }: { deck: Deck; index?: number }) {
   const commanders = [deck.commander, deck.partnerCommander].filter((c) => c !== null).map((c) => c.name)
   const main = [...new Set(deck.cards.map((c) => c.name))].filter((n) => !commanders.includes(n))
+  // What the lookup depends on: re-run it only when the decklist itself changes.
   const key = `${commanders.join('|')}#${[...main].sort().join('|')}`
   const [combos, setCombos] = useState<DeckCombos | null | undefined>(undefined)
   const [showAlmost, setShowAlmost] = useState(false)
@@ -63,13 +61,7 @@ export function DeckCombosPanel({ deck, index = 3 }: { deck: Deck; index?: numbe
     if (!relayAvailable || (commanders.length === 0 && main.length === 0)) return
     let cancelled = false
     setCombos(undefined)
-    let request = comboCache.get(key)
-    if (!request) {
-      request = findCombosInDeck(commanders, main)
-      request.catch(() => comboCache.delete(key))
-      comboCache.set(key, request)
-    }
-    request
+    findCombosInDeck(commanders, main)
       .then((c) => { if (!cancelled) setCombos(c) })
       .catch(() => { if (!cancelled) setCombos(null) })
     return () => { cancelled = true }
