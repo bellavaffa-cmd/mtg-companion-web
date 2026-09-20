@@ -4,6 +4,8 @@
  * RSS feeds don't allow cross-origin requests. Scryfall, EDHREC and MTGJSON do, and are called directly.
  */
 
+import { cacheKey, cachedCombos, keepCombos } from './comboCache'
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
@@ -74,11 +76,29 @@ export async function findCombosInDeck(commanders: string[], main: string[]): Pr
   return { included: res.results?.included ?? [], almostIncluded: res.results?.almostIncluded ?? [] }
 }
 
-/** Combos that use [cardName], most popular first. */
+/** Lookups under way, so two panels asking for the same card make one request. */
+const comboRequests = new Map<string, Promise<ComboVariant[]>>()
+
+/**
+ * Combos that use [cardName], most popular first. Kept for a week in this browser (see comboCache),
+ * since the lookup goes through the relay to Commander Spellbook and takes about a second.
+ */
 export async function combosUsingCard(cardName: string, limit = 6): Promise<ComboVariant[]> {
+  const kept = cachedCombos(cardName)
+  if (kept) return kept
+  const key = cacheKey(cardName)
+  const started = comboRequests.get(key)
+  if (started) return started
   const query = new URLSearchParams({ q: `card:"${cardName}"`, limit: String(limit) })
-  const res = await relay<{ results?: ComboVariant[] }>(`/combos/variants?${query}`)
-  return res.results ?? []
+  const request = relay<{ results?: ComboVariant[] }>(`/combos/variants?${query}`)
+    .then((res) => {
+      const variants = res.results ?? []
+      keepCombos(cardName, variants)
+      return variants
+    })
+    .finally(() => { comboRequests.delete(key) })
+  comboRequests.set(key, request)
+  return request
 }
 
 export const comboUrl = (id: string) => `https://commanderspellbook.com/combo/${encodeURIComponent(id)}/`
