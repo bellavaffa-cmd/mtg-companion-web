@@ -46,18 +46,27 @@ export function withWishlist(collections: Collection[], decks: Deck[]): Collecti
     }
   }
 
+  // Taken off by hand ("not interested"), and still considered — a card nobody considers any more
+  // is forgotten, so putting it back in a deck's Considering list offers it again.
+  const notWanted = new Set((existing?.notWanted ?? []).map(key))
+
   // Owned: in any binder that isn't a wishlist (the Unsorted pile too).
   const owned = new Set(
     collections.filter((c) => c.type !== 'WISHLIST')
       .flatMap((c) => c.entries).filter((e) => e.quantity + e.foilQuantity > 0).map((e) => key(e.name)),
   )
+  const considered = new Set<string>()
   const wanted = new Map<string, DeckCardEntry>()
+  // A card the user put on the list themselves is wanted, whatever they said before.
+  const byHand = new Set(entries.filter((e) => !e.auto).map((e) => key(e.name)))
   for (const deck of decks) {
     for (const card of deck.considering ?? []) {
       const k = key(card.name)
-      if (!owned.has(k) && !wanted.has(k)) wanted.set(k, card)
+      considered.add(k)
+      if (!owned.has(k) && !wanted.has(k) && !(notWanted.has(k) && !byHand.has(k))) wanted.set(k, card)
     }
   }
+  const stillNotWanted = [...notWanted].filter((k) => considered.has(k) && !byHand.has(k))
 
   const kept = entries.filter((e) => !e.auto || wanted.has(key(e.name)))
   const have = new Set(kept.map((e) => key(e.name)))
@@ -66,15 +75,70 @@ export function withWishlist(collections: Collection[], decks: Deck[]): Collecti
     backImageUrl: card.backImageUrl ?? null, tags: card.tags, auto: true,
   }))
   const changedEntries = others.length > 0 || kept.length !== entries.length || added.length > 0
+  const sameNotWanted = JSON.stringify(existing?.notWanted ?? []) === JSON.stringify(stillNotWanted)
 
-  if (existing && !changedEntries && existing.name === WISHLIST_NAME && existing.type === 'WISHLIST') return collections
+  if (existing && !changedEntries && sameNotWanted && existing.name === WISHLIST_NAME && existing.type === 'WISHLIST') return collections
   const wishlist: Collection = {
     ...(existing ?? { id: WISHLIST_ID, createdAt: 0 }),
     name: WISHLIST_NAME,
     type: 'WISHLIST',
+    notWanted: stillNotWanted,
     entries: changedEntries ? [...kept, ...added] : entries,
   } as Collection
   return [...collections.filter((c) => c.type !== 'WISHLIST' && !isWishlist(c)), wishlist]
+}
+
+/** A card to put on the Wishlist, and how many copies are wanted. */
+export interface WantedCard {
+  scryfallId: string
+  name: string
+  imageUrl: string | null
+  backImageUrl?: string | null
+  tags?: string[]
+  /** Copies wanted — a deck's missing cards ask for as many as the deck plays. */
+  quantity: number
+}
+
+/**
+ * [collections] with [cards] on the Wishlist, making it if it isn't there. A card already on the
+ * list keeps the larger count rather than doubling, and asking for a card by hand undoes an earlier
+ * "not interested".
+ */
+export function withWantedCards(collections: Collection[], cards: WantedCard[]): Collection[] {
+  if (cards.length === 0) return collections
+  const existing = collections.find(isWishlist)
+  let entries: CollectionEntry[] = existing?.entries ?? []
+  for (const card of cards) {
+    const at = entries.findIndex((e) => key(e.name) === key(card.name))
+    const want = Math.max(1, card.quantity)
+    entries = at < 0
+      ? [...entries, {
+          scryfallId: card.scryfallId, name: card.name, imageUrl: card.imageUrl, quantity: want, foilQuantity: 0,
+          backImageUrl: card.backImageUrl ?? null, tags: card.tags, auto: false,
+        }]
+      : entries.map((e, i) => (i === at ? { ...e, quantity: Math.max(e.quantity, want), auto: false } : e))
+  }
+  const asked = new Set(cards.map((c) => key(c.name)))
+  const wishlist: Collection = {
+    ...(existing ?? { id: WISHLIST_ID, createdAt: 0 }),
+    name: WISHLIST_NAME,
+    type: 'WISHLIST',
+    notWanted: (existing?.notWanted ?? []).filter((n) => !asked.has(key(n))),
+    entries,
+  } as Collection
+  return existing ? collections.map((c) => (isWishlist(c) ? wishlist : c)) : [...collections, wishlist]
+}
+
+/**
+ * [collections] with [cardName] off the Wishlist and left off while decks still consider it — what
+ * taking off a card the Wishlist added by itself means. Adding it back by hand undoes this.
+ */
+export function withoutWishlistCard(collections: Collection[], cardName: string): Collection[] {
+  return collections.map((c) => (!isWishlist(c) ? c : {
+    ...c,
+    entries: c.entries.filter((e) => key(e.name) !== key(cardName)),
+    notWanted: [...new Set([...(c.notWanted ?? []), key(cardName)])],
+  }))
 }
 
 /** The names of [decks] considering [cardName] — for "Considering in …" on a card added from them. */

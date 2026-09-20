@@ -20,7 +20,7 @@ import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '..
 export function CollectionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const back = useBack('/collections?tab=binders')
-  const { collections, decks, setEntryQuantities, setEntryPriceAlert, removeEntryFromCollection, removeEntriesFromCollection, addEntryToCollection, moveEntries, createCollection } = useSync()
+  const { collections, decks, setEntryQuantities, setEntryPriceAlert, removeEntryFromCollection, removeEntriesFromCollection, addEntryToCollection, moveEntries, createCollection, notInterested } = useSync()
   const collection = collections.find((c) => c.id === id)
   // A wishlist shows what each card costs now, and can watch for it to drop.
   const wishlist = collection?.type === 'WISHLIST'
@@ -76,6 +76,15 @@ export function CollectionDetailPage() {
   const tagHits = q ? [...new Set(shown.filter((e) => !e.name.toLowerCase().includes(q)).flatMap((e) => matchedTags(tagsOf(roleTags, e.name), q)))] : []
   const setQty = (e: CollectionEntry, quantity: number, foilQuantity: number) =>
     setEntryQuantities(collection.id, e.scryfallId, Math.max(0, quantity), Math.max(0, foilQuantity))
+  /**
+   * Takes cards off. On the Wishlist, ones the app added by itself mean "not interested": they stay
+   * off while decks consider them, instead of coming straight back.
+   */
+  const takeOff = (cards: CollectionEntry[]) => {
+    if (isWishlist(collection)) cards.filter((e) => e.auto).forEach((e) => notInterested(e.name))
+    const rest = cards.filter((e) => !isWishlist(collection) || !e.auto).map((e) => e.scryfallId)
+    if (rest.length > 0) removeEntriesFromCollection(collection.id, rest)
+  }
 
   const summary = (
     <div className="stats rise" style={{ ...rise(1), maxWidth: size === 'phone' ? undefined : 720 }}>
@@ -173,7 +182,7 @@ export function CollectionDetailPage() {
         </div>
         {isWishlist(collection) && (
           <p className="muted rise" style={{ ...rise(1), margin: '6px 0 0', maxWidth: 720 }}>
-            Cards you want. They don't count as owned. Cards your decks are considering that you don't own are added here by themselves, until you own them.
+            Cards you want. They don't count as owned. Cards your decks are considering that you don't own are added here by themselves, until you own them — take one off and it stays off.
           </p>
         )}
         {size === 'desktop' ? (
@@ -221,7 +230,9 @@ export function CollectionDetailPage() {
               : []),
             { label: 'Move to binder', icon: 'drive_file_move', detail: 'Every copy, into another binder', onClick: () => setMoving([sheet]) },
             { label: 'Select', icon: 'check_circle', detail: 'Pick several cards to move, export or remove', onClick: () => toggle(sheet) },
-            { label: 'Remove from binder', icon: 'delete', tone: 'danger' as const, onClick: () => removeEntryFromCollection(collection.id, sheet.scryfallId) },
+            sheet.auto && isWishlist(collection)
+              ? { label: 'Not interested', icon: 'delete', tone: 'danger' as const, detail: "It won't come back while a deck considers it", onClick: () => takeOff([sheet]) }
+              : { label: 'Remove from binder', icon: 'delete', tone: 'danger' as const, onClick: () => removeEntryFromCollection(collection.id, sheet.scryfallId) },
           ]}
           onClose={() => setSheet(null)}
         />
@@ -253,14 +264,17 @@ export function CollectionDetailPage() {
               <button
                 type="button"
                 className="btn danger"
-                onClick={() => { removeEntriesFromCollection(collection.id, picked.map((e) => e.scryfallId)); setSelected(new Set()); setBulk(null) }}
+                onClick={() => { takeOff(picked); setSelected(new Set()); setBulk(null) }}
               >
                 Remove
               </button>
             </>
           }
         >
-          <p className="muted" style={{ margin: 0 }}>Remove {label(picked)} ({copies(picked)} {copies(picked) === 1 ? 'copy' : 'copies'}) from this binder?</p>
+          <p className="muted" style={{ margin: 0 }}>
+            Remove {label(picked)} ({copies(picked)} {copies(picked) === 1 ? 'copy' : 'copies'}) from this binder?
+            {isWishlist(collection) && picked.some((e) => e.auto) && " Ones your decks are considering won't come back."}
+          </p>
         </Dialog>
       )}
       {bulk === 'export' && selecting && (

@@ -17,7 +17,7 @@ import {
   libraryIsAnotherAccounts, loadCloudState, loadRescue, pullChanges, pushPending, recordLocalEdits, RESCUE_MAX_AGE_MS,
   saveCloudState, saveRescue, UnauthorizedError,
 } from './cloudSync'
-import { WISHLIST_ID, isEmptyWishlist, withWishlist } from '../collection/wishlist'
+import { WISHLIST_ID, isEmptyWishlist, withWantedCards, withWishlist, withoutWishlistCard, type WantedCard } from '../collection/wishlist'
 import { gatherInto, removeEverywhere } from '../collection/allCards'
 
 /** What a user-requested sync ended with. */
@@ -168,6 +168,10 @@ interface SyncContextValue {
   gatherIntoBinder: (scryfallIds: string[], toId: string) => void
   /** All cards: removes some cards from every binder (the Unsorted pile too); decks and the Wishlist keep theirs. */
   removeFromCollection: (scryfallIds: string[]) => void
+  /** Takes a card off the Wishlist and leaves it off while decks still consider it ("not interested"). */
+  notInterested: (cardName: string) => void
+  /** Puts cards on the Wishlist (making it if needed), keeping the larger count of any already there. */
+  addToWishlist: (cards: WantedCard[]) => void
   /** Moves cards in and out of binders in one change (a trade); answers the ones there weren't enough copies of. */
   changeCollections: (changes: CollectionChange[]) => CollectionChange[]
 }
@@ -883,6 +887,16 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [updateLibrary],
   )
 
+  const addToWishlist = useCallback(
+    (cards: WantedCard[]) => updateLibrary((lib) => ({ ...lib, collections: withWantedCards(lib.collections, cards) })),
+    [updateLibrary],
+  )
+
+  const notInterested = useCallback(
+    (cardName: string) => updateLibrary((lib) => ({ ...lib, collections: withoutWishlistCard(lib.collections, cardName) })),
+    [updateLibrary],
+  )
+
   const moveEntries = useCallback(
     (fromId: string, scryfallIds: string[], toId: string) => {
       updateLibrary((lib) => {
@@ -1007,13 +1021,15 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       moveEntries,
       gatherIntoBinder,
       removeFromCollection,
+      notInterested,
+      addToWishlist,
       removeEntriesFromCollection,
     }),
     [
       library, account, cloud, mergePrompt, resolveMerge, passwordRecovery, linkNotice, signIn, signUp, signOut,
       syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, addGameResult,
-      addCardsToDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, gatherIntoBinder, removeFromCollection,
+      addCardsToDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist,
       setEntryQuantities, setEntryPriceAlert, changeCollections, importIntoCollection, moveEntries, removeEntriesFromCollection,
     ],
   )

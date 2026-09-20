@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMoney } from '../money/currency'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
@@ -11,7 +11,7 @@ import { useLongPress } from '../components/useLongPress'
 import { CardSearchResults } from '../components/CardSearchResults'
 import { ExportDeckDialog } from '../components/ExportDeckDialog'
 import { ShareDialog } from '../social/ShareDialog'
-import { WhoHasItSheet } from '../social/WhoHasIt'
+import { missingCards, WhoHasItSheet } from '../social/WhoHasIt'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
 import { useAddWarning } from '../components/useAddWarning'
 import { DeckSuggestions } from '../components/DeckSuggestions'
@@ -38,7 +38,7 @@ export function DeckDetailPage() {
   const back = useBack('/decks')
   const size = useLayoutSize()
   const {
-    decks, setCardQuantity, removeCardFromDeck, addCardToDeck, setCommander, setPartnerCommander, deleteDeck,
+    decks, collections, setCardQuantity, removeCardFromDeck, addCardToDeck, setCommander, setPartnerCommander, deleteDeck, addToWishlist,
   } = useSync()
   const deck = decks.find((d) => d.id === id)
   const deckColors = useDeckColors(deck ? [deck] : [])
@@ -56,6 +56,18 @@ export function DeckDetailPage() {
   const [goldfish, setGoldfish] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [addWarning, setAddWarning] = useAddWarning()
+  // What the deck asks for that no binder of yours holds — for "Who has it?" and the Wishlist.
+  const owned = useMemo(() => new Set(
+    collections.filter((c) => c.type !== 'WISHLIST')
+      .flatMap((c) => c.entries.filter((e) => e.quantity + e.foilQuantity > 0).map((e) => e.name.toLowerCase())),
+  ), [collections])
+  const missing = useMemo(() => (deck ? missingCards(deck, owned) : []), [deck, owned])
+  const [notice, setNotice] = useState<string | null>(null)
+  useEffect(() => {
+    if (!notice) return
+    const t = window.setTimeout(() => setNotice(null), 3500)
+    return () => window.clearTimeout(t)
+  }, [notice])
   const progress = useScrollProgress(200)
 
   useEffect(() => {
@@ -288,6 +300,12 @@ export function DeckDetailPage() {
         />
       )}
 
+      {notice && (
+        <div className="notice" style={{ margin: '0 0 12px' }}>
+          <Icon name="check_circle" style={{ color: 'var(--ok)', fontSize: 18, marginRight: 6 }} />{notice}
+        </div>
+      )}
+
       {deckSheet && (
         <ActionSheet
           title={deck.name}
@@ -297,6 +315,21 @@ export function DeckDetailPage() {
             { label: 'Share with friends', icon: 'group', detail: 'View only — friends, pods or a link', onClick: () => setSharing(true) },
             { label: 'Goldfish (playtest)', icon: 'playing_cards', detail: 'Draw an opening hand, then a card at a time', onClick: () => setGoldfish(true) },
             { label: 'Who has it?', icon: 'person_search', detail: "Friends who own the cards you're missing", onClick: () => setWhoHas(true) },
+            ...(missing.length > 0
+              ? [{
+                  label: 'Add missing to Wishlist',
+                  icon: 'star',
+                  tone: 'gold' as const,
+                  detail: `${missing.length} ${missing.length === 1 ? 'card' : 'cards'} you don't own`,
+                  onClick: () => {
+                    addToWishlist(missing.map((c) => ({
+                      scryfallId: c.scryfallId, name: c.name, imageUrl: c.imageUrl, backImageUrl: c.backImageUrl, tags: c.tags, quantity: c.quantity,
+                    })))
+                    setDeckSheet(false)
+                    setNotice(`Added ${missing.length} ${missing.length === 1 ? 'card' : 'cards'} to your Wishlist.`)
+                  },
+                }]
+              : []),
             { label: 'Export decklist', icon: 'ios_share', detail: 'Copy it for Moxfield, Archidekt or Arena', onClick: () => setShowExport(true) },
             { label: 'Deck details', icon: 'tune', detail: 'Format, ownership, commander and tags', onClick: () => setTabName('Details') },
             { label: 'Delete deck', icon: 'delete', tone: 'danger', onClick: () => setConfirmDelete(true) },

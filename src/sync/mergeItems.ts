@@ -169,6 +169,7 @@ export function mergeCollection(base: Collection, mine: Collection, theirs: Coll
     name: pick(base.name, mine.name, theirs.name, minePreferred),
     type: pick(base.type, mine.type, theirs.type, minePreferred),
     createdAt: Math.min(mine.createdAt, theirs.createdAt),
+    notWanted: mergeStringSet(base.notWanted ?? [], mine.notWanted ?? [], theirs.notWanted ?? []),
     entries: mergeEntries(base.entries, mine.entries, theirs.entries, COLLECTION_COUNTS, minePreferred),
   }
 }

@@ -180,6 +180,11 @@ export interface Collection {
   entries: CollectionEntry[]
   createdAt: number
   type: CollectionType
+  /**
+   * The Wishlist: cards taken off it that a deck is still considering, so they aren't put back
+   * (see collection/wishlist.ts). Lower-cased names. Forgotten once no deck considers the card.
+   */
+  notWanted?: string[]
 }
 
 /**

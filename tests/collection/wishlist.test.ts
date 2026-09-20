@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { WISHLIST_ID, WISHLIST_NAME, decksConsidering, isWishlist, withWishlist } from '../../src/collection/wishlist.ts'
+import { WISHLIST_ID, WISHLIST_NAME, decksConsidering, isWishlist, withWantedCards, withWishlist, withoutWishlistCard } from '../../src/collection/wishlist.ts'
 import type { Collection, CollectionEntry, Deck, DeckCardEntry } from '../../src/types/models.ts'
 
 // The one Wishlist: always there, old wishlists folded in, and the cards decks are considering that
@@ -50,4 +50,47 @@ test("cards decks are considering that aren't owned come and go by themselves", 
   const bought = withConsidering.map((c) => (c.id === 'b' ? { ...c, entries: [...c.entries, entry('cult', 'Cultivate')] } : c))
   const after = withWishlist(bought, [deck('Omnath', 'Sol Ring', 'Cultivate')])
   assert.deepEqual(after.find(isWishlist)!.entries.map((e) => e.name), ['Rhystic Study'])
+})
+
+test('taking off a card the app added means "not interested"', () => {
+  const decks = [deck('Omnath', 'Cultivate', 'Rhystic Study')]
+  const start = withWishlist([binder('b', 'Binder', [])], decks)
+  assert.deepEqual(start.find(isWishlist)!.entries.map((e) => e.name), ['Cultivate', 'Rhystic Study'])
+
+  // Off it goes, and it stays off while the deck still considers it.
+  const after = withWishlist(withoutWishlistCard(start, 'cultivate'), decks)
+  assert.deepEqual(after.find(isWishlist)!.entries.map((e) => e.name), ['Rhystic Study'])
+  assert.deepEqual(after.find(isWishlist)!.notWanted, ['cultivate'])
+
+  // Asking for it by hand undoes that.
+  const added = after.map((c) => (isWishlist(c) ? { ...c, entries: [...c.entries, entry('cult', 'Cultivate')] } : c))
+  const back = withWishlist(added, decks)
+  assert.deepEqual(back.find(isWishlist)!.entries.map((e) => e.name), ['Rhystic Study', 'Cultivate'])
+  assert.deepEqual(back.find(isWishlist)!.notWanted, [])
+
+  // No deck considers it any more: forgotten, so considering it again offers it again.
+  const forgotten = withWishlist(withoutWishlistCard(back, 'Cultivate'), [deck('Omnath', 'Rhystic Study')])
+  assert.deepEqual(forgotten.find(isWishlist)!.notWanted, [])
+  assert.ok(withWishlist(forgotten, decks).find(isWishlist)!.entries.some((e) => e.name === 'Cultivate'))
+})
+
+test("a deck's missing cards go on the Wishlist, as many as the deck plays", () => {
+  const want = (name: string, quantity: number) => ({ scryfallId: `id-${name}`, name, imageUrl: null, quantity })
+  const made = withWantedCards([binder('b', 'Binder', [])], [want('Lightning Bolt', 4), want('Sol Ring', 1)])
+  const wish = made.find(isWishlist)!
+  assert.deepEqual(wish.entries.map((e) => [e.name, e.quantity, !!e.auto]), [['Lightning Bolt', 4, false], ['Sol Ring', 1, false]])
+
+  // Asking again keeps the larger count instead of doubling it.
+  const again = withWantedCards(made, [want('Lightning Bolt', 4), want('Sol Ring', 2)])
+  assert.deepEqual(again.find(isWishlist)!.entries.map((e) => [e.name, e.quantity]), [['Lightning Bolt', 4], ['Sol Ring', 2]])
+
+  // Asking for a card undoes "not interested", and a card added by itself becomes one you asked for.
+  const dismissed = withoutWishlistCard(again, 'Lightning Bolt')
+  assert.deepEqual(dismissed.find(isWishlist)!.notWanted, ['lightning bolt'])
+  const asked = withWantedCards(dismissed, [want('Lightning Bolt', 1)])
+  assert.deepEqual(asked.find(isWishlist)!.notWanted, [])
+  assert.ok(asked.find(isWishlist)!.entries.some((e) => e.name === 'Lightning Bolt'))
+
+  // Nothing missing changes nothing at all.
+  assert.equal(withWantedCards(asked, []), asked)
 })
