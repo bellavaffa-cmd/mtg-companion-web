@@ -38,3 +38,14 @@ test('noise from a card frame matches nothing', () => {
   assert.equal(matched('——— |'), null)
   assert.equal(matched('pr TT y i'), null)
 })
+
+test('a read that is a real name letter for letter is a certain match', () => {
+  const sure = buildNameIndex(['Sol Ring', 'Solemn Simulacrum', 'Soltari Priest', 'Delver of Secrets // Insectile Aberration'])
+  // Scored by chunks alone this came to 0.75, short of ending the search after one strip.
+  assert.deepEqual(sure.match('Sol Ring'), { name: 'Sol Ring', score: 1 })
+  // Case, spacing and accents don't matter, as for every match; a double-faced card's front face counts.
+  assert.deepEqual(sure.match('sol  ring'), { name: 'Sol Ring', score: 1 })
+  assert.equal(sure.match('Delver of Secrets')?.score, 1)
+  // Anything short of exact is scored as before.
+  assert.ok((sure.match('Sol Rinq')?.score ?? 1) < 1)
+})

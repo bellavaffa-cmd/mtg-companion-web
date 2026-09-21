@@ -123,6 +123,14 @@ test('a bullet the reader dropped altogether no longer costs the printing', () =
   assert.deepEqual(parseSetAndNumber('M 0005\nMOM JA'), { set: 'mom', number: '5' })
 })
 
+test('a number with its zeros read as the letter o, or a lowercase rarity, still reads', () => {
+  // The web reader's takes on Sol Ring's "U 0021 / FRC • EN".
+  assert.deepEqual(parseSetAndNumber('u oo21 ™ & © 2026 Wi\nFRC + EN » Trrus Lunren'), { set: 'frc', number: '21' })
+  assert.deepEqual(parseSetAndNumber('U 0O21\nFRC « EN'), { set: 'frc', number: '21' })
+  // All letters and no digit is not a number.
+  assert.equal(parseSetAndNumber('Uv oon\nFRC « EN » Titus Lunten'), null)
+})
+
 test("small print that can't be read with confidence gives no printing", () => {
   // Two capitals after a word are a language only if cards are printed in it...
   assert.equal(parseSetAndNumber('U 0021\nRAY XY'), null)

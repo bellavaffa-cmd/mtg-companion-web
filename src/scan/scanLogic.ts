@@ -36,7 +36,9 @@ export function cleanTitle(text: string): string | null {
 // slip through anyway: it's only kept if it names the card the title read (sameCardName). Mirrors
 // the Android app's data/SmallPrintParse.kt.
 const SET_AND_LANGUAGE = /\b([A-Z0-9]{3,5})(?:\s*[^\sA-Za-z0-9]\s*|\s+)(?:EN|DE|ES|FR|IT|JA|JP|KO|KR|PT|RU|CS|CT|ZH|PH)(?![a-z])/
-const RARITY_NUMBER = /\b[CURMSPLT][a-z]?\s+(\d{1,4})\b/
+// The rarity letter can come out lowercase ("u"), and the number's zeros as the letter o ("oo21"),
+// so o counts as a zero — but only in a number with a real digit in it.
+const RARITY_NUMBER = /\b(?:[CURMSPLT][a-z]?|[curmsplt])\s+((?=[0-9Oo]*\d)[0-9Oo]{1,4})\b/
 const NUMBER_OF_TOTAL = /\b(\d{1,4})\s*\/\s*\d{1,4}\b/
 
 /**
@@ -50,7 +52,7 @@ export function parseSetAndNumber(text: string): { set: string; number: string }
   if (!set) return null
   const number = lines.map((l) => RARITY_NUMBER.exec(l)?.[1]).find(Boolean) ?? lines.map((l) => NUMBER_OF_TOTAL.exec(l)?.[1]).find(Boolean)
   if (!number) return null
-  return { set: set.toLowerCase(), number: number.replace(/^0+(?=\d)/, '') }
+  return { set: set.toLowerCase(), number: number.replace(/[Oo]/g, '0').replace(/^0+(?=\d)/, '') }
 }
 
 const letters = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')

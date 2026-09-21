@@ -34,8 +34,15 @@ function chunks(s: string): Set<string> {
 export function buildNameIndex(names: string[]): NameIndex {
   const byChunk = new Map<string, number[]>()
   const sizes: number[] = []
+  // Each name exactly, as compared. The chunk score leaves out chunks too common to say much ("ing"),
+  // so even a perfect read of "Sol Ring" scores 0.75 — under the score that ends the search early —
+  // and every frame went on to read two more strips it didn't need. A read that is a real name
+  // letter for letter is as sure as a match gets.
+  const exact = new Map<string, number>()
   names.forEach((name, i) => {
-    const grams = chunks(normalizeName(name.split(' // ')[0]))
+    const front = normalizeName(name.split(' // ')[0])
+    if (!exact.has(front)) exact.set(front, i)
+    const grams = chunks(front)
     sizes.push(grams.size)
     grams.forEach((g) => {
       let list = byChunk.get(g)
@@ -45,6 +52,8 @@ export function buildNameIndex(names: string[]): NameIndex {
   })
   return {
     match(text: string): NameMatch | null {
+      const same = exact.get(normalizeName(text))
+      if (same !== undefined) return { name: names[same], score: 1 }
       const query = chunks(normalizeName(text))
       if (query.size < 4) return null
       const shared = new Map<number, number>()
