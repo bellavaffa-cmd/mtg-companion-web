@@ -13,7 +13,9 @@ import { InboxBadge, LAST_DECK_KEY } from '../components/Layout'
 import { getRandomCard } from '../api/scryfall'
 import type { ScryfallCard } from '../types/scryfall'
 import { backImageUrl, cardTags, displayImageUrl, displayManaCost, displayOracleText } from '../types/scryfall'
-import type { Collection, Deck } from '../types/models'
+import { isUnsorted, type Collection, type Deck } from '../types/models'
+import { isBinder } from '../collection/unsorted'
+import { isWishlist } from '../collection/wishlist'
 import { usePriceAlertHits } from '../collection/priceAlerts'
 import { useCollectionValue } from '../collection/valueHistory'
 import { useMoney } from '../money/currency'
@@ -62,6 +64,8 @@ export function HomePage() {
   const navigate = useNavigate()
   const size = useLayoutSize()
   const { decks, collections, account, accountsAvailable, cloud } = useSync()
+  // Binders only: the Wishlist and the Unsorted pile are always there, and aren't binders.
+  const binderCount = collections.filter(isBinder).length
   const priceAlerts = usePriceAlertHits(collections)
   // On an Android phone, point at the app once (until it's dismissed).
   const [appBannerHidden, setAppBannerHidden] = useState(() => {
@@ -189,7 +193,7 @@ export function HomePage() {
               {hero ?? <EmptyDecks onNew={() => navigate('/decks?new=1')} />}
               <div className="stats-2x2">
                 <StatFigure value={decks.length} label="Decks" onClick={() => navigate('/decks')} />
-                <StatFigure value={collections.length} label="Binders" onClick={() => navigate('/collections?tab=binders')} />
+                <StatFigure value={binderCount} label="Binders" onClick={() => navigate('/collections?tab=binders')} />
                 <StatFigure value={value?.usd ?? null} format={(v) => money.format(v, true)} label="Collection value" onClick={() => navigate('/value')} />
                 <button type="button" className="stat press" style={{ cursor: 'default' }}>
                   <span className="num">{record ?? <span style={{ color: 'var(--t2)' }}>—</span>}</span>
@@ -202,7 +206,7 @@ export function HomePage() {
               <div className="rise" style={rise(1)}>{hero ?? <EmptyDecks onNew={() => navigate('/decks?new=1')} />}</div>
               <div className="stats four rise" style={rise(2)}>
                 <StatFigure value={decks.length} label="Decks" onClick={() => navigate('/decks')} />
-                <StatFigure value={collections.length} label="Binders" onClick={() => navigate('/collections?tab=binders')} />
+                <StatFigure value={binderCount} label="Binders" onClick={() => navigate('/collections?tab=binders')} />
                 <StatFigure value={value?.usd ?? null} format={(v) => money.format(v, true)} label="Collection value" onClick={() => navigate('/value')} />
                 <button type="button" className="stat press" style={{ cursor: 'default' }}>
                   <span className="num">{record ?? <span style={{ color: 'var(--t2)' }}>—</span>}</span>
@@ -276,7 +280,7 @@ export function HomePage() {
 
         <div className="stats rise" style={{ ...rise(2), marginTop: 10 }}>
           <StatFigure value={decks.length} label="Decks" onClick={() => navigate('/decks')} />
-          <StatFigure value={collections.length} label="Binders" onClick={() => navigate('/collections?tab=binders')} />
+          <StatFigure value={binderCount} label="Binders" onClick={() => navigate('/collections?tab=binders')} />
           <StatFigure value={value?.usd ?? null} format={(v) => money.format(v, true)} label="Collection value" onClick={() => navigate('/value')} />
         </div>
 
@@ -396,25 +400,32 @@ function CardOfDay({ card, onOpen }: { card: ScryfallCard; onOpen: () => void })
   )
 }
 
-function BinderSummary({ collections, onOpen, onAll }: { collections: Collection[]; onOpen: (id: string) => void; onAll: () => void }) {
+function BinderSummary({ collections: all, onOpen, onAll }: { collections: Collection[]; onOpen: (id: string) => void; onAll: () => void }) {
+  // The Wishlist first, then the Unsorted pile if anything's in it, then the binders — the pile
+  // doesn't show empty here, where it would only look like an empty binder.
+  const wishlist = all.filter(isWishlist)
+  const pile = all.filter((c) => isUnsorted(c) && c.entries.length > 0)
+  const binders = all.filter(isBinder)
+  const collections = [...wishlist, ...pile, ...binders]
   return (
     <div className="panel home-binders">
       <div className="row-between" style={{ marginBottom: 4 }}>
         <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>Binders</h2>
         <button type="button" className="link" onClick={onAll}>Open collection</button>
       </div>
-      {collections.length === 0 && <div className="muted">No binders yet.</div>}
+      {binders.length === 0 && <div className="muted">No binders yet.</div>}
       {collections.slice(0, 4).map((c) => {
         const total = c.entries.reduce((s, e) => s + e.quantity + e.foilQuantity, 0)
         return (
           <button key={c.id} type="button" className="brow press" onClick={() => onOpen(c.id)}>
             {c.entries[0]
               ? <ArtImage src={toArtCrop(c.entries[0].imageUrl)} seed={c.name} />
-              : <div className="icon-tile"><Icon name={c.type === 'WISHLIST' ? 'star' : 'collections'} /></div>}
+              : <div className="icon-tile"><Icon name={c.type === 'WISHLIST' ? 'star' : isUnsorted(c) ? 'inbox' : 'collections'} /></div>}
             <div style={{ minWidth: 0 }}>
               <div className="brow-name">{c.name}</div>
               <div className="brow-meta">
                 {c.type === 'WISHLIST' && <span className="badge soft">Wishlist</span>}
+                {isUnsorted(c) && <span className="badge soft">Not in a binder</span>}
                 <span><b>{total}</b>cards</span>
               </div>
             </div>

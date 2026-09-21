@@ -18,6 +18,7 @@ import {
   saveCloudState, saveRescue, UnauthorizedError,
 } from './cloudSync'
 import { withUnsortedPile } from '../collection/unsorted'
+import { withDeckPrinting, withEntryPrinting } from '../collection/printings'
 import { WISHLIST_ID, isEmptyWishlist, withWantedCards, withWishlist, withWishlistCardWantedAgain, withoutWishlistCard, type WantedCard } from '../collection/wishlist'
 import { gatherInto, removeEverywhere } from '../collection/allCards'
 import { withSwapIn } from '../decks/proxies'
@@ -157,6 +158,12 @@ interface SyncContextValue {
   deleteCollection: (collectionId: string) => void
   addEntryToCollection: (collectionId: string, card: ScryfallCard, quantity?: number, foilQuantity?: number) => void
   removeEntryFromCollection: (collectionId: string, scryfallId: string) => void
+  /** Switches a binder card to another printing, its copies kept (see collection/printings.ts). */
+  changeEntryPrinting: (collectionId: string, oldScryfallId: string, card: ScryfallCard) => void
+  /** Switches a deck card — or its commander — to another printing, its copies kept. */
+  changeDeckPrinting: (deckId: string, oldScryfallId: string, card: ScryfallCard) => void
+  /** Switches a printing in every binder and deck that holds it: All cards' "change printing". */
+  changePrintingEverywhere: (oldScryfallId: string, card: ScryfallCard) => void
   /** Removes several cards from a binder in one change. */
   removeEntriesFromCollection: (collectionId: string, scryfallIds: string[]) => void
   setEntryQuantities: (collectionId: string, scryfallId: string, quantity: number, foilQuantity: number) => void
@@ -807,6 +814,37 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  const changeEntryPrinting = useCallback(
+    (collectionId: string, oldScryfallId: string, card: ScryfallCard) => {
+      updateLibrary((lib) => mapCollection(lib, collectionId, (c) => {
+        const entries = withEntryPrinting(c.entries, oldScryfallId, card)
+        return entries === c.entries ? c : { ...c, entries }
+      }))
+    },
+    [updateLibrary, mapCollection],
+  )
+
+  const changeDeckPrinting = useCallback(
+    (deckId: string, oldScryfallId: string, card: ScryfallCard) => {
+      updateLibrary((lib) => mapDeck(lib, deckId, (d) => withDeckPrinting(d, oldScryfallId, card)))
+    },
+    [updateLibrary, mapDeck],
+  )
+
+  const changePrintingEverywhere = useCallback(
+    (oldScryfallId: string, card: ScryfallCard) => {
+      updateLibrary((lib) => ({
+        ...lib,
+        collections: lib.collections.map((c) => {
+          const entries = withEntryPrinting(c.entries, oldScryfallId, card)
+          return entries === c.entries ? c : { ...c, entries }
+        }),
+        decks: lib.decks.map((d) => withDeckPrinting(d, oldScryfallId, card)),
+      }))
+    },
+    [updateLibrary],
+  )
+
   const createCollection = useCallback(
     (name: string, type: CollectionType): Collection => {
       const collection: Collection = { id: crypto.randomUUID(), name, entries: [], createdAt: Date.now(), type }
@@ -1035,6 +1073,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       deleteCollection,
       addEntryToCollection,
       removeEntryFromCollection,
+      changeEntryPrinting,
+      changeDeckPrinting,
+      changePrintingEverywhere,
       setEntryQuantities,
       setEntryPriceAlert,
       changeCollections,
@@ -1052,7 +1093,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       library, account, cloud, mergePrompt, resolveMerge, passwordRecovery, linkNotice, signIn, signUp, signOut,
       syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, addGameResult,
-      addCardsToDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
+      addCardsToDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
       setEntryQuantities, setEntryPriceAlert, changeCollections, importIntoCollection, moveEntries, removeEntriesFromCollection,
     ],
   )

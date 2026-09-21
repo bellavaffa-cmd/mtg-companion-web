@@ -7,6 +7,13 @@
  */
 
 import { UNSORTED_COLLECTION_ID, UNSORTED_COLLECTION_NAME, isUnsorted, type Collection } from '../types/models'
+import { isWishlist } from './wishlist'
+
+/**
+ * Whether [collection] is one of the user's binders — not the Wishlist, and not the Unsorted pile.
+ * Both of those are always there, so counting them as binders told an empty library it had two.
+ */
+export const isBinder = (collection: Collection): boolean => !isUnsorted(collection) && !isWishlist(collection)
 
 /**
  * [collections] with the Unsorted pile in it. The same array when it's already there, so a caller

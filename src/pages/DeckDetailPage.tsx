@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { PrintingPicker, printingName } from '../components/PrintingPicker'
 import { useMoney } from '../money/currency'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
@@ -42,7 +43,7 @@ export function DeckDetailPage() {
   const size = useLayoutSize()
   const {
     decks, collections, setCardQuantity, removeCardFromDeck, addCardToDeck, setCommander, setPartnerCommander, deleteDeck, addToWishlist,
-    setDeckOwnership, swapInProxy,
+    setDeckOwnership, swapInProxy, changeDeckPrinting,
   } = useSync()
   const deck = decks.find((d) => d.id === id)
   const deckColors = useDeckColors(deck ? [deck] : [])
@@ -64,6 +65,8 @@ export function DeckDetailPage() {
   // "Who has it?", buying, and the Wishlist. Copies in another deck of yours count.
   const missing = useMemo(() => (deck ? missingCards(deck, collections, decks) : []), [deck, collections, decks])
   const [notice, setNotice] = useState<string | null>(null)
+  // A card whose printing is being changed: another art, another set.
+  const [changingPrinting, setChangingPrinting] = useState<DeckCardEntry | null>(null)
   // A deck built with proxies: how many are left, and which you already own a real copy of.
   const proxiesLeft = deck ? deckProxyCopies(deck) : 0
   const swaps = useMemo(
@@ -150,6 +153,7 @@ export function DeckDetailPage() {
         onClick: () => (deck!.partnerCommander?.scryfallId === entry.scryfallId ? setPartnerCommander(deck!.id, null) : setCommander(deck!.id, null)),
       })
     }
+    actions.push({ label: 'Change printing', icon: 'swap_horiz', detail: 'Another art or set — the copies stay', onClick: () => setChangingPrinting(entry) })
     actions.push({ label: 'Remove from deck', icon: 'delete', tone: 'danger', onClick: () => removeCardFromDeck(deck!.id, entry.scryfallId) })
     return actions
   }
@@ -381,6 +385,20 @@ export function DeckDetailPage() {
             </>
           )}
         </div>
+      )}
+
+      {changingPrinting && (
+        <PrintingPicker
+          name={changingPrinting.name}
+          currentId={changingPrinting.scryfallId}
+          prompt="Pick the printing this card should be — its copies stay as they are."
+          onPick={(card) => {
+            changeDeckPrinting(deck.id, changingPrinting.scryfallId, card)
+            setNotice(`${card.name} is now ${printingName(card)}.`)
+            setChangingPrinting(null)
+          }}
+          onClose={() => setChangingPrinting(null)}
+        />
       )}
 
       {notice && (

@@ -5,6 +5,7 @@ import { ActionSheet, type SheetAction } from '../components/ActionSheet'
 import { Icon } from '../components/Icon'
 import { ArtImage, PillChip, toArtCrop, useBack } from '../components/kit'
 import { Dialog } from '../components/Dialog'
+import { PrintingPicker, printingName } from '../components/PrintingPicker'
 import { useLeaveGuard } from '../components/useLeaveGuard'
 import { useKeepAwake } from '../components/useKeepAwake'
 import { TopBar } from '../components/TopBar'
@@ -38,9 +39,6 @@ let nextScanId = 1
  */
 const printingsByName = new Map<string, Promise<ScryfallCard[]>>()
 
-/** Which printing a card is, in words: the set it came in, and its number within that set. */
-const printingName = (card: ScryfallCard) =>
-  [card.set_name ?? card.set?.toUpperCase(), card.collector_number && `#${card.collector_number}`].filter(Boolean).join(' · ')
 
 /**
  * The pile is kept for this tab while the app is open: a card scanned isn't lost to a reload, a
@@ -542,7 +540,8 @@ export function ScanPage() {
 
       {pickingArt && (
         <PrintingPicker
-          row={pickingArt}
+          name={pickingArt.card.name}
+          currentId={pickingArt.card.id}
           onPick={(card) => setPrinting(pickingArt.id, card)}
           onClose={() => setPickingArt(null)}
         />
@@ -556,48 +555,5 @@ export function ScanPage() {
         />
       )}
     </>
-  )
-}
-
-/**
- * Which printing is in your hand. The camera reads a card's name easily; the tiny set code that
- * says *which* printing often isn't readable at all, and then the card comes in as its usual
- * printing. This shows every printing there is, so the right art can be picked in a tap.
- */
-function PrintingPicker({ row, onPick, onClose }: { row: ScanRow; onPick: (card: ScryfallCard) => void; onClose: () => void }) {
-  const [printings, setPrintings] = useState<ScryfallCard[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  useEffect(() => {
-    let cancelled = false
-    getPrintings(row.card.name)
-      .then((found) => { if (!cancelled) setPrintings(found) })
-      .catch(() => { if (!cancelled) setError("Couldn't load the other printings — check your connection.") })
-    return () => { cancelled = true }
-  }, [row.card.name])
-
-  return (
-    <Dialog title={row.card.name} onDismiss={onClose} actions={<button type="button" className="btn line" onClick={onClose}>Close</button>}>
-      <p className="muted" style={{ marginTop: 0 }}>Pick the printing you're holding.</p>
-      {error && <div className="muted">{error}</div>}
-      {!printings && !error && <div className="muted">Looking up printings…</div>}
-      {printings && printings.length === 0 && <div className="muted">Only one printing of this card.</div>}
-      {printings && printings.length > 0 && (
-        <div className="card-grid">
-          {printings.map((card) => (
-            <button
-              type="button"
-              key={card.id}
-              className={`card-cell press${card.id === row.card.id ? ' picked' : ''}`}
-              onClick={() => onPick(card)}
-            >
-              <div className="card-cell-img">
-                {displayImageUrl(card) ? <img src={displayImageUrl(card)!} alt={card.name} loading="lazy" /> : <ArtImage src={null} seed={card.name} />}
-              </div>
-              <div className="card-cell-name">{printingName(card)}</div>
-            </button>
-          ))}
-        </div>
-      )}
-    </Dialog>
   )
 }

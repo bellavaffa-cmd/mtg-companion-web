@@ -3,6 +3,7 @@
 // into a binder, adding them to a deck, exporting or removing them. Mirrors the Android app's
 // CollectionsScreen (AllCardsTab).
 
+import { PrintingPicker, printingName } from '../components/PrintingPicker'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
@@ -53,7 +54,9 @@ function useCardData(ids: string[]): Map<string, ScryfallCard> | undefined {
 }
 
 export function AllCardsTab({ onImport }: { onImport: () => void }) {
-  const { collections, decks, gatherIntoBinder, removeFromCollection, createCollection, addCardsToDeck } = useSync()
+  const { collections, decks, gatherIntoBinder, removeFromCollection, createCollection, addCardsToDeck, changePrintingEverywhere } = useSync()
+  // A card whose printing is being changed, in every binder and deck that holds it.
+  const [changing, setChanging] = useState<{ scryfallId: string; name: string } | null>(null)
   const navigate = useNavigate()
   const size = useLayoutSize()
   const cards = useMemo(() => allCardsOf(collections, decks), [collections, decks])
@@ -343,8 +346,27 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
                 </div>
               )}
             </div>
+            <button type="button" className="btn line sm" style={{ marginTop: 10 }} onClick={() => setChanging({ scryfallId: zoomCard.scryfallId, name: zoomCard.name })}>
+              <Icon name="swap_horiz" aria-hidden />Change printing
+            </button>
           </div>
         </CardZoomModal>
+      )}
+
+      {changing && (
+        <PrintingPicker
+          name={changing.name}
+          currentId={changing.scryfallId}
+          prompt="Pick the printing these should be — in every binder and deck that holds them. The copies stay as they are."
+          onPick={(card) => {
+            changePrintingEverywhere(changing.scryfallId, card)
+            setNotice(`${card.name} is now ${printingName(card)}.`)
+            // Stay on the card, now under its new printing.
+            if (zoomId === changing.scryfallId) setZoomId(card.id)
+            setChanging(null)
+          }}
+          onClose={() => setChanging(null)}
+        />
       )}
     </>
   )

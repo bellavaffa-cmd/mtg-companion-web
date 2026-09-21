@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { PrintingPicker } from '../components/PrintingPicker'
 import { useParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { TopBar } from '../components/TopBar'
@@ -21,7 +22,7 @@ import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '..
 export function CollectionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const back = useBack('/collections?tab=binders')
-  const { collections, decks, setEntryQuantities, setEntryPriceAlert, removeEntryFromCollection, removeEntriesFromCollection, addEntryToCollection, moveEntries, createCollection, notInterested, wantAgain } = useSync()
+  const { collections, decks, setEntryQuantities, setEntryPriceAlert, removeEntryFromCollection, removeEntriesFromCollection, addEntryToCollection, moveEntries, createCollection, notInterested, wantAgain, changeEntryPrinting } = useSync()
   const collection = collections.find((c) => c.id === id)
   // A wishlist shows what each card costs now, and can watch for it to drop.
   const wishlist = collection?.type === 'WISHLIST'
@@ -41,6 +42,8 @@ export function CollectionDetailPage() {
   const [listDialog, setListDialog] = useState<'import' | 'export' | null>(null)
   // The cards whose "move to binder" picker is open, and the ones being moved into a new binder.
   const [moving, setMoving] = useState<CollectionEntry[] | null>(null)
+  // A card whose printing is being changed: another art, another set.
+  const [changing, setChanging] = useState<CollectionEntry | null>(null)
   const [naming, setNaming] = useState<CollectionEntry[] | null>(null)
   // Cards picked by pressing and holding (scryfall ids), and whether their remove / export is open.
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -263,12 +266,23 @@ export function CollectionDetailPage() {
               ? [{ label: 'Remove a foil copy', icon: 'remove_circle_outline', onClick: () => setQty(sheet, sheet.quantity, sheet.foilQuantity - 1) }]
               : []),
             { label: 'Move to binder', icon: 'drive_file_move', detail: 'Every copy, into another binder', onClick: () => setMoving([sheet]) },
+            { label: 'Change printing', icon: 'swap_horiz', detail: 'Another art or set — the copies stay', onClick: () => setChanging(sheet) },
             { label: 'Select', icon: 'check_circle', detail: 'Pick several cards to move, export or remove', onClick: () => toggle(sheet) },
             sheet.auto && isWishlist(collection)
               ? { label: 'Not interested', icon: 'delete', tone: 'danger' as const, detail: "It won't come back while a deck considers it", onClick: () => takeOff([sheet]) }
               : { label: 'Remove from binder', icon: 'delete', tone: 'danger' as const, onClick: () => removeEntryFromCollection(collection.id, sheet.scryfallId) },
           ]}
           onClose={() => setSheet(null)}
+        />
+      )}
+
+      {changing && (
+        <PrintingPicker
+          name={changing.name}
+          currentId={changing.scryfallId}
+          prompt="Pick the printing this card should be — its copies stay as they are."
+          onPick={(card) => { changeEntryPrinting(collection.id, changing.scryfallId, card); setChanging(null) }}
+          onClose={() => setChanging(null)}
         />
       )}
 
