@@ -14,7 +14,7 @@ import { ShareDialog } from '../social/ShareDialog'
 import { WhoHasItSheet } from '../social/WhoHasIt'
 import { missingCards } from '../decks/missing'
 import { buyCardUrl, buyListUrl } from '../api/buy'
-import { deckProxyCopies, proxySwaps } from '../decks/proxies'
+import { deckProxyCopies, proxiesHeldElsewhere, proxySwaps } from '../decks/proxies'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
 import { useAddWarning } from '../components/useAddWarning'
 import { DeckSuggestions } from '../components/DeckSuggestions'
@@ -69,6 +69,11 @@ export function DeckDetailPage() {
   const swaps = useMemo(
     () => (deck ? proxySwaps(collections, [deck]) : []),
     [collections, deck],
+  )
+  // Proxies you own a real copy of, but only in another deck: pointed out, never moved for you.
+  const elsewhere = useMemo(
+    () => (deck ? proxiesHeldElsewhere(collections, decks, deck) : []),
+    [collections, decks, deck],
   )
   useEffect(() => {
     if (!notice) return
@@ -340,6 +345,36 @@ export function DeckDetailPage() {
                     <button type="button" className="btn gold sm" onClick={() => { swapInProxy(deck.id, s.entry.scryfallId); setNotice(`Swapped in ${s.entry.name}.`) }}>
                       Swap in
                     </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          {proxiesLeft > 0 && elsewhere.length > 0 && (
+            <>
+              <div className="dim" style={{ margin: '12px 0 8px' }}>
+                In your other decks. Nothing here moves on its own — taking one out leaves that deck a card short, so it's your call which deck gets it.
+              </div>
+              <div className="list">
+                {elsewhere.map((h) => (
+                  <div key={h.entry.scryfallId} className="crow no-qty" style={{ gridTemplateColumns: '56px minmax(0, 1fr)' }}>
+                    <div className="thumb-wrap">
+                      <ArtImage className="thumb" src={toArtCrop(h.entry.imageUrl)} seed={h.entry.name} />
+                    </div>
+                    <div className="cmain">
+                      <div className="cname">{h.entry.name}</div>
+                      <div className="cmeta">
+                        <span>Real copy in{' '}
+                          {h.decks.map((d, i) => (
+                            <span key={d.deck.id}>
+                              {i > 0 && ', '}
+                              <button type="button" className="link" style={{ padding: 0, fontSize: 'inherit' }} onClick={() => navigate(`/decks/${d.deck.id}`)}>{d.deck.name}</button>
+                              {d.copies > 1 && ` (${d.copies})`}
+                            </span>
+                          ))}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

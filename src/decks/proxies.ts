@@ -6,6 +6,7 @@
  */
 
 import type { Collection, Deck, DeckCardEntry } from '../types/models'
+import { copiesHeld } from './missing'
 
 const key = (name: string) => name.trim().toLowerCase()
 
@@ -61,6 +62,36 @@ export function proxySwaps(collections: Collection[], decks: Deck[]): ProxySwap[
       spare.set(key(entry.name), left - swappable)
       out.push({ deck, entry, spare: swappable })
     }
+  }
+  return out
+}
+
+/** A proxy you own a real copy of, but only in another deck — where it is, and how many. */
+export interface ProxyHeldElsewhere {
+  entry: DeckCardEntry
+  /** Proxies of it still left once the binder copies have been swapped in. */
+  proxies: number
+  /** The other decks holding a real copy, and how many each has. */
+  decks: { deck: Deck; copies: number }[]
+}
+
+/**
+ * Proxies in [deck] you already own for real, but only in another deck. These aren't offered as a
+ * swap: moving the card would leave that deck a card short without anyone saying so. Knowing where
+ * it is lets you decide which deck gets it. A proxy a binder copy can cover is left to the swap,
+ * and only decks you actually hold count, the same as for the cards a deck is missing.
+ */
+export function proxiesHeldElsewhere(collections: Collection[], decks: Deck[], deck: Deck): ProxyHeldElsewhere[] {
+  const swappable = new Map(proxySwaps(collections, [deck]).map((s) => [s.entry.scryfallId, s.spare]))
+  const held = decks.filter((d) => d.id !== deck.id).map((d) => ({ deck: d, copies: copiesHeld(d) }))
+  const out: ProxyHeldElsewhere[] = []
+  for (const entry of deck.cards) {
+    const proxies = proxyCopies(deck, entry) - (swappable.get(entry.scryfallId) ?? 0)
+    if (proxies <= 0) continue
+    const found = held
+      .map(({ deck: d, copies }) => ({ deck: d, copies: copies.get(key(entry.name)) ?? 0 }))
+      .filter((h) => h.copies > 0)
+    if (found.length > 0) out.push({ entry, proxies, decks: found })
   }
   return out
 }

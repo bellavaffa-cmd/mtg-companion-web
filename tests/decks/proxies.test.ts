@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { deckProxyCopies, proxyCopies, proxySwaps, spareCopies, withSwapIn } from '../../src/decks/proxies.ts'
+import { deckProxyCopies, proxiesHeldElsewhere, proxyCopies, proxySwaps, spareCopies, withSwapIn } from '../../src/decks/proxies.ts'
 import type { Collection, CollectionEntry, Deck, DeckCardEntry } from '../../src/types/models.ts'
 
 // Proxies in a deck, and swapping them for the real card. The Android app has the same checks —
@@ -51,4 +51,37 @@ test('swapping one in takes the copy out of the binder and off the proxy count',
   const third = withSwapIn(second.collections, second.decks, 'Pile', 'id-Sol Ring')
   assert.equal(third.decks, second.decks)
   assert.equal(third.collections, second.collections)
+})
+
+test('a real copy in another deck is pointed out, never offered as a swap', () => {
+  const pile = deck('Pile', 'PROXY', card('Sol Ring'), card('Cultivate', 2), card('Mana Crypt'))
+  const decks = [
+    pile,
+    deck('Atraxa', 'PHYSICAL', card('Sol Ring'), card('Cultivate')),
+    deck('Kinnan', 'PHYSICAL', card('Sol Ring')),
+    // Proxies of it elsewhere, and decks you don't hold, aren't a real copy anywhere.
+    deck('Other pile', 'PROXY', card('Mana Crypt')),
+    deck('Idea', 'VIRTUAL', card('Mana Crypt')),
+  ]
+  const found = proxiesHeldElsewhere([], decks, pile)
+  assert.deepEqual(
+    found.map((f) => [f.entry.name, f.proxies, f.decks.map((d) => `${d.deck.name}:${d.copies}`)]),
+    [['Sol Ring', 1, ['Atraxa:1', 'Kinnan:1']], ['Cultivate', 2, ['Atraxa:1']]],
+  )
+  // Nothing moved: it's a pointer, not a swap.
+  assert.deepEqual(proxySwaps([], decks.slice(0, 1)), [])
+})
+
+test('a proxy a binder copy covers is left to the swap', () => {
+  const pile = deck('Pile', 'PROXY', card('Sol Ring'), card('Cultivate', 2))
+  const decks = [pile, deck('Atraxa', 'PHYSICAL', card('Sol Ring'), card('Cultivate', 2))]
+  // One Cultivate is in a binder, so only the second still needs finding.
+  const found = proxiesHeldElsewhere([binder('Blue', [entry('Sol Ring'), entry('Cultivate')])], decks, pile)
+  assert.deepEqual(found.map((f) => [f.entry.name, f.proxies]), [['Cultivate', 1]])
+})
+
+test('the deck itself is never where its own proxy is held', () => {
+  const mixed = deck('Mixed', 'PHYSICAL', card('Sol Ring', 2, 1))
+  // One real Sol Ring and one proxy, in the same deck: the real one is no answer to the proxy.
+  assert.deepEqual(proxiesHeldElsewhere([], [mixed], mixed), [])
 })
