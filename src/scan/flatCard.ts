@@ -105,6 +105,45 @@ export function flatCanvas(flat: FlatCard): HTMLCanvasElement | null {
 /** A whole canvas as a box, for the readers that take one. */
 export const wholeCard = (canvas: HTMLCanvasElement): Box => ({ x: 0, y: 0, width: canvas.width, height: canvas.height })
 
+/** How many pictures [modelInputs] holds. */
+export const modelInputCount = (flat: FlatCard) => flat.quads.length * 2
+
+/**
+ * The whole card, for the recognition model: through each of the likeliest outlines, as the card's
+ * edge and as its printed frame, squashed to [size] × [size] like the index's pictures were, in the
+ * model's layout (channels first, ImageNet-normalised) — one after another.
+ */
+export function modelInputs(flat: FlatCard, size: number): Float32Array {
+  const plane = size * size
+  const out = new Float32Array(flat.quads.length * 2 * 3 * plane)
+  let at = 0
+  for (const quad of flat.quads) {
+    for (const frame of [false, true]) {
+      const u0 = frame ? -BORDER_SIDE / (1 - 2 * BORDER_SIDE) : 0
+      const u1 = frame ? 1 + BORDER_SIDE / (1 - 2 * BORDER_SIDE) : 1
+      const v0 = frame ? -BORDER_TOP / (1 - BORDER_TOP - BORDER_BOTTOM) : 0
+      const v1 = frame ? (1 - BORDER_TOP) / (1 - BORDER_TOP - BORDER_BOTTOM) : 1
+      // Drawn at twice the size and averaged down, so the picture isn't speckled by sampling.
+      const big = flatten(flat.px, flat.width, flat.height, quad, size * 2, size * 2, u0, v0, u1, v1)
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          let r = 0, g = 0, b = 0
+          for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
+            const i = ((y * 2 + dy) * size * 2 + x * 2 + dx) * 4
+            r += big[i]; g += big[i + 1]; b += big[i + 2]
+          }
+          const i = y * size + x
+          out[at + i] = (r / 1020 - 0.485) / 0.229
+          out[at + plane + i] = (g / 1020 - 0.456) / 0.224
+          out[at + 2 * plane + i] = (b / 1020 - 0.406) / 0.225
+        }
+      }
+      at += 3 * plane
+    }
+  }
+  return out
+}
+
 /**
  * What the card looks like, for bestPrinting: through each of the likeliest outlines, taken as the
  * card's edge and as its printed frame, with the same trim as a printing's picture and a hair either

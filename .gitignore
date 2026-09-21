@@ -23,3 +23,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# The card index and model: built by tools/card-index, fetched at deploy time — too big for git.
+public/card-index/
