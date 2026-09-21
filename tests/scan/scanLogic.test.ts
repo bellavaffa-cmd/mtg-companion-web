@@ -1,7 +1,7 @@
 // The scanner's decisions (src/scan/scanLogic.ts), frame by frame.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { BLANK_FRAMES_TO_RESET, cleanTitle, confirmRead, looksLikeSameCard, parseSetAndNumber, sameCardName, sameRead, ScanTracker } from '../../src/scan/scanLogic.ts'
+import { BLANK_FRAMES_TO_RESET, cleanTitle, confirmRead, looksLikeSameCard, parseSetAndNumber, sameCardName, sameRead, SCAN_MODES, scanModeOf, ScanTracker, STEADY_READS } from '../../src/scan/scanLogic.ts'
 
 test('the name is the first line with three letters, without the mana cost or stray marks', () => {
   assert.equal(cleanTitle('Lightning Bolt {R}'), 'Lightning Bolt')
@@ -164,4 +164,23 @@ test("a card the lookup couldn't confirm isn't looked up again on the same readi
   // The whole card in the frame reads differently, and that is looked up.
   tracker.onRead('Lightning Bolt'); tracker.onRead('Lightning Bolt')
   assert.deepEqual(tracker.onRead('Lightning Bolt'), { kind: 'lookup', name: 'Lightning Bolt' })
+})
+
+test('accurate scanning is the careful default, and fast trades care for speed', () => {
+  assert.equal(scanModeOf(null), 'accurate')
+  assert.equal(scanModeOf('nonsense'), 'accurate')
+  assert.equal(scanModeOf('fast'), 'fast')
+  assert.equal(SCAN_MODES.accurate.steadyReads, STEADY_READS)
+  assert.equal(SCAN_MODES.accurate.readsSmallPrint, true)
+  assert.equal(SCAN_MODES.fast.steadyReads, 2)
+  assert.equal(SCAN_MODES.fast.readsSmallPrint, false)
+})
+
+test('the tracker asks how many steady reads it needs on every frame', () => {
+  let needed = 3
+  const tracker = new ScanTracker(() => needed)
+  assert.equal(tracker.onRead('Sol Ring').kind, 'wait')
+  // Switched to Fast mid-card: the second matching read is now enough.
+  needed = 2
+  assert.deepEqual(tracker.onRead('Sol Ring'), { kind: 'lookup', name: 'Sol Ring' })
 })

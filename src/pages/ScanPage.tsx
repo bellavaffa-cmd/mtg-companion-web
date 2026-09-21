@@ -12,7 +12,7 @@ import { cardNameIndex, MIN_MATCH } from '../scan/cardNames'
 import { guideInVideo } from '../scan/guide'
 import { matchPrinting, signatureOfSource, type ArtSignature } from '../scan/printingMatch'
 import { readCardName, readSmallPrint, STRIP_STYLES, titleReader } from '../scan/ocr'
-import { confirmRead, parseSetAndNumber, sameCardName, ScanTracker } from '../scan/scanLogic'
+import { confirmRead, parseSetAndNumber, sameCardName, SCAN_MODES, scanModeOf, ScanTracker, type ScanMode } from '../scan/scanLogic'
 import { appLinkPath, qrReader } from '../scan/qr'
 import { copyNumber, grouped, onlyRepeats, repeatedCards, scannedTwiceOver, type ScanRow } from '../scan/scanLog'
 import { useSync } from '../sync/SyncContext'
@@ -47,6 +47,9 @@ const printingName = (card: ScryfallCard) =>
  * phone's back gesture, or a wander off to look something up.
  */
 const PILE_KEY = 'mtgweb_scan_pile'
+
+/** Fast or Accurate, kept on this device for next time. */
+const MODE_KEY = 'mtgweb_scan_mode'
 const PILE_KEEP = 300
 
 function loadPile(): ScanRow[] {
@@ -86,6 +89,15 @@ export function ScanPage() {
   const guideRef = useRef<HTMLDivElement>(null)
   const scanNow = useRef(false)
   const [camera, setCamera] = useState<Camera>('starting')
+  const [mode, setMode] = useState<ScanMode>(() => {
+    try { return scanModeOf(localStorage.getItem(MODE_KEY)) } catch { return 'accurate' }
+  })
+  // Read by the camera loop on every frame, so a switch takes effect without restarting it.
+  const modeRef = useRef(mode)
+  useEffect(() => {
+    modeRef.current = mode
+    try { localStorage.setItem(MODE_KEY, mode) } catch { /* private mode: it just isn't kept */ }
+  }, [mode])
   const [cameraAttempt, setCameraAttempt] = useState(0)
   const [loading, setLoading] = useState<string | null>('Getting the card reader ready…')
   const [status, setStatus] = useState("Hold a card inside the frame, its name in the gold strip — or a friend's QR code.")
@@ -197,7 +209,7 @@ export function ScanPage() {
   useEffect(() => {
     if (camera !== 'on') return
     let stopped = false
-    const tracker = new ScanTracker()
+    const tracker = new ScanTracker(() => SCAN_MODES[modeRef.current].steadyReads)
     const found = new Map<string, ScryfallCard>()
     void (async () => {
       let names
@@ -235,7 +247,8 @@ export function ScanPage() {
             // Which printing it is — the alternate art, the borderless one — is only knowable from
             // the tiny line at the bottom, so it's worth a few goes at reading it.
             let printing: ReturnType<typeof parseSetAndNumber> = null
-            for (const style of STRIP_STYLES) {
+            // Fast scanning skips the close read; the printing comes from matching the art.
+            for (const style of SCAN_MODES[modeRef.current].readsSmallPrint ? STRIP_STYLES : []) {
               printing = parseSetAndNumber(await readSmallPrint(video, box, style).catch(() => ''))
               if (printing || stopped) break
             }
@@ -390,7 +403,23 @@ export function ScanPage() {
 
   return (
     <>
-      <TopBar title="Scan" onBack={() => (scanned.length > 0 ? setLeaving(() => back) : back())} />
+      <TopBar
+        title="Scan"
+        onBack={() => (scanned.length > 0 ? setLeaving(() => back) : back())}
+        actions={
+          <button
+            type="button"
+            className="chip scan-mode"
+            aria-label={mode === 'fast' ? 'Fast scanning — switch to accurate' : 'Accurate scanning — switch to fast'}
+            title={mode === 'fast'
+              ? 'Fast: takes a card sooner and guesses its printing from the art. Tap for Accurate.'
+              : 'Accurate: waits for a steady read and checks the small print for the exact printing. Tap for Fast.'}
+            onClick={() => setMode(mode === 'fast' ? 'accurate' : 'fast')}
+          >
+            <Icon name={mode === 'fast' ? 'bolt' : 'verified'} aria-hidden />{SCAN_MODES[mode].label}
+          </button>
+        }
+      />
       <div className="content-scroll scan-page">
         <div className="scan-view" data-no-pull>
           <video ref={videoRef} className="scan-video" playsInline muted autoPlay />

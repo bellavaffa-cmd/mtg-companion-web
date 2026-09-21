@@ -111,6 +111,23 @@ export function sameRead(a: string, b: string): boolean {
 export const STEADY_READS = 3
 
 /**
+ * How careful the scanner is, chosen on the scan page. Accurate is how it has always been: a name
+ * has to read the same on STEADY_READS frames running, and the small print is read up close for the
+ * exact printing. Fast takes a name after two, and skips that close read — the printing comes from
+ * matching the art — so more rows say "best guess", and a card caught halfway into the frame is a
+ * little likelier to be read. Mirrors the Android app's ScanMode in data/ScanConfirm.kt.
+ */
+export type ScanMode = 'accurate' | 'fast'
+
+export const SCAN_MODES: Record<ScanMode, { label: string; steadyReads: number; readsSmallPrint: boolean }> = {
+  accurate: { label: 'Accurate', steadyReads: STEADY_READS, readsSmallPrint: true },
+  fast: { label: 'Fast', steadyReads: 2, readsSmallPrint: false },
+}
+
+/** A stored choice as a mode: Accurate unless it clearly says Fast. */
+export const scanModeOf = (value: unknown): ScanMode => (value === 'fast' ? 'fast' : 'accurate')
+
+/**
  * What came back for a read title: the card itself, a piece of a card's name (the card wasn't all
  * in the frame, or its title was cut off), or a different card altogether.
  */
@@ -148,6 +165,16 @@ export type ScanStep = { kind: 'wait' } | { kind: 'lookup'; name: string }
  * button) skips those checks — tapping it is the confirmation, and how to count a second copy.
  */
 export class ScanTracker {
+  /**
+   * [readsNeeded] is how many steady reads make a card — asked afresh every frame, so switching
+   * between Fast and Accurate takes effect without restarting the camera.
+   */
+  private readonly readsNeeded: () => number
+
+  constructor(readsNeeded: () => number = () => STEADY_READS) {
+    this.readsNeeded = readsNeeded
+  }
+
   private lastRead: string | null = null
   /** How many reads in a row have said the same thing (see STEADY_READS). */
   private steadyReads = 0
@@ -174,7 +201,7 @@ export class ScanTracker {
       return { kind: 'wait' }
     }
     this.steadyReads = this.lastRead !== null && sameRead(title, this.lastRead) ? this.steadyReads + 1 : 1
-    const steady = forced || this.steadyReads >= STEADY_READS
+    const steady = forced || this.steadyReads >= this.readsNeeded()
     this.lastRead = title
     if (!steady || (!forced && this.lastLookedUp !== null && sameRead(title, this.lastLookedUp))) return { kind: 'wait' }
     this.lastLookedUp = title
