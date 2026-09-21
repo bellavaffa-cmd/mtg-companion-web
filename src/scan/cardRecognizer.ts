@@ -11,6 +11,8 @@ import { modelInputCount, modelInputs, type FlatCard } from './flatCard'
 const BASE = `${import.meta.env.BASE_URL}card-index/`
 export const INDEX_URL = `${BASE}card-index.bin`
 export const MODEL_URL = `${BASE}card-model.onnx`
+/** What's published: digests of the index and model, which the two are asked for by (see the service worker). */
+export const META_URL = `${BASE}card-index.json`
 
 type Ort = typeof import('onnxruntime-web/wasm')
 
@@ -26,10 +28,14 @@ let loaded: Loaded | null = null
 /** The model and the index, loaded once. A failed load (offline) is forgotten, to be tried again. */
 export function loadRecognizer(): Promise<Loaded> {
   loading ??= (async () => {
+    // Asked for by their digests: the browser keeps each version once, and a newer index (new sets,
+    // rebuilt twice a week) is a new address — fetched once, not on every visit.
+    const meta = await fetch(META_URL, { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null) as { index?: string; model?: string } | null
+    const versioned = (url: string, digest?: string) => (digest ? `${url}?v=${digest}` : url)
     const [ort, indexBytes, modelBytes] = await Promise.all([
       import('onnxruntime-web/wasm'),
-      fetch(INDEX_URL).then((r) => { if (!r.ok) throw new Error(`Card index: HTTP ${r.status}`); return r.arrayBuffer() }),
-      fetch(MODEL_URL).then((r) => { if (!r.ok) throw new Error(`Card model: HTTP ${r.status}`); return r.arrayBuffer() }),
+      fetch(versioned(INDEX_URL, meta?.index)).then((r) => { if (!r.ok) throw new Error(`Card index: HTTP ${r.status}`); return r.arrayBuffer() }),
+      fetch(versioned(MODEL_URL, meta?.model)).then((r) => { if (!r.ok) throw new Error(`Card model: HTTP ${r.status}`); return r.arrayBuffer() }),
     ])
     // One thread: sharing memory between threads needs headers GitHub Pages can't send.
     ort.env.wasm.numThreads = 1

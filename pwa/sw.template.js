@@ -52,22 +52,28 @@ self.addEventListener('fetch', (event) => {
   const scope = new URL(self.registration.scope)
   if (url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname)) return
 
-  // The card index and its model: the kept copy straight away, and a fresh one fetched behind it for
-  // next time — a rebuilt index (new sets) goes up under the same name.
+  // The card index and its model. card-index.json says which version is current, so it's asked of
+  // the network first (the kept copy only offline); the index and model are asked for by version
+  // (?v=<digest>), so a kept copy of that address is always right — and an older version of the same
+  // file is dropped once a newer one is kept.
   if (url.pathname.startsWith(new URL('card-index/', scope).pathname)) {
-    event.respondWith(
-      caches.open(CARD_CACHE).then((cache) => cache.match(request).then((hit) => {
-        const fresh = fetch(request).then((response) => {
+    event.respondWith(caches.open(CARD_CACHE).then((cache) => {
+      if (url.pathname.endsWith('.json')) {
+        return fetch(request).then((response) => {
           if (response.ok) cache.put(request, response.clone())
           return response
-        })
-        if (hit) {
-          event.waitUntil(fresh.catch(() => undefined))
-          return hit
+        }).catch(() => cache.match(request).then((hit) => hit ?? Response.error()))
+      }
+      return cache.match(request).then((hit) => hit ?? fetch(request).then((response) => {
+        if (response.ok) {
+          cache.put(request, response.clone())
+          cache.keys().then((keys) => keys
+            .filter((key) => new URL(key.url).pathname === url.pathname && key.url !== request.url)
+            .forEach((key) => cache.delete(key)))
         }
-        return fresh
-      })),
-    )
+        return response
+      }))
+    }))
     return
   }
 

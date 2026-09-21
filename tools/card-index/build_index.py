@@ -25,6 +25,7 @@ card-index.bin, little-endian:
     u32 n + utf8 json   {"names": [...], "sets": [...], "numbers": [...]}
 """
 import argparse
+import hashlib
 import json
 import os
 import struct
@@ -61,26 +62,36 @@ class Model:
 
 
 def all_features(model, rows, data, cache):
+    """
+    The model's features for [rows]: kept from [cache] (an .npz of picture files and their features)
+    for pictures fingerprinted before, and worked out afresh only for the rest — so a weekly rebuild
+    only looks at a new set's pictures. Rows with neither kept features nor a picture on disk are
+    left out. Returns the rows kept and their features, and updates the cache.
+    """
+    known, old = {}, None
     if os.path.exists(cache):
-        f = np.load(cache)
-        if len(f) == len(rows):
-            return f.astype(np.float32)
-    out = np.zeros((len(rows), 0), np.float16)
-    chunks = []
+        z = np.load(cache)
+        known = {f: i for i, f in enumerate(z['files'].tolist())}
+        old = z['feats']
+    need = [r for r in rows if r['file'] not in known and os.path.exists(os.path.join(data, 'img', r['file']))]
+    print(f'  {len(rows) - len(need)} pictures fingerprinted before, {len(need)} to do', flush=True)
+    fresh = {}
     batch = 64
     started = time.time()
     pool = ThreadPoolExecutor(8)
     load = lambda r: Image.open(os.path.join(data, 'img', r['file']))  # noqa: E731
-    for i in range(0, len(rows), batch):
-        imgs = list(pool.map(load, rows[i:i + batch]))
-        chunks.append(model.features(imgs).astype(np.float16))
+    for i in range(0, len(need), batch):
+        part = need[i:i + batch]
+        for r, f in zip(part, model.features(list(pool.map(load, part))).astype(np.float16)):
+            fresh[r['file']] = f
         if (i // batch) % 100 == 0:
-            done = i + len(imgs)
-            rate = done / (time.time() - started)
-            print(f'  features {done}/{len(rows)}  {rate:.0f}/s  ~{(len(rows) - done) / rate / 60:.0f} min left', flush=True)
-    out = np.concatenate(chunks)
-    np.save(cache, out)
-    return out.astype(np.float32)
+            done = i + len(part)
+            rate = done / max(time.time() - started, 1e-6)
+            print(f'  features {done}/{len(need)}  {rate:.0f}/s  ~{(len(need) - done) / rate / 60:.0f} min left', flush=True)
+    kept = [r for r in rows if r['file'] in known or r['file'] in fresh]
+    feats = np.stack([old[known[r['file']]] if r['file'] in known else fresh[r['file']] for r in kept]).astype(np.float16)
+    np.savez(cache, files=np.array([r['file'] for r in kept]), feats=feats)
+    return kept, feats.astype(np.float32)
 
 
 def pca(features, dims, sample=40000, seed=1):
@@ -181,6 +192,34 @@ def write(path, rows, feats, dims, input_size):
     print(f'wrote {path}: {len(rows)} pictures × {dims}, {os.path.getsize(path) / 1e6:.1f} MB')
 
 
+def contents(rows):
+    """A digest of which pictures an index holds: the same pictures, the same digest."""
+    return hashlib.sha256('|'.join(sorted(f"{r['id']}:{r['face']}" for r in rows)).encode()).hexdigest()[:16]
+
+
+def digest(path):
+    """The first 16 hex digits of a file's SHA-256 — what the apps compare their copy by."""
+    return hashlib.sha256(open(path, 'rb').read()).hexdigest()[:16]
+
+
+def describe(path, rows, model_path, index_path):
+    """
+    card-index.json: what the apps check to see whether there's a newer index. [index] and [model]
+    are digests of the two files, which an app compares with digests of its own copies — so a new
+    index alone doesn't make it fetch the model again. [contents] says which printings the index
+    holds: the weekly rebuild publishes only when that changes.
+    """
+    meta = {
+        'version': time.strftime('%Y-%m-%dT%H%MZ', time.gmtime()),
+        'count': len(rows),
+        'contents': contents(rows),
+        'index': digest(index_path),
+        'model': digest(model_path),
+    }
+    json.dump(meta, open(path, 'w'), indent=1)
+    print('wrote', path, meta)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--model', required=True)
@@ -190,17 +229,20 @@ def main():
     ap.add_argument('--query-model', help='fingerprint the bench photos with this model instead (e.g. the 8-bit one)')
     ap.add_argument('--write', type=int)
     ap.add_argument('--out', default=None)
+    ap.add_argument('--features', help='the kept features (.npz); default <data>/features.npz')
+    ap.add_argument('--meta', help='also write card-index.json, which the apps check for a newer index')
     a = ap.parse_args()
     data = os.path.abspath(a.data)
     rows = [json.loads(l) for l in open(os.path.join(data, 'cards.jsonl'), encoding='utf-8')]
-    rows = [r for r in rows if os.path.exists(os.path.join(data, 'img', r['file']))]
-    print(len(rows), 'pictures')
     model = Model(a.model)
-    feats = all_features(model, rows, data, os.path.join(data, f'features_{os.path.basename(a.model)}.npy'))
+    rows, feats = all_features(model, rows, data, a.features or os.path.join(data, 'features.npz'))
+    print(len(rows), 'pictures')
     if a.bench:
         bench(Model(a.query_model) if a.query_model else model, a.bench, rows, feats, [d if d == 'full' else int(d) for d in a.dims.split(',')])
     if a.write:
         write(a.out or os.path.join(data, 'card-index.bin'), rows, feats, a.write, model.size)
+    if a.meta:
+        describe(a.meta, rows, a.model, a.out or os.path.join(data, 'card-index.bin'))
 
 
 if __name__ == '__main__':

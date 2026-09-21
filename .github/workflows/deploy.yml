@@ -3,6 +3,10 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  # Twice a week, two hours after the Android repo rebuilds the card index (new sets), so the site's
+  # copy of it keeps up.
+  schedule:
+    - cron: '0 5 * * 1,4'
   workflow_dispatch:
 
 permissions:
@@ -43,7 +47,7 @@ jobs:
       - name: Card index
         run: |
           mkdir -p dist/card-index
-          for f in card-index.bin card-model.onnx; do
+          for f in card-index.bin card-model.onnx card-index.json; do
             curl -fsSL -o "dist/card-index/$f" "https://github.com/bellavaffa-cmd/mtg-companion-app/releases/download/card-index-v1/$f"               || { echo "::warning::$f isn't published yet"; rm -f "dist/card-index/$f"; }
           done
       - uses: actions/configure-pages@v5

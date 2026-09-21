@@ -2,7 +2,9 @@
 small picture of each face. Resumable — pictures already on disk are skipped — so a later run only
 fetches what's new (a new set).
 
-    python fetch_cards.py [data_dir]
+    python fetch_cards.py [data_dir] [--skip-have features.npz]
+
+--skip-have  pictures already fingerprinted there aren't fetched (a weekly rebuild needs only the new ones).
 
 data_dir defaults to ../../../manabind-index (beside the repos, not in them). Writes:
     default-cards.jsonl.gz   Scryfall's bulk list (refreshed when a day old)
@@ -21,7 +23,9 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, '..', '..', '..', 'manabind-index'))
+ARGS = [a for a in sys.argv[1:] if not a.startswith('--')]
+DATA = os.path.abspath(ARGS[0] if ARGS else os.path.join(HERE, '..', '..', '..', 'manabind-index'))
+HAVE = sys.argv[sys.argv.index('--skip-have') + 1] if '--skip-have' in sys.argv else None
 IMG = os.path.join(DATA, 'img')
 os.makedirs(IMG, exist_ok=True)
 UA = {'User-Agent': 'Manabind-CardIndex/1.0 (github.com/bellavaffa-cmd)', 'Accept': '*/*'}
@@ -75,7 +79,11 @@ def main():
     with open(os.path.join(DATA, 'cards.jsonl'), 'w', encoding='utf-8') as f:
         for r in rows:
             f.write(json.dumps({k: v for k, v in r.items() if k != 'url'}) + '\n')
-    todo = [r for r in rows if not os.path.exists(os.path.join(IMG, r['file']))]
+    have = set()
+    if HAVE and os.path.exists(HAVE):
+        import numpy as np
+        have = set(np.load(HAVE)['files'].tolist())
+    todo = [r for r in rows if r['file'] not in have and not os.path.exists(os.path.join(IMG, r['file']))]
     print(f'{len(rows)} pictures, {len(todo)} to fetch', flush=True)
 
     done = [0]
