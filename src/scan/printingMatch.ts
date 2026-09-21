@@ -118,6 +118,69 @@ export function artDistance(a: ArtSignature, b: ArtSignature): number {
   return sum / a.length
 }
 
+/**
+ * Where the card in the frame might really be, around the guide. Nobody holds a card exactly inside
+ * the guide, and a picture cut from the guide alone was card and table and a sliver of the next
+ * thing along — tried on Sol Ring's printings photographed a little off centre, it named the
+ * printing 25 times in 48, and got it wrong twice. So the camera's card is measured at a small grid
+ * of positions and sizes around the guide, and each printing is compared at the one that suits it
+ * best: 48 in 48, none wrong.
+ */
+export const LOOK_SCALES = [0.9, 1, 1.1]
+export const LOOK_SHIFTS = [-0.08, -0.04, 0, 0.04, 0.08]
+
+/** The card-shaped boxes, around [guide], that the camera's card is measured at. */
+export function lookBoxes(guide: Box): Box[] {
+  const card = cardShaped(guide)
+  const cx = card.x + card.width / 2
+  const cy = card.y + card.height / 2
+  const out: Box[] = []
+  for (const s of LOOK_SCALES) {
+    for (const ox of LOOK_SHIFTS) {
+      for (const oy of LOOK_SHIFTS) {
+        const width = card.width * s
+        const height = card.height * s
+        out.push({ x: cx + ox * card.width - width / 2, y: cy + oy * card.height - height / 2, width, height })
+      }
+    }
+  }
+  return out
+}
+
+/** The share of the card compared: the fifth that agrees worst is left out. */
+const TRIM_KEEP = 0.8
+
+/**
+ * How unlike a photographed card is to a printing, leaving out the fifth of the card that agrees
+ * worst. A reflection, a thumb, a sleeve's edge washes out part of the picture, and on a plain
+ * average that one patch decides the answer; left out, the rest of the card does. Photos with a
+ * reflection went from 2 in 12 to 6 in 12, and still none wrong.
+ */
+export function trimmedDistance(camera: ArtSignature, printing: ArtSignature): number {
+  const cells = camera.length / 3
+  const diffs = new Float32Array(cells)
+  for (let i = 0; i < cells; i++) {
+    let sum = 0
+    for (let k = 0; k < 3; k++) sum += (camera[i * 3 + k] - printing[i * 3 + k]) ** 2
+    diffs[i] = sum / 3
+  }
+  diffs.sort()
+  const keep = Math.max(1, Math.floor(cells * TRIM_KEEP))
+  let total = 0
+  for (let i = 0; i < keep; i++) total += diffs[i]
+  return total / keep
+}
+
+/** How unlike the camera's card is to a printing: at whichever of its measurings suits it best. */
+function lookDistance(looks: ArtSignature[], printing: ArtSignature): number {
+  let best = Infinity
+  for (const look of looks) {
+    const d = trimmedDistance(look, printing)
+    if (d < best) best = d
+  }
+  return best
+}
+
 /** Closer than this and two printings are the same picture — the same art in the same frame. */
 export const SAME_LOOK = 0.08
 
@@ -153,10 +216,15 @@ export interface PrintingMatch<T> {
  * genuinely look different are too near to call. Saying nothing is the right answer there: a wrong
  * printing recorded silently is worse than none, and the scan falls back to asking.
  */
-export function bestPrinting<T>(camera: ArtSignature, candidates: { item: T; signature: ArtSignature }[]): PrintingMatch<T> | null {
+export function bestPrinting<T>(
+  camera: ArtSignature | ArtSignature[],
+  candidates: { item: T; signature: ArtSignature }[],
+): PrintingMatch<T> | null {
   if (candidates.length === 0) return null
+  const looks = Array.isArray(camera) ? camera : [camera]
+  if (looks.length === 0) return null
   const ranked = candidates
-    .map((c) => ({ ...c, distance: artDistance(camera, c.signature) }))
+    .map((c) => ({ ...c, distance: lookDistance(looks, c.signature) }))
     .sort((a, b) => a.distance - b.distance)
   const best = ranked[0]
   if (best.distance > MATCH_MAX) return null
@@ -186,6 +254,45 @@ export function signatureOfSource(source: CanvasImageSource, box: Box): ArtSigna
   ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(source, card.x, card.y, card.width, card.height, 0, 0, canvas.width, canvas.height)
   return signatureFromPixels(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height)
+}
+
+/**
+ * The camera's card measured at every look box around [guide] (see lookBoxes). The area they cover
+ * is copied small once and sampled from, rather than the full camera picture seventy-five times.
+ */
+export function cameraSignatures(source: CanvasImageSource, guide: Box): ArtSignature[] {
+  const boxes = lookBoxes(guide)
+  const left = Math.min(...boxes.map((b) => b.x))
+  const top = Math.min(...boxes.map((b) => b.y))
+  const right = Math.max(...boxes.map((b) => b.x + b.width))
+  const bottom = Math.max(...boxes.map((b) => b.y + b.height))
+  const scale = 240 / (right - left)
+  const small = document.createElement('canvas')
+  small.width = Math.max(1, Math.round((right - left) * scale))
+  small.height = Math.max(1, Math.round((bottom - top) * scale))
+  // Kept on the CPU: it's read from seventy-five times, and a GPU canvas pays for a round trip on
+  // every one of them.
+  const ctx = small.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return []
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(source, left, top, right - left, bottom - top, 0, 0, small.width, small.height)
+  // One canvas the size of the grid's sampling, reused for every box: making one per box cost more
+  // than all the measuring put together (1.3 s a card).
+  const sampler = document.createElement('canvas')
+  sampler.width = GRID_W * 8
+  sampler.height = GRID_H * 8
+  const sctx = sampler.getContext('2d', { willReadFrequently: true })
+  if (!sctx) return []
+  sctx.imageSmoothingQuality = 'high'
+  const out: ArtSignature[] = []
+  for (const b of boxes) {
+    const card = inset(cardShaped({ x: (b.x - left) * scale, y: (b.y - top) * scale, width: b.width * scale, height: b.height * scale }))
+    if (card.width < 1 || card.height < 1) continue
+    sctx.clearRect(0, 0, sampler.width, sampler.height)
+    sctx.drawImage(small, card.x, card.y, card.width, card.height, 0, 0, sampler.width, sampler.height)
+    out.push(signatureFromPixels(sctx.getImageData(0, 0, sampler.width, sampler.height).data, sampler.width, sampler.height))
+  }
+  return out
 }
 
 /** Signatures worked out this session, so a card scanned twice doesn't fetch its printings twice. */
@@ -246,7 +353,7 @@ const WORTH_STOPPING = 150
  * printing's picture (small, and cached by the browser after the first time), so this is meant to
  * run behind the scan rather than in front of it.
  */
-export async function matchPrinting(camera: ArtSignature, printings: ScryfallCard[]): Promise<PrintingMatch<ScryfallCard> | null> {
+export async function matchPrinting(camera: ArtSignature | ArtSignature[], printings: ScryfallCard[]): Promise<PrintingMatch<ScryfallCard> | null> {
   const wanted = printings.slice(0, MOST_PRINTINGS).filter(pictureOf)
   const candidates: { item: ScryfallCard; signature: ArtSignature }[] = []
   for (let i = 0; i < wanted.length; i += AT_ONCE) {

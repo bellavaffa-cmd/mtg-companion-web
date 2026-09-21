@@ -10,6 +10,10 @@ import {
   bestPrinting,
   cardShaped,
   levelled,
+  lookBoxes,
+  LOOK_SCALES,
+  LOOK_SHIFTS,
+  trimmedDistance,
   signatureFromPixels,
 } from '../../src/scan/printingMatch'
 
@@ -152,4 +156,30 @@ test('levelling a grid of raw colour centres each channel on its own average', (
   let red = 0
   for (let i = 0; i < out.length; i += 3) red += out[i]
   assert.ok(Math.abs(red) < 1e-6)
+})
+
+test('the camera card is measured at a grid of places and sizes around the guide', () => {
+  const boxes = lookBoxes({ x: 100, y: 100, width: 300, height: 419 })
+  assert.equal(boxes.length, LOOK_SCALES.length * LOOK_SHIFTS.length * LOOK_SHIFTS.length)
+  // Every one card-shaped, and the guide itself among them.
+  for (const b of boxes) assert.ok(Math.abs(b.width / b.height - CARD_ASPECT) < 0.01)
+  assert.ok(boxes.some((b) => Math.abs(b.x - 100) < 1 && Math.abs(b.width - 300) < 1))
+})
+
+test('a reflection over part of the card no longer decides the match', () => {
+  // The same card with a bright patch over a corner: on a plain average the patch alone pushes it
+  // past a different card; with the worst fifth of the card left out, the rest of it wins.
+  const card = art(3)
+  const glared = new Float32Array(card)
+  for (let i = 0; i < 12 * 3; i++) glared[i] = 3 // twelve cells of the 88 washed out
+  const other = art(9)
+  assert.ok(trimmedDistance(glared, card) < trimmedDistance(glared, other))
+  assert.ok(trimmedDistance(glared, card) < artDistance(glared, card))
+})
+
+test('a printing is matched at whichever measuring of the camera card suits it', () => {
+  // Two measurings: one of the table beside the card, one of the card. The card's own printing wins.
+  const table = art(40)
+  const found = bestPrinting([table, throughACamera(4)], [printing('borderless', art(4)), printing('usual', art(7))])
+  assert.equal(found?.pick, 'borderless')
 })

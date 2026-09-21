@@ -10,7 +10,7 @@ import { useKeepAwake } from '../components/useKeepAwake'
 import { TopBar } from '../components/TopBar'
 import { cardNameIndex, MIN_MATCH } from '../scan/cardNames'
 import { guideInVideo } from '../scan/guide'
-import { matchPrinting, signatureOfSource, type ArtSignature } from '../scan/printingMatch'
+import { cameraSignatures, matchPrinting, type ArtSignature } from '../scan/printingMatch'
 import { readCardName, readSmallPrint, STRIP_STYLES, titleReader } from '../scan/ocr'
 import { confirmRead, parseSetAndNumber, sameCardName, SCAN_MODES, scanModeOf, ScanTracker, type ScanMode } from '../scan/scanLogic'
 import { appLinkPath, qrReader } from '../scan/qr'
@@ -142,7 +142,7 @@ export function ScanPage() {
    * while it happens. The row is left alone if it's been deleted, or its printing already picked by
    * hand, since the scan.
    */
-  const matchArt = async (id: number, scanned: ScryfallCard, camera: ArtSignature) => {
+  const matchArt = async (id: number, scanned: ScryfallCard, camera: ArtSignature[]) => {
     let asked = printingsByName.get(scanned.name)
     if (!asked) {
       asked = getPrintings(scanned.name).catch(() => [])
@@ -279,7 +279,7 @@ export function ScanPage() {
             tracker.added(card.name)
             // What the card looked like, taken now while it's still in the frame. When the set code
             // was read there's nothing left to work out; otherwise this decides the printing.
-            const look = printing ? null : signatureOfSource(video, box)
+            const look = printing ? null : cameraSignatures(video, box)
             const id = addScanned(card, !!printing)
             if (look) void matchArt(id, card, look)
           } catch (e) {
