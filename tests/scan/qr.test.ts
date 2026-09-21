@@ -7,14 +7,18 @@ import { appLinkPath } from '../../src/scan/qr.ts'
 // The app's QR codes on the web Scan page. The Android app reads the same links — see
 // AppLink.parse (TradeLogicTest.kt checks it).
 
-const base = 'https://bellavaffa-cmd.github.io/mtg-companion-web/'
+const base = 'https://manabind.com/'
 
 test("the app's links open where they lead; anything else doesn't", () => {
   assert.equal(appLinkPath(`${base}add/Bob_99`), '/add/bob_99')
   assert.equal(appLinkPath(`${base}add/bob/`), '/add/bob')
   assert.equal(appLinkPath(`${base}join/0123456789abcdef/3`), '/join/0123456789abcdef/3')
   assert.equal(appLinkPath(`${base}s/${'a'.repeat(32)}?x=1`), `/s/${'a'.repeat(32)}`)
-  // A dev build's links too.
+  // A dev build's links too, and codes made before manabind.com — on the old address, or anywhere
+  // serving the app under its old path.
+  assert.equal(appLinkPath('http://localhost:5174/add/carol'), '/add/carol')
+  assert.equal(appLinkPath('https://www.manabind.com/add/carol'), '/add/carol')
+  assert.equal(appLinkPath('https://bellavaffa-cmd.github.io/mtg-companion-web/add/carol'), '/add/carol')
   assert.equal(appLinkPath('http://localhost:5174/mtg-companion-web/add/carol'), '/add/carol')
   assert.equal(appLinkPath(`${base}add/a`), null)
   assert.equal(appLinkPath(`${base}join/not-a-code/3`), null)

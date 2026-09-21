@@ -2,14 +2,24 @@
 // code (sit there) or a share link (open what was shared). The Android app's scanner reads the same
 // ones — see AppLink.parse in its data/social/SocialApi.kt.
 
+/** Where the app lived before manabind.com: codes and links made then still carry it. */
+const OLD_PATH = '/mtg-companion-web/'
+
+/** The app's own addresses: its site, and a dev build's. */
+const APP_HOST = /^https?:\/\/(?:(?:www\.)?manabind\.com|localhost(?::\d+)?)\//i
+
 /**
  * The app route one of the app's links leads to — "/add/bob", "/join/<code>/2", "/s/<token>" —
- * or null for anything else. Any host serving the app counts, so a dev build's codes work too.
+ * or null for anything else. Links on manabind.com, and those from before it (any host serving the
+ * app under /mtg-companion-web/, so an old dev build's codes work too).
  */
 export function appLinkPath(text: string): string | null {
-  const at = text.indexOf('/mtg-companion-web/')
-  if (at < 0) return null
-  const path = text.slice(at + '/mtg-companion-web/'.length).split(/[?#]/)[0].replace(/\/+$/, '')
+  const trimmed = text.trim()
+  const at = trimmed.indexOf(OLD_PATH)
+  const host = APP_HOST.exec(trimmed)
+  const rest = at >= 0 ? trimmed.slice(at + OLD_PATH.length) : host ? trimmed.slice(host[0].length) : null
+  if (rest === null) return null
+  const path = rest.split(/[?#]/)[0].replace(/\/+$/, '')
   const parts = path.split('/').filter(Boolean)
   if (parts.length === 2 && parts[0] === 'add' && /^[a-zA-Z0-9_]{3,20}$/.test(parts[1])) return `/add/${parts[1].toLowerCase()}`
   if (parts.length === 3 && parts[0] === 'join' && /^[0-9a-f]{16}$/.test(parts[1]) && /^\d+$/.test(parts[2])) return `/join/${parts[1]}/${Number(parts[2])}`

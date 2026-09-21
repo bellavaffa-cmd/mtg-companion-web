@@ -346,10 +346,10 @@ export const markTradeApplied = (tradeId: string) => call<void>('mark_trade_appl
 
 // ---- Links (QR codes and share links open the web app at these) ----
 
-/** The web app's own address, e.g. https://…/mtg-companion-web/ */
+/** The web app's own address, e.g. https://manabind.com/add/bob */
 export const appUrl = (path: string) => `${window.location.origin}${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`
 
-export const PUBLIC_APP_URL = 'https://bellavaffa-cmd.github.io/mtg-companion-web/'
+export const PUBLIC_APP_URL = 'https://manabind.com/'
 /** Links for other people (QR codes, share links) always point at the live site, even from a dev build. */
 export const publicUrl = (path: string) => PUBLIC_APP_URL + path.replace(/^\//, '')
 

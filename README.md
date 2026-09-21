@@ -3,7 +3,7 @@
 A browser-based companion to the Manabind Android app: browse and edit your **collection** and
 **decks** from a PC, synced through the same **Manabind account** the phone app uses.
 
-Live at https://bellavaffa-cmd.github.io/mtg-companion-web/
+Live at https://manabind.com/
 
 ## What's here
 

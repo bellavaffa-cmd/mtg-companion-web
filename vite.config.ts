@@ -34,6 +34,7 @@ function serviceWorker(): Plugin {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), serviceWorker()],
-  // Served from https://<user>.github.io/mtg-companion-web/, not the domain root.
-  base: '/mtg-companion-web/',
+  // Served from https://manabind.com/. It was https://bellavaffa-cmd.github.io/mtg-companion-web/
+  // until 2026-09-22; GitHub sends that old address on to this one, path and all.
+  base: '/',
 })
