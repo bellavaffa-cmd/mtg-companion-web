@@ -29,7 +29,13 @@ export function cleanTitle(text: string): string | null {
 // two-letter language ("MSC • EN"), and the collector number after the rarity letter ("U 0211") or
 // as "number/total" ("0211/0280"). The reader sees the bullet as all sorts of marks ("«", "*", "."),
 // and sometimes doubles the rarity letter ("Cc 0172").
-const SET_AND_LANGUAGE = /\b([A-Z0-9]{3,5})\s*[^\sA-Za-z0-9]\s*[A-Z]{2}\b/
+//
+// It also drops the bullet altogether as often as not — "FRC • EN ▸ Titus Lunter" came back as
+// "FRC ENTTUS LUNTER", the artist run on — so the bullet is optional, and what keeps the match
+// honest is that the language has to be one actually printed on cards. A printing read wrong can't
+// slip through anyway: it's only kept if it names the card the title read (sameCardName). Mirrors
+// the Android app's data/SmallPrintParse.kt.
+const SET_AND_LANGUAGE = /\b([A-Z0-9]{3,5})(?:\s*[^\sA-Za-z0-9]\s*|\s+)(?:EN|DE|ES|FR|IT|JA|JP|KO|KR|PT|RU|CS|CT|ZH|PH)(?![a-z])/
 const RARITY_NUMBER = /\b[CURMSPLT][a-z]?\s+(\d{1,4})\b/
 const NUMBER_OF_TOTAL = /\b(\d{1,4})\s*\/\s*\d{1,4}\b/
 

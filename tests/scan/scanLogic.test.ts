@@ -116,7 +116,18 @@ test('the exact printing is read from the small print at the bottom', () => {
   assert.deepEqual(parseSetAndNumber('———\nCc 0172\nMSC « EN % DARIUS ZABLOCKIS'), { set: 'msc', number: '172' })
 })
 
+test('a bullet the reader dropped altogether no longer costs the printing', () => {
+  // Read off Sol Ring (FRC 21) by the Android scanner, the bullet gone and the artist run on.
+  assert.deepEqual(parseSetAndNumber('U 0021\nFRC ENTTUS LUNTER'), { set: 'frc', number: '21' })
+  assert.deepEqual(parseSetAndNumber('U 0021\nFRC EN TITUS LUNTER'), { set: 'frc', number: '21' })
+  assert.deepEqual(parseSetAndNumber('M 0005\nMOM JA'), { set: 'mom', number: '5' })
+})
+
 test("small print that can't be read with confidence gives no printing", () => {
+  // Two capitals after a word are a language only if cards are printed in it...
+  assert.equal(parseSetAndNumber('U 0021\nRAY XY'), null)
+  // ...and a set code has to stand apart from it: letters run together are a word.
+  assert.equal(parseSetAndNumber('U 0021\nTHEORYEN'), null)
   assert.equal(parseSetAndNumber('Illus. Some Artist'), null) // an older card: no set code line
   assert.equal(parseSetAndNumber('MSC • EN'), null) // no number
   assert.equal(parseSetAndNumber('U 0211'), null) // no set
