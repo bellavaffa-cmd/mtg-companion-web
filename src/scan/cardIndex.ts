@@ -39,13 +39,14 @@ export class CardIndex {
   private readonly ids: Uint8Array
   private readonly faces: Uint8Array
   private readonly nameOf: Uint32Array
-  private readonly setOf: Uint16Array
+  private readonly setOf_: Uint16Array
   private readonly numberOf: Uint16Array
   private readonly groups: Uint32Array
   private readonly names: string[]
   private readonly sets: string[]
   private readonly numbers: string[]
   private byName: Map<string, number[]> | null = null
+  private byId: Map<string, number[]> | null = null
 
   constructor(buffer: ArrayBuffer) {
     const view = new DataView(buffer)
@@ -66,7 +67,7 @@ export class CardIndex {
     this.ids = bytes(16 * this.count)
     this.faces = bytes(this.count)
     this.nameOf = new Uint32Array(buffer.slice(at, at + 4 * this.count)); at += 4 * this.count
-    this.setOf = new Uint16Array(buffer.slice(at, at + 2 * this.count)); at += 2 * this.count
+    this.setOf_ = new Uint16Array(buffer.slice(at, at + 2 * this.count)); at += 2 * this.count
     this.numberOf = new Uint16Array(buffer.slice(at, at + 2 * this.count)); at += 2 * this.count
     this.groups = new Uint32Array(buffer.slice(at, at + 4 * this.count)); at += 4 * this.count
     const metaLength = view.getUint32(at, true); at += 4
@@ -84,7 +85,7 @@ export class CardIndex {
       id: `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`,
       face: this.faces[row],
       name: this.names[this.nameOf[row]],
-      set: this.sets[this.setOf[row]],
+      set: this.sets[this.setOf_[row]],
       number: this.numbers[this.numberOf[row]],
       group: this.groups[row],
     }
@@ -105,6 +106,25 @@ export class CardIndex {
     const out = new Int8Array(this.dim)
     for (let d = 0; d < this.dim; d++) out[d] = Math.max(-127, Math.min(127, Math.round((z[d] / norm) * this.scale)))
     return out
+  }
+
+  /** The set code of row [row]'s printing. */
+  setOf(row: number): string {
+    return this.sets[this.setOf_[row]]
+  }
+
+  /** The rows of the printing with Scryfall id [id] — one per face. */
+  rowsWithId(id: string): number[] {
+    if (!this.byId) {
+      this.byId = new Map()
+      for (let r = 0; r < this.count; r++) {
+        const key = this.entry(r).id
+        const list = this.byId.get(key)
+        if (list) list.push(r)
+        else this.byId.set(key, [r])
+      }
+    }
+    return this.byId.get(id) ?? []
   }
 
   /** The rows of every printing of [name] (either face's name, for a double-faced card). */

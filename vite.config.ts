@@ -17,7 +17,9 @@ function serviceWorker(): Plugin {
     name: 'mtg-service-worker',
     apply: 'build',
     generateBundle(_options, bundle) {
-      const built = Object.keys(bundle).filter((file) => !file.endsWith('.map') && file !== 'index.html')
+      // The card recognizer's runtime (a .wasm of ~14 MB) is only for the scanner: kept the first time
+      // it's used (see the card cache in the template), not downloaded by every visitor up front.
+      const built = Object.keys(bundle).filter((file) => !file.endsWith('.map') && !file.endsWith('.wasm') && file !== 'index.html')
       const files = ['./', ...PUBLIC_FILES, ...built]
       const template = readFileSync(new URL('./pwa/sw.template.js', import.meta.url), 'utf8')
       const version = createHash('sha256').update(files.join('|')).update(template).digest('hex').slice(0, 12)

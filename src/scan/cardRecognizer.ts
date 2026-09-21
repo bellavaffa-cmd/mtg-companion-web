@@ -2,7 +2,7 @@
  * Knowing a card by sight: the flattened card (flatCard.ts) run through the image model in the
  * browser, and its fingerprint looked up in the card index (cardIndex.ts). The model and the index
  * are fetched the first time they're wanted and kept by the browser afterwards (see the service
- * worker), about 20 MB between them. Mirrors the Android app's ui/scan/CardRecognizer.kt.
+ * worker), about 26 MB between them. Mirrors the Android app's ui/scan/CardRecognizer.kt.
  */
 
 import { CardIndex, type IndexMatch } from './cardIndex'
@@ -21,6 +21,7 @@ interface Loaded {
 }
 
 let loading: Promise<Loaded> | null = null
+let loaded: Loaded | null = null
 
 /** The model and the index, loaded once. A failed load (offline) is forgotten, to be tried again. */
 export function loadRecognizer(): Promise<Loaded> {
@@ -33,7 +34,8 @@ export function loadRecognizer(): Promise<Loaded> {
     // One thread: sharing memory between threads needs headers GitHub Pages can't send.
     ort.env.wasm.numThreads = 1
     const session = await ort.InferenceSession.create(new Uint8Array(modelBytes), { executionProviders: ['wasm'] })
-    return { ort, session, index: new CardIndex(indexBytes) }
+    loaded = { ort, session, index: new CardIndex(indexBytes) }
+    return loaded
   })().catch((e) => {
     loading = null
     throw e
@@ -41,8 +43,8 @@ export function loadRecognizer(): Promise<Loaded> {
   return loading
 }
 
-/** Whether the model and index are loaded already — without starting to load them. */
-export const recognizerReady = () => loading !== null
+/** Whether the model and index are loaded and ready — without starting to load them. */
+export const recognizerReady = () => loaded !== null
 
 /** What the index makes of a flattened card. */
 export interface Recognized {
@@ -50,13 +52,18 @@ export interface Recognized {
   anywhere: IndexMatch[]
   /** The nearest among [name]'s printings, when a name was given. */
   named: IndexMatch[]
+  /** The nearest among [name]'s printings in [set], when a set code was read too. */
+  inSet: IndexMatch[]
+  /** How much the card looks like the printing [printingId] (the one its small print named), if asked. */
+  printing: IndexMatch | null
 }
 
 /**
  * The flattened card fingerprinted — through each of its likeliest outlines, as edge and as frame —
- * and looked up: over the whole index, and among the printings of [name] if the title was read.
+ * and looked up: over the whole index, among the printings of [name] if the title was read, and
+ * among those of them in [set] if its set code was.
  */
-export async function recognize(flat: FlatCard, name?: string): Promise<Recognized> {
+export async function recognize(flat: FlatCard, name?: string, set?: string | null, printingId?: string): Promise<Recognized> {
   const { ort, session, index } = await loadRecognizer()
   const size = index.inputSize
   const count = modelInputCount(flat)
@@ -66,8 +73,11 @@ export async function recognize(flat: FlatCard, name?: string): Promise<Recogniz
   const looks: Int8Array[] = []
   for (let i = 0; i < count; i++) looks.push(index.fingerprint(features.subarray(i * index.featDim, (i + 1) * index.featDim)))
   const rows = name ? index.rowsNamed(name) : []
+  const inSet = set ? rows.filter((r) => index.setOf(r) === set.toLowerCase()) : []
   return {
     anywhere: index.nearest(looks, 8),
     named: rows.length ? index.nearest(looks, 8, rows) : [],
+    inSet: inSet.length ? index.nearest(looks, 8, inSet) : [],
+    printing: printingId ? index.nearest(looks, 1, index.rowsWithId(printingId))[0] ?? null : null,
   }
 }

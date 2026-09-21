@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getByExactName, getByFuzzyName, getBySetAndNumber, getPrintings, OfflineError } from '../api/scryfall'
+import { getByExactName, getByFuzzyName, getBySetAndNumber, getCardsByIds, getPrintings, OfflineError } from '../api/scryfall'
 import { ActionSheet, type SheetAction } from '../components/ActionSheet'
 import { Icon } from '../components/Icon'
 import { ArtImage, PillChip, toArtCrop, useBack } from '../components/kit'
@@ -13,7 +13,9 @@ import { cardNameIndex, MIN_MATCH } from '../scan/cardNames'
 import { guideInVideo } from '../scan/guide'
 import { cameraSignatures, decideInSet, matchPrinting, measurePrintings, type ArtSignature } from '../scan/printingMatch'
 import { readCardName, readSmallPrint, STRIP_STYLES, titleReader, type Box, type StripStyle } from '../scan/ocr'
-import { flatCanvas, flatSignatures, flattenCard, wholeCard } from '../scan/flatCard'
+import { flatCanvas, flatSignatures, flattenCard, wholeCard, type FlatCard } from '../scan/flatCard'
+import { loadRecognizer, recognize, recognizerReady } from '../scan/cardRecognizer'
+import { cardBySight, choosePrinting, looksLikeAnotherCard, smallPrintAgrees } from '../scan/sight'
 import { regularInSet } from '../collection/printings'
 import { confirmRead, parseSetAndNumber, parseSetCode, sameCardName, SCAN_MODES, scanModeOf, ScanTracker, type ScanMode } from '../scan/scanLogic'
 import { appLinkPath, qrReader } from '../scan/qr'
@@ -26,6 +28,8 @@ import { displayImageUrl, type ScryfallCard } from '../types/scryfall'
 const CARD_ASPECT = 63 / 88
 /** A pause between reads, so the phone isn't reading flat out. */
 const BETWEEN_READS_MS = 150
+/** Frames in a row the title has to fail to read before the card is looked for by sight instead. */
+const SIGHT_AFTER_BLANK = 2
 /** How often the camera is checked for a QR code. */
 const QR_EVERY_MS = 400
 
@@ -40,6 +44,11 @@ let nextScanId = 1
  * eight hundred Plains printings over and over otherwise, and Scryfall is owed better than that.
  */
 const printingsByName = new Map<string, Promise<ScryfallCard[]>>()
+/** What the scanner decided, in the console while developing (the scan test rig reads it). */
+const devLog = (message: string) => { if (import.meta.env.DEV) console.debug(`[ScanTiming] ${message}`) }
+
+/** Printings fetched by id this session, for a card seen by sight more than once. */
+const printingById = new Map<string, ScryfallCard>()
 
 
 /**
@@ -183,6 +192,45 @@ export function ScanPage() {
     correct(found.pick, found.only, `matched the art to ${printingName(found.pick)}`)
   }
 
+  /**
+   * Which printing of [named] the flattened card is, by sight — the card index in the browser, no
+   * fetching every printing to compare — and whether that's certain (see printingBySight). The set
+   * code narrows it when it was read (see choosePrinting). Null when the look can't tell, and the card
+   * stays as it was looked up. If the look plainly says it's another card altogether, that's said,
+   * and the row is left as a best guess for a tap to fix.
+   *
+   * When [named] came from the small print ([printed]), the look checks it instead: a set code and
+   * number misread as another real printing of the same card would otherwise go in as certain. It's
+   * kept (null) when the look bears it out, and overruled by the look when it doesn't.
+   */
+  const sightPrinting = async (flat: FlatCard, named: ScryfallCard, setCode: string | null, printed: boolean): Promise<{ card: ScryfallCard; certain: boolean; overruled: boolean } | null> => {
+    const started = performance.now()
+    // The scan test rig looks at what the recognizer was given.
+    if (import.meta.env.DEV) (window as unknown as { lastFlat: FlatCard }).lastFlat = flat
+    const seen = await recognize(flat, named.name, setCode, printed ? named.id : undefined).catch(() => null)
+    devLog(`by sight ${Math.round(performance.now() - started)} ms: ${seen ? seen.named.slice(0, 3).map((m) => `${m.set} #${m.number} ${m.score.toFixed(3)}`).join(', ') : 'failed'}`)
+    if (!seen) return null
+    const other = looksLikeAnotherCard(named.name, seen.named, seen.anywhere)
+    if (other) {
+      setStatus(`Read “${named.name}”, but it looks like ${other.name} — tap the row to check.`)
+      return null
+    }
+    const overruled = printed && !smallPrintAgrees(seen.printing, seen.named)
+    if (printed && !overruled) return null
+    if (overruled) devLog(`small print said ${named.set} #${named.collector_number}, but it doesn't look like it — going by sight`)
+    // Once the small print is overruled, the look's best is the best there is, sure or not.
+    const pick = choosePrinting(seen.named, overruled ? [] : seen.inSet) ?? (overruled && seen.named[0] ? { entry: seen.named[0], certain: false } : null)
+    if (!pick) return null
+    if (pick.entry.id === named.id) return { card: named, certain: pick.certain, overruled }
+    let card = printingById.get(pick.entry.id)
+    if (!card) {
+      card = (await getCardsByIds([pick.entry.id]).catch(() => []))[0]
+      if (!card) return null
+      printingById.set(pick.entry.id, card)
+    }
+    return { card, certain: pick.certain, overruled }
+  }
+
   // The camera: the back one on a phone, as sharp as it offers. It's let go while the page is hidden
   // (another app, a locked phone) and taken again on return — phones often freeze or stop it then
   // anyway — and a camera that stops by itself (unplugged, taken by another app) says so.
@@ -247,6 +295,10 @@ export function ScanPage() {
       }
       if (stopped) return
       setLoading(null)
+      // Knowing cards by sight: the card index and its model (~26 MB), fetched now the first time and
+      // kept by the browser. Until they're here, the art is matched the old way, online.
+      loadRecognizer().catch(() => undefined)
+      let titleless = 0
       while (!stopped) {
         const video = videoRef.current
         const guide = guideRef.current
@@ -257,7 +309,25 @@ export function ScanPage() {
         setSeen(read?.seen ?? '')
         const forced = scanNow.current
         scanNow.current = false
-        const step = tracker.onRead(read?.match?.name ?? null, forced)
+        // A title that won't read — busy borderless art, glare, a foreign-language card, a torn
+        // corner — needn't stop the card: once the card index is here, the whole card is looked up by
+        // sight, and a clear match counts as the read. It goes through the same steadiness and
+        // not-twice checks as a read title.
+        let title = read?.match?.name ?? null
+        let seenBySight = false
+        titleless = title ? 0 : titleless + 1
+        if (!title && titleless >= SIGHT_AFTER_BLANK && recognizerReady()) {
+          const flat = flattenCard(video, box)
+          const seen = flat ? await recognize(flat).catch(() => null) : null
+          const sight = seen ? cardBySight(seen.anywhere) : null
+          if (stopped) break
+          if (sight) {
+            title = sight.name
+            seenBySight = true
+            devLog(`title unread; by sight: ${sight.name} ${sight.set} #${sight.number} ${sight.score.toFixed(3)}`)
+          }
+        }
+        const step = tracker.onRead(title, forced)
         if (forced && !read?.match) setStatus("Couldn't read a name there — hold the card flat and still, or type it below.")
         if (step.kind === 'lookup') {
           // What the camera actually read, to hold the card it found up against.
@@ -306,7 +376,8 @@ export function ScanPage() {
             if (stopped) break
             // A fuzzy lookup answers half a title with a real card, so the read has to account for
             // the whole name before it's added. Tapping Scan now says "yes, really" and skips this.
-            const confirmation = forced ? 'yes' : confirmRead(seenNow, card.name, card.flavor_name)
+            // A card known by sight needs no reading to account for it: its look already did.
+            const confirmation = forced || seenBySight ? 'yes' : confirmRead(seenNow, card.name, card.flavor_name)
             if (confirmation !== 'yes') {
               tracker.unconfirmed()
               setStatus(confirmation === 'partial'
@@ -315,12 +386,20 @@ export function ScanPage() {
               continue
             }
             tracker.added(card.name)
-            // What the card looked like, taken now while it's still in the frame. When the set code
-            // was read there's nothing left to work out; otherwise this decides the printing.
-            // Fast scanning leaves the card as its usual printing rather than matching the art.
-            const look = printing || !mode.matchesArt ? null : flat ? flatSignatures(flat) : cameraSignatures(video, box)
-            const id = addScanned(card, !!printing)
-            if (look) void matchArt(id, card, look, printing ? null : setCode)
+            // Which printing it is, when the small print didn't say: by sight, from the card index
+            // (see sightPrinting) — or, until that's loaded or when the card's edges weren't found,
+            // from what the card looked like compared with every printing online (see matchArt).
+            // Fast scanning does neither and leaves the card as its usual printing.
+            // With the card index, the look also checks a printing the small print named.
+            const bySight = mode.matchesArt && flat && recognizerReady() ? await sightPrinting(flat, card, setCode, !!printing) : null
+            if (stopped) break
+            if (bySight?.overruled) printing = null
+            const matchesArt = !printing && mode.matchesArt
+            const look = !matchesArt || (flat && recognizerReady()) ? null : flat ? flatSignatures(flat) : cameraSignatures(video, box)
+            const added = bySight?.card ?? card
+            devLog(`added ${added.name} ${added.set} #${added.collector_number} (${printing ? 'small print' : bySight ? (bySight.certain ? 'by sight, certain' : 'by sight, best guess') : 'usual printing'})`)
+            const id = addScanned(added, !!printing || bySight?.certain === true)
+            if (look) void matchArt(id, card, look, setCode)
           } catch (e) {
             if (stopped) break
             tracker.failed()

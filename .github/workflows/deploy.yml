@@ -37,6 +37,15 @@ jobs:
       # 404.html means a direct link/refresh on e.g. /decks/abc123 still loads the app, which then
       # reads the real URL from the browser and lets React Router take it from there.
       - run: cp dist/index.html dist/404.html
+      # The scanner's card index and its model (built by tools/card-index): ~20 MB, too big for git,
+      # so they live on the Android repo's card-index-v1 release and are copied in here. Without them
+      # the scanner still works, matching a card's art online the old way.
+      - name: Card index
+        run: |
+          mkdir -p dist/card-index
+          for f in card-index.bin card-model.onnx; do
+            curl -fsSL -o "dist/card-index/$f" "https://github.com/bellavaffa-cmd/mtg-companion-app/releases/download/card-index-v1/$f"               || { echo "::warning::$f isn't published yet"; rm -f "dist/card-index/$f"; }
+          done
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

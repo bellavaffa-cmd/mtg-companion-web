@@ -9,6 +9,9 @@
 const VERSION = '__VERSION__'
 const APP_CACHE = `mtg-companion-${VERSION}`
 const FONT_CACHE = 'mtg-companion-fonts'
+// The scanner's card recognition: the card index, its model and their runtime (~40 MB between them, ~30 MB over the wire),
+// fetched the first time the scanner wants them and kept across app updates.
+const CARD_CACHE = 'mtg-companion-cards'
 const FILES = __FILES__
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com']
 
@@ -24,7 +27,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
       .then((keys) => Promise.all(
-        keys.filter((key) => key.startsWith('mtg-companion-') && key !== APP_CACHE && key !== FONT_CACHE).map((key) => caches.delete(key)),
+        keys.filter((key) => key.startsWith('mtg-companion-') && ![APP_CACHE, FONT_CACHE, CARD_CACHE].includes(key)).map((key) => caches.delete(key)),
       ))
       .then(() => self.clients.claim()),
   )
@@ -48,6 +51,36 @@ self.addEventListener('fetch', (event) => {
 
   const scope = new URL(self.registration.scope)
   if (url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname)) return
+
+  // The card index and its model: the kept copy straight away, and a fresh one fetched behind it for
+  // next time — a rebuilt index (new sets) goes up under the same name.
+  if (url.pathname.startsWith(new URL('card-index/', scope).pathname)) {
+    event.respondWith(
+      caches.open(CARD_CACHE).then((cache) => cache.match(request).then((hit) => {
+        const fresh = fetch(request).then((response) => {
+          if (response.ok) cache.put(request, response.clone())
+          return response
+        })
+        if (hit) {
+          event.waitUntil(fresh.catch(() => undefined))
+          return hit
+        }
+        return fresh
+      })),
+    )
+    return
+  }
+
+  // The recognizer's runtime: its name carries a content hash, so a kept copy is never out of date.
+  if (url.pathname.endsWith('.wasm')) {
+    event.respondWith(
+      caches.open(CARD_CACHE).then((cache) => cache.match(request).then((hit) => hit ?? fetch(request).then((response) => {
+        if (response.ok) cache.put(request, response.clone())
+        return response
+      }))),
+    )
+    return
+  }
 
   // Pages: the network first, so an update shows straight away; offline, the cached app, which
   // works out the page from the address itself.

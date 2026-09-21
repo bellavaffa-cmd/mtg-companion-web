@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { IndexMatch } from '../../src/scan/cardIndex.ts'
-import { cardBySight, looksLikeAnotherCard, printingBySight, sameCard } from '../../src/scan/sight.ts'
+import { cardBySight, choosePrinting, looksLikeAnotherCard, printingBySight, sameCard, smallPrintAgrees } from '../../src/scan/sight.ts'
 
 // Decisions from what the card looks like. The Android app has the same checks — see SightTest.kt.
 
@@ -49,4 +49,28 @@ test('a misread title shows when the card plainly looks like another card', () =
   assert.equal(looksLikeAnotherCard('Lightning Bolt', [m('Lightning Bolt', 9, 0.84)], anywhere), null)
   // The look agrees with the read.
   assert.equal(looksLikeAnotherCard('Lightning Helix', [m('Lightning Helix', 7, 0.88)], anywhere), null)
+})
+
+test('a read set code narrows the printing unless nothing in that set looks right', () => {
+  const fullArt = m('Island', 1, 0.84, 'znr')
+  const regular = m('Island', 2, 0.7, 'znr')
+  const other = m('Island', 3, 0.86, 'dmu')
+  assert.equal(choosePrinting([other, fullArt, regular], [fullArt, regular])?.entry.group, 1)
+  // Nothing in the set looks like it: the set code was misread, and the name decides.
+  const poor = m('Island', 4, 0.5, 'lea')
+  assert.equal(choosePrinting([other, m('Island', 6, 0.7)], [poor])?.entry.set, 'dmu')
+  assert.equal(choosePrinting([other, m('Island', 5, 0.6)], [])?.entry.set, 'dmu')
+})
+
+test("a small print misread as another real printing is caught by the card's look", () => {
+  const znr = m('Island', 1, 0.85, 'znr')
+  const named = [znr, m('Island', 2, 0.78, 'dmu')]
+  // Read as TRK 319, which looks nothing like the card in hand.
+  assert.equal(smallPrintAgrees(m('Island', 3, 0.66, 'trk'), named), false)
+  // The printing it named is the one it looks like, or near enough, or shares its picture.
+  assert.equal(smallPrintAgrees(znr, named), true)
+  assert.equal(smallPrintAgrees(m('Island', 4, 0.81, 'znr'), named), true)
+  assert.equal(smallPrintAgrees(m('Island', 1, 0.7, 'plst'), named), true)
+  // Nothing to go on: the small print stands.
+  assert.equal(smallPrintAgrees(null, named), true)
 })
