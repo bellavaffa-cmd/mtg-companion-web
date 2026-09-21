@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import type {
   Collection, CollectionType, Deck, DeckCardEntry, DeckOwnership, GameMode, GameResult,
 } from '../types/models'
-import { DECK_OWNERSHIP_DEFAULT, UNSORTED_COLLECTION_ID, UNSORTED_COLLECTION_NAME, duplicateWarning, normalizeDeck } from '../types/models'
+import { DECK_OWNERSHIP_DEFAULT, UNSORTED_COLLECTION_ID, duplicateWarning, normalizeDeck } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 import { backImageUrl, canBeCommander, cardTags, displayImageUrl, partnerAbility } from '../types/scryfall'
 import * as auth from './supabaseAuth'
@@ -17,6 +17,7 @@ import {
   libraryIsAnotherAccounts, loadCloudState, loadRescue, pullChanges, pushPending, recordLocalEdits, RESCUE_MAX_AGE_MS,
   saveCloudState, saveRescue, UnauthorizedError,
 } from './cloudSync'
+import { withUnsortedPile } from '../collection/unsorted'
 import { WISHLIST_ID, isEmptyWishlist, withWantedCards, withWishlist, withWishlistCardWantedAgain, withoutWishlistCard, type WantedCard } from '../collection/wishlist'
 import { gatherInto, removeEverywhere } from '../collection/allCards'
 import { withSwapIn } from '../decks/proxies'
@@ -189,10 +190,14 @@ let authLink: Promise<auth.LinkResult | null> | null = null
 
 /** [lib] with the Unsorted pile in it, if [collectionId] is the pile and there isn't one yet. */
 function withUnsorted(lib: Library, collectionId: string): Library {
-  if (collectionId !== UNSORTED_COLLECTION_ID || lib.collections.some((c) => c.id === collectionId)) return lib
-  const pile: Collection = { id: UNSORTED_COLLECTION_ID, name: UNSORTED_COLLECTION_NAME, entries: [], createdAt: Date.now(), type: 'OWNED' }
-  return { ...lib, collections: [...lib.collections, pile] }
+  if (collectionId !== UNSORTED_COLLECTION_ID) return lib
+  const collections = withUnsortedPile(lib.collections)
+  return collections === lib.collections ? lib : { ...lib, collections }
 }
+
+/** The collections that are always there: the Wishlist, kept up for [decks], and the Unsorted pile. */
+const withStandingCollections = (collections: Collection[], decks: Deck[]): Collection[] =>
+  withUnsortedPile(withWishlist(collections, decks))
 
 export function SyncProvider({ children }: { children: ReactNode }) {
   const [library, setLibrary] = useState<Library>(() => loadLibrary())
@@ -554,13 +559,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [adoptStoredLibrary, commitLibrary, scheduleSync],
   )
 
-  // The Wishlist: always there, holding what decks are considering that isn't owned. Not while
-  // "this browser already has a library" is being asked — that library isn't the account's yet.
+  // The Wishlist, always there, holding what decks are considering that isn't owned; and the
+  // Unsorted pile, always there for cards not in a binder or deck. Not while "this browser already
+  // has a library" is being asked — that library isn't the account's yet.
   useEffect(() => {
     if (mergePending.current) return
-    if (withWishlist(library.collections, library.decks) === library.collections) return
+    if (withStandingCollections(library.collections, library.decks) === library.collections) return
     updateLibrary((lib) => {
-      const collections = withWishlist(lib.collections, lib.decks)
+      const collections = withStandingCollections(lib.collections, lib.decks)
       return collections === lib.collections ? lib : { ...lib, collections }
     })
   }, [library, updateLibrary, mergePrompt])
@@ -811,8 +817,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   )
 
   const deleteCollection = useCallback(
-    // Never the Wishlist, which is always there.
-    (collectionId: string) => collectionId === WISHLIST_ID ? undefined :
+    // Never the Wishlist or the Unsorted pile, which are always there.
+    (collectionId: string) => collectionId === WISHLIST_ID || collectionId === UNSORTED_COLLECTION_ID ? undefined :
       updateLibrary((lib) => ({ ...lib, collections: lib.collections.filter((c) => c.id !== collectionId) })),
     [updateLibrary],
   )

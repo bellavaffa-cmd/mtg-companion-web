@@ -33,7 +33,8 @@ export function CollectionsPage() {
   const owned = collections.filter((c) => c.type !== 'WISHLIST')
   const ownedCards = owned.reduce((s, c) => s + c.entries.reduce((n, e) => n + e.quantity + e.foilQuantity, 0), 0)
   const unique = new Set(owned.flatMap((c) => c.entries.map((e) => e.scryfallId))).size
-  // The Unsorted pile counts as owned cards, but isn't listed or counted as a binder.
+  // The Unsorted pile counts as owned cards, but isn't listed or counted as a binder. Like the
+  // Wishlist it's always there, even empty — it's where a loose card goes.
   const unsorted = collections.find(isUnsorted)
   const binders = collections.filter((c) => !isUnsorted(c) && !isWishlist(c))
   const unsortedCards = unsorted?.entries.reduce((n, e) => n + e.quantity + e.foilQuantity, 0) ?? 0
@@ -85,13 +86,17 @@ export function CollectionsPage() {
               <StatFigure value={unique} label="Unique cards" />
               <StatFigure value={binders.length} label="Binders" />
             </div>
-            {unsorted && unsortedCards > 0 && (
+            {unsorted && (
               <div className="list wide-list rise" style={{ ...rise(2), marginBottom: 14 }}>
                 <button type="button" className="brow press unsorted-row" onClick={() => navigate(`/collections/${unsorted.id}`)}>
                   <div className="icon-tile"><Icon name="inbox" /></div>
                   <div style={{ minWidth: 0 }}>
                     <div className="brow-name">Unsorted</div>
-                    <div className="brow-meta"><span><b>{unsortedCards}</b>{unsortedCards === 1 ? 'card' : 'cards'} not in a binder yet — open to sort them</span></div>
+                    <div className="brow-meta">
+                      {unsortedCards > 0
+                        ? <span><b>{unsortedCards}</b>{unsortedCards === 1 ? 'card' : 'cards'} not in a binder yet — open to sort them</span>
+                        : <span>Empty — for cards you own that aren't in a binder or a deck</span>}
+                    </div>
                   </div>
                   <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
                 </button>

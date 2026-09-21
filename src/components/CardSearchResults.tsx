@@ -4,6 +4,7 @@ import { searchCards } from '../api/scryfall'
 import type { ScryfallCard } from '../types/scryfall'
 import { backImageUrl, cardTags, displayImageUrl, displayManaCost, displayOracleText, hasFlipSides } from '../types/scryfall'
 import { useSync } from '../sync/SyncContext'
+import { isUnsorted } from '../types/models'
 import { ActionSheet } from './ActionSheet'
 import type { SheetAction } from './ActionSheet'
 import { Icon } from './Icon'
@@ -101,7 +102,9 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
         onClick: () => { setAddWarning(addCardToDeck(d.id, card)); setAdded(`Added to ${d.name}`) },
       })),
       ...collections.map((c): SheetAction => ({
-        label: `Add to ${c.name}`, icon: c.type === 'WISHLIST' ? 'star' : 'collections', detail: c.type === 'WISHLIST' ? 'Wishlist' : 'Binder',
+        label: `Add to ${c.name}`,
+        icon: isUnsorted(c) ? 'inbox' : c.type === 'WISHLIST' ? 'star' : 'collections',
+        detail: isUnsorted(c) ? 'Not in a binder' : c.type === 'WISHLIST' ? 'Wishlist' : 'Binder',
         onClick: () => { addEntryToCollection(c.id, card); setAdded(`Added to ${c.name}`) },
       })),
     ]
