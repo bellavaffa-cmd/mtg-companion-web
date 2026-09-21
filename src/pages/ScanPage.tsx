@@ -277,7 +277,8 @@ export function ScanPage() {
             tracker.added(card.name)
             // What the card looked like, taken now while it's still in the frame. When the set code
             // was read there's nothing left to work out; otherwise this decides the printing.
-            const look = printing ? null : cameraSignatures(video, box)
+            // Fast scanning leaves the card as its usual printing rather than matching the art.
+            const look = printing || !SCAN_MODES[modeRef.current].matchesArt ? null : cameraSignatures(video, box)
             const id = addScanned(card, !!printing)
             if (look) void matchArt(id, card, look)
           } catch (e) {
@@ -410,8 +411,8 @@ export function ScanPage() {
             className="chip scan-mode"
             aria-label={mode === 'fast' ? 'Fast scanning — switch to accurate' : 'Accurate scanning — switch to fast'}
             title={mode === 'fast'
-              ? 'Fast: takes a card sooner and guesses its printing from the art. Tap for Accurate.'
-              : 'Accurate: waits for a steady read and checks the small print for the exact printing. Tap for Fast.'}
+              ? 'Fast: takes a card sooner and leaves its printing as a best guess to change later. Tap for Accurate.'
+              : 'Accurate: waits for a steady read and works out the exact printing from the small print or the art. Tap for Fast.'}
             onClick={() => setMode(mode === 'fast' ? 'accurate' : 'fast')}
           >
             <Icon name={mode === 'fast' ? 'bolt' : 'verified'} aria-hidden />{SCAN_MODES[mode].label}

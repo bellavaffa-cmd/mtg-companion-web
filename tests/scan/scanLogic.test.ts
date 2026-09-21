@@ -180,8 +180,10 @@ test('accurate scanning is the careful default, and fast trades care for speed',
   assert.equal(scanModeOf('fast'), 'fast')
   assert.equal(SCAN_MODES.accurate.steadyReads, STEADY_READS)
   assert.equal(SCAN_MODES.accurate.readsSmallPrint, true)
+  assert.equal(SCAN_MODES.accurate.matchesArt, true)
   assert.equal(SCAN_MODES.fast.steadyReads, 2)
   assert.equal(SCAN_MODES.fast.readsSmallPrint, false)
+  assert.equal(SCAN_MODES.fast.matchesArt, false)
 })
 
 test('the tracker asks how many steady reads it needs on every frame', () => {

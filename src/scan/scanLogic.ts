@@ -114,16 +114,18 @@ export const STEADY_READS = 3
 
 /**
  * How careful the scanner is, chosen on the scan page. Accurate is how it has always been: a name
- * has to read the same on STEADY_READS frames running, and the small print is read up close for the
- * exact printing. Fast takes a name after two, and skips that close read — the printing comes from
- * matching the art — so more rows say "best guess", and a card caught halfway into the frame is a
- * little likelier to be read. Mirrors the Android app's ScanMode in data/ScanConfirm.kt.
+ * has to read the same on STEADY_READS frames running, the small print is read up close for the
+ * exact printing, and when that can't be read the art is matched against every printing. Fast takes
+ * a name after two reads and does neither: the card comes in as its usual printing — a best guess,
+ * changed with a tap on the row or later with "change printing". The art match fetches every
+ * printing of the card, and on a quick pile those fetches queued in front of the next card's
+ * lookup; Fast is for getting through a pile. Mirrors the Android app's ScanMode in data/ScanConfirm.kt.
  */
 export type ScanMode = 'accurate' | 'fast'
 
-export const SCAN_MODES: Record<ScanMode, { label: string; steadyReads: number; readsSmallPrint: boolean }> = {
-  accurate: { label: 'Accurate', steadyReads: STEADY_READS, readsSmallPrint: true },
-  fast: { label: 'Fast', steadyReads: 2, readsSmallPrint: false },
+export const SCAN_MODES: Record<ScanMode, { label: string; steadyReads: number; readsSmallPrint: boolean; matchesArt: boolean }> = {
+  accurate: { label: 'Accurate', steadyReads: STEADY_READS, readsSmallPrint: true, matchesArt: true },
+  fast: { label: 'Fast', steadyReads: 2, readsSmallPrint: false, matchesArt: false },
 }
 
 /** A stored choice as a mode: Accurate unless it clearly says Fast. */
