@@ -185,8 +185,10 @@ export async function getCollection(identifiers: CardIdentifier[]): Promise<{ da
 /** Pages of printings to follow at most. A basic land runs to five; nothing runs to ten. */
 const MOST_PRINTING_PAGES = 10
 
-export async function getPrintings(name: string): Promise<ScryfallCard[]> {
-  const query = new URLSearchParams({ q: `!"${name}"`, unique: 'prints', order: 'released', dir: 'desc' })
+export async function getPrintings(name: string, set?: string): Promise<ScryfallCard[]> {
+  // [set] narrows it to that one set's printings — a handful, in one request.
+  const q = `!"${name}"` + (set ? ` set:${set.toLowerCase()}` : '')
+  const query = new URLSearchParams({ q, unique: 'prints', order: 'released', dir: 'desc' })
   let next: string | null = `${BASE}/cards/search?${query}`
   const all: ScryfallCard[] = []
   // Scryfall answers 175 printings at a time; a basic land has hundreds of them.

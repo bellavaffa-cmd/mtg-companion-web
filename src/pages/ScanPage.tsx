@@ -11,9 +11,10 @@ import { useKeepAwake } from '../components/useKeepAwake'
 import { TopBar } from '../components/TopBar'
 import { cardNameIndex, MIN_MATCH } from '../scan/cardNames'
 import { guideInVideo } from '../scan/guide'
-import { cameraSignatures, matchPrinting, type ArtSignature } from '../scan/printingMatch'
+import { cameraSignatures, decideInSet, matchPrinting, measurePrintings, type ArtSignature } from '../scan/printingMatch'
 import { readCardName, readSmallPrint, STRIP_STYLES, titleReader } from '../scan/ocr'
-import { confirmRead, parseSetAndNumber, sameCardName, SCAN_MODES, scanModeOf, ScanTracker, type ScanMode } from '../scan/scanLogic'
+import { regularInSet } from '../collection/printings'
+import { confirmRead, parseSetAndNumber, parseSetCode, sameCardName, SCAN_MODES, scanModeOf, ScanTracker, type ScanMode } from '../scan/scanLogic'
 import { appLinkPath, qrReader } from '../scan/qr'
 import { copyNumber, grouped, onlyRepeats, repeatedCards, scannedTwiceOver, type ScanRow } from '../scan/scanLog'
 import { useSync } from '../sync/SyncContext'
@@ -140,7 +141,33 @@ export function ScanPage() {
    * while it happens. The row is left alone if it's been deleted, or its printing already picked by
    * hand, since the scan.
    */
-  const matchArt = async (id: number, scanned: ScryfallCard, camera: ArtSignature[]) => {
+  const matchArt = async (id: number, scanned: ScryfallCard, camera: ArtSignature[], setCode: string | null) => {
+    const correct = (pick: ScryfallCard, only: boolean, how: string) => {
+      setScanned((list) => list.map((s) => (
+        s.id === id && s.card.id === scanned.id && !s.exact ? { ...s, card: pick, exact: only } : s
+      )))
+      if (pick.id !== scanned.id) setStatus(`${scanned.name} — ${how}`)
+    }
+    // When the small print gave the set code but not the number, it narrows things first: the name
+    // says which card, the set code which of its printings are in play, and the whole card's look —
+    // framed, full art, borderless — which of that set's few it is. If nothing in that set looks
+    // like the card, the set code was misread, and every printing is compared as if it hadn't been.
+    if (setCode) {
+      // Every printing may already be here from an earlier copy; then the set's are among them.
+      const every = printingsByName.get(scanned.name)
+      const inSet = every
+        ? (await every).filter((p) => p.set?.toLowerCase() === setCode)
+        : await getPrintings(scanned.name, setCode).catch(() => [])
+      const regular = regularInSet(inSet)
+      if (regular) {
+        const decision = decideInSet(camera, await measurePrintings(inSet).catch(() => []), regular)
+        if (decision.kind !== 'misread') {
+          const pick = decision.kind === 'found' ? decision.pick : decision.regular
+          correct(pick, decision.kind === 'found' && decision.only, `matched the art in ${printingName(pick)}`)
+          return
+        }
+      }
+    }
     let asked = printingsByName.get(scanned.name)
     if (!asked) {
       asked = getPrintings(scanned.name).catch(() => [])
@@ -152,10 +179,7 @@ export function ScanPage() {
     if (printings.length < 2) return
     const found = await matchPrinting(camera, printings).catch(() => null)
     if (!found) return
-    setScanned((list) => list.map((s) => (
-      s.id === id && s.card.id === scanned.id && !s.exact ? { ...s, card: found.pick, exact: found.only } : s
-    )))
-    if (found.pick.id !== scanned.id) setStatus(`${scanned.name} — matched the art to ${printingName(found.pick)}`)
+    correct(found.pick, found.only, `matched the art to ${printingName(found.pick)}`)
   }
 
   // The camera: the back one on a phone, as sharp as it offers. It's let go while the page is hidden
@@ -245,9 +269,13 @@ export function ScanPage() {
             // Which printing it is — the alternate art, the borderless one — is only knowable from
             // the tiny line at the bottom, so it's worth a few goes at reading it.
             let printing: ReturnType<typeof parseSetAndNumber> = null
-            // Fast scanning skips the close read; the printing comes from matching the art.
+            // The set code on its own, from the first read that got it, for when the number never reads.
+            let setCode: string | null = null
+            // Fast scanning skips the close read and leaves the card as its usual printing.
             for (const style of SCAN_MODES[modeRef.current].readsSmallPrint ? STRIP_STYLES : []) {
-              printing = parseSetAndNumber(await readSmallPrint(video, box, style).catch(() => ''))
+              const text = await readSmallPrint(video, box, style).catch(() => '')
+              printing = parseSetAndNumber(text)
+              setCode ??= parseSetCode(text)
               if (printing || stopped) break
             }
             if (stopped) break
@@ -280,7 +308,7 @@ export function ScanPage() {
             // Fast scanning leaves the card as its usual printing rather than matching the art.
             const look = printing || !SCAN_MODES[modeRef.current].matchesArt ? null : cameraSignatures(video, box)
             const id = addScanned(card, !!printing)
-            if (look) void matchArt(id, card, look)
+            if (look) void matchArt(id, card, look, printing ? null : setCode)
           } catch (e) {
             if (stopped) break
             tracker.failed()

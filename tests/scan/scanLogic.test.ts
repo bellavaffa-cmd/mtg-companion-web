@@ -1,7 +1,7 @@
 // The scanner's decisions (src/scan/scanLogic.ts), frame by frame.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { BLANK_FRAMES_TO_RESET, cleanTitle, confirmRead, looksLikeSameCard, parseSetAndNumber, sameCardName, sameRead, SCAN_MODES, scanModeOf, ScanTracker, STEADY_READS } from '../../src/scan/scanLogic.ts'
+import { BLANK_FRAMES_TO_RESET, cleanTitle, confirmRead, looksLikeSameCard, parseSetAndNumber, parseSetCode, sameCardName, sameRead, SCAN_MODES, scanModeOf, ScanTracker, STEADY_READS } from '../../src/scan/scanLogic.ts'
 
 test('the name is the first line with three letters, without the mana cost or stray marks', () => {
   assert.equal(cleanTitle('Lightning Bolt {R}'), 'Lightning Bolt')
@@ -193,4 +193,12 @@ test('the tracker asks how many steady reads it needs on every frame', () => {
   // Switched to Fast mid-card: the second matching read is now enough.
   needed = 2
   assert.deepEqual(tracker.onRead('Sol Ring'), { kind: 'lookup', name: 'Sol Ring' })
+})
+
+test('the set code reads on its own when the number will not', () => {
+  // No number beside it, but the set code still narrows the printings to that set's.
+  assert.equal(parseSetCode('MSC • EN'), 'msc')
+  assert.equal(parseSetCode('Illus. Someone\nFRC ENTTUS LUNTER'), 'frc')
+  assert.equal(parseSetCode('U 0211'), null)
+  assert.equal(parseSetCode('U 0021\nRAY XY'), null)
 })

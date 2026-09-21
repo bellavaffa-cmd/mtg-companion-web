@@ -9,6 +9,7 @@ import {
   artDistance,
   bestPrinting,
   cardShaped,
+  decideInSet,
   levelled,
   lookBoxes,
   LOOK_SCALES,
@@ -182,4 +183,16 @@ test('a printing is matched at whichever measuring of the camera card suits it',
   const table = art(40)
   const found = bestPrinting([table, throughACamera(4)], [printing('borderless', art(4)), printing('usual', art(7))])
   assert.equal(found?.pick, 'borderless')
+})
+
+test("the set's version that looks like the card is the one", () => {
+  // The set code said which set: of its regular and full-art versions, the look says which.
+  const decision = decideInSet([throughACamera(4)], [{ item: 'regular', signature: art(7) }, { item: 'full art', signature: art(4) }], 'regular')
+  assert.deepEqual(decision, { kind: 'found', pick: 'full art', only: true })
+})
+
+test("a set whose versions look nothing like the card means the set code was misread", () => {
+  // Even a set holding just one version of the card is checked against the look.
+  assert.deepEqual(decideInSet([throughACamera(20)], [{ item: 'regular', signature: art(2) }], 'regular'), { kind: 'misread' })
+  assert.deepEqual(decideInSet([throughACamera(1)], [], 'regular'), { kind: 'misread' })
 })

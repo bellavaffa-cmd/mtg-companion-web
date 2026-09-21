@@ -211,6 +211,35 @@ export interface PrintingMatch<T> {
   only: boolean
 }
 
+/** What one set's printings of a card say about the card in the frame (see decideInSet). */
+export type SetDecision<T> =
+  /** It's this one; [only] is false when another printing in the set looks just like it. */
+  | { kind: 'found'; pick: T; only: boolean }
+  /** It's in this set, but its versions look too alike to call: [regular] is the best guess. */
+  | { kind: 'unsure'; regular: T }
+  /** Nothing in the set looks like it — the set code was most likely misread. */
+  | { kind: 'misread' }
+
+/**
+ * The card's printings in the set its small print named, held up against what the camera saw. A set
+ * rarely holds more than a few versions of a card — regular, full art, borderless, showcase — and
+ * they differ in the whole layout, not just the picture, which is far easier to tell apart than one
+ * printing among a hundred. Even a set with a single version is checked: a set code misread as
+ * another real set mustn't quietly name a printing the card in hand looks nothing like. Mirrors the
+ * Android app's decideInSet in data/PrintingMatch.kt.
+ */
+export function decideInSet<T>(
+  looks: ArtSignature[],
+  candidates: { item: T; signature: ArtSignature }[],
+  regular: T,
+): SetDecision<T> {
+  if (candidates.length === 0 || looks.length === 0) return { kind: 'misread' }
+  const nearest = Math.min(...candidates.map((c) => lookDistance(looks, c.signature)))
+  if (nearest > MATCH_MAX) return { kind: 'misread' }
+  const found = bestPrinting(looks, candidates)
+  return found ? { kind: 'found', pick: found.pick, only: found.only } : { kind: 'unsure', regular }
+}
+
 /**
  * The printing [camera] looks most like, or null when nothing is close enough or two printings that
  * genuinely look different are too near to call. Saying nothing is the right answer there: a wrong
@@ -353,6 +382,20 @@ const WORTH_STOPPING = 150
  * printing's picture (small, and cached by the browser after the first time), so this is meant to
  * run behind the scan rather than in front of it.
  */
+/** Each of [printings] measured from its picture, for choosing among a short list (see decideInSet). */
+export async function measurePrintings(printings: ScryfallCard[]): Promise<{ item: ScryfallCard; signature: ArtSignature }[]> {
+  const wanted = printings.filter(pictureOf)
+  const measured: { item: ScryfallCard; signature: ArtSignature }[] = []
+  for (let i = 0; i < wanted.length; i += AT_ONCE) {
+    const batch = await Promise.all(wanted.slice(i, i + AT_ONCE).map(async (card) => {
+      const signature = await signatureOfUrl(pictureOf(card)!)
+      return signature ? { item: card, signature } : null
+    }))
+    for (const got of batch) if (got) measured.push(got)
+  }
+  return measured
+}
+
 export async function matchPrinting(camera: ArtSignature | ArtSignature[], printings: ScryfallCard[]): Promise<PrintingMatch<ScryfallCard> | null> {
   const wanted = printings.slice(0, MOST_PRINTINGS).filter(pictureOf)
   const candidates: { item: ScryfallCard; signature: ArtSignature }[] = []

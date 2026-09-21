@@ -46,6 +46,17 @@ const NUMBER_OF_TOTAL = /\b(\d{1,4})\s*\/\s*\d{1,4}\b/
  * (leading zeros dropped), or null when either can't be read with confidence — the card is then
  * found by name. Ported from the Android app's extractSetAndNumber.
  */
+/**
+ * Just the set code from the small print (lowercase), whether or not the collector number read. The
+ * set code is short and bold and reads far more often than the number beside it; on its own it
+ * narrows a card's printings to the few in that set, and the card's look can settle which of those
+ * it is. Mirrors the Android app's parseSetCode in data/SmallPrintParse.kt.
+ */
+export function parseSetCode(text: string): string | null {
+  const set = text.split('\n').map((l) => SET_AND_LANGUAGE.exec(l)?.[1]).find(Boolean)
+  return set ? set.toLowerCase() : null
+}
+
 export function parseSetAndNumber(text: string): { set: string; number: string } | null {
   const lines = text.split('\n')
   const set = lines.map((l) => SET_AND_LANGUAGE.exec(l)?.[1]).find(Boolean)

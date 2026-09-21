@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { withDeckPrinting, withEntryPrinting } from '../../src/collection/printings.ts'
+import { regularInSet, withDeckPrinting, withEntryPrinting } from '../../src/collection/printings.ts'
 import { isBinder } from '../../src/collection/unsorted.ts'
 import type { Collection, CollectionEntry, Deck, DeckCardEntry } from '../../src/types/models.ts'
 import type { ScryfallCard } from '../../src/types/scryfall.ts'
@@ -67,4 +67,12 @@ test('switching to a printing the deck already holds adds the copies and proxies
 test('the Wishlist and the Unsorted pile are not binders', () => {
   const c = (id: string, type: Collection['type'] = 'OWNED') => ({ id, name: id, entries: [], createdAt: 0, type }) as Collection
   assert.deepEqual([c('wishlist', 'WISHLIST'), c('unsorted'), c('blue')].filter(isBinder).map((x) => x.id), ['blue'])
+})
+
+test("a set's regular version is its lowest numbered one", () => {
+  const numbered = (n: string) => ({ id: n, name: 'Sol Ring', collector_number: n }) as unknown as ScryfallCard
+  // Borderless and showcase versions are numbered after the set's main run.
+  assert.equal(regularInSet(['300', '12a', '★', '12', '45'].map(numbered))?.id, '12')
+  assert.equal(regularInSet([numbered('★')])?.id, '★')
+  assert.equal(regularInSet([]), null)
 })

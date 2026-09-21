@@ -12,6 +12,23 @@ import type { CollectionEntry, Deck, DeckCardEntry } from '../types/models'
 import { proxyCopies } from '../decks/proxies'
 import { backImageUrl, cardTags, displayImageUrl, partnerAbility, type ScryfallCard } from '../types/scryfall'
 
+/**
+ * The regular version among one set's printings of a card: the lowest collector number, since the
+ * special versions — borderless, showcase, extended art — are numbered after the set's main run.
+ * Numbers with no digits ("★") come last.
+ */
+export function regularInSet(printings: ScryfallCard[]): ScryfallCard | null {
+  const lead = (c: ScryfallCard) => {
+    const digits = /^\d+/.exec(c.collector_number ?? '')
+    return digits ? Number(digits[0]) : Number.MAX_SAFE_INTEGER
+  }
+  let best: ScryfallCard | null = null
+  for (const c of printings) {
+    if (!best || lead(c) < lead(best) || (lead(c) === lead(best) && (c.collector_number ?? '') < (best.collector_number ?? ''))) best = c
+  }
+  return best
+}
+
 /** [entries] with the copies of [oldId] moved to [card]'s printing. The same array when there's nothing to change. */
 export function withEntryPrinting(entries: CollectionEntry[], oldId: string, card: ScryfallCard): CollectionEntry[] {
   if (oldId === card.id) return entries
