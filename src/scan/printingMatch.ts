@@ -30,6 +30,9 @@ export const CARD_ASPECT = 63 / 88
  */
 const INSET = 0.04
 
+/** The same trim, for measuring a card found by its edges (see flatCard.ts). */
+export const PRINTING_INSET = INSET
+
 /** A card's look: an average colour per cell, levelled so the lighting doesn't count. */
 export type ArtSignature = Float32Array
 

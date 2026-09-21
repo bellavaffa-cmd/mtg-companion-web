@@ -12,7 +12,8 @@ import { TopBar } from '../components/TopBar'
 import { cardNameIndex, MIN_MATCH } from '../scan/cardNames'
 import { guideInVideo } from '../scan/guide'
 import { cameraSignatures, decideInSet, matchPrinting, measurePrintings, type ArtSignature } from '../scan/printingMatch'
-import { readCardName, readSmallPrint, STRIP_STYLES, titleReader } from '../scan/ocr'
+import { readCardName, readSmallPrint, STRIP_STYLES, titleReader, type Box, type StripStyle } from '../scan/ocr'
+import { flatCanvas, flatSignatures, flattenCard, wholeCard } from '../scan/flatCard'
 import { regularInSet } from '../collection/printings'
 import { confirmRead, parseSetAndNumber, parseSetCode, sameCardName, SCAN_MODES, scanModeOf, ScanTracker, type ScanMode } from '../scan/scanLogic'
 import { appLinkPath, qrReader } from '../scan/qr'
@@ -271,9 +272,20 @@ export function ScanPage() {
             let printing: ReturnType<typeof parseSetAndNumber> = null
             // The set code on its own, from the first read that got it, for when the number never reads.
             let setCode: string | null = null
-            // Fast scanning skips the close read and leaves the card as its usual printing.
-            for (const style of SCAN_MODES[modeRef.current].readsSmallPrint ? STRIP_STYLES : []) {
-              const text = await readSmallPrint(video, box, style).catch(() => '')
+            // The card itself, found by its edges and flattened while it's still in the frame: the
+            // small print and the look are then read off exactly the card, however it was held.
+            const mode = SCAN_MODES[modeRef.current]
+            const flat = mode.readsSmallPrint || mode.matchesArt ? flattenCard(video, box) : null
+            const flatStrip = flat && mode.readsSmallPrint ? flatCanvas(flat) : null
+            // Fast scanning skips the close read and leaves the card as its usual printing. Should
+            // the edges have been found wrong, the guide's strip is read too once the flattened
+            // card gives no set code, so finding them never reads less than before.
+            const reads: [CanvasImageSource, Box, StripStyle][] = !mode.readsSmallPrint ? []
+              : flatStrip ? [...STRIP_STYLES.map((s): [CanvasImageSource, Box, StripStyle] => [flatStrip, wholeCard(flatStrip), s]), [video, box, STRIP_STYLES[0]]]
+              : STRIP_STYLES.map((s): [CanvasImageSource, Box, StripStyle] => [video, box, s])
+            for (const [source, card, style] of reads) {
+              if (source === video && flatStrip && setCode) break
+              const text = await readSmallPrint(source, card, style).catch(() => '')
               printing = parseSetAndNumber(text)
               setCode ??= parseSetCode(text)
               if (printing || stopped) break
@@ -306,7 +318,7 @@ export function ScanPage() {
             // What the card looked like, taken now while it's still in the frame. When the set code
             // was read there's nothing left to work out; otherwise this decides the printing.
             // Fast scanning leaves the card as its usual printing rather than matching the art.
-            const look = printing || !SCAN_MODES[modeRef.current].matchesArt ? null : cameraSignatures(video, box)
+            const look = printing || !mode.matchesArt ? null : flat ? flatSignatures(flat) : cameraSignatures(video, box)
             const id = addScanned(card, !!printing)
             if (look) void matchArt(id, card, look, printing ? null : setCode)
           } catch (e) {
