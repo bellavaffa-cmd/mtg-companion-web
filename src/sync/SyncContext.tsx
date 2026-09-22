@@ -147,7 +147,12 @@ interface SyncContextValue {
   setCommander: (deckId: string, entry: DeckCardEntry | null) => void
   setPartnerCommander: (deckId: string, entry: DeckCardEntry | null) => void
   setGameMode: (deckId: string, mode: GameMode) => void
-  setDeckOwnership: (deckId: string, ownership: DeckOwnership) => void
+  /**
+   * Changes whether a deck holds the user's real cards. Becoming physical, the loose copies it now
+   * holds come out of the Unsorted pile; no longer physical, its real copies go back to the pile —
+   * or, with [keepCards] false, out of the collection (see realCopiesOf).
+   */
+  setDeckOwnership: (deckId: string, ownership: DeckOwnership, keepCards?: boolean) => void
   setDeckTags: (deckId: string, tags: string[]) => void
   addGameResult: (deckId: string, result: GameResult) => void
   /**
@@ -819,10 +824,29 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   )
 
   const setDeckOwnership = useCallback(
-    (deckId: string, ownership: DeckOwnership) => {
-      updateLibrary((lib) => mapDeck(lib, deckId, (deck) => ({ ...deck, ownership })))
+    (deckId: string, ownership: DeckOwnership, keepCards = true) => {
+      updateLibrary((lib) => {
+        const before = lib.decks.find((d) => d.id === deckId)
+        if (!before || before.ownership === ownership) return lib
+        const next = mapDeck(lib, deckId, (deck) => ({ ...deck, ownership }))
+        const after = next.decks.find((d) => d.id === deckId)!
+        if (holdsOwnCopies(before) && !holdsOwnCopies(after)) {
+          // Its real cards are loose again — unless they're going out of the collection with it.
+          const kept = keepCards ? realCopiesOf(before) : []
+          if (!kept.length) return next
+          return {
+            ...next,
+            collections: withUnsortedPile(next.collections).map((c) => (c.id === UNSORTED_COLLECTION_ID ? { ...c, entries: intoPile(c.entries, kept) } : c)),
+          }
+        }
+        if (!holdsOwnCopies(before) && holdsOwnCopies(after)) {
+          // The deck now holds real copies: the loose ones are what went into it.
+          return realCopiesOf(after).reduce((l, e) => outOfPile(l, deckId, { id: e.scryfallId, name: e.name }, e.quantity), next)
+        }
+        return next
+      })
     },
-    [updateLibrary, mapDeck],
+    [updateLibrary, mapDeck, outOfPile],
   )
 
   const setDeckTags = useCallback(

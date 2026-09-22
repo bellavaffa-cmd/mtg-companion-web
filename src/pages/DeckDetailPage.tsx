@@ -34,7 +34,7 @@ import {
   GAME_MODES, GAME_MODES_USING_COMMANDER, GAME_MODE_LABELS,
   DECK_OWNERSHIP_OPTIONS, DECK_OWNERSHIP_LABELS, DECK_OWNERSHIP_DESCRIPTIONS,
 } from '../types/models'
-import type { Deck, DeckCardEntry, GameMode } from '../types/models'
+import type { Deck, DeckCardEntry, DeckOwnership, GameMode } from '../types/models'
 
 export function DeckDetailPage() {
   const money = useMoney()
@@ -570,6 +570,14 @@ function CardRow({
 function DeckDetails({ deck, onExport, onDelete }: { deck: Deck; onExport: () => void; onDelete: () => void }) {
   const { setGameMode, setDeckOwnership, setDeckTags, setCommander, setPartnerCommander } = useSync()
   const [tagInput, setTagInput] = useState('')
+  // A physical deck becoming one that holds no real cards: asked what happens to the cards it has.
+  const [leaving, setLeaving] = useState<DeckOwnership | null>(null)
+  const realCards = realCopiesOf(deck).reduce((n, e) => n + e.quantity, 0)
+  const chooseOwnership = (o: DeckOwnership) => {
+    if (o === deck.ownership) return
+    if (deck.ownership === 'PHYSICAL' && o !== 'PHYSICAL' && realCards > 0) setLeaving(o)
+    else setDeckOwnership(deck.id, o)
+  }
   const usesCommander = GAME_MODES_USING_COMMANDER.has(deck.gameMode as GameMode)
   const addTag = () => {
     const tag = tagInput.trim()
@@ -592,10 +600,27 @@ function DeckDetails({ deck, onExport, onDelete }: { deck: Deck; onExport: () =>
         <div className="p-h"><h3>Ownership</h3></div>
         <div className="chips wrap">
           {DECK_OWNERSHIP_OPTIONS.map((o) => (
-            <PillChip key={o} label={DECK_OWNERSHIP_LABELS[o]} selected={deck.ownership === o} onClick={() => setDeckOwnership(deck.id, o)} className="on-g2" />
+            <PillChip key={o} label={DECK_OWNERSHIP_LABELS[o]} selected={deck.ownership === o} onClick={() => chooseOwnership(o)} className="on-g2" />
           ))}
         </div>
         <div className="dim" style={{ marginTop: 10 }}>{DECK_OWNERSHIP_DESCRIPTIONS[deck.ownership]}</div>
+        {leaving && (
+          <Dialog
+            title={`Make it ${DECK_OWNERSHIP_LABELS[leaving].toLowerCase()}?`}
+            onDismiss={() => setLeaving(null)}
+            actions={
+              <>
+                <button type="button" className="btn line" onClick={() => setLeaving(null)}>Cancel</button>
+                <button type="button" className="btn danger" onClick={() => { setDeckOwnership(deck.id, leaving, false); setLeaving(null) }}>Remove the cards</button>
+                <button type="button" className="btn gold" onClick={() => { setDeckOwnership(deck.id, leaving, true); setLeaving(null) }}>Keep cards</button>
+              </>
+            }
+          >
+            <p style={{ margin: 0 }}>
+              “{deck.name}” holds {realCards} of your cards, and a {DECK_OWNERSHIP_LABELS[leaving].toLowerCase()} deck doesn't count its cards as yours. <b>Keep cards</b> puts them in Unsorted; <b>Remove the cards</b> takes them out of your collection.
+            </p>
+          </Dialog>
+        )}
       </div>
 
       {usesCommander && (
