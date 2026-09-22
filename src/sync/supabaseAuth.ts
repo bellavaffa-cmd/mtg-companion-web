@@ -147,6 +147,15 @@ export async function signIn(email: string, password: string): Promise<Account> 
 }
 
 /** Returns the account if it's signed in right away, or null when a confirmation email was sent. */
+/**
+ * Signs in with a one-time token a phone approved (see sync/qrLogin.ts). The token is a magic-link
+ * hash the server made for that account; it works once.
+ */
+export async function signInWithTokenHash(tokenHash: string): Promise<Account> {
+  const s = saveSession(await post('/auth/v1/verify', { type: 'magiclink', token_hash: tokenHash }))
+  return { userId: s.userId, email: s.email }
+}
+
 export async function signUp(email: string, password: string): Promise<Account | null> {
   const json = await post(`/auth/v1/signup?${redirectParam()}`, { email: email.trim(), password })
   if (!json.access_token) return null

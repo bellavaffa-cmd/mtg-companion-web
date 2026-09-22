@@ -118,6 +118,11 @@ interface SyncContextValue {
   linkNotice: string | null
   dismissLinkNotice: () => void
   signIn: (email: string, password: string) => Promise<void>
+  /**
+   * Signs in with a one-time token a phone approved by scanning this browser's code (see
+   * sync/qrLogin.ts) — the same as signing in, without the password.
+   */
+  signInWithToken: (tokenHash: string) => Promise<void>
   /** Resolves true when signed in right away, false when a confirmation email was sent. */
   signUp: (email: string, password: string) => Promise<boolean>
   /**
@@ -588,6 +593,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     startAccount(await auth.signIn(email, password))
+  }, [startAccount])
+
+  const signInWithToken = useCallback(async (tokenHash: string) => {
+    startAccount(await auth.signInWithTokenHash(tokenHash))
   }, [startAccount])
 
   const signUp = useCallback(async (email: string, password: string) => {
@@ -1116,6 +1125,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       linkNotice,
       dismissLinkNotice: () => setLinkNotice(null),
       signIn,
+      signInWithToken,
       signUp,
       signOut,
       syncNow,
@@ -1159,7 +1169,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }),
     [
       library, account, cloud, mergePrompt, resolveMerge, passwordRecovery, linkNotice, signIn, signUp, signOut,
-      syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
+      signInWithToken, syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, addGameResult,
       addCardsToDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
       setEntryQuantities, setEntryPriceAlert, changeCollections, importIntoCollection, moveEntries, removeEntriesFromCollection,

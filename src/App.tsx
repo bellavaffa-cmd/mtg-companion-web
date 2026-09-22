@@ -31,6 +31,7 @@ const TradesPage = lazy(() => import('./pages/TradesPage').then((m) => ({ defaul
 const TradeComposerPage = lazy(() => import('./pages/TradeComposerPage').then((m) => ({ default: m.TradeComposerPage })))
 const AddFriendLinkPage = lazy(() => import('./pages/LinkPages').then((m) => ({ default: m.AddFriendLinkPage })))
 const JoinSeatPage = lazy(() => import('./pages/LinkPages').then((m) => ({ default: m.JoinSeatPage })))
+const ApproveLoginPage = lazy(() => import('./pages/LinkPages').then((m) => ({ default: m.ApproveLoginPage })))
 
 export default function App() {
   return (
@@ -60,6 +61,7 @@ export default function App() {
             <Route path="/shared/:owner/:kind/:itemId" element={<SharedItemPage />} />
             <Route path="/s/:token" element={<SharedItemPage />} />
             <Route path="/add/:username" element={<AddFriendLinkPage />} />
+            <Route path="/login/:code" element={<ApproveLoginPage />} />
             <Route path="/join/:code/:seat" element={<JoinSeatPage />} />
             <Route path="/app" element={<GetAppPage />} />
             <Route path="/value" element={<ValueHistoryPage />} />

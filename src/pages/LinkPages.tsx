@@ -4,6 +4,9 @@ import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
 import { rise, useBack } from '../components/kit'
 import * as api from '../social/api'
+import * as auth from '../sync/supabaseAuth'
+import { approveLogin, loginRequestInfo } from '../sync/qrLogin'
+import { useSync } from '../sync/SyncContext'
 import { useOverview } from '../social/SocialContext'
 import { SocialGate } from './FriendsPage'
 
@@ -121,5 +124,91 @@ function JoinSeat({ code, seat }: { code: string; seat: number }) {
         </>
       )}
     </div>
+  )
+}
+
+/**
+ * Opened from a sign-in code (/login/<code>) — by a phone's camera, say, rather than the app's own
+ * scanner. Signed in here, this device can approve the waiting browser itself; signed out, it says
+ * where to scan instead.
+ */
+export function ApproveLoginPage() {
+  const { code = '' } = useParams<{ code: string }>()
+  const back = useBack('/account')
+  const { account } = useSync()
+  const [asking, setAsking] = useState<{ browser: string } | null>(null)
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    let stopped = false
+    setResult(null)
+    setAsking(null)
+    void (async () => {
+      const token = account ? await auth.accessToken() : null
+      if (!token || stopped) return
+      const info = await loginRequestInfo(code, token)
+      if (!stopped) {
+        setAsking(info ? { browser: info.browser } : null)
+        if (!info) setResult({ ok: false, text: 'That code has run out or has already been used. Show a new one on the other device.' })
+      }
+    })()
+    return () => { stopped = true }
+  }, [code, account])
+
+  return (
+    <>
+      <TopBar title="Sign in on the web" onBack={back} />
+      <div className="content-scroll">
+        <div className="narrow-width">
+          <div className="link-card rise" style={rise(0)}>
+            <Icon name="qr_code_scanner" className="link-icon" />
+            {!account ? (
+              <>
+                <h2 className="social-title">Sign in first</h2>
+                <p className="muted">
+                  This code signs another device into your account. Sign in here, or open Manabind on a phone that's
+                  already signed in, tap Scan, and point it at the code.
+                </p>
+                <button type="button" className="btn gold" onClick={() => { window.location.assign(`${import.meta.env.BASE_URL}account`) }}>Go to Account</button>
+              </>
+            ) : result ? (
+              <>
+                <h2 className="social-title">{result.ok ? 'Signed in' : "That didn't work"}</h2>
+                <p className="muted">{result.text}</p>
+              </>
+            ) : asking ? (
+              <>
+                <h2 className="social-title">Sign in {asking.browser}?</h2>
+                <p className="muted">It will be signed in as {account.email} until it's signed out.</p>
+                <div className="account-actions">
+                  <button type="button" className="btn line" disabled={busy} onClick={back}>Not me</button>
+                  <button
+                    type="button" className="btn gold" disabled={busy}
+                    onClick={() => void (async () => {
+                      setBusy(true)
+                      try {
+                        const token = await auth.accessToken()
+                        if (!token) throw new Error('signed out')
+                        await approveLogin(code, token)
+                        setResult({ ok: true, text: `${asking.browser} is signed in as you.` })
+                      } catch (e) {
+                        setResult({ ok: false, text: e instanceof Error ? e.message : "That didn't work." })
+                      } finally {
+                        setBusy(false)
+                      }
+                    })()}
+                  >
+                    Sign it in
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="muted">Checking that code…</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
   )
 }

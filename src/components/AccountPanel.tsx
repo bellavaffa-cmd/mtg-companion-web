@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSync } from '../sync/SyncContext'
 import * as auth from '../sync/supabaseAuth'
 import { Icon } from './Icon'
 import { SetPasswordDialog } from './AccountDialogs'
+import { QrCode } from '../social/ui'
+import { loginLinkFor, startQrLogin, waitForApproval, type QrLoginRequest } from '../sync/qrLogin'
 
 function syncLine(syncing: boolean, failed: boolean, message: string | null, lastSyncedAt: number): string {
   if (syncing) return 'Syncing…'
@@ -19,7 +21,13 @@ function syncLine(syncing: boolean, failed: boolean, message: string | null, las
  * everything still works and stays in this browser.
  */
 export function AccountPanel() {
-  const { accountsAvailable, account, cloud, signIn, signUp, signOut, syncNow, resendConfirmation, sendPasswordReset } = useSync()
+  const { accountsAvailable, account, cloud, signIn, signInWithToken, signUp, signOut, syncNow, resendConfirmation, sendPasswordReset } = useSync()
+  // Signing in by showing a code for the phone to scan (see sync/qrLogin.ts).
+  const [byPhone, setByPhoneState] = useState<QrLoginRequest | null>(null)
+  // The waiting loop reads this to know the user cancelled, or started another code.
+  const requestRef = useRef<QrLoginRequest | null>(null)
+  const setByPhone = (request: QrLoginRequest | null) => { requestRef.current = request; setByPhoneState(request) }
+  const [phoneNotice, setPhoneNotice] = useState<string | null>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -156,6 +164,41 @@ export function AccountPanel() {
           Create account
         </button>
       </div>
+      {byPhone ? (
+        <div className="panel-inset" style={{ textAlign: 'center' }}>
+          <QrCode text={loginLinkFor(byPhone.code)} size={200} label="Sign-in code for the app on your phone" />
+          <div style={{ marginTop: 8 }}>Open Manabind on your phone, tap <b>Scan</b>, and point it at this code.</div>
+          <div className="dim" style={{ marginTop: 4 }}>{phoneNotice ?? 'Waiting for your phone… the code lasts two minutes.'}</div>
+          <button type="button" className="btn line sm" style={{ marginTop: 8 }} onClick={() => { setByPhone(null); setPhoneNotice(null) }}>Cancel</button>
+        </div>
+      ) : (
+        <button
+          type="button" className="btn line" disabled={busy}
+          onClick={() => void (async () => {
+            setNotice(null)
+            setPhoneNotice(null)
+            let request: QrLoginRequest
+            try {
+              request = await startQrLogin()
+            } catch {
+              setNotice("Couldn't start a phone sign-in — check your connection.")
+              return
+            }
+            setByPhone(request)
+            try {
+              const token = await waitForApproval(request, () => requestRef.current !== request)
+              if (requestRef.current !== request) return
+              if (!token) { setPhoneNotice('That code ran out. Tap again for a new one.'); return }
+              await signInWithToken(token)
+              setByPhone(null)
+            } catch {
+              if (requestRef.current === request) setPhoneNotice("That didn't work — tap Cancel and try again.")
+            }
+          })()}
+        >
+          <Icon name="qr_code_scanner" aria-hidden />Sign in with your phone
+        </button>
+      )}
       <div className="row-between">
         <span className="dim account-hint">At least 6 characters.</span>
         <button
