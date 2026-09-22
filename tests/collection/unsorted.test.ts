@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { intoPile, realCopiesOf, takenFromUnsorted, withUnsortedPile } from '../../src/collection/unsorted.ts'
+import { intoPile, realCopiesLeaving, realCopiesOf, takenFromUnsorted, withUnsortedPile } from '../../src/collection/unsorted.ts'
 import { UNSORTED_COLLECTION_ID, isUnsorted, normalizeDeck, type Collection, type CollectionEntry, type DeckCardEntry } from '../../src/types/models.ts'
 
 // The Unsorted pile is always there, like the Wishlist. The Android app has the same checks — see
@@ -77,4 +77,15 @@ test('a deck that holds no real copies gives the pile nothing', () => {
   for (const ownership of ['PROXY', 'VIRTUAL', 'PROTOTYPE'] as const) {
     assert.deepEqual(realCopiesOf(normalizeDeck({ id: 'd', name: 'D', ownership, cards: [inDeck('sol', 'Sol Ring', 1)] })), [])
   }
+})
+
+test("a card taken out of a physical deck goes back to the pile; its proxies don't", () => {
+  const bolt = inDeck('bolt', 'Lightning Bolt', 4, 1)
+  const deck = normalizeDeck({ id: 'd', name: 'D', ownership: 'PHYSICAL', cards: [bolt] })
+  assert.equal(realCopiesLeaving(deck, bolt, 0), 3)
+  assert.equal(realCopiesLeaving(deck, bolt, 3), 1)
+  assert.equal(realCopiesLeaving(deck, bolt, 1), 3)
+  assert.equal(realCopiesLeaving(deck, bolt, 5), 0)
+  const proxyDeck = normalizeDeck({ id: 'p', name: 'P', ownership: 'PROXY', cards: [inDeck('bolt', 'Lightning Bolt', 4)] })
+  assert.equal(realCopiesLeaving(proxyDeck, proxyDeck.cards[0], 0), 0)
 })

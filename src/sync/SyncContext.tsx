@@ -17,7 +17,7 @@ import {
   libraryIsAnotherAccounts, loadCloudState, loadRescue, pullChanges, pushPending, recordLocalEdits, RESCUE_MAX_AGE_MS,
   saveCloudState, saveRescue, UnauthorizedError,
 } from './cloudSync'
-import { holdsOwnCopies, intoPile, realCopiesOf, takenFromUnsorted, withUnsortedPile } from '../collection/unsorted'
+import { holdsOwnCopies, intoPile, pileEntryOf, realCopiesLeaving, realCopiesOf, takenFromUnsorted, withUnsortedPile } from '../collection/unsorted'
 import { withDeckPrinting, withEntryPrinting } from '../collection/printings'
 import { WISHLIST_ID, isEmptyWishlist, withWantedCards, withWishlist, withWishlistCardWantedAgain, withoutWishlistCard, type WantedCard } from '../collection/wishlist'
 import { gatherInto, removeEverywhere } from '../collection/allCards'
@@ -733,23 +733,42 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [library, updateLibrary, mapDeck, outOfPile],
   )
 
+  /**
+   * [next] with the Unsorted pile following a deck card's count going from what it was in [lib] to
+   * [quantity]: copies added are loose ones out of the pile; real copies leaving go back to it (proxies
+   * aside — see realCopiesLeaving). Only the deck page's own changes call this; the scanner's adds and
+   * moves between binders and decks say for themselves where a card is.
+   */
+  const pileFollows = useCallback((lib: Library, next: Library, deckId: string, scryfallId: string, quantity: number): Library => {
+    const deck = lib.decks.find((d) => d.id === deckId)
+    const entry = deck?.cards.find((c) => c.scryfallId === scryfallId)
+    if (!deck || !entry) return next
+    if (quantity > entry.quantity) return outOfPile(next, deckId, { id: entry.scryfallId, name: entry.name }, quantity - entry.quantity)
+    const leaving = realCopiesLeaving(deck, entry, quantity)
+    if (leaving === 0) return next
+    return {
+      ...next,
+      collections: withUnsortedPile(next.collections).map((c) => (c.id === UNSORTED_COLLECTION_ID ? { ...c, entries: intoPile(c.entries, [pileEntryOf(entry, leaving)]) } : c)),
+    }
+  }, [outOfPile])
+
   const removeCardFromDeck = useCallback(
     (deckId: string, scryfallId: string) => {
-      updateLibrary((lib) =>
+      updateLibrary((lib) => pileFollows(lib,
         mapDeck(lib, deckId, (deck) => ({
           ...deck,
           cards: deck.cards.filter((c) => c.scryfallId !== scryfallId),
           commander: deck.commander?.scryfallId === scryfallId ? null : deck.commander,
           partnerCommander: deck.partnerCommander?.scryfallId === scryfallId ? null : deck.partnerCommander,
-        })),
+        })), deckId, scryfallId, 0),
       )
     },
-    [updateLibrary, mapDeck],
+    [updateLibrary, mapDeck, pileFollows],
   )
 
   const setCardQuantity = useCallback(
     (deckId: string, scryfallId: string, quantity: number) => {
-      updateLibrary((lib) =>
+      updateLibrary((lib) => pileFollows(lib,
         mapDeck(lib, deckId, (deck) => {
           if (quantity <= 0) {
             return {
@@ -760,10 +779,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
             }
           }
           return { ...deck, cards: deck.cards.map((c) => (c.scryfallId === scryfallId ? { ...c, quantity } : c)) }
-        }),
+        }), deckId, scryfallId, Math.max(0, quantity)),
       )
     },
-    [updateLibrary, mapDeck],
+    [updateLibrary, mapDeck, pileFollows],
   )
 
   const setCommander = useCallback(

@@ -6,7 +6,7 @@
  * Mirrors the Android app's withUnsortedPile in data/CollectionModels.kt.
  */
 
-import { UNSORTED_COLLECTION_ID, UNSORTED_COLLECTION_NAME, isUnsorted, type Collection, type CollectionEntry, type Deck } from '../types/models'
+import { UNSORTED_COLLECTION_ID, UNSORTED_COLLECTION_NAME, isUnsorted, type Collection, type CollectionEntry, type Deck, type DeckCardEntry } from '../types/models'
 import { isWishlist } from './wishlist'
 import { proxyCopies } from '../decks/proxies'
 
@@ -89,3 +89,21 @@ export function intoPile(entries: CollectionEntry[], added: CollectionEntry[]): 
   }
   return out
 }
+
+/**
+ * How many real copies leave a deck when [entry]'s count goes down to [newQuantity] (0: taken out
+ * altogether) — the ones that go back to the Unsorted pile. Only a physical deck holds the user's own
+ * copies, and a proxy leaving is no card at all: copies come off the real ones first, the proxies
+ * staying while the deck still holds that many. Mirrors the Android app's realCopiesLeaving.
+ */
+export function realCopiesLeaving(deck: Deck, entry: DeckCardEntry, newQuantity: number): number {
+  if (!holdsOwnCopies(deck) || newQuantity >= entry.quantity) return 0
+  const before = entry.quantity - proxyCopies(deck, entry)
+  const left = Math.max(0, newQuantity)
+  const after = left === 0 ? 0 : left - proxyCopies(deck, { ...entry, quantity: left })
+  return Math.max(0, before - after)
+}
+
+/** [count] copies of [entry] as an Unsorted entry — a deck's card going back to the pile. */
+export const pileEntryOf = (entry: DeckCardEntry, count: number): CollectionEntry =>
+  ({ scryfallId: entry.scryfallId, name: entry.name, imageUrl: entry.imageUrl, quantity: count, foilQuantity: 0, backImageUrl: entry.backImageUrl ?? null, tags: entry.tags ?? [] })
