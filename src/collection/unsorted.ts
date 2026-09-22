@@ -6,7 +6,7 @@
  * Mirrors the Android app's withUnsortedPile in data/CollectionModels.kt.
  */
 
-import { UNSORTED_COLLECTION_ID, UNSORTED_COLLECTION_NAME, isUnsorted, type Collection } from '../types/models'
+import { UNSORTED_COLLECTION_ID, UNSORTED_COLLECTION_NAME, isUnsorted, type Collection, type CollectionEntry, type Deck } from '../types/models'
 import { isWishlist } from './wishlist'
 
 /**
@@ -25,3 +25,42 @@ export function withUnsortedPile(collections: Collection[]): Collection[] {
   const pile: Collection = { id: UNSORTED_COLLECTION_ID, name: UNSORTED_COLLECTION_NAME, entries: [], createdAt: 0, type: 'OWNED' }
   return [...collections, pile]
 }
+
+/** The same card by name: equal once case is ignored, and either face of a double-faced card counts. */
+const sameCard = (a: string, b: string) => {
+  const faces = (n: string) => n.toLowerCase().split(' // ')
+  const fa = faces(a)
+  return faces(b).some((f) => fa.includes(f))
+}
+
+/**
+ * The Unsorted pile's [entries] once [count] copies of a card ([scryfallId], [name]) have gone into
+ * one of the user's physical decks — the loose copies are the ones that went: that printing's first,
+ * then other printings of the same card; plain before foil. Entries left with no copies go. Also how
+ * many were taken: fewer than [count] when the pile didn't have that many. Mirrors the Android app's
+ * takenFromUnsorted in data/UnsortedPile.kt.
+ */
+export function takenFromUnsorted(entries: CollectionEntry[], scryfallId: string, name: string, count: number): { entries: CollectionEntry[]; taken: number } {
+  let left = count
+  const order = [
+    ...entries.filter((e) => e.scryfallId === scryfallId),
+    ...entries.filter((e) => e.scryfallId !== scryfallId && sameCard(e.name, name)),
+  ]
+  const after = new Map<CollectionEntry, CollectionEntry>()
+  for (const entry of order) {
+    if (left <= 0) break
+    const plain = Math.min(entry.quantity, left)
+    left -= plain
+    const foil = Math.min(entry.foilQuantity ?? 0, left)
+    left -= foil
+    after.set(entry, { ...entry, quantity: entry.quantity - plain, foilQuantity: (entry.foilQuantity ?? 0) - foil })
+  }
+  if (left === count) return { entries, taken: 0 }
+  return {
+    entries: entries.map((e) => after.get(e) ?? e).filter((e) => e.quantity + (e.foilQuantity ?? 0) > 0),
+    taken: count - left,
+  }
+}
+
+/** Whether a deck holds the user's own copies — only then does adding to it take them out of Unsorted. */
+export const holdsOwnCopies = (deck: Deck) => deck.ownership === 'PHYSICAL'

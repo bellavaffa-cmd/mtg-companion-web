@@ -17,7 +17,7 @@ import {
   libraryIsAnotherAccounts, loadCloudState, loadRescue, pullChanges, pushPending, recordLocalEdits, RESCUE_MAX_AGE_MS,
   saveCloudState, saveRescue, UnauthorizedError,
 } from './cloudSync'
-import { withUnsortedPile } from '../collection/unsorted'
+import { holdsOwnCopies, takenFromUnsorted, withUnsortedPile } from '../collection/unsorted'
 import { withDeckPrinting, withEntryPrinting } from '../collection/printings'
 import { WISHLIST_ID, isEmptyWishlist, withWantedCards, withWishlist, withWishlistCardWantedAgain, withoutWishlistCard, type WantedCard } from '../collection/wishlist'
 import { gatherInto, removeEverywhere } from '../collection/allCards'
@@ -137,8 +137,10 @@ interface SyncContextValue {
   createDeckWithCards: (name: string, cards: DeckCardEntry[], commander?: DeckCardEntry | null, partnerCommander?: DeckCardEntry | null) => Deck
   deleteDeck: (deckId: string) => void
   /** Returns a warning if the resulting copy count breaks the deck's format rules (singleton, max
-   * copies) — informational only, the card is added either way. Null if there's no issue. */
-  addCardToDeck: (deckId: string, card: ScryfallCard, quantity?: number) => string | null
+   * copies) — informational only, the card is added either way. Null if there's no issue.
+   * Copies put in a physical deck come out of the Unsorted pile if it has them — they're the loose
+   * copies going into the deck — unless [fromPile] is false: the scanner's cards are new ones in hand. */
+  addCardToDeck: (deckId: string, card: ScryfallCard, quantity?: number, fromPile?: boolean) => string | null
   removeCardFromDeck: (deckId: string, scryfallId: string) => void
   setCardQuantity: (deckId: string, scryfallId: string, quantity: number) => void
   setCommander: (deckId: string, entry: DeckCardEntry | null) => void
@@ -666,24 +668,35 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  /** [lib] with [count] copies of [card] taken out of the Unsorted pile, if [deckId] holds real copies. */
+  const outOfPile = useCallback((lib: Library, deckId: string, card: { id: string; name: string }, count: number): Library => {
+    const deck = lib.decks.find((d) => d.id === deckId)
+    if (!deck || !holdsOwnCopies(deck)) return lib
+    return {
+      ...lib,
+      collections: lib.collections.map((c) => (c.id === UNSORTED_COLLECTION_ID ? { ...c, entries: takenFromUnsorted(c.entries, card.id, card.name, count).entries } : c)),
+    }
+  }, [])
+
   const addCardToDeck = useCallback(
-    (deckId: string, card: ScryfallCard, quantity = 1): string | null => {
+    (deckId: string, card: ScryfallCard, quantity = 1, fromPile = true): string | null => {
       // Checked against the deck's currently-loaded state before writing — informational only,
       // the card is added either way (testing/sideboard scenarios are legitimate).
       const deck = library.decks.find((d) => d.id === deckId)
       const warning = deck ? duplicateWarning(deck, card, quantity) : null
-      updateLibrary((lib) =>
-        mapDeck(lib, deckId, (d) => {
+      updateLibrary((lib) => {
+        const next = mapDeck(lib, deckId, (d) => {
           const existing = d.cards.find((c) => c.scryfallId === card.id)
           const cards = existing
             ? d.cards.map((c) => (c.scryfallId === card.id ? { ...c, quantity: c.quantity + quantity } : c))
             : [...d.cards, entryFromCard(card, quantity)]
           return { ...d, cards }
-        }),
-      )
+        })
+        return fromPile ? outOfPile(next, deckId, card, quantity) : next
+      })
       return warning
     },
-    [library, updateLibrary, mapDeck],
+    [library, updateLibrary, mapDeck, outOfPile],
   )
 
   const addCardsToDeck = useCallback(
@@ -698,14 +711,16 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         return !inDeck.has(n) && !(considering && inConsidering.has(n)) && cards.findIndex((o) => o.name.toLowerCase() === n) === i
       })
       if (fresh.length === 0) return 0
-      updateLibrary((lib) =>
-        mapDeck(lib, deckId, (d) => (considering
+      updateLibrary((lib) => {
+        const next = mapDeck(lib, deckId, (d) => (considering
           ? { ...d, considering: [...(d.considering ?? []), ...fresh.map((c) => entryFromCard(c, 1))] }
-          : { ...d, cards: [...d.cards, ...fresh.map((c) => entryFromCard(c, 1))] })),
-      )
+          : { ...d, cards: [...d.cards, ...fresh.map((c) => entryFromCard(c, 1))] }))
+        // Going into the deck itself, the cards come out of the Unsorted pile (see addCardToDeck).
+        return considering ? next : fresh.reduce((l, c) => outOfPile(l, deckId, c, 1), next)
+      })
       return fresh.length
     },
-    [library, updateLibrary, mapDeck],
+    [library, updateLibrary, mapDeck, outOfPile],
   )
 
   const removeCardFromDeck = useCallback(

@@ -491,7 +491,8 @@ export function ScanPage() {
     for (const s of grouped(scanned)) {
       // A deck doesn't track foils; a binder counts them separately.
       if (target.kind === 'deck') {
-        const warning = addCardToDeck(target.id, s.card, s.quantity)
+        // Scanned cards are new copies in hand, not the loose ones in the Unsorted pile.
+        const warning = addCardToDeck(target.id, s.card, s.quantity, false)
         if (warning) warnings.push(warning)
       } else if (target.kind === 'unsorted') {
         // The pile straight into the collection, making the Unsorted pile if there isn't one.
