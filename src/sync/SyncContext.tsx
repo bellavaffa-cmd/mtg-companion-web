@@ -165,6 +165,10 @@ interface SyncContextValue {
    * for Considering, the deck itself) already has. Answers how many went in.
    */
   addCardsToDeck: (deckId: string, cards: ScryfallCard[], considering: boolean) => number
+  /** Takes a card off a deck's Considering list, deciding against it. */
+  stopConsidering: (deckId: string, scryfallId: string) => void
+  /** Moves a card from a deck's Considering list into the deck itself. */
+  considerIntoDeck: (deckId: string, scryfallId: string) => void
   removeGameResult: (deckId: string, resultId: string) => void
 
   createCollection: (name: string, type: CollectionType) => Collection
@@ -747,6 +751,33 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [library, updateLibrary, mapDeck, outOfPile],
   )
 
+  const stopConsidering = useCallback(
+    (deckId: string, scryfallId: string) => {
+      updateLibrary((lib) => mapDeck(lib, deckId, (d) => ({ ...d, considering: (d.considering ?? []).filter((c) => c.scryfallId !== scryfallId) })))
+    },
+    [updateLibrary, mapDeck],
+  )
+
+  const considerIntoDeck = useCallback(
+    (deckId: string, scryfallId: string) => {
+      updateLibrary((lib) => {
+        const deck = lib.decks.find((d) => d.id === deckId)
+        const entry = deck?.considering?.find((c) => c.scryfallId === scryfallId)
+        if (!deck || !entry) return lib
+        const next = mapDeck(lib, deckId, (d) => ({
+          ...d,
+          cards: d.cards.some((c) => c.scryfallId === scryfallId)
+            ? d.cards.map((c) => (c.scryfallId === scryfallId ? { ...c, quantity: c.quantity + 1 } : c))
+            : [...d.cards, { ...entry, quantity: 1 }],
+          considering: (d.considering ?? []).filter((c) => c.scryfallId !== scryfallId),
+        }))
+        // Just like adding it by hand: a copy you own comes out of the Unsorted pile.
+        return outOfPile(next, deckId, { id: entry.scryfallId, name: entry.name }, 1)
+      })
+    },
+    [updateLibrary, mapDeck, outOfPile],
+  )
+
   /**
    * [next] with the Unsorted pile following a deck card's count going from what it was in [lib] to
    * [quantity]: copies added are loose ones out of the pile; real copies leaving go back to it (proxies
@@ -1146,6 +1177,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setDeckTags,
       addGameResult,
       addCardsToDeck,
+      stopConsidering,
+      considerIntoDeck,
       removeGameResult,
       createCollection,
       deleteCollection,
@@ -1171,7 +1204,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       library, account, cloud, mergePrompt, resolveMerge, passwordRecovery, linkNotice, signIn, signUp, signOut,
       signInWithToken, syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, addGameResult,
-      addCardsToDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
+      addCardsToDeck, stopConsidering, considerIntoDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
       setEntryQuantities, setEntryPriceAlert, changeCollections, importIntoCollection, moveEntries, removeEntriesFromCollection,
     ],
   )

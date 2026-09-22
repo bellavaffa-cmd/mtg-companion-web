@@ -44,14 +44,14 @@ export function DeckDetailPage() {
   const size = useLayoutSize()
   const {
     decks, collections, setCardQuantity, removeCardFromDeck, addCardToDeck, setCommander, setPartnerCommander, deleteDeck, addToWishlist,
-    setDeckOwnership, swapInProxy, changeDeckPrinting,
+    setDeckOwnership, swapInProxy, changeDeckPrinting, stopConsidering, considerIntoDeck,
   } = useSync()
   const deck = decks.find((d) => d.id === id)
   const deckColors = useDeckColors(deck ? [deck] : [])
   const cardData = useDeckCardData(deck)
   // What each card does (mana ramp, removal…): searched with the name, shown in the zoom and Stats.
   const { tags: roleTags, loading: tagging } = useRoleTags(deck ? [...deck.cards, ...(deck.considering ?? [])].map((c) => c.name) : [])
-  const [tabName, setTabName] = useState<'Cards' | 'Stats' | 'Suggestions' | 'Details'>('Cards')
+  const [tabName, setTabName] = useState<'Cards' | 'Considering' | 'Stats' | 'Suggestions' | 'Details'>('Cards')
   const [filter, setFilter] = useState('')
   const [zoomId, setZoomId] = useState<string | null>(null)
   const [cardSheet, setCardSheet] = useState<DeckCardEntry | null>(null)
@@ -91,8 +91,8 @@ export function DeckDetailPage() {
   }, [deck?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Desktop shows stats beside the cards, so its tabs have no Stats tab.
-  const tabs: ('Cards' | 'Stats' | 'Suggestions' | 'Details')[] =
-    size === 'desktop' ? ['Cards', 'Suggestions', 'Details'] : ['Cards', 'Stats', 'Suggestions', 'Details']
+  const tabs: ('Cards' | 'Considering' | 'Stats' | 'Suggestions' | 'Details')[] =
+    size === 'desktop' ? ['Cards', 'Considering', 'Suggestions', 'Details'] : ['Cards', 'Considering', 'Stats', 'Suggestions', 'Details']
   const tab = tabs.includes(tabName) ? tabName : 'Cards'
 
   if (!deck) {
@@ -110,7 +110,10 @@ export function DeckDetailPage() {
   const usesCommander = GAME_MODES_USING_COMMANDER.has(deck.gameMode as GameMode)
   const commanderIds = new Set([deck.commander?.scryfallId, deck.partnerCommander?.scryfallId].filter(Boolean))
   const totalCards = deck.cards.reduce((s, c) => s + c.quantity, 0)
-  const zoomEntry = deck.cards.find((c) => c.scryfallId === zoomId) ?? null
+  const considering = deck.considering ?? []
+  const zoomEntry = deck.cards.find((c) => c.scryfallId === zoomId) ?? considering.find((c) => c.scryfallId === zoomId) ?? null
+  // A card that's only being thought about: the zoom offers to add it rather than counting copies.
+  const zoomConsidered = !!zoomEntry && !deck.cards.some((c) => c.scryfallId === zoomEntry.scryfallId)
   const commanders = [deck.commander, deck.partnerCommander].filter((c): c is DeckCardEntry => !!c)
   const figures = deckFigures(deck, cardData)
   const q = filter.trim().toLowerCase()
@@ -203,6 +206,47 @@ export function DeckDetailPage() {
     </div>
   )
 
+  const consideringList = (
+    <div style={{ marginTop: 12 }}>
+      <div className="dim" style={{ marginBottom: 10 }}>
+        Cards you think might work but haven't committed to. They don't count towards this deck's size, curve, price or legality — and a card here that you don't own shows up on your Wishlist.
+      </div>
+      {considering.length === 0 ? (
+        <div className="empty-state">
+          <Icon name="lightbulb" />
+          Nothing here yet. Add a card to Considering from a tag binder, or from the app on your phone.
+        </div>
+      ) : (
+        <div className="list">
+          {considering.map((entry) => (
+            <div key={entry.scryfallId} className="crow no-qty" style={{ gridTemplateColumns: '56px minmax(0, 1fr) auto auto' }}>
+              <button type="button" className="thumb-wrap" onClick={() => setZoomId(entry.scryfallId)} aria-label={`Look at ${entry.name}`}>
+                <ArtImage className="thumb" src={toArtCrop(entry.imageUrl)} seed={entry.name} />
+              </button>
+              <button type="button" className="cmain" style={{ textAlign: 'left' }} onClick={() => setZoomId(entry.scryfallId)}>
+                <div className="cname">{entry.name}</div>
+                <div className="cmeta">
+                  {entry.typeLine && <span>{entry.typeLine}</span>}
+                  {cardData?.get(entry.scryfallId)?.prices?.usd && <span>{money.format(Number(cardData.get(entry.scryfallId)!.prices!.usd))}</span>}
+                </div>
+              </button>
+              <button
+                type="button" className="btn gold sm"
+                onClick={() => { considerIntoDeck(deck.id, entry.scryfallId); setNotice(`${entry.name} is in the deck.`) }}
+              >
+                {size === 'phone' ? 'Add' : 'Add to deck'}
+              </button>
+              <IconButton
+                icon="close" label={`Stop considering ${entry.name}`}
+                onClick={() => { stopConsidering(deck.id, entry.scryfallId); setNotice(`Stopped considering ${entry.name}.`) }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+
   const addCards = (
     <>
       {addWarning && <div className="add-warning">{addWarning}</div>}
@@ -268,11 +312,14 @@ export function DeckDetailPage() {
           <div className="deck-columns">
             <div style={{ minWidth: 0 }}>
               <div className="deck-toolbar" style={{ position: 'sticky', top: 64, zIndex: 15, background: 'var(--g0)', padding: '10px 0 8px' }}>
-                <SegmentedTabs labels={tabs} selected={tabs.indexOf(tab)} onSelect={(i) => setTabName(tabs[i])} />
+                <SegmentedTabs
+                  labels={tabs} selected={tabs.indexOf(tab)} onSelect={(i) => setTabName(tabs[i])}
+                  counts={{ [tabs.indexOf('Considering')]: considering.length }}
+                />
                 {tab === 'Cards' && <SearchPill value={filter} onChange={setFilter} placeholder="Name or tag, e.g. ramp" />}
               </div>
               {tab === 'Cards' && searchNote}
-              {tab === 'Cards' ? cardList : tab === 'Suggestions' ? suggestions : details}
+              {tab === 'Cards' ? cardList : tab === 'Considering' ? consideringList : tab === 'Suggestions' ? suggestions : details}
             </div>
             <aside className="deck-aside">
               <MatchRecordPanel deck={deck} />
@@ -286,7 +333,10 @@ export function DeckDetailPage() {
         ) : (
           <>
             <div className={size === 'tablet' ? 'sticky-tabs deck-toolbar' : 'sticky-tabs'}>
-              <SegmentedTabs labels={tabs} selected={tabs.indexOf(tab)} onSelect={(i) => setTabName(tabs[i])} />
+              <SegmentedTabs
+                labels={tabs} selected={tabs.indexOf(tab)} onSelect={(i) => setTabName(tabs[i])}
+                counts={{ [tabs.indexOf('Considering')]: considering.length }}
+              />
               {size === 'tablet' && tab === 'Cards' && <SearchPill value={filter} onChange={setFilter} placeholder="Name or tag, e.g. ramp" />}
             </div>
             {tab === 'Cards' && (
@@ -300,6 +350,7 @@ export function DeckDetailPage() {
                 {addCards}
               </>
             )}
+            {tab === 'Considering' && consideringList}
             {tab === 'Stats' && <div style={{ marginTop: 12 }}><MatchRecordPanel deck={deck} /><DeckStats deck={deck} cardsById={cardData} roleTags={roleTags} tagging={!!tagging} onTag={(label) => { setTabName('Cards'); setFilter(label) }} /></div>}
             {tab === 'Suggestions' && <div style={{ marginTop: 12 }}>{suggestions}</div>}
             {tab === 'Details' && details}
@@ -507,9 +558,31 @@ export function DeckDetailPage() {
           onSelectSimilar={(similar) => setAddWarning(addCardToDeck(deck.id, similar))}
           similarActionLabel="Tap a card to add it to this deck"
           onClose={() => setZoomId(null)}
-          {...zoomSteps(listed, zoomEntry, (card) => setZoomId(card.scryfallId))}
+          {...zoomSteps(zoomConsidered ? considering : listed, zoomEntry, (card) => setZoomId(card.scryfallId))}
         >
-          {!commanderIds.has(zoomEntry.scryfallId) && (
+          {zoomConsidered && (
+            <div className="row-between panel" style={{ padding: '14px 16px' }}>
+              <div>
+                <div className="p-h" style={{ margin: 0 }}><h3>Considering</h3></div>
+                <div className="dim">Not in the deck yet.</div>
+              </div>
+              <div className="row" style={{ gap: 8 }}>
+                <button
+                  type="button" className="btn line sm"
+                  onClick={() => { stopConsidering(deck.id, zoomEntry.scryfallId); setZoomId(null); setNotice(`Stopped considering ${zoomEntry.name}.`) }}
+                >
+                  Not this one
+                </button>
+                <button
+                  type="button" className="btn gold sm"
+                  onClick={() => { considerIntoDeck(deck.id, zoomEntry.scryfallId); setZoomId(null); setNotice(`${zoomEntry.name} is in the deck.`) }}
+                >
+                  Add to deck
+                </button>
+              </div>
+            </div>
+          )}
+          {!zoomConsidered && !commanderIds.has(zoomEntry.scryfallId) && (
             <div className="row-between panel" style={{ padding: '14px 16px' }}>
               <div>
                 <div className="p-h" style={{ margin: 0 }}><h3>In this deck</h3></div>
