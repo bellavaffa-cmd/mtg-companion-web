@@ -165,7 +165,7 @@ export function AccountPanel() {
         </button>
       </div>
       {byPhone ? (
-        <div className="panel-inset" style={{ textAlign: 'center' }}>
+        <div className="panel-inset qr-box">
           <QrCode text={loginLinkFor(byPhone.code)} size={200} label="Sign-in code for the app on your phone" />
           <div style={{ marginTop: 8 }}>Open Manabind on your phone, tap <b>Scan</b>, and point it at this code.</div>
           <div className="dim" style={{ marginTop: 4 }}>{phoneNotice ?? 'Waiting for your phone… the code lasts two minutes.'}</div>
