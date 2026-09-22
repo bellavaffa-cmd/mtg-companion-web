@@ -154,6 +154,9 @@ export type Confirmation = 'yes' | 'partial' | 'different'
  * to account for the whole name before the card is added. [flavorName] is the name printed large on
  * a Universes Beyond card ("Kefka's Tower" over "Bolas's Citadel"), which is what the camera reads.
  */
+/** Names this many letters or fewer (Fog, Opt, Hex, Bat-) have to be read exactly. */
+const SHORT_NAME = 4
+
 export function confirmRead(title: string, cardName: string, flavorName?: string | null): Confirmation {
   const answers = [cardName, ...(flavorName ? [flavorName] : [])].map((name) => against(title, name))
   if (answers.includes('yes')) return 'yes'
@@ -165,8 +168,9 @@ function against(title: string, cardName: string): Confirmation {
   const name = letters(cardName.split(' // ')[0])
   if (!read || !name) return 'different'
   if (read === name) return 'yes'
-  // A letter or two misread across a full-length name is still that card.
-  if (Math.abs(read.length - name.length) <= 2 && distanceWithin(read, name, Math.max(1, Math.floor(name.length / 8)))) return 'yes'
+  // A letter or two misread across a full-length name is still that card. Not a short one, though:
+  // one letter off in three is a different word, and table grain read as "Baa" is not "Bat-".
+  if (name.length > SHORT_NAME && Math.abs(read.length - name.length) <= 2 && distanceWithin(read, name, Math.max(1, Math.floor(name.length / 8)))) return 'yes'
   // Anything less than the whole name is a card that wasn't all in the frame.
   if (name.includes(read) || read.includes(name)) return 'partial'
   return 'different'
@@ -196,9 +200,15 @@ export class ScanTracker {
   private lastLookedUp: string | null = null
   private lastAdded: string | null = null
   private blankStreak = 0
+  /** A read whose lookup came back as something else (see [unconfirmed]). */
+  private rejected: string | null = null
 
   /** One frame's read: the title found, or null when there wasn't one. */
-  onRead(title: string | null, forced = false): ScanStep {
+  onRead(read: string | null, forced = false): ScanStep {
+    // A read already turned down is nothing in view: an empty table's grain can read the same word
+    // frame after frame, and counted as a title it would hide the card leaving — and a second copy
+    // of it coming back would never be added.
+    const title = !forced && read !== null && this.rejected !== null && sameRead(read, this.rejected) ? null : read
     if (title === null) {
       this.blankStreak += 1
       if (this.blankStreak >= BLANK_FRAMES_TO_RESET) {
@@ -236,6 +246,7 @@ export class ScanTracker {
    */
   unconfirmed() {
     this.steadyReads = 0
+    this.rejected = this.lastLookedUp
   }
 
   /** The lookup found [cardName]: it's the card in view now, and isn't added again while it stays. */

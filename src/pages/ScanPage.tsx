@@ -28,6 +28,13 @@ import { displayImageUrl, type ScryfallCard } from '../types/scryfall'
 const CARD_ASPECT = 63 / 88
 /** A pause between reads, so the phone isn't reading flat out. */
 const BETWEEN_READS_MS = 150
+/**
+ * How long Accurate scanning keeps reading the small print, on fresh frames, once its first goes
+ * haven't made it out — glare or blur on the bottom edge often clears a moment later. The card must
+ * still be in the guide; a card whose small print reads straight away isn't held up at all.
+ */
+const SMALL_PRINT_PATIENCE_MS = 1000
+
 /** Frames in a row the title has to fail to read before the card is looked for by sight instead. */
 const SIGHT_AFTER_BLANK = 2
 /** How often the camera is checked for a QR code. */
@@ -332,6 +339,7 @@ export function ScanPage() {
         if (step.kind === 'lookup') {
           // What the camera actually read, to hold the card it found up against.
           const seenNow = read?.seen?.trim() || step.name
+          devLog(`looking up "${step.name}" (read "${seenNow}"${seenBySight ? ', by sight' : ''})`)
           try {
             // The exact printing, from the small print at the bottom — kept only if it names the same
             // card as the title (a misread number mustn't swap in a different card). Otherwise the
@@ -359,6 +367,22 @@ export function ScanPage() {
               printing = parseSetAndNumber(text)
               setCode ??= parseSetCode(text)
               if (printing || stopped) break
+            }
+            // Still not read: a few more goes on fresh frames, for as long as the card is in view.
+            if (mode.readsSmallPrint && !printing && !stopped) {
+              const until = performance.now() + SMALL_PRINT_PATIENCE_MS
+              let tries = 0
+              while (!printing && !stopped && performance.now() < until) {
+                const again = flattenCard(video, box)
+                if (!again) break // the card has left the guide
+                const strip = flatCanvas(again)
+                if (!strip) break
+                const text = await readSmallPrint(strip, wholeCard(strip), STRIP_STYLES[tries % STRIP_STYLES.length]).catch(() => '')
+                printing = parseSetAndNumber(text)
+                setCode ??= parseSetCode(text)
+                tries++
+              }
+              devLog(`small print ${printing ? `read on retry ${tries}` : `still unread after ${tries} more`}`)
             }
             if (stopped) break
             if (printing) {

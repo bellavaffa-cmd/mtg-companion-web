@@ -78,6 +78,10 @@ test('reads that keep changing wait for a steady one', () => {
 
 test('a card is only added when the read accounts for its whole name', () => {
   assert.equal(confirmRead('Lightning Bolt', 'Lightning Bolt'), 'yes')
+  // A short name has to be read exactly: grain on an empty table read as "Baa" isn't "Bat-".
+  assert.equal(confirmRead('Baa', 'Bat-'), 'different')
+  assert.equal(confirmRead('Opt', 'Opt'), 'yes')
+  assert.equal(confirmRead('0pt', 'Opt'), 'different')
   assert.equal(confirmRead('lightning bolt', 'Lightning Bolt'), 'yes')
   // Punctuation and a misread letter or two across a full name still name that card.
   assert.equal(confirmRead('Kenriths Transformation', "Kenrith's Transformation"), 'yes')
@@ -201,4 +205,18 @@ test('the set code reads on its own when the number will not', () => {
   assert.equal(parseSetCode('Illus. Someone\nFRC ENTTUS LUNTER'), 'frc')
   assert.equal(parseSetCode('U 0211'), null)
   assert.equal(parseSetCode('U 0021\nRAY XY'), null)
+})
+
+test('a read turned down counts as nothing in view, so the card leaving and a copy coming back are seen', () => {
+  const t = new ScanTracker(() => 2)
+  const steady = (title: string | null) => { t.onRead(title); return t.onRead(title) }
+  assert.deepEqual(steady('Sol Ring'), { kind: 'lookup', name: 'Sol Ring' })
+  t.added('Sol Ring')
+  // The card goes; the table's grain reads as a word, is looked up, and turned down.
+  assert.deepEqual(steady('Baa'), { kind: 'lookup', name: 'Baa' })
+  t.unconfirmed()
+  // The same grain from then on is nothing: enough of it and the card has left.
+  for (let i = 0; i < BLANK_FRAMES_TO_RESET; i++) assert.deepEqual(t.onRead('Baa'), { kind: 'wait' })
+  // So a second copy coming back is a new card.
+  assert.deepEqual(steady('Sol Ring'), { kind: 'lookup', name: 'Sol Ring' })
 })
