@@ -4,7 +4,7 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 
 /** Files from public/ that the installed app needs offline (the rest of public/ isn't used). */
-const PUBLIC_FILES = ['favicon.svg', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png']
+const PUBLIC_FILES = ['favicon.svg', 'favicon-tab.svg', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png']
 
 /**
  * Writes sw.js (from pwa/sw.template.js) listing this build's files, so the service worker keeps them

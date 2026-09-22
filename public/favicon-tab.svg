@@ -1,0 +1,10 @@
+<!--
+  Manabind's tab icon: the M alone, gold on the mark's dark ground. The full mark (favicon.svg, three
+  cards in a fan) turns to a smudge at the 16-32 px a browser tab draws it at; the letter doesn't. Its
+  strokes are as heavy as the notch between the diagonals allows at 16 px. Used only for the tab —
+  installs and the home screen keep the full mark.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" role="img" aria-label="Manabind">
+  <rect width="108" height="108" rx="24" fill="#07080E"/>
+  <path d="M27,80 L27,30 L54,60 L81,30 L81,80" fill="none" stroke="#E6B45E" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
