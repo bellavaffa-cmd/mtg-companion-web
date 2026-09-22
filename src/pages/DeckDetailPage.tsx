@@ -19,6 +19,7 @@ import { deckProxyCopies, proxiesHeldElsewhere, proxySwaps } from '../decks/prox
 import { realCopiesOf } from '../collection/unsorted'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
 import { useAddWarning } from '../components/useAddWarning'
+import { backImageUrl, cardTags, displayImageUrl, displayManaCost, displayOracleText, type ScryfallCard } from '../types/scryfall'
 import { DeckSuggestions } from '../components/DeckSuggestions'
 import { DeckStats, deckFigures, useDeckCardData } from '../components/DeckStats'
 import { MatchRecordPanel } from '../components/MatchRecordPanel'
@@ -44,7 +45,7 @@ export function DeckDetailPage() {
   const size = useLayoutSize()
   const {
     decks, collections, setCardQuantity, removeCardFromDeck, addCardToDeck, setCommander, setPartnerCommander, deleteDeck, addToWishlist,
-    setDeckOwnership, swapInProxy, changeDeckPrinting, stopConsidering, considerIntoDeck,
+    setDeckOwnership, swapInProxy, changeDeckPrinting, stopConsidering, considerIntoDeck, addCardsToDeck,
   } = useSync()
   const deck = decks.find((d) => d.id === id)
   const deckColors = useDeckColors(deck ? [deck] : [])
@@ -54,6 +55,8 @@ export function DeckDetailPage() {
   const [tabName, setTabName] = useState<'Cards' | 'Considering' | 'Stats' | 'Suggestions' | 'Details'>('Cards')
   const [filter, setFilter] = useState('')
   const [zoomId, setZoomId] = useState<string | null>(null)
+  // A suggestion opened to read: it belongs to neither list, so it zooms on its own.
+  const [zoomSuggestion, setZoomSuggestion] = useState<ScryfallCard | null>(null)
   const [cardSheet, setCardSheet] = useState<DeckCardEntry | null>(null)
   const [deckSheet, setDeckSheet] = useState(false)
   const [showExport, setShowExport] = useState(false)
@@ -254,7 +257,12 @@ export function DeckDetailPage() {
     </>
   )
 
-  const suggestions = <DeckSuggestions deck={deck} onAdd={(card) => setAddWarning(addCardToDeck(deck.id, card))} />
+  /** A suggestion the user likes goes into Considering, not into the deck. */
+  const consider = (card: ScryfallCard) => {
+    const added = addCardsToDeck(deck.id, [card], true)
+    setNotice(added ? `${card.name} is in Considering.` : `${card.name} is already in this deck or being considered.`)
+  }
+  const suggestions = <DeckSuggestions deck={deck} onExpand={setZoomSuggestion} onConsider={consider} />
   const details = <DeckDetails deck={deck} onExport={() => setShowExport(true)} onDelete={() => setConfirmDelete(true)} />
 
   return (
@@ -538,6 +546,41 @@ export function DeckDetailPage() {
       {sharing && <ShareDialog kind="deck" itemId={deck.id} name={deck.name} onClose={() => setSharing(false)} />}
       {whoHas && <WhoHasItSheet deck={deck} onClose={() => setWhoHas(false)} />}
       {goldfish && <GoldfishDialog deck={deck} onClose={() => setGoldfish(false)} />}
+
+      {zoomSuggestion && (
+        <CardZoomModal
+          imageUrl={displayImageUrl(zoomSuggestion)}
+          name={zoomSuggestion.name}
+          typeLine={zoomSuggestion.type_line}
+          priceUsd={zoomSuggestion.prices?.usd}
+          priceUsdFoil={zoomSuggestion.prices?.usd_foil}
+          scryfallId={zoomSuggestion.id}
+          currentDeckId={deck.id}
+          backImageUrl={backImageUrl(zoomSuggestion)}
+          tags={cardTags(zoomSuggestion)}
+          oracleText={displayOracleText(zoomSuggestion)}
+          manaCost={displayManaCost(zoomSuggestion)}
+          buyUrl={buyCardUrl(zoomSuggestion)}
+          onSelectSimilar={setZoomSuggestion}
+          similarActionLabel="Tap a card to read it"
+          onClose={() => setZoomSuggestion(null)}
+        >
+          <div className="row" style={{ gap: 8 }}>
+            <button
+              type="button" className="btn line block"
+              onClick={() => { setAddWarning(addCardToDeck(deck.id, zoomSuggestion)); setZoomSuggestion(null); setNotice(`${zoomSuggestion.name} is in the deck.`) }}
+            >
+              <Icon name="playing_cards" />Add to deck
+            </button>
+            <button
+              type="button" className="btn gold block"
+              onClick={() => { consider(zoomSuggestion); setZoomSuggestion(null) }}
+            >
+              <Icon name="add" />Consider it
+            </button>
+          </div>
+        </CardZoomModal>
+      )}
 
       {zoomEntry && (
         <CardZoomModal

@@ -9,16 +9,24 @@ import { rise } from './kit'
 
 /**
  * Cards other people play with this deck's commander that it doesn't have yet, from EDHREC —
- * the Android app's Suggestions tab. Tapping one looks it up on Scryfall and adds it.
+ * the Android app's Suggestions tab. Tapping one opens it, to read before deciding; the + puts it
+ * in Considering, since a suggestion is a thought about the deck rather than a change to it.
  */
-export function DeckSuggestions({ deck, onAdd, index = 0 }: { deck: Deck; onAdd: (card: ScryfallCard) => void; index?: number }) {
+export function DeckSuggestions({ deck, onExpand, onConsider, index = 0 }: {
+  deck: Deck
+  /** Look at the card — it's only a suggestion until the user says otherwise. */
+  onExpand: (card: ScryfallCard) => void
+  onConsider: (card: ScryfallCard) => void
+  index?: number
+}) {
   const commander = deck.commander?.name ?? null
   const have = [...deck.cards.map((c) => c.name), ...(deck.commander ? [deck.commander.name] : [])]
   const key = `${commander}#${[...have].sort().join('|')}`
   const [cards, setCards] = useState<EdhrecCard[] | null | undefined>(undefined)
   // Set when EDHREC couldn't be reached at all — a different thing from having no page for the commander.
   const [unreachable, setUnreachable] = useState<string | null>(null)
-  const [adding, setAdding] = useState<string | null>(null)
+  // The name being looked up on Scryfall, and what it's for: EDHREC gives us a name, nothing more.
+  const [busy, setBusy] = useState<{ name: string; considering: boolean } | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
 
   // Only a new commander shows the loading state; a card added to the deck just re-ranks the list.
@@ -46,15 +54,15 @@ export function DeckSuggestions({ deck, onAdd, index = 0 }: { deck: Deck; onAdd:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
 
-  const add = async (card: EdhrecCard) => {
-    setAdding(card.name)
+  const fetchThen = async (card: EdhrecCard, considering: boolean, use: (card: ScryfallCard) => void) => {
+    setBusy({ name: card.name, considering })
     setFailed(null)
     try {
-      onAdd(await getByFuzzyName(card.name))
+      use(await getByFuzzyName(card.name))
     } catch {
       setFailed(card.name)
     } finally {
-      setAdding(null)
+      setBusy(null)
     }
   }
 
@@ -77,29 +85,44 @@ export function DeckSuggestions({ deck, onAdd, index = 0 }: { deck: Deck; onAdd:
         {cards.map((card) => {
           const image = edhrecImageUrl(card)
           const percent = inclusionPercent(card)
+          const working = busy?.name === card.name
           return (
-            <button
-              key={card.name}
-              type="button"
-              className="suggest press"
-              onClick={() => void add(card)}
-              disabled={adding === card.name}
-              title={`Add ${card.name} to this deck`}
-            >
-              {image
-                ? <img src={image} alt="" loading="lazy" data-card-preview={biggerImageUrl(image) ?? undefined} />
-                : <span className="suggest-noart"><Icon name="image_not_supported" /></span>}
-              <span className="suggest-name">{card.name}</span>
-              <span className="suggest-meta">
-                {adding === card.name ? 'Adding…' : percent !== null ? `${percent}% of decks` : `${card.numDecks ?? 0} decks`}
-              </span>
-              <span className="suggest-add"><Icon name="add" /></span>
-            </button>
+            <div key={card.name} className={`suggest${working ? ' busy' : ''}`}>
+              <button
+                type="button"
+                className="suggest-open press"
+                onClick={() => void fetchThen(card, false, onExpand)}
+                disabled={working}
+                title={`Look at ${card.name}`}
+              >
+                {image
+                  ? <img src={image} alt="" loading="lazy" data-card-preview={biggerImageUrl(image) ?? undefined} />
+                  : <span className="suggest-noart"><Icon name="image_not_supported" /></span>}
+                <span className="suggest-name">{card.name}</span>
+                <span className="suggest-meta">
+                  {working
+                    ? (busy!.considering ? 'Adding…' : 'Opening…')
+                    : percent !== null ? `${percent}% of decks` : `${card.numDecks ?? 0} decks`}
+                </span>
+              </button>
+              <button
+                type="button"
+                className="suggest-add"
+                onClick={() => void fetchThen(card, true, onConsider)}
+                disabled={working}
+                aria-label={`Consider ${card.name} for this deck`}
+                title={`Consider ${card.name} for this deck`}
+              >
+                <Icon name="add" />
+              </button>
+            </div>
           )
         })}
       </div>
       {failed && <div className="dim" style={{ marginTop: 10 }}>Couldn't find {failed} on Scryfall.</div>}
-      <div className="dim" style={{ marginTop: 10 }}>From EDHREC, based on decks people have published with {commander}.</div>
+      <div className="dim" style={{ marginTop: 10 }}>
+        From EDHREC, based on decks people have published with {commander}. Tap a card to read it, or + to put it in Considering.
+      </div>
     </div>
   )
 }

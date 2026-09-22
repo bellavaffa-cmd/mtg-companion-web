@@ -2493,19 +2493,29 @@ html {
 }
 .suggest {
   position: relative;
-  display: grid;
-  gap: 4px;
-  padding: 0 0 10px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--g1);
   color: var(--t0);
-  text-align: left;
-  cursor: pointer;
   overflow: hidden;
 }
-.suggest:disabled {
+/* The card itself opens it; the + beside it is its own button (see DeckSuggestions.tsx). */
+.suggest-open {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 0 0 10px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.suggest.busy {
   opacity: 0.6;
+}
+.suggest.busy .suggest-open,
+.suggest.busy .suggest-add {
   cursor: default;
 }
 .suggest img,
@@ -2535,12 +2545,25 @@ html {
   right: 8px;
   width: 30px;
   height: 30px;
+  padding: 0;
+  border: 0;
   border-radius: 50%;
   background: var(--gold);
   color: var(--gold-ink);
   display: grid;
   place-items: center;
+  cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  transition: transform 0.15s var(--out);
+}
+.suggest-add:hover {
+  transform: scale(1.08);
+}
+/* Thumb-sized to press, without drawing a bigger circle. */
+.suggest-add::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
 }
 .suggest-add .icon {
   font-size: 20px;
