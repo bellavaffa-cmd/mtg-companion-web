@@ -10,6 +10,52 @@ export function syncScenarios(cas: boolean) {
   const sim = createSim(cas)
   const casOnly = cas ? {} : { skip: 'needs push_library_items_v2 (compare-and-swap)' }
 
+  // A library that goes missing wholesale — storage cleared, a browser's data wiped, a backup half
+  // restored — used to be read as "the user deleted all of this" and empty the account, taking every
+  // card list with it (the server keeps no copy of a deleted item).
+  test('a device whose decks all vanished fills back up instead of emptying the account', async () => {
+    sim.reset('A', 'B')
+    sim.setDeck('A', 'd1', [['x', 1]])
+    sim.setDeck('A', 'd2', [['y', 2]])
+    sim.setDeck('A', 'd3', [['z', 3]])
+    await sim.settle('A', 'B')
+
+    // A's decks are gone from under it, bookkeeping and binders intact, and nothing deleted them.
+    sim.loseDecks('A')
+    await sim.settle('A')
+
+    assert.equal(sim.server('d1'), 'x1')
+    assert.equal(sim.server('d2'), 'y2')
+    assert.equal(sim.server('d3'), 'z3')
+    assert.equal(sim.show('A', 'd1'), 'x1')
+    assert.equal(sim.show('A', 'd3'), 'z3')
+    // And the other device never hears about a deletion.
+    await sim.settle('B')
+    assert.equal(sim.show('B', 'd2'), 'y2')
+  })
+
+  test('deleting decks by hand still reaches the other device', async () => {
+    sim.reset('A', 'B')
+    sim.setDeck('A', 'd1', [['x', 1]])
+    sim.setDeck('A', 'd2', [['y', 2]])
+    await sim.settle('A', 'B')
+    sim.removeDeck('A', 'd1')
+    await sim.settle('A', 'B')
+    assert.equal(sim.server('d1'), '(deleted)')
+    assert.equal(sim.show('B', 'd1'), '(none)')
+    assert.equal(sim.show('B', 'd2'), 'y2')
+  })
+
+  test('deleting the only deck there is still counts as a deletion', async () => {
+    sim.reset('A', 'B')
+    sim.setDeck('A', 'd1', [['x', 1]])
+    await sim.settle('A', 'B')
+    sim.removeDeck('A', 'd1')
+    await sim.settle('A', 'B')
+    assert.equal(sim.server('d1'), '(deleted)')
+    assert.equal(sim.show('B', 'd1'), '(none)')
+  })
+
   test('an edit made twice in a row counts once', async () => {
     sim.reset('A')
     sim.setDeck('A', 'd1', [['x', 1]]); await sim.settle('A')

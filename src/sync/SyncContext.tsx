@@ -14,7 +14,7 @@ import { applyCollectionChanges, type CollectionChange } from '../social/tradeLo
 import { dropPushOnSignOut } from '../social/push'
 import {
   applyRemoteChanges, applyRescue, captureRescue, clearCloudState, clearRescue, CLOUD_STATE_KEY, leftoverFromSignOut,
-  libraryIsAnotherAccounts, loadCloudState, loadRescue, pullChanges, pushPending, recordLocalEdits, RESCUE_MAX_AGE_MS,
+  libraryIsAnotherAccounts, loadCloudState, loadRescue, noteDeleted, pullChanges, pushPending, recordLocalEdits, RESCUE_MAX_AGE_MS,
   saveCloudState, saveRescue, UnauthorizedError,
 } from './cloudSync'
 import { holdsOwnCopies, intoPile, pileEntryOf, realCopiesLeaving, realCopiesOf, takenFromUnsorted, withUnsortedPile } from '../collection/unsorted'
@@ -679,11 +679,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       const deck = lib.decks.find((d) => d.id === deckId)
       const kept = keepCards && deck ? realCopiesOf(deck) : []
       const withPile = kept.length ? withUnsortedPile(lib.collections) : lib.collections
-      return {
+      // Said out loud, so the sync knows this is a deletion and not a library that went missing.
+      return noteDeleted({
         ...lib,
         decks: lib.decks.filter((d) => d.id !== deckId),
         collections: kept.length ? withPile.map((c) => (c.id === UNSORTED_COLLECTION_ID ? { ...c, entries: intoPile(c.entries, kept) } : c)) : lib.collections,
-      }
+      }, [`deck:${deckId}`])
     }),
     [updateLibrary],
   )
@@ -965,7 +966,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const deleteCollection = useCallback(
     // Never the Wishlist or the Unsorted pile, which are always there.
     (collectionId: string) => collectionId === WISHLIST_ID || collectionId === UNSORTED_COLLECTION_ID ? undefined :
-      updateLibrary((lib) => ({ ...lib, collections: lib.collections.filter((c) => c.id !== collectionId) })),
+      updateLibrary((lib) => noteDeleted({ ...lib, collections: lib.collections.filter((c) => c.id !== collectionId) }, [`collection:${collectionId}`])),
     [updateLibrary],
   )
 

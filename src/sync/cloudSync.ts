@@ -26,6 +26,26 @@ const PULL_OVERLAP_MS = 60_000
 export interface Library {
   decks: Deck[]
   collections: Collection[]
+  /**
+   * What the user deleted here and when — "deck:<id>" / "collection:<id>". Kept beside the library
+   * itself, rather than with the sync's bookkeeping, on purpose: if this browser's storage is lost,
+   * these go with it, and the sync can then tell a deletion it was told about from a library that
+   * simply isn't there any more (see notePending).
+   */
+  deleted?: Record<string, number>
+}
+
+/** How long a deletion is remembered after the fact, in case it can't be pushed for a while. */
+const REMEMBER_DELETED_MS = 90 * 24 * 60 * 60 * 1000
+
+/** [library] with [keys] marked as deleted by the user, old records dropped. */
+export function noteDeleted(library: Library, keys: string[], now = Date.now()): Library {
+  const deleted: Record<string, number> = {}
+  for (const [key, at] of Object.entries(library.deleted ?? {})) {
+    if (now - at < REMEMBER_DELETED_MS) deleted[key] = at
+  }
+  for (const key of keys) deleted[key] = now
+  return { ...library, deleted }
 }
 
 interface ItemMeta {
@@ -193,8 +213,44 @@ async function fetchRows(token: string, keys: string[]): Promise<RemoteRow[]> {
   return out
 }
 
-/** Local changes since the last agreement with the server, each stamped with when it was first noticed. */
-function detectPending(local: Map<string, string>, state: CloudState, now: number): Record<string, number> {
+/**
+ * How many items of a kind must be synced before their all going missing at once counts as a lost
+ * library rather than a deletion (see lostKinds). Two: deleting your only deck should still reach
+ * your other devices.
+ */
+const LOST_AT_LEAST = 2
+
+const kindOf = (key: string) => key.slice(0, key.indexOf(':'))
+
+/**
+ * Kinds whose every synced item has vanished from [local] between two passes: a library that's been
+ * lost — browser storage wiped, app data cleared, a backup half-restored — rather than deletions the
+ * user asked for. Deleting by hand pushes each item as it goes, so a whole kind going at once is not
+ * something a person did through the app.
+ *
+ * The cost of being wrong each way is what sets the rule: a deletion that doesn't propagate is an
+ * annoyance the user can repeat, while a wrongly-pushed one empties the account and takes the card
+ * lists with it — the server keeps no copy of a deleted item.
+ */
+function lostKinds(state: CloudState, local: Map<string, string>, deleted: Record<string, number>): Set<string> {
+  const alive: Record<string, string[]> = {}
+  for (const [key, meta] of Object.entries(state.items)) {
+    if (!meta.deleted) (alive[kindOf(key)] ??= []).push(key)
+  }
+  return new Set(Object.entries(alive)
+    .filter(([, keys]) => keys.length >= LOST_AT_LEAST
+      && keys.every((key) => !local.has(key) && !(key in deleted)))
+    .map(([kind]) => kind))
+}
+
+/**
+ * [state] with local changes noted, each stamped with when it was first noticed.
+ *
+ * An item this browser had agreed on and no longer holds is a deletion — except when every deck, or
+ * every binder, has gone at once (see lostKinds). Those are forgotten and read back instead, so a
+ * browser whose storage was lost fills up again rather than emptying the account.
+ */
+function notePending(local: Map<string, string>, state: CloudState, now: number, deleted: Record<string, number> = {}): CloudState {
   const pending = { ...state.pending }
   local.forEach((json, key) => {
     const meta = state.items[key]
@@ -204,10 +260,20 @@ function detectPending(local: Map<string, string>, state: CloudState, now: numbe
       delete pending[key]
     }
   })
+  const lost = lostKinds(state, local, deleted)
+  const forget: string[] = []
   Object.entries(state.items).forEach(([key, meta]) => {
-    if (!meta.deleted && !local.has(key) && !(key in pending)) pending[key] = now
+    if (meta.deleted || local.has(key)) return
+    // A deletion the app told us about is always a deletion, however many go at once.
+    if (lost.has(kindOf(key)) && !(key in deleted)) forget.push(key)
+    else if (!(key in pending)) pending[key] = now
   })
-  return pending
+  if (forget.length === 0) return { ...state, pending }
+  const items = { ...state.items }
+  // Forgotten, not deleted: with no agreed version left for these, the next pull writes the server's
+  // copies to this browser (below, where there is no meta and we hold nothing).
+  for (const key of forget) { delete items[key]; delete pending[key] }
+  return { ...state, items, pending, refetch: [...new Set([...(state.refetch ?? []), ...forget])] }
 }
 
 /**
@@ -218,8 +284,8 @@ function detectPending(local: Map<string, string>, state: CloudState, now: numbe
 export function recordLocalEdits(snapshot: Library, userId: string): void {
   const loaded = loadCloudState()
   const state = loaded.userId === userId ? loaded : emptyCloudState(userId)
-  const pending = detectPending(libraryJson(snapshot), state, Date.now())
-  if (JSON.stringify(pending) !== JSON.stringify(state.pending)) saveCloudState({ ...state, pending })
+  const next = notePending(libraryJson(snapshot), state, Date.now(), snapshot.deleted ?? {})
+  if (JSON.stringify(next) !== JSON.stringify(state)) saveCloudState(next)
 }
 
 /** What a pull found. Nothing is saved yet: apply [remoteChanges] locally, then save [state], then push. */
@@ -238,10 +304,13 @@ export interface PullOutcome {
  * merging where both sides changed an item and keeping any pending local edit that's newer.
  */
 export async function pullChanges(snapshot: Library, startState: CloudState, userId: string, token: string): Promise<PullOutcome> {
-  const state = startState.userId === userId ? startState : emptyCloudState(userId)
+  const known = startState.userId === userId ? startState : emptyCloudState(userId)
   const local = libraryJson(snapshot)
   const now = Date.now()
-  const pending = detectPending(local, state, now)
+  // Noting first: a kind that has gone missing wholesale is forgotten here, so the read-back below
+  // brings it home instead of the push emptying the account.
+  const state = notePending(local, known, now, snapshot.deleted ?? {})
+  const pending = { ...state.pending }
 
   const rows = await orWithoutCas(() => pull(token, state.cursor))
   // Rows a skipped push left behind, and those of a push whose answer never came — unless the cursor
@@ -509,7 +578,7 @@ export interface Rescue {
 export function captureRescue(library: Library, state: CloudState, userId: string, now: number): Rescue | null {
   if (state.userId !== userId) return null
   const local = libraryJson(library)
-  const pending = detectPending(local, state, now)
+  const pending = notePending(local, state, now, library.deleted ?? {}).pending
   const items: Rescue['items'] = {}
   for (const key of Object.keys(pending)) items[key] = { json: local.get(key) ?? null, base: state.items[key]?.base }
   return Object.keys(items).length > 0 ? { userId, savedAt: now, items } : null

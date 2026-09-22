@@ -119,8 +119,13 @@ export function createSim(cas: boolean) {
       const others = libs[dev].decks.filter((d) => d.id !== id)
       libs[dev] = { ...libs[dev], decks: [...others, deck(id, cards, extra)].sort((a, b) => (a.id < b.id ? -1 : 1)) }
     },
+    /** The user deleting a deck in the app, which says so (SyncContext.deleteDeck). */
     removeDeck(dev: string, id: string) {
-      libs[dev] = { ...libs[dev], decks: libs[dev].decks.filter((d) => d.id !== id) }
+      libs[dev] = cs.noteDeleted({ ...libs[dev], decks: libs[dev].decks.filter((d) => d.id !== id) }, [`deck:${id}`])
+    },
+    /** Decks gone without the app deleting them: storage cleared, a backup half restored. */
+    loseDecks(dev: string) {
+      libs[dev] = { ...libs[dev], decks: [] }
     },
     cards: (dev: string, id = 'd1'): Cards => (libs[dev].decks.find((d) => d.id === id)?.cards ?? []).map((c) => [c.scryfallId, c.quantity]),
     /** A deck's cards on [dev], e.g. "x1,y2"; "(none)" when it doesn't have the deck. */
