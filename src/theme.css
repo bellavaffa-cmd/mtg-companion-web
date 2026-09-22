@@ -3804,3 +3804,21 @@ button.tag-chip {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* The card a mouse is resting on, shown big beside it (components/CardHoverPreview.tsx). Mouse
+   only, and never takes the pointer, so it can't get in the way of a click. */
+.card-hover-preview {
+  position: fixed;
+  /* Above the dialogs (60) that hold printing pickers, under the toast (70). */
+  z-index: 65;
+  pointer-events: none;
+  border-radius: 4.75% / 3.5%;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+  animation: fade-in 0.12s ease both;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .card-hover-preview {
+    display: none;
+  }
+}

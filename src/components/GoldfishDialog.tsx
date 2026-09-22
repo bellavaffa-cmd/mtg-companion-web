@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { biggerImageUrl } from '../types/scryfall'
 import type { Deck } from '../types/models'
 import { OPENING_HAND, shuffledLibrary, type LibraryCard } from '../decks/goldfish'
 import { CardZoomModal } from './CardZoomModal'
@@ -45,7 +46,7 @@ export function GoldfishDialog({ deck, onClose }: { deck: Deck; onClose: () => v
             <div className="goldfish-hand">
               {hand.map((c) => (
                 <button key={c.key} type="button" className="goldfish-card press" onClick={() => setZoom(c)} aria-label={c.entry.name}>
-                  {c.entry.imageUrl ? <img src={c.entry.imageUrl} alt="" loading="lazy" /> : <span className="goldfish-noimg">{c.entry.name}</span>}
+                  {c.entry.imageUrl ? <img src={c.entry.imageUrl} alt="" loading="lazy" data-card-preview={biggerImageUrl(c.entry.imageUrl) ?? undefined} /> : <span className="goldfish-noimg">{c.entry.name}</span>}
                 </button>
               ))}
             </div>

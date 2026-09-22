@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { SyncProvider } from './sync/SyncContext'
 import { AccountDialogs } from './components/AccountDialogs'
+import { CardHoverPreview } from './components/CardHoverPreview'
 import { Layout } from './components/Layout'
 import { HomePage } from './pages/HomePage'
 import { CollectionsPage } from './pages/CollectionsPage'
@@ -74,6 +75,7 @@ export default function App() {
       </BrowserRouter>
       </SocialProvider>
       <AccountDialogs />
+      <CardHoverPreview />
     </SyncProvider>
   )
 }

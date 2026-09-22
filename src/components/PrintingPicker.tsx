@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getPrintings } from '../api/scryfall'
-import { displayImageUrl, type ScryfallCard } from '../types/scryfall'
+import { displayImageUrl, largeImageUrl, type ScryfallCard } from '../types/scryfall'
 import { Dialog } from './Dialog'
 import { ArtImage } from './kit'
 
@@ -45,7 +45,7 @@ export function PrintingPicker({ name, currentId, prompt = "Pick the printing yo
               onClick={() => onPick(card)}
             >
               <div className="card-cell-img">
-                {displayImageUrl(card) ? <img src={displayImageUrl(card)!} alt={card.name} loading="lazy" /> : <ArtImage src={null} seed={card.name} />}
+                {displayImageUrl(card) ? <img src={displayImageUrl(card)!} alt={card.name} loading="lazy" data-card-preview={largeImageUrl(card) ?? undefined} /> : <ArtImage src={null} seed={card.name} />}
               </div>
               <div className="card-cell-name">{printingName(card)}</div>
             </button>

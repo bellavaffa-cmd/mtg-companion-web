@@ -3,6 +3,7 @@
 // into a binder, adding them to a deck, exporting or removing them. Mirrors the Android app's
 // CollectionsScreen (AllCardsTab).
 
+import { biggerImageUrl } from '../types/scryfall'
 import { PrintingPicker, printingName } from '../components/PrintingPicker'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -452,7 +453,7 @@ function CardTile({ card, selecting, selected, onToggle, onZoom }: {
   return (
     <div className={`card-cell press${selected ? ' picked' : ''}`} {...longPress}>
       <div className="card-cell-img">
-        {card.imageUrl ? <img src={card.imageUrl} alt={card.name} loading="lazy" /> : <ArtImage src={null} seed={card.name} />}
+        {card.imageUrl ? <img src={card.imageUrl} alt={card.name} loading="lazy" data-card-preview={biggerImageUrl(card.imageUrl) ?? undefined} /> : <ArtImage src={null} seed={card.name} />}
         {selecting && <span className={`pick-mark${selected ? ' on' : ''}`} aria-label={selected ? 'Selected' : 'Not selected'}>{selected && <Icon name="check" />}</span>}
         <span className="card-cell-count">×{card.total}</span>
         {card.proxies > 0 && <span className="card-cell-proxy">proxy</span>}

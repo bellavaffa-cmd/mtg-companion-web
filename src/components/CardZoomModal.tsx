@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { findSimilarCards, getByFuzzyName } from '../api/scryfall'
 import { combosUsingCard, comboUrl, relayAvailable, type ComboVariant } from '../api/relay'
-import { displayImageUrl, type ScryfallCard } from '../types/scryfall'
+import { displayImageUrl, largeImageUrl, type ScryfallCard } from '../types/scryfall'
 import { Icon } from './Icon'
 import { InlineManaText } from './ManaSymbols'
 import { IconButton, PillChip, SectionHeader } from './kit'
@@ -314,7 +314,7 @@ export function CardZoomModal({
                     onClick={() => onSelectSimilar?.(s)}
                     style={{ cursor: onSelectSimilar ? 'pointer' : 'default' }}
                   >
-                    <img src={displayImageUrl(s) ?? undefined} alt={s.name} loading="lazy" />
+                    <img src={displayImageUrl(s) ?? undefined} alt={s.name} loading="lazy" data-card-preview={largeImageUrl(s) ?? undefined} />
                     <div className="similar-card-name">{s.name}</div>
                   </button>
                 ))}

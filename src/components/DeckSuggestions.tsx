@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { biggerImageUrl } from '../types/scryfall'
 import { commanderSuggestions, edhrecImageUrl, inclusionPercent, OfflineError, type EdhrecCard } from '../api/edhrec'
 import { getByFuzzyName } from '../api/scryfall'
 import type { Deck } from '../types/models'
@@ -86,7 +87,7 @@ export function DeckSuggestions({ deck, onAdd, index = 0 }: { deck: Deck; onAdd:
               title={`Add ${card.name} to this deck`}
             >
               {image
-                ? <img src={image} alt="" loading="lazy" />
+                ? <img src={image} alt="" loading="lazy" data-card-preview={biggerImageUrl(image) ?? undefined} />
                 : <span className="suggest-noart"><Icon name="image_not_supported" /></span>}
               <span className="suggest-name">{card.name}</span>
               <span className="suggest-meta">

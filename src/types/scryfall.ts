@@ -60,6 +60,25 @@ export function displayImageUrl(card: ScryfallCard | null | undefined): string |
   return card.image_uris?.normal ?? card.card_faces?.[0]?.image_uris?.normal ?? null
 }
 
+/** The big art, for a hover preview or a zoom: 'large' where Scryfall has it, else what we'd show. */
+export function largeImageUrl(card: ScryfallCard | null | undefined): string | null {
+  if (!card) return null
+  return card.image_uris?.large ?? card.card_faces?.[0]?.image_uris?.large ?? displayImageUrl(card)
+}
+
+/**
+ * The whole card, big, from the address of any other size of the same picture — Scryfall's URLs are
+ * …/<size>/front/a/b/id.jpg, so an art crop leads back to the full card. For the hover preview,
+ * which often has only the thumbnail's address to go on. Null for anything else, rather than a guess
+ * that would 404.
+ */
+export function biggerImageUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  return /^https:\/\/cards\.scryfall\.io\/(small|normal|art_crop|border_crop)\//.test(url)
+    ? url.replace(/\/(small|normal|art_crop|border_crop)\//, '/large/')
+    : null
+}
+
 const FLIPPABLE_LAYOUTS = new Set(['transform', 'modal_dfc', 'flip', 'reversible_card', 'double_faced_token'])
 
 /** True for cards with a real second side to flip to: transform, modal DFC, flip, and reversible

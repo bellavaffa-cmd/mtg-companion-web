@@ -138,7 +138,7 @@ function Sidebar() {
               to={`/decks/${deck.id}`}
               className={`side-deck${location.pathname === `/decks/${deck.id}` ? ' active' : ''}`}
             >
-              <ArtImage className="side-deck-art" src={toArtCrop(deck.commander?.imageUrl)} seed={deck.name} colors={colors[deck.id]} />
+              <ArtImage className="side-deck-art" src={toArtCrop(deck.commander?.imageUrl)} seed={deck.name} colors={colors[deck.id]} preview={false} />
               <span className="side-deck-name">{deck.name}</span>
             </NavLink>
           ))}

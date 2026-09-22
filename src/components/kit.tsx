@@ -1,6 +1,7 @@
 // Web versions of the Android app's shared building blocks (ui/common/DesignKit.kt): art with a
 // mana-coloured fallback, identity strips, pips, pill chips, a sliding segmented control, count-ups.
 
+import { biggerImageUrl } from '../types/scryfall'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -76,14 +77,25 @@ export function fallbackArt(seed: string, colors: string[] = []): string {
   return layers.join(', ')
 }
 
-/** An art image with [fallbackArt] underneath, so it never shows as an empty box. */
+/**
+ * An art image with [fallbackArt] underneath, so it never shows as an empty box.
+ *
+ * On a desktop, resting the mouse on it shows the whole card big (components/CardHoverPreview.tsx).
+ * That comes free wherever the art is a card's — pass [preview] to name a different picture, or
+ * false where the art isn't a card at all.
+ */
 export function ArtImage({
-  src, seed, colors = [], className = '', style, alt = '',
-}: { src: string | null | undefined; seed: string; colors?: string[]; className?: string; style?: CSSProperties; alt?: string }) {
+  src, seed, colors = [], className = '', style, alt = '', preview,
+}: { src: string | null | undefined; seed: string; colors?: string[]; className?: string; style?: CSSProperties; alt?: string; preview?: string | null | false }) {
   const [failed, setFailed] = useState(false)
   useEffect(() => setFailed(false), [src])
+  const big = preview === false ? null : preview ?? biggerImageUrl(src)
   return (
-    <div className={`art ${className}`} style={{ background: fallbackArt(seed, colors), ...style }}>
+    <div
+      className={`art ${className}`}
+      style={{ background: fallbackArt(seed, colors), ...style }}
+      {...(big && !failed ? { 'data-card-preview': big } : {})}
+    >
       {src && !failed && <img src={src} alt={alt} loading="lazy" onError={() => setFailed(true)} />}
     </div>
   )
