@@ -17,7 +17,7 @@ import {
   libraryIsAnotherAccounts, loadCloudState, loadRescue, pullChanges, pushPending, recordLocalEdits, RESCUE_MAX_AGE_MS,
   saveCloudState, saveRescue, UnauthorizedError,
 } from './cloudSync'
-import { holdsOwnCopies, takenFromUnsorted, withUnsortedPile } from '../collection/unsorted'
+import { holdsOwnCopies, intoPile, realCopiesOf, takenFromUnsorted, withUnsortedPile } from '../collection/unsorted'
 import { withDeckPrinting, withEntryPrinting } from '../collection/printings'
 import { WISHLIST_ID, isEmptyWishlist, withWantedCards, withWishlist, withWishlistCardWantedAgain, withoutWishlistCard, type WantedCard } from '../collection/wishlist'
 import { gatherInto, removeEverywhere } from '../collection/allCards'
@@ -135,7 +135,8 @@ interface SyncContextValue {
   createDeck: (name: string, gameMode: GameMode) => Deck
   /** Creates a Commander deck already holding [cards] — importing a precon. */
   createDeckWithCards: (name: string, cards: DeckCardEntry[], commander?: DeckCardEntry | null, partnerCommander?: DeckCardEntry | null) => Deck
-  deleteDeck: (deckId: string) => void
+  /** Deletes a deck; with [keepCards], its real copies go back to the Unsorted pile first (see realCopiesOf). */
+  deleteDeck: (deckId: string, keepCards?: boolean) => void
   /** Returns a warning if the resulting copy count breaks the deck's format rules (singleton, max
    * copies) — informational only, the card is added either way. Null if there's no issue.
    * Copies put in a physical deck come out of the Unsorted pile if it has them — they're the loose
@@ -656,7 +657,16 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   )
 
   const deleteDeck = useCallback(
-    (deckId: string) => updateLibrary((lib) => ({ ...lib, decks: lib.decks.filter((d) => d.id !== deckId) })),
+    (deckId: string, keepCards = false) => updateLibrary((lib) => {
+      const deck = lib.decks.find((d) => d.id === deckId)
+      const kept = keepCards && deck ? realCopiesOf(deck) : []
+      const withPile = kept.length ? withUnsortedPile(lib.collections) : lib.collections
+      return {
+        ...lib,
+        decks: lib.decks.filter((d) => d.id !== deckId),
+        collections: kept.length ? withPile.map((c) => (c.id === UNSORTED_COLLECTION_ID ? { ...c, entries: intoPile(c.entries, kept) } : c)) : lib.collections,
+      }
+    }),
     [updateLibrary],
   )
 

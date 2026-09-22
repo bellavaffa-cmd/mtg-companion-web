@@ -16,6 +16,7 @@ import { WhoHasItSheet } from '../social/WhoHasIt'
 import { missingCards } from '../decks/missing'
 import { buyCardUrl, buyListUrl } from '../api/buy'
 import { deckProxyCopies, proxiesHeldElsewhere, proxySwaps } from '../decks/proxies'
+import { realCopiesOf } from '../collection/unsorted'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
 import { useAddWarning } from '../components/useAddWarning'
 import { DeckSuggestions } from '../components/DeckSuggestions'
@@ -448,20 +449,39 @@ export function DeckDetailPage() {
         />
       )}
 
-      {confirmDelete && (
-        <Dialog
-          title="Delete this deck?"
-          onDismiss={() => setConfirmDelete(false)}
-          actions={
-            <>
-              <button type="button" className="btn line" onClick={() => setConfirmDelete(false)}>Cancel</button>
-              <button type="button" className="btn danger" onClick={() => { deleteDeck(deck.id); navigate('/decks', { replace: true }) }}>Delete deck</button>
-            </>
-          }
-        >
-          <p className="muted" style={{ margin: 0 }}>“{deck.name}” will be removed here and, if you're signed in, from your other devices too.</p>
-        </Dialog>
-      )}
+      {confirmDelete && (() => {
+        // A physical deck holds real cards: they can go back to the Unsorted pile rather than out of
+        // the collection with the deck. Proxies, and decks that hold no real cards, have nothing to keep.
+        const real = realCopiesOf(deck).reduce((n, e) => n + e.quantity, 0)
+        const remove = (keepCards: boolean) => { deleteDeck(deck.id, keepCards); navigate('/decks', { replace: true }) }
+        return (
+          <Dialog
+            title="Delete this deck?"
+            onDismiss={() => setConfirmDelete(false)}
+            actions={real > 0
+              ? (
+                <>
+                  <button type="button" className="btn line" onClick={() => setConfirmDelete(false)}>Cancel</button>
+                  <button type="button" className="btn danger" onClick={() => remove(false)}>Delete cards too</button>
+                  <button type="button" className="btn gold" onClick={() => remove(true)}>Keep cards</button>
+                </>
+              )
+              : (
+                <>
+                  <button type="button" className="btn line" onClick={() => setConfirmDelete(false)}>Cancel</button>
+                  <button type="button" className="btn danger" onClick={() => remove(false)}>Delete deck</button>
+                </>
+              )}
+          >
+            {real > 0 && (
+              <p style={{ margin: '0 0 8px' }}>
+                “{deck.name}” holds {real} of your cards. <b>Keep cards</b> puts them in Unsorted; <b>Delete cards too</b> takes them out of your collection with the deck.
+              </p>
+            )}
+            <p className="muted" style={{ margin: 0 }}>{real > 0 ? 'The deck' : `“${deck.name}”`} will be removed here and, if you're signed in, from your other devices too.</p>
+          </Dialog>
+        )
+      })()}
 
       {showExport && <ExportDeckDialog deck={deck} onDismiss={() => setShowExport(false)} />}
       {sharing && <ShareDialog kind="deck" itemId={deck.id} name={deck.name} onClose={() => setSharing(false)} />}

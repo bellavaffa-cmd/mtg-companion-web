@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { takenFromUnsorted, withUnsortedPile } from '../../src/collection/unsorted.ts'
-import { UNSORTED_COLLECTION_ID, isUnsorted, type Collection, type CollectionEntry } from '../../src/types/models.ts'
+import { intoPile, realCopiesOf, takenFromUnsorted, withUnsortedPile } from '../../src/collection/unsorted.ts'
+import { UNSORTED_COLLECTION_ID, isUnsorted, normalizeDeck, type Collection, type CollectionEntry, type DeckCardEntry } from '../../src/types/models.ts'
 
 // The Unsorted pile is always there, like the Wishlist. The Android app has the same checks — see
 // UnsortedPileTest.kt.
@@ -59,4 +59,22 @@ test('only what the pile has is taken, and a card not in it leaves the pile as i
   const none = takenFromUnsorted(pile, 'bolt', 'Lightning Bolt', 1)
   assert.equal(none.taken, 0)
   assert.equal(none.entries, pile)
+})
+
+const inDeck = (scryfallId: string, name: string, quantity: number, proxyQuantity?: number): DeckCardEntry =>
+  ({ scryfallId, name, imageUrl: null, quantity, canBeCommander: false, typeLine: null, partnerAbility: null, proxyQuantity })
+
+test("a physical deck's real copies go back to the pile when it's deleted with its cards kept", () => {
+  const deck = normalizeDeck({ id: 'd', name: 'D', ownership: 'PHYSICAL', cards: [inDeck('sol', 'Sol Ring', 1), inDeck('bolt', 'Lightning Bolt', 4, 1)] })
+  // The proxy Bolt isn't a real copy and doesn't go.
+  assert.deepEqual(realCopiesOf(deck).map((e) => [e.scryfallId, e.quantity]), [['sol', 1], ['bolt', 3]])
+  // Copies of a printing already in the pile are added to it.
+  const pile = intoPile([loose('sol', 'Sol Ring', 1)], realCopiesOf(deck))
+  assert.deepEqual(pile.map((e) => [e.scryfallId, e.quantity]), [['sol', 2], ['bolt', 3]])
+})
+
+test('a deck that holds no real copies gives the pile nothing', () => {
+  for (const ownership of ['PROXY', 'VIRTUAL', 'PROTOTYPE'] as const) {
+    assert.deepEqual(realCopiesOf(normalizeDeck({ id: 'd', name: 'D', ownership, cards: [inDeck('sol', 'Sol Ring', 1)] })), [])
+  }
 })

@@ -8,6 +8,7 @@
 
 import { UNSORTED_COLLECTION_ID, UNSORTED_COLLECTION_NAME, isUnsorted, type Collection, type CollectionEntry, type Deck } from '../types/models'
 import { isWishlist } from './wishlist'
+import { proxyCopies } from '../decks/proxies'
 
 /**
  * Whether [collection] is one of the user's binders — not the Wishlist, and not the Unsorted pile.
@@ -64,3 +65,27 @@ export function takenFromUnsorted(entries: CollectionEntry[], scryfallId: string
 
 /** Whether a deck holds the user's own copies — only then does adding to it take them out of Unsorted. */
 export const holdsOwnCopies = (deck: Deck) => deck.ownership === 'PHYSICAL'
+
+/**
+ * The real copies a deck holds, as Unsorted entries — where its cards go when the deck is deleted but
+ * the cards kept. Only a physical deck holds the user's own copies, and not its proxies (see
+ * proxyCopies); its commander is one of its cards. Mirrors the Android app's realCopiesOf.
+ */
+export function realCopiesOf(deck: Deck): CollectionEntry[] {
+  if (!holdsOwnCopies(deck)) return []
+  return deck.cards
+    .map((c) => ({ scryfallId: c.scryfallId, name: c.name, imageUrl: c.imageUrl, quantity: c.quantity - proxyCopies(deck, c), foilQuantity: 0, backImageUrl: c.backImageUrl ?? null, tags: c.tags ?? [] }))
+    .filter((e) => e.quantity > 0)
+}
+
+/** The Unsorted pile's [entries] with [added] put in: copies of a printing already there are added to it. */
+export function intoPile(entries: CollectionEntry[], added: CollectionEntry[]): CollectionEntry[] {
+  let out = entries
+  for (const a of added) {
+    const existing = out.find((e) => e.scryfallId === a.scryfallId)
+    out = existing
+      ? out.map((e) => (e === existing ? { ...e, quantity: e.quantity + a.quantity, foilQuantity: (e.foilQuantity ?? 0) + (a.foilQuantity ?? 0) } : e))
+      : [...out, a]
+  }
+  return out
+}
