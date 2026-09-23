@@ -3,6 +3,7 @@
 // into a binder, adding them to a deck, exporting or removing them. Mirrors the Android app's
 // CollectionsScreen (AllCardsTab).
 
+import { allUserTags, userTagsOf } from '../collection/userTags'
 import { biggerImageUrl } from '../types/scryfall'
 import { PrintingPicker, printingName } from '../components/PrintingPicker'
 import { useEffect, useMemo, useState } from 'react'
@@ -55,7 +56,7 @@ function useCardData(ids: string[]): Map<string, ScryfallCard> | undefined {
 }
 
 export function AllCardsTab({ onImport }: { onImport: () => void }) {
-  const { collections, decks, gatherIntoBinder, removeFromCollection, createCollection, addCardsToDeck, changePrintingEverywhere } = useSync()
+  const { collections, decks, gatherIntoBinder, removeFromCollection, createCollection, addCardsToDeck, changePrintingEverywhere, setCardTags } = useSync()
   // A card whose printing is being changed, in every binder and deck that holds it.
   const [changing, setChanging] = useState<{ scryfallId: string; name: string } | null>(null)
   const navigate = useNavigate()
@@ -90,7 +91,11 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
   const q = query.trim().toLowerCase()
   const inSpares = (c: AllCard) => spareIds.has(c.scryfallId)
   // "proxy" reads as a tag of its own, so a search finds the cards standing in for real ones.
-  const tagsFor = (c: AllCard) => (c.proxies > 0 ? [...tagsOf(roleTags, c.name), 'proxy'] : tagsOf(roleTags, c.name))
+  const tagsFor = (c: AllCard) => {
+    const mine = userTagsOf(decks, collections, c.scryfallId)
+    const role = tagsOf(roleTags, c.name)
+    return c.proxies > 0 ? [...role, ...mine, 'proxy'] : [...role, ...mine]
+  }
   const shown = cards.filter((c) => matchesNameOrTag(c.name, tagsFor(c), q)).filter((c) => !sparesOnly || inSpares(c))
   const tagHits = q ? [...new Set(shown.filter((c) => !c.name.toLowerCase().includes(q)).flatMap((c) => matchedTags(tagsFor(c), q)))] : []
 
@@ -328,6 +333,9 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
           backImageUrl={zoomCard.backImageUrl}
           tags={tagsFor(zoomCard).map(tagLabel)}
           tagsLoading={!!tagging && !roleTags.has(zoomCard.name.trim().toLowerCase())}
+          userTags={userTagsOf(decks, collections, zoomCard.scryfallId)}
+          knownUserTags={allUserTags(decks, collections)}
+          onUserTags={(next) => setCardTags(zoomCard.scryfallId, next)}
           onTagClick={(label) => { setZoomId(null); setQuery(label) }}
           onClose={() => setZoomId(null)}
           {...zoomSteps(shown, zoomCard, (card) => setZoomId(card.scryfallId))}

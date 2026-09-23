@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react'
+import { MAX_TAG_LENGTH, tidyTags } from '../collection/userTags'
 import { useMoney } from '../money/currency'
 import { buyCardUrl } from '../api/buy'
 import { useNavigate } from 'react-router-dom'
@@ -36,6 +37,14 @@ interface Props {
   onSelectSimilar?: (card: ScryfallCard) => void
   /** Hint under "Similar cards" explaining what tapping one does. */
   similarActionLabel?: string
+  /**
+   * The user's own tags on this copy, and how to change them. Given only for a card they own —
+   * tagging is about the copy in a binder or deck, not about the card (see collection/userTags.ts).
+   */
+  userTags?: string[]
+  onUserTags?: (tags: string[]) => void
+  /** Tags they've used elsewhere, offered while typing. */
+  knownUserTags?: string[]
   /** Rules text in `{X}` symbol syntax, rendered with real mana/ability icons. */
   oracleText?: string | null
   /** Printed cast cost in `{X}` syntax. */
@@ -112,10 +121,63 @@ function TiltCard({ src, alt, children }: { src: string; alt: string; children?:
 }
 
 /** Enlarged card view with prices, rules text, where else it's used and similar cards. */
+/**
+ * The user's own tags on the copy they own: chips with a cross, and a box to add one. Kept plain on
+ * purpose — the same shape as a deck's own tags, which people already know from the Details tab.
+ */
+function UserTagEditor({ tags, known, onChange }: { tags: string[]; known: string[]; onChange: (tags: string[]) => void }) {
+  const [typed, setTyped] = useState('')
+  const add = (raw: string) => {
+    const next = tidyTags([...tags, raw])
+    if (next.length !== tags.length) onChange(next)
+    setTyped('')
+  }
+  // Ones they've used before that this card hasn't got, so a second card is a tap rather than typing.
+  const has = new Set(tags.map((t) => t.trim().toLowerCase()))
+  const offer = known.filter((t) => !has.has(t.trim().toLowerCase())).slice(0, 6)
+  return (
+    <div className="panel user-tags" style={{ padding: '12px 14px' }}>
+      <div className="p-h" style={{ margin: 0 }}>
+        <h3>Your tags</h3>
+        <span className="p-sub">on this copy</span>
+      </div>
+      <div className="dim" style={{ margin: '2px 0 8px' }}>
+        Yours to write — "proxy", "signed", "lent to Sam". They follow this copy into any deck or binder.
+      </div>
+      {tags.length > 0 && (
+        <div className="chips wrap" style={{ marginBottom: 8 }}>
+          {tags.map((tag) => (
+            <PillChip key={tag} label={tag} icon="close" onClick={() => onChange(tags.filter((t) => t !== tag))} />
+          ))}
+        </div>
+      )}
+      <form
+        className="row" style={{ gap: 8 }}
+        onSubmit={(e) => { e.preventDefault(); add(typed) }}
+      >
+        <input
+          className="input" value={typed} maxLength={MAX_TAG_LENGTH}
+          placeholder="Add a tag, e.g. proxy"
+          aria-label="Add a tag to this copy"
+          onChange={(e) => setTyped(e.target.value)}
+        />
+        <button type="submit" className="btn line sm" disabled={!typed.trim()}>Add</button>
+      </form>
+      {offer.length > 0 && (
+        <div className="chips wrap" style={{ marginTop: 8 }}>
+          {offer.map((tag) => (
+            <button key={tag} type="button" className="tag-chip press" onClick={() => add(tag)} title={`Tag this copy ${tag}`}>+ {tag}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function CardZoomModal({
   imageUrl, name, typeLine, priceUsd, priceUsdFoil, onClose, children, scryfallId, currentDeckId, currentCollectionId,
   backImageUrl, tags = [], tagsLoading = false, onTagClick, onSelectSimilar, similarActionLabel, oracleText, manaCost,
-  onPrev, onNext, position, buyUrl,
+  onPrev, onNext, position, buyUrl, userTags, onUserTags, knownUserTags,
 }: Props) {
   const money = useMoney()
   const { decks, collections } = useSync()
@@ -244,6 +306,10 @@ export function CardZoomModal({
             ))}
             {tagsLoading && tags.length === 0 && <span className="dim">Finding tags…</span>}
           </div>
+        )}
+
+        {onUserTags && (
+          <UserTagEditor tags={userTags ?? []} known={knownUserTags ?? []} onChange={onUserTags} />
         )}
 
         <div className="chips wrap">

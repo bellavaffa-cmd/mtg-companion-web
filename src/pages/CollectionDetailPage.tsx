@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { allUserTags } from '../collection/userTags'
 import { PrintingPicker } from '../components/PrintingPicker'
 import { useParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
@@ -22,7 +23,9 @@ import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '..
 export function CollectionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const back = useBack('/collections?tab=binders')
-  const { collections, decks, setEntryQuantities, setEntryPriceAlert, removeEntryFromCollection, removeEntriesFromCollection, addEntryToCollection, moveEntries, createCollection, notInterested, wantAgain, changeEntryPrinting } = useSync()
+  const { collections, decks, setEntryQuantities, setEntryPriceAlert, removeEntryFromCollection, removeEntriesFromCollection, addEntryToCollection, moveEntries, createCollection, notInterested, wantAgain, changeEntryPrinting, setCardTags } = useSync()
+  // Tags the user has written on their own copies, offered again on the next card.
+  const knownTags = useMemo(() => allUserTags(decks, collections), [decks, collections])
   const collection = collections.find((c) => c.id === id)
   // A wishlist shows what each card costs now, and can watch for it to drop.
   const wishlist = collection?.type === 'WISHLIST'
@@ -77,7 +80,7 @@ export function CollectionDetailPage() {
   const foils = collection.entries.reduce((s, e) => s + e.foilQuantity, 0)
   const q = filter.trim().toLowerCase()
   const shown = collection.entries
-    .filter((e) => matchesNameOrTag(e.name, tagsOf(roleTags, e.name), q))
+    .filter((e) => matchesNameOrTag(e.name, [...tagsOf(roleTags, e.name), ...(e.userTags ?? [])], q))
     .sort((a, b) => a.name.localeCompare(b.name))
   const tagHits = q ? [...new Set(shown.filter((e) => !e.name.toLowerCase().includes(q)).flatMap((e) => matchedTags(tagsOf(roleTags, e.name), q)))] : []
   const setQty = (e: CollectionEntry, quantity: number, foilQuantity: number) =>
@@ -420,6 +423,9 @@ export function CollectionDetailPage() {
           backImageUrl={zoomEntry.backImageUrl}
           tags={tagsOf(roleTags, zoomEntry.name).map(tagLabel)}
           tagsLoading={!!tagging && !roleTags.has(zoomEntry.name.trim().toLowerCase())}
+          userTags={zoomEntry.userTags ?? []}
+          knownUserTags={knownTags}
+          onUserTags={(next) => setCardTags(zoomEntry.scryfallId, next)}
           buyUrl={buyCardUrl(null, zoomEntry.name)}
           onTagClick={(label) => { setZoomId(null); setFilter(label) }}
           onSelectSimilar={(similar) => addEntryToCollection(collection.id, similar)}

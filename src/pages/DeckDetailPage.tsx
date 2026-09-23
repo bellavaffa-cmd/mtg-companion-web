@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { allUserTags } from '../collection/userTags'
 import { PrintingPicker, printingName } from '../components/PrintingPicker'
 import { useMoney } from '../money/currency'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -45,8 +46,10 @@ export function DeckDetailPage() {
   const size = useLayoutSize()
   const {
     decks, collections, setCardQuantity, removeCardFromDeck, addCardToDeck, setCommander, setPartnerCommander, deleteDeck, addToWishlist,
-    setDeckOwnership, swapInProxy, changeDeckPrinting, stopConsidering, considerIntoDeck, addCardsToDeck,
+    setDeckOwnership, swapInProxy, changeDeckPrinting, stopConsidering, considerIntoDeck, addCardsToDeck, setCardTags,
   } = useSync()
+  // Tags the user has written on their own copies: shown in the zoom, and searchable with the rest.
+  const knownTags = useMemo(() => allUserTags(decks, collections), [decks, collections])
   const deck = decks.find((d) => d.id === id)
   const deckColors = useDeckColors(deck ? [deck] : [])
   const cardData = useDeckCardData(deck)
@@ -121,7 +124,7 @@ export function DeckDetailPage() {
   const figures = deckFigures(deck, cardData)
   const q = filter.trim().toLowerCase()
   const matches = (c: DeckCardEntry) =>
-    !q || matchesNameOrTag(c.name, tagsOf(roleTags, c.name), q) || (c.typeLine ?? '').toLowerCase().includes(q)
+    !q || matchesNameOrTag(c.name, [...tagsOf(roleTags, c.name), ...(c.userTags ?? [])], q) || (c.typeLine ?? '').toLowerCase().includes(q)
   // A search that found cards by their tag says which, since tags only show in the zoom.
   const tagHits = q ? [...new Set(deck.cards.filter((c) => !c.name.toLowerCase().includes(q)).flatMap((c) => matchedTags(tagsOf(roleTags, c.name), q)))] : []
   const shownCount = q ? deck.cards.filter(matches).length : 0
@@ -597,6 +600,9 @@ export function DeckDetailPage() {
           backImageUrl={zoomEntry.backImageUrl}
           tags={tagsOf(roleTags, zoomEntry.name).map(tagLabel)}
           tagsLoading={!!tagging && !roleTags.has(zoomEntry.name.trim().toLowerCase())}
+          userTags={zoomEntry.userTags ?? []}
+          knownUserTags={knownTags}
+          onUserTags={(next) => setCardTags(zoomEntry.scryfallId, next)}
           onTagClick={(label) => { setZoomId(null); setTabName('Cards'); setFilter(label) }}
           onSelectSimilar={(similar) => setAddWarning(addCardToDeck(deck.id, similar))}
           similarActionLabel="Tap a card to add it to this deck"

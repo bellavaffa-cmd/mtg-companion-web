@@ -19,6 +19,13 @@ export interface DeckCardEntry {
    * before this field existed. */
   tags?: string[]
   /**
+   * The user's own words about this copy — "proxy", "signed", "borrowed from Sam". They belong to
+   * the copy, not to the card, so they follow it from a binder into a deck and back; every entry
+   * holding the same printing carries the same set (see collection/userTags.ts). Not to be confused
+   * with [tags], which Scryfall writes and the user can't change.
+   */
+  userTags?: string[]
+  /**
    * How many of this entry's copies are proxies (see decks/proxies.ts). Undefined means "whatever
    * the deck is": all of them in a deck marked Proxy, none in any other.
    */
@@ -177,6 +184,13 @@ export interface CollectionEntry {
   tags?: string[]
   /** Wishlists: tell the user when this card's price (USD, non-foil) is at or under this. */
   priceAlert?: number | null
+  /**
+   * The user's own words about this copy — "proxy", "signed", "borrowed from Sam". They belong to
+   * the copy, not to the card, so they follow it from a binder into a deck and back; every entry
+   * holding the same printing carries the same set (see collection/userTags.ts). Not to be confused
+   * with [tags], which Scryfall writes and the user can't change.
+   */
+  userTags?: string[]
   /** The Wishlist: added by itself because a deck is considering the card (see collection/wishlist.ts). */
   auto?: boolean
 }

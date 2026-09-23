@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { collectionWithTags, deckWithTags, tidyTags } from '../collection/userTags'
 import type { ReactNode } from 'react'
 import type {
   Collection, CollectionType, Deck, DeckCardEntry, DeckOwnership, GameMode, GameResult,
@@ -159,6 +160,11 @@ interface SyncContextValue {
    */
   setDeckOwnership: (deckId: string, ownership: DeckOwnership, keepCards?: boolean) => void
   setDeckTags: (deckId: string, tags: string[]) => void
+  /**
+   * The user's own tags on a card they own. They belong to the copy, so this writes them on every
+   * deck and binder holding that printing (see collection/userTags.ts).
+   */
+  setCardTags: (scryfallId: string, tags: string[]) => void
   addGameResult: (deckId: string, result: GameResult) => void
   /**
    * Adds one copy of each of [cards] to a deck, or to its Considering list — skipping any it (or,
@@ -890,6 +896,18 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [updateLibrary, mapDeck, outOfPile],
   )
 
+  const setCardTags = useCallback(
+    (scryfallId: string, tags: string[]) => {
+      const tidy = tidyTags(tags)
+      updateLibrary((lib) => ({
+        ...lib,
+        decks: lib.decks.map((d) => deckWithTags(d, scryfallId, tidy)),
+        collections: lib.collections.map((c) => collectionWithTags(c, scryfallId, tidy)),
+      }))
+    },
+    [updateLibrary],
+  )
+
   const setDeckTags = useCallback(
     (deckId: string, tags: string[]) => {
       updateLibrary((lib) => mapDeck(lib, deckId, (deck) => ({ ...deck, tags })))
@@ -1176,6 +1194,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setGameMode,
       setDeckOwnership,
       setDeckTags,
+      setCardTags,
       addGameResult,
       addCardsToDeck,
       stopConsidering,
@@ -1204,7 +1223,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [
       library, account, cloud, mergePrompt, resolveMerge, passwordRecovery, linkNotice, signIn, signUp, signOut,
       signInWithToken, syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
-      setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, addGameResult,
+      setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, setCardTags, addGameResult,
       addCardsToDeck, stopConsidering, considerIntoDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
       setEntryQuantities, setEntryPriceAlert, changeCollections, importIntoCollection, moveEntries, removeEntriesFromCollection,
     ],

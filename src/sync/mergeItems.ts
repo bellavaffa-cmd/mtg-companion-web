@@ -45,6 +45,8 @@ function mergeStringSet(base: string[], mine: string[], theirs: string[]): strin
 interface EntryRules<T> {
   /** Fields whose changes add up (quantities). */
   counts: (keyof T)[]
+  /** Fields that are a set of words, merged like a deck's tags rather than one side winning. */
+  sets?: (keyof T)[]
 }
 
 /**
@@ -103,6 +105,11 @@ function mergeEntries<T extends { scryfallId: string }>(
         merged[key] = (summed <= 0 && mineCount > 0 && theirCount > 0
           ? Math.min(mineCount, theirCount)
           : Math.max(0, summed)) as T[keyof T]
+      } else if (rules.sets?.includes(key)) {
+        // Two devices tagging the same copy keep both tags, and a tag either took off stays off.
+        const set = mergeStringSet((b[key] ?? []) as string[], (m![key] ?? []) as string[], (t![key] ?? []) as string[])
+        if (set.length > 0) merged[key] = set as T[keyof T]
+        else delete merged[key]
       } else {
         merged[key] = pick(b[key], m![key], t![key], minePreferred)
       }
@@ -130,10 +137,10 @@ function mergeGameResults(base: GameResult[], mine: GameResult[], theirs: GameRe
   return out.sort((a, b) => b.playedAt - a.playedAt)
 }
 
-const DECK_COUNTS: EntryRules<DeckCardEntry> = { counts: ['quantity'] }
+const DECK_COUNTS: EntryRules<DeckCardEntry> = { counts: ['quantity'], sets: ['userTags'] }
 /** The phone keeps this many saved versions of a deck (DeckRepository.MAX_VERSIONS). */
 const MAX_VERSIONS = 40
-const COLLECTION_COUNTS: EntryRules<CollectionEntry> = { counts: ['quantity', 'foilQuantity'] }
+const COLLECTION_COUNTS: EntryRules<CollectionEntry> = { counts: ['quantity', 'foilQuantity'], sets: ['userTags'] }
 
 /** [minePreferred]: this device's edit is the more recent one, so it wins any field both changed. */
 export function mergeDeck(base: Deck, mine: Deck, theirs: Deck, minePreferred: boolean): Deck {
