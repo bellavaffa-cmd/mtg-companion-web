@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { TokensPanel } from '../components/TokensPanel'
 import { allUserTags, userTagsOf } from '../collection/userTags'
 import { PrintingPicker, printingName } from '../components/PrintingPicker'
 import { useMoney } from '../money/currency'
@@ -335,6 +336,7 @@ export function DeckDetailPage() {
             <aside className="deck-aside">
               <MatchRecordPanel deck={deck} />
               <DeckStats deck={deck} cardsById={cardData} roleTags={roleTags} tagging={!!tagging} onTag={(label) => { setTabName('Cards'); setFilter(label) }} />
+              <TokensPanel deck={deck} cardsById={cardData} />
               <div className="panel">
                 <div className="p-h"><h3>Add cards</h3></div>
                 {addCards}
@@ -362,7 +364,13 @@ export function DeckDetailPage() {
               </>
             )}
             {tab === 'Considering' && consideringList}
-            {tab === 'Stats' && <div style={{ marginTop: 12 }}><MatchRecordPanel deck={deck} /><DeckStats deck={deck} cardsById={cardData} roleTags={roleTags} tagging={!!tagging} onTag={(label) => { setTabName('Cards'); setFilter(label) }} /></div>}
+            {tab === 'Stats' && (
+              <div style={{ marginTop: 12 }}>
+                <MatchRecordPanel deck={deck} />
+                <DeckStats deck={deck} cardsById={cardData} roleTags={roleTags} tagging={!!tagging} onTag={(label) => { setTabName('Cards'); setFilter(label) }} />
+                <TokensPanel deck={deck} cardsById={cardData} />
+              </div>
+            )}
             {tab === 'Suggestions' && <div style={{ marginTop: 12 }}>{suggestions}</div>}
             {tab === 'Details' && details}
           </>

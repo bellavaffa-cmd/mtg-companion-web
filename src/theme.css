@@ -3845,3 +3845,55 @@ button.tag-chip {
     display: none;
   }
 }
+
+/* What to bring besides the deck (components/TokensPanel.tsx). */
+.token-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 10px;
+}
+.token {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 0 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--g1);
+  color: var(--t0);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+}
+.token img,
+.token .art {
+  width: 100%;
+  aspect-ratio: 0.72;
+  object-fit: cover;
+  background: var(--g2);
+}
+.token-name {
+  padding: 6px 8px 0;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.token-from {
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--t2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.token-count {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 1px 7px;
+  border-radius: 50px;
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-size: 11px;
+  font-weight: 700;
+}

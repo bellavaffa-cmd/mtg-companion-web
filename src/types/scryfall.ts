@@ -53,6 +53,20 @@ export interface ScryfallCard {
   image_uris?: ScryfallImageUris
   card_faces?: ScryfallCardFace[]
   game_changer?: boolean
+  /**
+   * Everything printed alongside this card: the tokens it makes, an emblem, the other half of a
+   * meld. Scryfall sends it on any card that has one — see decks/tokens.ts.
+   */
+  all_parts?: ScryfallPart[]
+}
+
+/** One of a card's [all_parts]: what it is, and enough to look it up. */
+export interface ScryfallPart {
+  id: string
+  /** 'token', 'meld_part', 'meld_result', 'combo_piece'. */
+  component?: string
+  name: string
+  type_line?: string
 }
 
 export function displayImageUrl(card: ScryfallCard | null | undefined): string | null {
