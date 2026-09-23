@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { allUserTags } from '../collection/userTags'
+import { allUserTags, userTagsOf } from '../collection/userTags'
 import { PrintingPicker } from '../components/PrintingPicker'
 import { useParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
@@ -423,7 +423,7 @@ export function CollectionDetailPage() {
           backImageUrl={zoomEntry.backImageUrl}
           tags={tagsOf(roleTags, zoomEntry.name).map(tagLabel)}
           tagsLoading={!!tagging && !roleTags.has(zoomEntry.name.trim().toLowerCase())}
-          userTags={zoomEntry.userTags ?? []}
+          userTags={userTagsOf(decks, collections, zoomEntry.scryfallId)}
           knownUserTags={knownTags}
           onUserTags={(next) => setCardTags(zoomEntry.scryfallId, next)}
           buyUrl={buyCardUrl(null, zoomEntry.name)}

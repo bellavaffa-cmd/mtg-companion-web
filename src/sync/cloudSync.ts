@@ -33,6 +33,12 @@ export interface Library {
    * simply isn't there any more (see notePending).
    */
   deleted?: Record<string, number>
+  /**
+   * What each printing is tagged, by scryfallId — the library's own note, so a copy keeps its tags
+   * when it's moved or re-added and a fresh entry is made for it (see collection/userTags.ts).
+   * Local bookkeeping: it isn't pushed, and it's rebuilt from the entries, which are what sync.
+   */
+  userTags?: Record<string, string[]>
 }
 
 /** How long a deletion is remembered after the fact, in case it can't be pushed for a while. */

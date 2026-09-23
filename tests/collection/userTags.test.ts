@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { allUserTags, collectionWithTags, deckWithTags, tidyTags, userTagsOf } from '../../src/collection/userTags.ts'
+import { allUserTags, collectionWithTags, deckWithTags, keepUserTags, ledgerWith, tidyTags, userTagsOf } from '../../src/collection/userTags.ts'
 import type { Collection, Deck, DeckCardEntry } from '../../src/types/models.ts'
 
 // A tag belongs to the copy, so it reads the same wherever that copy is held.
@@ -66,4 +66,43 @@ test('tags already used are offered again, the most used first', () => {
   const d = deck([card(BOLT, { userTags: ['proxy', 'signed'] }), card('x', { userTags: ['proxy'] })])
   const c = binder([{ scryfallId: 'y', name: 'Y', imageUrl: null, quantity: 1, foilQuantity: 0, userTags: ['Proxy'] }])
   assert.deepEqual(allUserTags([d], [c]), ['proxy', 'signed'])
+})
+
+// What the emulator caught: tagging a card in a binder, then moving it into a deck, lost the tag.
+// A move removes the binder entry and makes a fresh deck entry, which knows nothing about the copy.
+
+test('a tagged copy moved from a binder into a deck keeps its tag', () => {
+  const tagged = keepUserTags({
+    decks: [],
+    collections: [binder([{ scryfallId: BOLT, name: 'Lightning Bolt', imageUrl: null, quantity: 1, foilQuantity: 0, userTags: ['proxy'] }])],
+  })
+  assert.deepEqual(tagged.userTags, { [BOLT]: ['proxy'] })
+
+  // The move: out of the binder, into a deck as a brand-new entry with no tags of its own.
+  const moved = keepUserTags({
+    ...tagged,
+    decks: [deck([card(BOLT)])],
+    collections: [binder([])],
+  })
+  assert.deepEqual(moved.decks[0].cards[0].userTags, ['proxy'])
+})
+
+test('a copy added again later is tagged as it was before', () => {
+  const had = keepUserTags({ decks: [deck([card(BOLT, { userTags: ['signed'] })])], collections: [] })
+  // Removed from everywhere, then added back by a scan or a search.
+  const gone = keepUserTags({ ...had, decks: [deck([])] })
+  const again = keepUserTags({ ...gone, decks: [deck([card(BOLT)])] })
+  assert.deepEqual(again.decks[0].cards[0].userTags, ['signed'])
+})
+
+test('taking a tag off is not undone by the copies that still carry it', () => {
+  const had = keepUserTags({ decks: [deck([card(BOLT, { userTags: ['proxy'] })])], collections: [] })
+  // setCardTags writes the note first, then the copies — both in one go.
+  const cleared = keepUserTags({
+    ...had,
+    userTags: ledgerWith(had, BOLT, []),
+    decks: [deckWithTags(had.decks[0], BOLT, [])],
+  })
+  assert.equal('userTags' in cleared.decks[0].cards[0], false)
+  assert.deepEqual(cleared.userTags, {})
 })

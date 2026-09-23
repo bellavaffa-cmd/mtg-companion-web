@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { allUserTags } from '../collection/userTags'
+import { allUserTags, userTagsOf } from '../collection/userTags'
 import { PrintingPicker, printingName } from '../components/PrintingPicker'
 import { useMoney } from '../money/currency'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -600,7 +600,7 @@ export function DeckDetailPage() {
           backImageUrl={zoomEntry.backImageUrl}
           tags={tagsOf(roleTags, zoomEntry.name).map(tagLabel)}
           tagsLoading={!!tagging && !roleTags.has(zoomEntry.name.trim().toLowerCase())}
-          userTags={zoomEntry.userTags ?? []}
+          userTags={userTagsOf(decks, collections, zoomEntry.scryfallId)}
           knownUserTags={knownTags}
           onUserTags={(next) => setCardTags(zoomEntry.scryfallId, next)}
           onTagClick={(label) => { setZoomId(null); setTabName('Cards'); setFilter(label) }}

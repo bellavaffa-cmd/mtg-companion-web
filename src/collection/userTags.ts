@@ -11,6 +11,7 @@
  */
 
 import type { CollectionEntry, DeckCardEntry, Deck, Collection } from '../types/models'
+import type { Library } from '../sync/cloudSync'
 
 /** Two tags are the same tag when they differ only in case or spacing. */
 const key = (tag: string) => tag.trim().toLowerCase()
@@ -95,4 +96,57 @@ export function collectionWithTags(collection: Collection, scryfallId: string, t
   const entries = collection.entries.map((e) =>
     (e.scryfallId === scryfallId && !sameTags(e.userTags, tags) ? withTags(e, tags) : e))
   return entries.every((e, i) => e === collection.entries[i]) ? collection : { ...collection, entries }
+}
+
+/**
+ * Tags, remembered by printing, so a copy keeps them wherever it goes.
+ *
+ * Entries are where tags live and what syncs, but an entry is made fresh each time a card is added
+ * or moved — from a binder into a deck, by the scanner, out of a precon — and a new entry knows
+ * nothing about the copy it continues. So the library also keeps a note of what each printing is
+ * tagged, and every write re-applies it (see keepUserTags, called from SyncContext.updateLibrary).
+ * One choke point rather than a rule every add has to remember.
+ *
+ * The note is local bookkeeping and isn't pushed anywhere: it's rebuilt from the entries themselves,
+ * so a device that syncs a tagged deck down learns the tags from it.
+ */
+
+type Ledger = Record<string, string[]>
+
+/** Every tag found on an entry, folded into [was] — what the library knows about each printing. */
+function remembered(lib: Library, was: Ledger): Ledger {
+  const out: Ledger = { ...was }
+  const note = (e: DeckCardEntry | CollectionEntry) => {
+    if (!e.userTags?.length) return
+    out[e.scryfallId] = tidyTags([...(out[e.scryfallId] ?? []), ...e.userTags])
+  }
+  for (const deck of lib.decks) for (const e of entriesOf(deck)) note(e)
+  for (const c of lib.collections) for (const e of c.entries) note(e)
+  return out
+}
+
+/**
+ * [lib] with what it knows written onto every copy — so an entry made a moment ago by a move or an
+ * add carries the tags the printing already had.
+ */
+export function keepUserTags(lib: Library): Library {
+  const ledger = remembered(lib, lib.userTags ?? {})
+  let next = lib
+  for (const [scryfallId, tags] of Object.entries(ledger)) {
+    const decks = next.decks.map((d) => deckWithTags(d, scryfallId, tags))
+    const collections = next.collections.map((c) => collectionWithTags(c, scryfallId, tags))
+    if (decks.some((d, i) => d !== next.decks[i]) || collections.some((c, i) => c !== next.collections[i])) {
+      next = { ...next, decks, collections }
+    }
+  }
+  const same = JSON.stringify(ledger) === JSON.stringify(lib.userTags ?? {})
+  return same && next === lib ? lib : { ...next, userTags: ledger }
+}
+
+/** What the library should remember once [tags] are set on [scryfallId] — empty forgets it. */
+export function ledgerWith(lib: Library, scryfallId: string, tags: string[]): Ledger {
+  const ledger = { ...(lib.userTags ?? {}) }
+  if (tags.length === 0) delete ledger[scryfallId]
+  else ledger[scryfallId] = tags
+  return ledger
 }

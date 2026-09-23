@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { collectionWithTags, deckWithTags, tidyTags } from '../collection/userTags'
+import { collectionWithTags, deckWithTags, keepUserTags, ledgerWith, tidyTags } from '../collection/userTags'
 import type { ReactNode } from 'react'
 import type {
   Collection, CollectionType, Deck, DeckCardEntry, DeckOwnership, GameMode, GameResult,
@@ -583,7 +583,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const updateLibrary = useCallback(
     (updater: (lib: Library) => Library) => {
       adoptStoredLibrary()
-      commitLibrary(updater(libraryRef.current))
+      // Every write goes through here, so this is where a copy gets back the tags it already had —
+      // however it came to be written (moved, re-added, scanned, imported).
+      commitLibrary(keepUserTags(updater(libraryRef.current)))
       scheduleSync()
     },
     [adoptStoredLibrary, commitLibrary, scheduleSync],
@@ -900,7 +902,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     (scryfallId: string, tags: string[]) => {
       const tidy = tidyTags(tags)
       updateLibrary((lib) => ({
+        // The note is set first, so taking a tag off isn't read back off the copies and restored.
         ...lib,
+        userTags: ledgerWith(lib, scryfallId, tidy),
         decks: lib.decks.map((d) => deckWithTags(d, scryfallId, tidy)),
         collections: lib.collections.map((c) => collectionWithTags(c, scryfallId, tidy)),
       }))
