@@ -145,7 +145,13 @@ export interface Game {
   layoutId: string
   players: Player[]
   turnPlayerId: number
+  /**
+   * How many rounds the table has played, not how many seats have had a go: it goes up when play
+   * comes back round to whoever started (see nextTurnFrom), which is what a "turn" means at a table.
+   */
   turnNumber: number
+  /** Who started, so a round can be measured from them. Undefined in games saved before this. */
+  firstPlayerId?: number
   /** Newest first, capped — see HISTORY_LIMIT. */
   history: HistoryEntry[]
   monarchId: number | null
@@ -197,6 +203,7 @@ export function newGame(settings: LifeSettings): Game {
     })),
     turnPlayerId: 1,
     turnNumber: 1,
+    firstPlayerId: 1,
     history: [],
     monarchId: null,
     initiativeId: null,
@@ -207,6 +214,40 @@ export function newGame(settings: LifeSettings): Game {
     undo: [],
     shownCard: null,
   }
+}
+
+/**
+ * Whose turn it is next, and whether that completes a round.
+ *
+ * Players who are out are passed over — the turn used to land on them and stick, because someone
+ * who has lost has no phone to pass it on with. A round is counted from whoever started: the number
+ * goes up when play comes back to them, or past them when they're out, rather than once per seat.
+ */
+export function nextTurnFrom(
+  players: Player[],
+  turnPlayerId: number,
+  firstPlayerId: number,
+  autoKill: boolean,
+): { turnPlayerId: number; roundComplete: boolean } | null {
+  const n = players.length
+  if (n === 0) return null
+  const ids = players.map((p) => p.id)
+  const from = ids.indexOf(turnPlayerId)
+  const cur = from === -1 ? 0 : from
+  const start = Math.max(0, ids.indexOf(firstPlayerId))
+  const out = (i: number) => !!lossReason(players[i], autoKill)
+
+  // The next seat still in the game; if everyone is out, the turn doesn't move.
+  let next = -1
+  for (let step = 1; step <= n; step++) {
+    const i = (cur + step) % n
+    if (!out(i)) { next = i; break }
+  }
+  if (next === -1) return null
+
+  // Counted from the starting seat: coming back to it, or passing it, is a new round.
+  const place = (i: number) => (i - start + n) % n
+  return { turnPlayerId: ids[next], roundComplete: place(next) <= place(cur) }
 }
 
 /** Whether the game is decided: at a table of two or more, at most one player is left. */
@@ -241,7 +282,7 @@ export type GameAction = { by?: number } & (
   | { type: 'revive'; id: number; life: number }
   | { type: 'name'; id: number; name: string }
   | { type: 'color'; id: number; colorIndex: number }
-  | { type: 'nextTurn' }
+  | { type: 'nextTurn'; autoKill?: boolean }
   | { type: 'firstPlayer'; id: number }
   | { type: 'monarch'; id: number | null }
   | { type: 'initiative'; id: number | null }
@@ -448,20 +489,24 @@ function applyAction(game: Game, action: GameAction): Game {
     case 'color':
       return updatePlayer(game, action.id, (p) => ({ ...p, colorIndex: action.colorIndex }))
     case 'nextTurn': {
-      const ids = game.players.map((p) => p.id)
-      if (ids.length === 0) return game
-      const idx = ids.indexOf(game.turnPlayerId)
-      const turnPlayerId = idx === -1 || idx === ids.length - 1 ? ids[0] : ids[idx + 1]
+      const moved = nextTurnFrom(
+        game.players,
+        game.turnPlayerId,
+        game.firstPlayerId ?? game.players[0]?.id ?? 1,
+        action.autoKill ?? true,
+      )
+      if (!moved) return game
+      const turnNumber = moved.roundComplete ? game.turnNumber + 1 : game.turnNumber
       // Storm counts spells cast this turn.
       const players = game.players.map((p) => (p.counters?.storm ? { ...p, counters: { ...p.counters, storm: 0 } } : p))
       return note(
-        { ...game, touched: true, players, turnPlayerId, turnNumber: game.turnNumber + 1 },
-        turnPlayerId,
-        `Turn ${game.turnNumber + 1}`,
+        { ...game, touched: true, players, turnPlayerId: moved.turnPlayerId, turnNumber },
+        moved.turnPlayerId,
+        `Turn ${turnNumber}`,
       )
     }
     case 'firstPlayer':
-      return note({ ...game, turnPlayerId: action.id, turnNumber: 1 }, action.id, 'Goes first')
+      return note({ ...game, turnPlayerId: action.id, firstPlayerId: action.id, turnNumber: 1 }, action.id, 'Goes first')
     case 'monarch':
       if (game.monarchId === action.id) return game
       return note({ ...game, touched: true, monarchId: action.id }, action.id,

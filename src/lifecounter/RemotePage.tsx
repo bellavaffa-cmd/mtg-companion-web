@@ -352,7 +352,9 @@ function Remote({
           <span className="material-symbols-rounded" aria-hidden>undo</span>
         </button>
       )}
-      {!big && myTurn && !mine.out && (
+      {/* Still shown when you're out: dying on your own turn shouldn't strand it — the table would
+          have to pass it for you. The turn never comes back to you (see nextTurnFrom). */}
+      {!big && myTurn && (
         <button type="button" className="rm-circle sm turn" onClick={() => send({ type: 'endTurn' })} aria-label="End turn">
           <span className="material-symbols-rounded" aria-hidden>check</span>
         </button>

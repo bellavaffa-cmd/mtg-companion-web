@@ -161,7 +161,7 @@ export function remoteToGameAction(game: Game, settings: LifeSettings, seat: num
       return { type: 'commanderDamage', id: a.to as number, from: seat, delta, costsLife: settings.commanderDamageCostsLife, by: seat }
     }
     case 'endTurn':
-      return settings.turnTracker && game.turnPlayerId === seat ? { type: 'nextTurn', by: seat } : null
+      return settings.turnTracker && game.turnPlayerId === seat ? { type: 'nextTurn', by: seat, autoKill: settings.autoKill } : null
     case 'undo':
       return { type: 'undo', by: seat }
     case 'background': {

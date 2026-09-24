@@ -124,7 +124,7 @@ export function LifeCounterPage() {
           settings={settings}
           activeTurn={player.id === activeSeat}
           turnNumber={game.turnNumber}
-          onEndTurn={() => dispatch({ type: 'nextTurn' })}
+          onEndTurn={() => dispatch({ type: 'nextTurn', autoKill: settings.autoKill })}
           isMonarch={game.monarchId === player.id}
           hasInitiative={game.initiativeId === player.id}
           highRoll={roll ? { value: roll.rolls[player.id], winner: roll.winnerId === player.id } : null}
