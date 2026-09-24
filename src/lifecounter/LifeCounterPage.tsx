@@ -60,6 +60,25 @@ export function LifeCounterPage() {
   const [commanderFor, setCommanderFor] = useState<number | null>(null)
   const [meFor, setMeFor] = useState<number | null>(null)
 
+  /**
+   * Losing on your own turn used to leave the turn there: a player who is out has no End turn
+   * control, on the table or on their phone, so nobody could pass it on. The turn moves itself now.
+   * It stops at the last player standing, where the game is over and the turn no longer matters.
+   */
+  const passedOn = useRef<string | null>(null)
+  useEffect(() => {
+    if (!settings.turnTracker || game.players.length < 2) return
+    if (gameOver(game, settings.autoKill)) return
+    const active = game.players.find((p) => p.id === game.turnPlayerId)
+    if (!active || !lossReason(active, settings.autoKill)) return
+    // Once per stuck turn: the effect runs twice in development, and passing twice would skip
+    // somebody who is still playing.
+    const key = `${game.gameId}:${game.turnPlayerId}`
+    if (passedOn.current === key) return
+    passedOn.current = key
+    dispatch({ type: 'nextTurn', autoKill: settings.autoKill })
+  }, [game, settings.turnTracker, settings.autoKill, dispatch])
+
   // A game that's over goes into the table's games — once, or again if an undo changed how it
   // ended (it replaces itself). The owner's seat is saved to their deck only while no phone has
   // joined it: a phone that joins saves the result itself.
