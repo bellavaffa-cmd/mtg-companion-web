@@ -1,4 +1,5 @@
 import { NewsPanel } from '../components/RelayPanels'
+import { rememberedSeat, remotePath } from '../lifecounter/seat'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
@@ -90,6 +91,22 @@ export function HomePage() {
       </button>
     </div>
   )
+  // Still sitting at someone's table: the QR that got you there is on their phone, so the way back
+  // has to be here (see lifecounter/seat.ts).
+  const seat = rememberedSeat()
+  const seatBanner = seat && (
+    <button
+      type="button"
+      className="banner press rise"
+      style={{ ...rise(1), marginBottom: 0 }}
+      onClick={() => navigate(remotePath(seat))}
+    >
+      <Icon name="event_seat" />
+      <span style={{ flex: 1 }}>You're in seat {seat.seat} at a table — open your remote</span>
+      <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
+    </button>
+  )
+
   const alertBanner = priceAlerts.hits.length > 0 && (
     <PriceAlertBanner hits={priceAlerts.hits} onOpen={(id) => navigate(`/collections/${id}`)} onDismiss={priceAlerts.dismiss} />
   )
@@ -184,6 +201,7 @@ export function HomePage() {
               <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
             </button>
           )}
+          {seatBanner}
           {alertBanner}
             {swapBanner}
           {appBanner}
@@ -272,6 +290,7 @@ export function HomePage() {
             <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
           </button>
         )}
+        {seatBanner}
         {alertBanner}
             {swapBanner}
         {appBanner}

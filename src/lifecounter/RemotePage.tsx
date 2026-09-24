@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { forgetSeat, rememberSeat } from './seat'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { accessToken } from '../sync/supabaseAuth'
@@ -148,6 +149,15 @@ export function RemotePage() {
     setSheet(null)
   }
 
+  // Leaving this screen doesn't leave the seat, so remember it and offer the way back (seat.ts).
+  const seatIsMine = !!mine && (!mine.userId || mine.userId === account?.userId)
+  useEffect(() => {
+    if (seatIsMine) rememberSeat(matchId, seatNo)
+  }, [seatIsMine, matchId, seatNo])
+  useEffect(() => {
+    if (gone || (mine?.userId && account?.userId && mine.userId !== account.userId)) forgetSeat()
+  }, [gone, mine?.userId, account?.userId])
+
   const silent = !!state && now - heardAt > SILENT_MS
 
   let body: ReactNode
@@ -248,6 +258,7 @@ export function RemotePage() {
               className="rm-opt"
               onClick={() => {
                 void api.clearMatchSeat(matchId, seatNo).catch(() => {})
+                forgetSeat()
                 navigate('/')
               }}
             >
