@@ -41,6 +41,11 @@ Live at https://manabind.com/
 
 Not yet ported from the phone app: recognising a card by its art (the phone's fallback when a name can't be read).
 
+**Token badges** are Android-only and can't be ported. The phone writes a deck's token — art, name,
+type line, power and toughness — onto a passive NFC e-paper badge, which then holds the picture with
+no battery at all. It needs raw ISO-DEP commands; Web NFC only reads and writes NDEF messages, so no
+browser can talk to these panels. (`MtgCompanionApp/app/src/main/java/com/mtgcompanion/app/data/nfc/`.)
+
 Commander Spellbook and the news feeds don't allow browser requests, so those go through the
 `api-relay` Supabase function (source in `MtgCompanionApp/supabase/functions/api-relay`). Scryfall
 and EDHREC are called directly.
