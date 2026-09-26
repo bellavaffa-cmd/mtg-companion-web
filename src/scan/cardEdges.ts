@@ -41,8 +41,20 @@ export function scaledQuad(q: CardQuad, by: number, dx = 0, dy = 0): CardQuad {
   return { topLeft: s(q.topLeft), topRight: s(q.topRight), bottomRight: s(q.bottomRight), bottomLeft: s(q.bottomLeft) }
 }
 
-/** How much of the guide's size either side of each of its edges the card's edge is looked for in. */
-export const EDGE_BAND = 0.2
+/**
+ * How much of the guide's size either side of each of its edges the card's edge is looked for in.
+ *
+ * Wide enough to reach the smallest card the outline check will accept. That check keeps outlines
+ * down to half the expected size, and a card at half size — even centred — has its edges a quarter
+ * of the expected size in from where the guide puts them, so a narrower band than that can never
+ * find what the check would have allowed.
+ *
+ * It was 0.2, and a card filling two thirds of the guide (which is how people actually hold one)
+ * had its top edge just out of reach: three sides found, the fourth missed, no card. On a bench of
+ * 79 rendered scenes, 0.2 missed 16 of 72 cards, all of them small in the frame; 0.3 misses 1.
+ * Wrong outlines stayed at 3 and no empty scene grew a card at any band from 0.2 to 0.4.
+ */
+export const EDGE_BAND = 0.3
 
 /** The steepest lean an edge is looked for at, as sideways pixels per pixel along it (~11°). */
 const MAX_LEAN = 0.2
