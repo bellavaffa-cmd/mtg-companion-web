@@ -10,7 +10,7 @@ import { useLeaveGuard } from '../components/useLeaveGuard'
 import { useKeepAwake } from '../components/useKeepAwake'
 import { TopBar } from '../components/TopBar'
 import { cardNameIndex, MIN_MATCH } from '../scan/cardNames'
-import { guideInVideo } from '../scan/guide'
+import { guideInVideo, zoomFor } from '../scan/guide'
 import { cameraSignatures, decideInSet, matchPrinting, measurePrintings, type ArtSignature } from '../scan/printingMatch'
 import { readCardName, readSmallPrint, STRIP_STYLES, titleReader, type Box, type StripStyle } from '../scan/ocr'
 import { flatCanvas, flatSignatures, flattenCard, wholeCard, type FlatCard } from '../scan/flatCard'
@@ -263,6 +263,17 @@ export function ScanPage() {
         if (cancelled) { s.getTracks().forEach((t) => t.stop()); return }
         stream = s
         s.getVideoTracks().forEach((t) => t.addEventListener('ended', () => { if (!cancelled && stream === s) setCamera('failed') }))
+        // Zoomed in so the card fills the frame from where it is comfortable to hold it, which is
+        // what decides whether the printing can be read off the card or has to be guessed from its
+        // name (see SCAN_ZOOM). Asked for once the stream is running, because only then does the
+        // camera say what zoom it has; a camera with none — most laptops — is left alone.
+        s.getVideoTracks().forEach((t) => {
+          const range = (t.getCapabilities?.() as { zoom?: { min?: number; max?: number } } | undefined)?.zoom
+          const ratio = zoomFor(range)
+          if (ratio === null) return
+          // Not every browser that reports zoom will accept it, so a refusal is not a failed camera.
+          void t.applyConstraints({ advanced: [{ zoom: ratio }] } as MediaTrackConstraints).catch(() => {})
+        })
         const video = videoRef.current
         if (video) {
           video.srcObject = s

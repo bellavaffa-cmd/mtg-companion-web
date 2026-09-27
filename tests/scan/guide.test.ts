@@ -1,7 +1,7 @@
 // Mapping the on-screen guide box to the camera's own pixels (src/scan/guide.ts).
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { guideInVideo } from '../../src/scan/guide.ts'
+import { guideInVideo, SCAN_ZOOM, LENS_SWITCH_ZOOM, zoomFor } from '../../src/scan/guide.ts'
 
 const rect = (left: number, top: number, width: number, height: number) => () => ({ left, top, width, height }) as DOMRect
 
@@ -26,4 +26,36 @@ test('a landscape camera shown in a tall frame is cropped at the sides, and the 
 
 test('no picture yet: nothing to read', () => {
   assert.equal(guideInVideo({ videoWidth: 0, videoHeight: 0, getBoundingClientRect: rect(0, 0, 400, 300) }, { getBoundingClientRect: rect(0, 0, 10, 10) }), null)
+})
+
+// The zoom that decides whether the small print can be read at all. The Android app has the same
+// checks — see ScanCropTest.kt.
+
+test('the zoom stays on the lens that can focus on a card', () => {
+  // Past the switch the phone hands over to a telephoto that cannot focus nearer than about 40 cm,
+  // and a card held to be scanned would never come into focus — a far worse failure than the one
+  // being fixed.
+  assert.ok(SCAN_ZOOM < LENS_SWITCH_ZOOM)
+  assert.ok(SCAN_ZOOM > 1)
+})
+
+test('a camera with plenty of zoom is asked for exactly the scanning zoom', () => {
+  assert.equal(zoomFor({ min: 1, max: 10 }), SCAN_ZOOM)
+})
+
+test('a camera that zooms past the lens switch is held below it', () => {
+  // 8x is offered, but anything at or past the switch risks the telephoto.
+  const ratio = zoomFor({ min: 1, max: 8 })
+  assert.ok(ratio !== null && ratio < LENS_SWITCH_ZOOM)
+})
+
+test('a camera with only a little zoom is asked for what it has', () => {
+  assert.equal(zoomFor({ min: 1, max: 1.4 }), 1.4)
+})
+
+test('a camera with no zoom is left alone', () => {
+  // Most laptops. Asking anyway would either be refused or, worse, quietly accepted as a crop.
+  assert.equal(zoomFor(undefined), null)
+  assert.equal(zoomFor({}), null)
+  assert.equal(zoomFor({ min: 1, max: 1 }), null)
 })
