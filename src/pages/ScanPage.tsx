@@ -271,8 +271,9 @@ export function ScanPage() {
           const range = (t.getCapabilities?.() as { zoom?: { min?: number; max?: number } } | undefined)?.zoom
           const ratio = zoomFor(range)
           if (ratio === null) return
+          // Zoom is real and widely supported but still outside the DOM types, hence the cast.
           // Not every browser that reports zoom will accept it, so a refusal is not a failed camera.
-          void t.applyConstraints({ advanced: [{ zoom: ratio }] } as MediaTrackConstraints).catch(() => {})
+          void t.applyConstraints({ advanced: [{ zoom: ratio }] } as unknown as MediaTrackConstraints).catch(() => {})
         })
         const video = videoRef.current
         if (video) {
