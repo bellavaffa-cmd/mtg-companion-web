@@ -147,7 +147,7 @@ export function RemotePage() {
     if (!mine || !state?.remotes || applied.current) return
     applied.current = true
     if (mine.background || mine.deck || !hasSavedPrefs()) return
-    if (preferredUrl || deck) send({ type: 'background', url: preferredUrl, deck: deck?.name ?? null, commander: commanderOf(deck) })
+    if (preferredUrl || deck) send({ type: 'background', url: preferredUrl, deck: deck?.name ?? null, commander: commanderOf(deck), partner: !!deck?.partnerCommander })
   }, [mine, state?.remotes, preferredUrl, deck, send])
 
   const chooseBackground = (kind: BackgroundKind, customUrl: string | null = prefs.customUrl, deckId = prefs.deckId) => {
@@ -155,7 +155,8 @@ export function RemotePage() {
     setPrefs(next)
     const d = decks.find((x) => x.id === deckId) ?? null
     const url = kind === 'commander' ? commanderArt(d) : kind === 'profile' ? api.avatarUrl(me?.avatar_path) : kind === 'custom' ? customUrl : null
-    send({ type: 'background', url, deck: d?.name ?? null, commander: commanderOf(d) })
+    // A partner deck has the table keep its two commanders apart.
+    send({ type: 'background', url, deck: d?.name ?? null, commander: commanderOf(d), partner: !!d?.partnerCommander })
   }
   const chooseDeck = (d: Deck) => {
     const kind = prefs.background === 'colour' && commanderArt(d) ? 'commander' : prefs.background
@@ -455,10 +456,11 @@ function Remote({
         <button type="button" className={`rm-quick-btn hold${holding ? ' on' : ''}`} onClick={() => send({ type: 'hold', on: !holding })} aria-pressed={holding}>
           <span className="material-symbols-rounded" aria-hidden>pan_tool</span>{holding ? 'Done — carry on' : 'Hold on'}
         </button>
-        <div className="rm-tax" aria-label={`Commander cast ${casts} times, tax ${2 * casts}`}>
-          <button type="button" onClick={() => send({ type: 'commanderCast', delta: -1 })} disabled={casts === 0} aria-label="Take back a commander cast">−</button>
-          <span><b>Tax {2 * casts}</b><small>Commander cast</small></span>
-          <button type="button" onClick={() => send({ type: 'commanderCast', delta: 1 })} aria-label="Cast my commander">+</button>
+        <div className={`rm-taxes${mine.partner ? ' two' : ''}`}>
+          <TaxStepper casts={casts} label={mine.partner ? 'Commander' : 'Commander cast'} what="commander" onChange={(delta) => send({ type: 'commanderCast', delta })} />
+          {mine.partner && (
+            <TaxStepper casts={mine.partnerCasts ?? 0} label="Partner" what="partner" onChange={(delta) => send({ type: 'commanderCast', delta, slot: 1 })} />
+          )}
         </div>
         <button type="button" className="rm-quick-btn" onClick={() => setSheet('emote')} aria-label="Send an emote">
           <span className="material-symbols-rounded" aria-hidden>add_reaction</span>
@@ -607,6 +609,17 @@ function TableSheet({ state, mine, send, onClose }: { state: RemoteState; mine: 
         </>
       )}
     </RmSheet>
+  )
+}
+
+/** Casts of one commander, shown as the tax they add: − to take a cast back, + for each cast. */
+function TaxStepper({ casts, label, what, onChange }: { casts: number; label: string; what: 'commander' | 'partner'; onChange: (delta: number) => void }) {
+  return (
+    <div className="rm-tax" aria-label={`${what}: cast ${casts} times, tax ${2 * casts}`}>
+      <button type="button" onClick={() => onChange(-1)} disabled={casts === 0} aria-label={`Take back a ${what} cast`}>−</button>
+      <span><b>Tax {2 * casts}</b><small>{label}</small></span>
+      <button type="button" onClick={() => onChange(1)} aria-label={`Cast my ${what}`}>+</button>
+    </div>
   )
 }
 

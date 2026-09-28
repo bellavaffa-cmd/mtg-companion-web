@@ -47,6 +47,8 @@ export interface RemoteSeat {
   partner: boolean
   /** Times they've cast their commander — the tax is two for each. Absent from older tables. */
   commanderCasts?: number
+  /** The same for their partner, when [partner]. */
+  partnerCasts?: number
 }
 
 /** The plane in play, when the table is playing Planechase. */
@@ -86,7 +88,8 @@ export type RemoteAction =
   | { type: 'dealtDamage'; to: number; slot: number; delta: number }
   | { type: 'endTurn' }
   | { type: 'undo' }
-  | { type: 'background'; url: string | null; deck?: string | null; commander?: string | null }
+  /** [partner]: the deck has two commanders, so the table keeps them apart. */
+  | { type: 'background'; url: string | null; deck?: string | null; commander?: string | null; partner?: boolean }
   | { type: 'showCard'; name: string; imageUrl: string }
   | { type: 'hideCard' }
   // Newer requests: an older table ignores them.
@@ -97,7 +100,8 @@ export type RemoteAction =
   /** A die the table rolls, so nobody can say the phone chose; [sides] 2 is a coin. */
   | { type: 'roll'; sides: number }
   | { type: 'planar'; what: 'roll' | 'planeswalk' }
-  | { type: 'commanderCast'; delta: number }
+  /** [slot] 1: the partner (absent: the commander). */
+  | { type: 'commanderCast'; delta: number; slot?: number }
   | { type: 'hold'; on: boolean }
   | { type: 'emote'; emote: EmoteId }
   | { type: 'target'; to: number }
@@ -142,17 +146,19 @@ export function buildRemoteState(game: Game, settings: LifeSettings, plane: Remo
         out: lossReason(p, settings.autoKill),
         poison: p.poison,
         counters: p.counters ?? {},
-        commanderDamage: Object.entries(p.commanderDamage)
-          .filter(([, amount]) => amount > 0)
-          .map(([from, amount]) => ({ from: Number(from), slot: 0, amount })),
+        commanderDamage: [
+          ...Object.entries(p.commanderDamage).map(([from, amount]) => ({ from: Number(from), slot: 0, amount })),
+          ...Object.entries(p.partnerDamage ?? {}).map(([from, amount]) => ({ from: Number(from), slot: 1, amount })),
+        ].filter((d) => d.amount > 0),
         background: p.background ?? null,
         deck: p.deck ?? null,
         commander: p.commander ?? null,
         userId: p.linked?.userId ?? null,
         avatarPath: p.linked?.avatarPath ?? null,
         canUndo: canUndo(game, p.id),
-        partner: false, // the web table keeps one commander per player
+        partner: !!p.hasPartner,
         commanderCasts: p.commanderCasts ?? 0,
+        partnerCasts: p.partnerCasts ?? 0,
       }
     }),
     shownCard: game.shownCard ?? null,
@@ -195,6 +201,9 @@ export function remoteToGameAction(game: Game, settings: LifeSettings, seat: num
   if (!raw || typeof raw !== 'object') return null
   const a = raw as Record<string, unknown>
   const seated = (id: unknown) => typeof id === 'number' && game.players.some((p) => p.id === id)
+  const partnered = (id: unknown) => game.players.some((p) => p.id === id && p.hasPartner)
+  // Which of a player's commanders: 0 (absent, from older remotes) or 1, their partner.
+  const slotOf = (v: unknown) => (v === undefined || v === 0 ? 0 : v === 1 ? 1 : null)
   switch (a.type) {
     case 'life': {
       const delta = int(a.delta, 1000)
@@ -209,13 +218,17 @@ export function remoteToGameAction(game: Game, settings: LifeSettings, seat: num
     }
     case 'commanderDamage': {
       const delta = int(a.delta, 100)
-      if (delta === null || !seated(a.from) || a.from === seat) return null
-      return { type: 'commanderDamage', id: seat, from: a.from as number, delta, costsLife: settings.commanderDamageCostsLife, by: seat }
+      const slot = slotOf(a.slot)
+      if (delta === null || slot === null || !seated(a.from) || a.from === seat) return null
+      if (slot === 1 && !partnered(a.from)) return null
+      return { type: 'commanderDamage', id: seat, from: a.from as number, delta, costsLife: settings.commanderDamageCostsLife, slot, by: seat }
     }
     case 'dealtDamage': {
       const delta = int(a.delta, 100)
-      if (delta === null || !seated(a.to) || a.to === seat) return null
-      return { type: 'commanderDamage', id: a.to as number, from: seat, delta, costsLife: settings.commanderDamageCostsLife, by: seat }
+      const slot = slotOf(a.slot)
+      if (delta === null || slot === null || !seated(a.to) || a.to === seat) return null
+      if (slot === 1 && !partnered(seat)) return null
+      return { type: 'commanderDamage', id: a.to as number, from: seat, delta, costsLife: settings.commanderDamageCostsLife, slot, by: seat }
     }
     case 'endTurn':
       return settings.turnTracker && game.turnPlayerId === seat ? { type: 'nextTurn', by: seat, autoKill: settings.autoKill } : null
@@ -225,7 +238,8 @@ export function remoteToGameAction(game: Game, settings: LifeSettings, seat: num
       if (a.url !== null && !allowedImage(a.url)) return null
       const deck = typeof a.deck === 'string' ? a.deck.slice(0, 80) : a.deck === null ? null : undefined
       const commander = typeof a.commander === 'string' ? a.commander.slice(0, 150) : a.commander === null ? null : undefined
-      return { type: 'background', id: seat, url: a.url as string | null, deck, commander }
+      const partner = typeof a.partner === 'boolean' ? a.partner : undefined
+      return { type: 'background', id: seat, url: a.url as string | null, deck, commander, partner }
     }
     case 'showCard':
       if (typeof a.name !== 'string' || !allowedImage(a.imageUrl) || new URL(a.imageUrl).hostname !== 'cards.scryfall.io') return null
@@ -243,8 +257,11 @@ export function remoteToGameAction(game: Game, settings: LifeSettings, seat: num
       return a.value === 'DAY' || a.value === 'NIGHT' || a.value === null ? { type: 'dayNight', value: a.value, by: seat } : null
     case 'roll':
       return typeof a.sides === 'number' && REMOTE_DICE.includes(a.sides) ? { ...rollFor(seat, a.sides), by: seat } : null
-    case 'commanderCast':
-      return a.delta === 1 || a.delta === -1 ? { type: 'commanderCast', id: seat, delta: a.delta, by: seat } : null
+    case 'commanderCast': {
+      const slot = slotOf(a.slot)
+      if ((a.delta !== 1 && a.delta !== -1) || slot === null || (slot === 1 && !partnered(seat))) return null
+      return { type: 'commanderCast', id: seat, delta: a.delta, slot, by: seat }
+    }
     case 'hold':
       if (a.on === true) return { type: 'hold', id: seat, by: seat }
       return a.on === false && game.hold === seat ? { type: 'hold', id: null, by: seat } : null

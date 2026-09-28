@@ -554,6 +554,11 @@
 .rm-quick-btn.hold.on .material-symbols-rounded {
   color: #fff;
 }
+.rm-taxes {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
 .rm-tax {
   display: flex;
   align-items: center;

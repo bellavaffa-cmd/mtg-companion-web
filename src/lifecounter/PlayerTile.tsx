@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import {
-  COUNTER_INFO, COUNTER_KINDS, counterOf, displayName, inDanger, lossReason, PLAYER_PALETTE, seatColor, startingLifeFor,
+  COUNTER_INFO, COUNTER_KINDS, counterOf, damageFrom, displayName, inDanger, lossReason, PLAYER_PALETTE, seatColor, startingLifeFor,
   type GameAction, type LifeSettings, type Player,
 } from './game'
 import type { SeatFacing } from './tableLayouts'
@@ -167,7 +167,7 @@ export function PlayerTile({
 
   const loss = lossReason(player, settings.autoKill)
   const damageTaken = opponents
-    .map((o) => ({ o, dmg: player.commanderDamage[o.id] ?? 0 }))
+    .flatMap((o) => [0, 1].map((slot) => ({ o, slot, dmg: damageFrom(player, o.id, slot) })))
     .filter((x) => x.dmg > 0)
 
   const label = (sign: 1 | -1) => {
@@ -207,8 +207,10 @@ export function PlayerTile({
           {damageTaken.length > 0 && (
             <button type="button" className="lc-chip" onClick={() => setPanelOpen(true)} aria-label="Commander damage received">
               <span className="material-symbols-rounded" aria-hidden>local_fire_department</span>
-              {damageTaken.map(({ o, dmg }) => (
-                <span key={o.id} className="lc-dmg"><i style={seatStyle(o.colorIndex)} />{dmg}</span>
+              {damageTaken.map(({ o, slot, dmg }) => (
+                <span key={`${o.id}-${slot}`} className="lc-dmg" title={slot === 1 ? `${displayName(o)}'s partner` : undefined}>
+                  <i style={seatStyle(o.colorIndex)} />{slot === 1 ? 'P' : ''}{dmg}
+                </span>
               ))}
             </button>
           )}
@@ -222,9 +224,14 @@ export function PlayerTile({
               <span className="material-symbols-rounded" aria-hidden>{COUNTER_INFO[k].icon}</span>{counterOf(player, k)}
             </button>
           ))}
-          {(player.commanderCasts ?? 0) > 0 && (
-            <span className="lc-chip" title={`Cast their commander ${player.commanderCasts} times`} aria-label={`Commander tax ${2 * (player.commanderCasts ?? 0)}`}>
-              <span className="material-symbols-rounded" aria-hidden>add_circle</span>Tax {2 * (player.commanderCasts ?? 0)}
+          {((player.commanderCasts ?? 0) > 0 || (player.partnerCasts ?? 0) > 0) && (
+            <span
+              className="lc-chip"
+              title={`Cast their commander ${player.commanderCasts ?? 0} times${player.hasPartner ? `, their partner ${player.partnerCasts ?? 0}` : ''}`}
+              aria-label={`Commander tax ${2 * (player.commanderCasts ?? 0)}${player.hasPartner ? `, partner tax ${2 * (player.partnerCasts ?? 0)}` : ''}`}
+            >
+              <span className="material-symbols-rounded" aria-hidden>add_circle</span>
+              Tax {2 * (player.commanderCasts ?? 0)}{player.hasPartner ? ` / ${2 * (player.partnerCasts ?? 0)}` : ''}
             </span>
           )}
         </div>
@@ -378,16 +385,38 @@ function PlayerPanel({
           </>
         )}
         {player.linked && player.commander && <div className="lc-panel-label">Playing {player.commander}</div>}
+        <button
+          type="button"
+          className={`lc-wide-btn${player.hasPartner ? ' lc-me' : ''}`}
+          aria-pressed={!!player.hasPartner}
+          onClick={() => dispatch({ type: 'partner', id: player.id, on: !player.hasPartner })}
+        >
+          <span className="material-symbols-rounded" aria-hidden>group</span>{player.hasPartner ? 'Partners ✓' : 'Partners'}
+        </button>
         {opponents.length > 0 && <div className="lc-panel-label">Commander damage taken</div>}
-        {opponents.map((o) => (
+        {/* Each of an opponent's partners on its own row: 21 from either one is lethal, not both together. */}
+        {opponents.flatMap((o) => (o.hasPartner ? [0, 1] : [0]).map((slot) => (
           <Counter
-            key={o.id}
-            label={displayName(o)}
+            key={`${o.id}-${slot}`}
+            label={`${displayName(o)}${o.hasPartner ? (slot === 0 ? ' · commander' : ' · partner') : ''}`}
             dot={o.colorIndex}
-            value={player.commanderDamage[o.id] ?? 0}
-            onChange={(delta) => dispatch({ type: 'commanderDamage', id: player.id, from: o.id, delta, costsLife: settings.commanderDamageCostsLife })}
+            value={damageFrom(player, o.id, slot)}
+            onChange={(delta) => dispatch({ type: 'commanderDamage', id: player.id, from: o.id, delta, costsLife: settings.commanderDamageCostsLife, slot })}
           />
-        ))}
+        )))}
+        <div className="lc-panel-label">Commander tax</div>
+        <Counter
+          label={`${player.hasPartner ? 'Commander' : 'Casts'} · tax ${2 * (player.commanderCasts ?? 0)}`}
+          value={player.commanderCasts ?? 0}
+          onChange={(delta) => dispatch({ type: 'commanderCast', id: player.id, delta })}
+        />
+        {player.hasPartner && (
+          <Counter
+            label={`Partner · tax ${2 * (player.partnerCasts ?? 0)}`}
+            value={player.partnerCasts ?? 0}
+            onChange={(delta) => dispatch({ type: 'commanderCast', id: player.id, delta, slot: 1 })}
+          />
+        )}
         <Counter label="Poison" value={player.poison} onChange={(delta) => dispatch({ type: 'poison', id: player.id, delta })} />
         <div className="lc-panel-label">Counters</div>
         {COUNTER_KINDS.map((k) => (

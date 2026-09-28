@@ -120,6 +120,44 @@ test("a new game forgets the old one's holds, casts and announcements", () => {
   assert.equal(g.players[0].commanderCasts ?? 0, 0)
 })
 
+test('picking a partner deck on a phone turns partners on at the table, and another deck turns them off', () => {
+  let g = play(fresh(), 1, { type: 'background', url: null, deck: 'Partners', commander: 'Tymna & Thrasios', partner: true })
+  assert.equal(g.players[0].hasPartner, true)
+  assert.equal(buildRemoteState(g, settings).players[0].partner, true)
+  g = play(g, 1, { type: 'background', url: null, deck: 'Goblins', commander: 'Krenko', partner: false })
+  assert.equal(g.players[0].hasPartner, false)
+  // An older remote doesn't say, and leaves partners as the table has them.
+  g = gameReducer(g, { type: 'partner', id: 1, on: true })
+  g = play(g, 1, { type: 'background', url: null, deck: 'Goblins' })
+  assert.equal(g.players[0].hasPartner, true)
+})
+
+test("21 from either partner is lethal; the two aren't added together", () => {
+  let g = gameReducer(fresh(), { type: 'partner', id: 2, on: true })
+  g = play(g, 1, { type: 'commanderDamage', from: 2, slot: 0, delta: 11 })
+  g = play(g, 1, { type: 'commanderDamage', from: 2, slot: 1, delta: 11 })
+  assert.equal(g.players[0].killed, false)
+  assert.deepEqual(buildRemoteState(g, settings).players[0].commanderDamage, [{ from: 2, slot: 0, amount: 11 }, { from: 2, slot: 1, amount: 11 }])
+  const s = buildRemoteState(gameReducer(g, { type: 'commanderDamage', id: 1, from: 2, delta: 10, costsLife: false, slot: 1 }), settings)
+  assert.equal(s.players[0].out, 'COMMANDER_DAMAGE')
+})
+
+test("a partner's damage and tax only count while its player plays partners", () => {
+  assert.equal(ask(fresh(), 1, { type: 'commanderDamage', from: 2, slot: 1, delta: 3 }), null)
+  assert.equal(ask(fresh(), 1, { type: 'dealtDamage', to: 2, slot: 1, delta: 3 }), null)
+  assert.equal(ask(fresh(), 1, { type: 'commanderCast', delta: 1, slot: 1 }), null)
+  let g = gameReducer(fresh(), { type: 'partner', id: 1, on: true })
+  g = play(g, 1, { type: 'commanderCast', delta: 1, slot: 1 })
+  g = play(g, 1, { type: 'dealtDamage', to: 3, slot: 1, delta: 4 })
+  assert.equal(g.players[0].partnerCasts, 1)
+  assert.equal(g.history[1].text, 'Cast their partner (tax 2)')
+  assert.equal(g.players[2].partnerDamage?.[1], 4)
+  // Turning partners off takes what the second commander had with it.
+  g = gameReducer(g, { type: 'partner', id: 1, on: false })
+  assert.equal(g.players[0].partnerCasts, 0)
+  assert.equal(g.players[2].partnerDamage?.[1], undefined)
+})
+
 test('the state a remote gets carries the table-wide things', () => {
   let g = play(fresh(), 1, { type: 'monarch', take: true })
   g = play(g, 2, { type: 'dayNight', value: 'DAY' })

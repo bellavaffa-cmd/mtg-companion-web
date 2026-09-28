@@ -70,7 +70,20 @@ export interface Player {
   commanderArt?: string | null
   /** How many times they've cast their commander this game — the tax is two for each. */
   commanderCasts?: number
+  /** They play two commanders (partners), each a commander of its own under the rules. */
+  hasPartner?: boolean
+  /** Damage taken from each opponent's partner, keyed by that opponent's id — apart from [commanderDamage]. */
+  partnerDamage?: Record<number, number>
+  /** Casts of their partner, taxed on its own. */
+  partnerCasts?: number
 }
+
+/** Damage [p] has taken from [from]'s commander (slot 0) or partner (slot 1). */
+export const damageFrom = (p: Player, from: number, slot = 0) =>
+  (slot === 1 ? p.partnerDamage?.[from] : p.commanderDamage[from]) ?? 0
+
+/** Every commander-damage total [p] carries — each one on its own, since 21 from either partner is lethal. */
+const damageTotals = (p: Player) => [...Object.values(p.commanderDamage), ...Object.values(p.partnerDamage ?? {})]
 
 /** Counters a player can keep besides poison. Storm is cleared when the turn passes. */
 export const COUNTER_KINDS = ['experience', 'energy', 'charge', 'storm', 'tokens', 'loyalty'] as const
@@ -87,7 +100,7 @@ export const counterOf = (p: Player, kind: CounterKind) => p.counters?.[kind] ??
 
 /** Close to losing: 8+ poison, or 18+ damage from one commander. */
 export function inDanger(p: Player): boolean {
-  return p.poison >= 8 || Object.values(p.commanderDamage).some((d) => d >= 18)
+  return p.poison >= 8 || damageTotals(p).some((d) => d >= 18)
 }
 
 export const displayName = (p: Player) => p.linked?.displayName ?? p.name ?? `Player ${p.id}`
@@ -97,7 +110,7 @@ export type LossReason = 'LIFE' | 'POISON' | 'COMMANDER_DAMAGE' | 'KILLED'
 export function lossReason(p: Player, autoKill: boolean): LossReason | null {
   if (p.killed) return 'KILLED'
   if (!autoKill) return null
-  if (Object.values(p.commanderDamage).some((d) => d >= 21)) return 'COMMANDER_DAMAGE'
+  if (damageTotals(p).some((d) => d >= 21)) return 'COMMANDER_DAMAGE'
   if (p.poison >= 10) return 'POISON'
   if (p.life <= 0) return 'LIFE'
   return null
@@ -342,7 +355,10 @@ const HISTORY_LIMIT = 200
 export type GameAction = { by?: number } & (
   | { type: 'new'; settings: LifeSettings }
   | { type: 'counter'; id: number; counter: CounterKind; delta: number }
-  | { type: 'background'; id: number; url: string | null; deck?: string | null; commander?: string | null }
+  /** [partner]: whether that deck has two commanders — absent from a remote too old to say. */
+  | { type: 'background'; id: number; url: string | null; deck?: string | null; commander?: string | null; partner?: boolean }
+  /** Whether a player plays partners. Turning it off drops what was kept for the second commander. */
+  | { type: 'partner'; id: number; on: boolean }
   /** What a seat without a phone is playing, set at the table: its commander and that commander's art. */
   | { type: 'seatCommander'; id: number; name: string | null; art: string | null }
   | { type: 'undo' }
@@ -350,13 +366,15 @@ export type GameAction = { by?: number } & (
   | { type: 'hideCard' }
   | { type: 'life'; id: number; delta: number }
   | { type: 'setLife'; id: number; value: number }
-  | { type: 'commanderDamage'; id: number; from: number; delta: number; costsLife: boolean }
+  /** [slot] 1: from [from]'s partner rather than their commander. */
+  | { type: 'commanderDamage'; id: number; from: number; delta: number; costsLife: boolean; slot?: number }
   | { type: 'poison'; id: number; delta: number }
   | { type: 'kill'; id: number }
   /** A player giving up — the same as being knocked out, said as what it was. */
   | { type: 'concede'; id: number }
   | { type: 'revive'; id: number; life: number }
-  | { type: 'commanderCast'; id: number; delta: number }
+  /** [slot] 1: the partner was cast. */
+  | { type: 'commanderCast'; id: number; delta: number; slot?: number }
   /** [id]: the seat asking everyone to hold on, or null to let go. */
   | { type: 'hold'; id: number | null }
   /** Shows [announce] for a moment; [note] also goes in the history. */
@@ -377,11 +395,11 @@ export type GameAction = { by?: number } & (
 function undoKey(action: GameAction): string | null {
   switch (action.type) {
     case 'life': return `life:${action.id}`
-    case 'commanderDamage': return `cmd:${action.id}:${action.from}`
+    case 'commanderDamage': return `cmd:${action.id}:${action.from}:${action.slot ?? 0}`
     case 'poison': return `poison:${action.id}`
     case 'counter': return `counter:${action.id}:${action.counter}`
     case 'kill': case 'concede': case 'revive': return `out:${action.id}`
-    case 'commanderCast': return `cast:${action.id}`
+    case 'commanderCast': return `cast:${action.id}:${action.slot ?? 0}`
     case 'nextTurn': return 'turn'
     default: return null
   }
@@ -389,8 +407,10 @@ function undoKey(action: GameAction): string | null {
 
 /** Whether two versions of a player have the same life, damage, poison and counters. */
 const samePlayState = (a: Player, b: Player) =>
-  a.life === b.life && a.poison === b.poison && a.killed === b.killed && (a.commanderCasts ?? 0) === (b.commanderCasts ?? 0) &&
+  a.life === b.life && a.poison === b.poison && a.killed === b.killed &&
+  (a.commanderCasts ?? 0) === (b.commanderCasts ?? 0) && (a.partnerCasts ?? 0) === (b.partnerCasts ?? 0) &&
   JSON.stringify(a.commanderDamage) === JSON.stringify(b.commanderDamage) &&
+  JSON.stringify(a.partnerDamage ?? {}) === JSON.stringify(b.partnerDamage ?? {}) &&
   JSON.stringify(a.counters ?? {}) === JSON.stringify(b.counters ?? {})
 
 /** Plays [action], remembering how to take it back when it's an undoable change. */
@@ -441,7 +461,10 @@ function undo(game: Game, by: number | null): Game {
   const restore = (p: Player): Player => {
     const was = entry.before.find((b) => b.id === p.id)
     return was
-      ? { ...p, life: was.life, poison: was.poison, killed: was.killed, commanderDamage: was.commanderDamage, counters: was.counters, commanderCasts: was.commanderCasts }
+      ? {
+          ...p, life: was.life, poison: was.poison, killed: was.killed, commanderDamage: was.commanderDamage, counters: was.counters,
+          commanderCasts: was.commanderCasts, partnerDamage: was.partnerDamage, partnerCasts: was.partnerCasts,
+        }
       : p
   }
   const dropped = new Set(entry.historyIds)
@@ -458,6 +481,26 @@ function undo(game: Game, by: number | null): Game {
 /** Whether there's anything to undo — for seat [by]'s remote when it's set. */
 export const canUndo = (game: Game, by: number | null = null) =>
   (game.undo ?? []).some((e) => by === null || e.by === by)
+
+/**
+ * Turns partners on or off for player [id]. Off drops everything kept for the second commander: the
+ * damage it dealt everyone and its tax — there's no second commander for them to belong to.
+ */
+function setPartner(game: Game, id: number, on: boolean): Game {
+  const p = game.players.find((x) => x.id === id)
+  if (!p || !!p.hasPartner === on) return game
+  if (on) return updatePlayer(game, id, (x) => ({ ...x, hasPartner: true }))
+  return {
+    ...game,
+    touched: true,
+    players: game.players.map((x) => {
+      if (x.id === id) return { ...x, hasPartner: false, partnerCasts: 0 }
+      if (!x.partnerDamage?.[id]) return x
+      const { [id]: _dropped, ...rest } = x.partnerDamage
+      return { ...x, partnerDamage: rest }
+    }),
+  }
+}
 
 function updatePlayer(game: Game, id: number, fn: (p: Player) => Player): Game {
   return { ...game, touched: true, players: game.players.map((p) => (p.id === id ? fn(p) : p)) }
@@ -485,7 +528,9 @@ function applyAction(game: Game, action: GameAction): Game {
         match: game.match,
         players: fresh.players.map((p) => {
           const old = game.players.find((o) => o.id === p.id)
-          return old?.linked ? { ...p, linked: old.linked, background: old.background ?? null, deck: old.deck ?? null, commander: old.commander ?? null } : p
+          return old?.linked
+            ? { ...p, linked: old.linked, background: old.background ?? null, deck: old.deck ?? null, commander: old.commander ?? null, hasPartner: old.hasPartner }
+            : p
         }),
       }
     }
@@ -502,8 +547,8 @@ function applyAction(game: Game, action: GameAction): Game {
         `${COUNTER_INFO[action.counter].label}: ${value}`,
       )
     }
-    case 'background':
-      return {
+    case 'background': {
+      const withBackground: Game = {
         ...game,
         players: game.players.map((p) => {
           if (p.id !== action.id) return p
@@ -513,6 +558,11 @@ function applyAction(game: Game, action: GameAction): Game {
           return { ...p, background: action.url, deck, commander }
         }),
       }
+      // A partner deck turns partners on for its player; any other deck turns them off.
+      return action.partner === undefined ? withBackground : setPartner(withBackground, action.id, action.partner)
+    }
+    case 'partner':
+      return setPartner(game, action.id, action.on)
     case 'seatCommander':
       return {
         ...game,
@@ -542,7 +592,10 @@ function applyAction(game: Game, action: GameAction): Game {
       // Commander damage costs life too (unless the table tracks them separately), clamped at 0.
       const p = game.players.find((x) => x.id === action.id)
       if (!p) return game
-      const current = p.commanderDamage[action.from] ?? 0
+      const partner = action.slot === 1
+      // A partner's damage only while its player plays partners.
+      if (partner && !game.players.find((x) => x.id === action.from)?.hasPartner) return game
+      const current = damageFrom(p, action.from, partner ? 1 : 0)
       const updated = Math.max(0, current + action.delta)
       const applied = updated - current
       if (applied === 0) return game
@@ -550,10 +603,12 @@ function applyAction(game: Game, action: GameAction): Game {
         updatePlayer(game, action.id, (x) => ({
           ...x,
           life: x.life - (action.costsLife ? applied : 0),
-          commanderDamage: { ...x.commanderDamage, [action.from]: updated },
+          ...(partner
+            ? { partnerDamage: { ...x.partnerDamage, [action.from]: updated } }
+            : { commanderDamage: { ...x.commanderDamage, [action.from]: updated } }),
         })),
         action.id,
-        `Commander damage from ${nameOf(game, action.from)}: ${updated}`,
+        `${partner ? 'Partner' : 'Commander'} damage from ${nameOf(game, action.from)}: ${updated}`,
       )
     }
     case 'poison': {
@@ -573,12 +628,16 @@ function applyAction(game: Game, action: GameAction): Game {
     case 'commanderCast': {
       const p = game.players.find((x) => x.id === action.id)
       if (!p) return game
-      const casts = Math.max(0, (p.commanderCasts ?? 0) + action.delta)
-      if (casts === (p.commanderCasts ?? 0)) return game
+      const partner = action.slot === 1
+      if (partner && !p.hasPartner) return game
+      const before = (partner ? p.partnerCasts : p.commanderCasts) ?? 0
+      const casts = Math.max(0, before + action.delta)
+      if (casts === before) return game
+      const what = partner ? 'partner' : 'commander'
       return note(
-        updatePlayer(game, action.id, (x) => ({ ...x, commanderCasts: casts })),
+        updatePlayer(game, action.id, (x) => (partner ? { ...x, partnerCasts: casts } : { ...x, commanderCasts: casts })),
         action.id,
-        action.delta > 0 ? `Cast their commander (tax ${2 * casts})` : `Commander tax back to ${2 * casts}`,
+        action.delta > 0 ? `Cast their ${what} (tax ${2 * casts})` : `${partner ? 'Partner' : 'Commander'} tax back to ${2 * casts}`,
       )
     }
     case 'hold':
@@ -589,7 +648,7 @@ function applyAction(game: Game, action: GameAction): Game {
     }
     case 'revive':
       return note(
-        updatePlayer(game, action.id, (p) => ({ ...p, killed: false, life: action.life, poison: 0, commanderDamage: {} })),
+        updatePlayer(game, action.id, (p) => ({ ...p, killed: false, life: action.life, poison: 0, commanderDamage: {}, partnerDamage: {} })),
         action.id,
         'Back in the game',
       )
