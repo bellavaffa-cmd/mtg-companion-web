@@ -54,11 +54,11 @@ export function DeckSuggestions({ deck, onExpand, onConsider, index = 0 }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
 
-  const fetchThen = async (card: EdhrecCard, considering: boolean, use: (card: ScryfallCard) => void) => {
+  const fetchThen = async (card: EdhrecCard, considering: boolean, then: (card: ScryfallCard) => void) => {
     setBusy({ name: card.name, considering })
     setFailed(null)
     try {
-      use(await getByFuzzyName(card.name))
+      then(await getByFuzzyName(card.name))
     } catch {
       setFailed(card.name)
     } finally {

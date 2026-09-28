@@ -296,7 +296,7 @@ export function syncScenarios(cas: boolean) {
   test('a sign-out cut short (library half-removed) pushes no deletions on signing in again', async () => {
     sim.reset('A')
     sim.setDeck('A', 'd1', [['x', 1]]); sim.setDeck('A', 'd2', [['q', 1]]); await sim.settle('A')
-    sim.use('A'); sim.cs.clearCloudState() // bookkeeping goes first...
+    sim.switchTo('A'); sim.cs.clearCloudState() // bookkeeping goes first...
     sim.removeDeck('A', 'd1') // ...and the tab closes halfway through removing the library
     await sim.settle('A')
     assert.equal(sim.server('d1'), 'x1')

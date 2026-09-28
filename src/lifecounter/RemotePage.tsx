@@ -637,7 +637,7 @@ function GameOver({
       })
     }
     setLogged(true)
-  }, [logged, deck, state.players, seat, over.winner, logKey, log])
+  }, [logged, deck, state.players, seat, over.winner, over.turns, over.minutes, logKey, log])
   if (closed) return null
   const winner = state.players.find((p) => p.seat === over.winner)
   const standings = [...state.players].sort((a, b) => Number(a.seat !== over.winner) - Number(b.seat !== over.winner) || Number(!!a.out) - Number(!!b.out) || b.life - a.life)

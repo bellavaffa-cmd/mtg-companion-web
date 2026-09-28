@@ -39,7 +39,7 @@ export function createSim(cas: boolean) {
     beforePush: null as null | (() => Promise<void>),
   }
 
-  const use = (dev: string) => { current = dev }
+  const switchTo = (dev: string) => { current = dev }
   ;(globalThis as Record<string, unknown>).localStorage = {
     getItem: (k: string) => stores[current].get(k) ?? null,
     setItem: (k: string, v: string) => { stores[current].set(k, v) },
@@ -67,7 +67,7 @@ export function createSim(cas: boolean) {
     }
     if (push) {
       if (hooks.failPush) { hooks.failPush = false; throw new TypeError('network down') }
-      if (hooks.beforePush) { const run = hooks.beforePush; hooks.beforePush = null; const me = current; await run(); use(me) }
+      if (hooks.beforePush) { const run = hooks.beforePush; hooks.beforePush = null; const me = current; await run(); switchTo(me) }
       const { items } = JSON.parse(String(init?.body))
       const wrote: { kind: string; id: string }[] = []
       for (const item of items) {
@@ -147,16 +147,16 @@ export function createSim(cas: boolean) {
       rows.set(`deck:${id}`, row)
     },
     cloudState: (dev: string) => JSON.parse(stores[dev].get('mtgweb_cloud_state') ?? 'null') as cs.CloudState | null,
-    use,
+    switchTo,
     sleep,
     /** Notes [dev]'s local edits, the way SyncContext does before each pass. */
-    recordEdits(dev: string) { use(dev); cs.recordLocalEdits(libs[dev], 'u') },
+    recordEdits(dev: string) { switchTo(dev); cs.recordLocalEdits(libs[dev], 'u') },
     /** First half of a pass: pull, apply to the library, save. [midEdit] changes the library during the pull. */
     async pullPhase(dev: string, midEdit?: (lib: cs.Library) => cs.Library) {
       sim.recordEdits(dev)
       const snapshot = libs[dev]
       const pulled = await cs.pullChanges(snapshot, cs.loadCloudState(), 'u', 't')
-      use(dev)
+      switchTo(dev)
       if (midEdit) libs[dev] = midEdit(libs[dev])
       libs[dev] = cs.applyRemoteChanges(libs[dev], snapshot, pulled.remoteChanges)
       cs.saveCloudState(pulled.state)
@@ -164,10 +164,10 @@ export function createSim(cas: boolean) {
     },
     /** Second half: push and save. A push that fails is left for the next pass, as in the app. */
     async pushPhase(dev: string, pulled: cs.PullOutcome) {
-      use(dev)
+      switchTo(dev)
       try {
         const { state } = await cs.pushPending(pulled, 't')
-        use(dev)
+        switchTo(dev)
         cs.saveCloudState(state)
       } catch {
         // offline, or the answer was lost: the next pass carries on
