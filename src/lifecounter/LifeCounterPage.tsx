@@ -1,6 +1,10 @@
-import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { canUndo, displayName, gameOver, highRoll, lossReason, useLifeCounter, type Game, type GameAction, type ShownCard } from './game'
+import {
+  announceText, canUndo, displayName, gameOver, highRoll, lossReason, useAnnouncement, useLifeCounter,
+  type Game, type GameAction, type ShownCard,
+} from './game'
+import { displayImageUrl } from '../types/scryfall'
 import { PlayerTile, seatStyle } from './PlayerTile'
 import { PlaneBanner, PlaneSheet, usePlanechase } from './Planechase'
 import {
@@ -53,7 +57,23 @@ export function LifeCounterPage() {
   const [panelsOpen, setPanelsOpen] = useState(0)
   const { planechase, startPlanechase, planeswalk, rollPlanarDie, stopPlanechase } = usePlanechase()
   const links = useSeatLinks(game, dispatch)
-  useRemoteHost(game, settings, dispatch, links.signedIn)
+  // Players' phones see the plane too, and can roll the planar die or planeswalk from there.
+  const plane = useMemo(() => (planechase?.current
+    ? { name: planechase.current.name, imageUrl: displayImageUrl(planechase.current), left: planechase.deck.length }
+    : null), [planechase])
+  const planes = useMemo(() => ({
+    plane,
+    play: (what: 'roll' | 'planeswalk') => {
+      if (what === 'roll') return rollPlanarDie()
+      if (!plane || plane.left === 0) return null
+      planeswalk()
+      return 'PLANESWALK' as const
+    },
+  }), [plane, rollPlanarDie, planeswalk])
+  useRemoteHost(game, settings, dispatch, links.signedIn, planes)
+  const announce = useAnnouncement(game.announce ?? null)
+  const nameOfSeat = (seat: number) => { const p = game.players.find((x) => x.id === seat); return p ? displayName(p) : `Seat ${seat}` }
+  const holder = game.hold ? game.players.find((p) => p.id === game.hold) : undefined
   useWakeLock()
   const { decks, addGameResult, removeGameResult } = useSync()
   const tableGames = useTableGames()
@@ -146,6 +166,8 @@ export function LifeCounterPage() {
           onEndTurn={() => dispatch({ type: 'nextTurn', autoKill: settings.autoKill })}
           isMonarch={game.monarchId === player.id}
           hasInitiative={game.initiativeId === player.id}
+          holding={game.hold === player.id}
+          targetedBy={announce?.kind === 'target' && announce.to === player.id ? nameOfSeat(announce.seat) : null}
           highRoll={roll ? { value: roll.rolls[player.id], winner: roll.winnerId === player.id } : null}
           dispatch={dispatch}
           onPanelOpenChange={(open) => setPanelsOpen((n) => Math.max(0, n + (open ? 1 : -1)))}
@@ -233,6 +255,18 @@ export function LifeCounterPage() {
       )}
       {links.showing !== null && <SeatCodeSheet game={game} seat={links.showing} links={links} onClose={links.close} Sheet={Sheet} />}
       {game.shownCard && <ShownCardOverlay card={game.shownCard} game={game} onClose={() => dispatch({ type: 'hideCard' })} />}
+      {holder && (
+        <button type="button" className="lc-hold-banner" onClick={() => dispatch({ type: 'hold', id: null })} aria-label={`${displayName(holder)} says hold on — tap when they're done`}>
+          <span className="material-symbols-rounded" aria-hidden>pan_tool</span>
+          <b>{displayName(holder)} says hold on</b>
+          <span className="lc-hold-hint">Tap when they’re done</span>
+        </button>
+      )}
+      {announce && announce.kind !== 'target' && (
+        <div className={`lc-announce ${announce.kind}`} key={announce.id} role="status" aria-live="polite">
+          {announceText(announce, nameOfSeat)}
+        </div>
+      )}
       {planechase && overlay !== 'plane' && <PlaneBanner state={planechase} onOpen={() => open('plane')} />}
       {overlay === 'plane' && planechase && (
         <PlaneSheet

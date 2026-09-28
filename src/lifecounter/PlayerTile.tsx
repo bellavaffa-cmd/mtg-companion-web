@@ -102,6 +102,8 @@ export function PlayerTile({
   onPickCommander,
   onPickMe,
   meDeck,
+  holding = false,
+  targetedBy = null,
 }: {
   player: Player
   opponents: Player[]
@@ -110,6 +112,10 @@ export function PlayerTile({
   activeTurn: boolean
   isMonarch: boolean
   hasInitiative: boolean
+  /** This player asked everyone to hold on (from their phone). */
+  holding?: boolean
+  /** Who is pointing at this player from their phone, for a moment. */
+  targetedBy?: string | null
   /** This player's high roll and whether it was the highest, while one is showing. */
   highRoll: { value: number; winner: boolean } | null
   /** Shown on the tile whose turn it is, with the button that ends it. */
@@ -172,9 +178,16 @@ export function PlayerTile({
   const plusLabel = label(1)
 
   return (
-    <Face facing={facing} className={`lc-tile${activeTurn ? ' active' : ''}${loss ? ' out' : ''}${!loss && inDanger(player) ? ' danger' : ''}`}>
+    <Face facing={facing} className={`lc-tile${activeTurn ? ' active' : ''}${loss ? ' out' : ''}${!loss && inDanger(player) ? ' danger' : ''}${targetedBy ? ' targeted' : ''}`}>
       <div className={`lc-tile-body${player.background ? ' has-bg' : ''}`} style={tileStyle(player)}>
+        {targetedBy && <div className="lc-target-note" key={targetedBy}><span className="material-symbols-rounded" aria-hidden>my_location</span>{targetedBy} points at you</div>}
         <div className="lc-top">
+          {holding && (
+            <span className="lc-chip lc-token lc-hold" title="Asked everyone to hold on">
+              <span className="material-symbols-rounded" aria-hidden>pan_tool</span>
+              <span className="lc-token-label">Hold on</span>
+            </span>
+          )}
           {isMonarch && (
             <span className="lc-chip lc-token" title="Monarch">
               <span className="material-symbols-rounded" aria-hidden>crown</span>
@@ -209,6 +222,11 @@ export function PlayerTile({
               <span className="material-symbols-rounded" aria-hidden>{COUNTER_INFO[k].icon}</span>{counterOf(player, k)}
             </button>
           ))}
+          {(player.commanderCasts ?? 0) > 0 && (
+            <span className="lc-chip" title={`Cast their commander ${player.commanderCasts} times`} aria-label={`Commander tax ${2 * (player.commanderCasts ?? 0)}`}>
+              <span className="material-symbols-rounded" aria-hidden>add_circle</span>Tax {2 * (player.commanderCasts ?? 0)}
+            </span>
+          )}
         </div>
 
         <div className="lc-life" key={shake} data-shake={shake > 0 || undefined}>{player.life}</div>

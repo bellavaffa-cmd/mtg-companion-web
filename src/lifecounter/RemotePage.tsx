@@ -7,14 +7,16 @@ import { watchMatch } from '../sync/realtime'
 import * as api from '../social/api'
 import { useOverview } from '../social/SocialContext'
 import { GiphyPicker } from '../social/GiphyPicker'
-import { autocomplete, getByExactName } from '../api/scryfall'
+import { autocomplete, getByExactName, getRulings, type Ruling } from '../api/scryfall'
 import { displayImageUrl } from '../types/scryfall'
 import { toArtCrop } from '../components/kit'
+import { useDeckCardData } from '../components/DeckStats'
+import { tokensNeeded } from '../decks/tokens'
 import type { Deck, GameResult } from '../types/models'
-import { COUNTER_INFO, COUNTER_KINDS } from './game'
+import { COUNTER_INFO, COUNTER_KINDS, EMOTES, announceText, useAnnouncement, type EmoteId } from './game'
 import { useStepper } from './PlayerTile'
 import { useWakeLock } from './wakeLock'
-import { HEARTBEAT_MS, REMOTE_VERSION, type RemoteAction, type RemoteCounter, type RemoteSeat, type RemoteState } from './remote'
+import { HEARTBEAT_MS, REMOTE_DICE, REMOTE_VERSION, type RemoteAction, type RemoteCounter, type RemoteSeat, type RemoteState } from './remote'
 import '../social/social.css'
 import './remote.css'
 
@@ -22,7 +24,7 @@ import './remote.css'
 const SILENT_MS = HEARTBEAT_MS * 2 + 10_000
 const FEEDBACK_HOLD_MS = 1500
 
-type Sheet = null | 'damage' | 'counters' | 'background' | 'more' | 'deck' | 'show' | 'notes'
+type Sheet = null | 'damage' | 'counters' | 'background' | 'more' | 'deck' | 'show' | 'notes' | 'table' | 'emote' | 'target' | 'tokens' | 'concede'
 type BackgroundKind = 'commander' | 'profile' | 'colour' | 'custom'
 
 /** What the player chose for their tile last time, so the next table starts with it. */
@@ -115,6 +117,18 @@ export function RemotePage() {
 
   const mine = state?.players.find((p) => p.seat === seatNo) ?? null
   const others = state?.players.filter((p) => p.seat !== seatNo) ?? []
+  const announce = useAnnouncement(state?.announce ?? null)
+  const nameOfSeat = (s: number) => state?.players.find((p) => p.seat === s)?.name ?? `Seat ${s}`
+
+  // A buzz when the turn comes round to this seat — not for the turn it already was on arrival.
+  const lastTurn = useRef<string | null>(null)
+  const turnKey = state?.turn ? `${state.gameId}:${state.turn.number}:${state.turn.seat}` : null
+  useEffect(() => {
+    if (!turnKey) return
+    const was = lastTurn.current
+    lastTurn.current = turnKey
+    if (was !== null && was !== turnKey && state?.turn?.seat === seatNo) navigator.vibrate?.([60, 40, 60])
+  }, [turnKey, state?.turn?.seat, seatNo])
 
   // The tile picture this player chose, as a URL (null: the seat's colour).
   const preferredUrl = useMemo(() => {
@@ -205,6 +219,11 @@ export function RemotePage() {
       </header>
       {error && <div className="rm-error" role="alert">{error}</div>}
       {body}
+      {announce && state?.remotes && (
+        <div className={`rm-toast ${announce.kind}`} key={announce.id} role="status" aria-live="polite">
+          {announce.kind === 'target' && announce.to === seatNo ? `${nameOfSeat(announce.seat)} points at you` : announceText(announce, (s) => (s === seatNo ? 'You' : nameOfSeat(s)))}
+        </div>
+      )}
 
       {sheet === 'background' && mine && (
         <BackgroundSheet
@@ -246,13 +265,25 @@ export function RemotePage() {
             {state?.remotes && mine && (
               <button type="button" className="rm-opt" onClick={() => setSheet('show')}>
                 <span className="material-symbols-rounded rm-opt-icon" aria-hidden>visibility</span>
-                <span className="rm-opt-text"><b>Show a card on the table</b><span>Everyone sees it big until they tap it away</span></span>
+                <span className="rm-opt-text"><b>Look up a card</b><span>Its rulings, and show it big on the table</span></span>
+              </button>
+            )}
+            {state?.remotes && mine && (
+              <button type="button" className="rm-opt" onClick={() => setSheet('tokens')}>
+                <span className="material-symbols-rounded rm-opt-icon" aria-hidden>toll</span>
+                <span className="rm-opt-text"><b>Tokens</b><span>{deck ? `The ones ${deck.name} makes` : 'Pick your deck to see its tokens'}</span></span>
               </button>
             )}
             <button type="button" className="rm-opt" onClick={() => setSheet('notes')}>
               <span className="material-symbols-rounded rm-opt-icon" aria-hidden>lock</span>
               <span className="rm-opt-text"><b>Notes</b><span>Only you see these</span></span>
             </button>
+            {state?.remotes && mine && !mine.out && !state.over && (
+              <button type="button" className="rm-opt" onClick={() => setSheet('concede')}>
+                <span className="material-symbols-rounded rm-opt-icon" aria-hidden>flag</span>
+                <span className="rm-opt-text"><b>Concede</b><span>Leave this game — you can be put back from the table</span></span>
+              </button>
+            )}
             <button
               type="button"
               className="rm-opt"
@@ -270,6 +301,24 @@ export function RemotePage() {
       )}
       {sheet === 'show' && <ShowCardSheet onShow={(name, imageUrl) => { send({ type: 'showCard', name, imageUrl }); setSheet(null) }} onClose={() => setSheet(null)} />}
       {sheet === 'notes' && <NotesSheet matchId={matchId} onClose={() => setSheet(null)} />}
+      {sheet === 'tokens' && (
+        <TokensSheet
+          gameKey={`${matchId}:${state?.gameId ?? ''}`}
+          deck={deck}
+          onChange={(delta) => send({ type: 'counter', counter: 'tokens', delta })}
+          onPickDeck={() => setSheet('deck')}
+          onClose={() => setSheet(null)}
+        />
+      )}
+      {sheet === 'concede' && (
+        <RmSheet title="Concede this game?" onClose={() => setSheet(null)}>
+          <p className="rm-muted">You’re knocked out, the same as losing. If it was a mistake, undo it from here or the table can put you back.</p>
+          <div className="rm-row">
+            <button type="button" className="rm-btn line" onClick={() => setSheet(null)}>Keep playing</button>
+            <button type="button" className="rm-btn danger" onClick={() => { send({ type: 'concede' }); setSheet(null) }}>Concede</button>
+          </div>
+        </RmSheet>
+      )}
 
       {state?.over && mine && (
         <GameOver
@@ -343,6 +392,16 @@ function Remote({
     : null
   const showing = state.shownCard?.seat === mine.seat ? state.shownCard : null
   const tallyText = tally === 0 ? null : `${tally > 0 ? '+' : '−'}${Math.abs(tally)}`
+  const holding = state.hold === mine.seat
+  const holder = state.hold != null && !holding ? state.players.find((p) => p.seat === state.hold) : undefined
+  const casts = mine.commanderCasts ?? 0
+  // The crown and the flag beside whoever holds the monarch and the initiative.
+  const badges = (seat: number) => (
+    <>
+      {state.monarch === seat && <span className="material-symbols-rounded rm-badge" title="Monarch" aria-label="Monarch">crown</span>}
+      {state.initiative === seat && <span className="material-symbols-rounded rm-badge" title="Initiative" aria-label="Initiative">swords</span>}
+    </>
+  )
 
   const lifeButtons = (
     <div className="rm-pm">
@@ -376,7 +435,7 @@ function Remote({
   return (
     <div className="rm-main">
       <div className={`rm-me${mine.out ? ' out' : ''}${myTurn ? ' turn' : ''}`} style={seatStyle(mine)}>
-        <div className="rm-me-name">{mine.name}{deck ? ` · ${deck.name}` : ''}</div>
+        <div className="rm-me-name">{badges(mine.seat)}{mine.name}{deck ? ` · ${deck.name}` : ''}</div>
         <div className="rm-life">{mine.life}</div>
         <div className="rm-tally" aria-live="polite">{tallyText ?? (mine.out ? 'Out of the game' : myTurn ? 'Your turn' : '')}</div>
         {lifeButtons}
@@ -388,12 +447,32 @@ function Remote({
           <button type="button" className="rm-chip" onClick={() => send({ type: 'hideCard' })}>Hide</button>
         </div>
       )}
+      {holder && (
+        <div className="rm-hold-note" role="status"><span className="material-symbols-rounded" aria-hidden>pan_tool</span><b>{holder.name}</b> says hold on</div>
+      )}
+
+      <div className="rm-quick">
+        <button type="button" className={`rm-quick-btn hold${holding ? ' on' : ''}`} onClick={() => send({ type: 'hold', on: !holding })} aria-pressed={holding}>
+          <span className="material-symbols-rounded" aria-hidden>pan_tool</span>{holding ? 'Done — carry on' : 'Hold on'}
+        </button>
+        <div className="rm-tax" aria-label={`Commander cast ${casts} times, tax ${2 * casts}`}>
+          <button type="button" onClick={() => send({ type: 'commanderCast', delta: -1 })} disabled={casts === 0} aria-label="Take back a commander cast">−</button>
+          <span><b>Tax {2 * casts}</b><small>Commander cast</small></span>
+          <button type="button" onClick={() => send({ type: 'commanderCast', delta: 1 })} aria-label="Cast my commander">+</button>
+        </div>
+        <button type="button" className="rm-quick-btn" onClick={() => setSheet('emote')} aria-label="Send an emote">
+          <span className="material-symbols-rounded" aria-hidden>add_reaction</span>
+        </button>
+        <button type="button" className="rm-quick-btn" onClick={() => setSheet('target')} aria-label="Point at a player">
+          <span className="material-symbols-rounded" aria-hidden>my_location</span>
+        </button>
+      </div>
 
       <div className="rm-label">Everyone</div>
       <div className="rm-others">
         {others.map((o) => (
           <div key={o.seat} className={`rm-other${o.out ? ' out' : ''}${state.turn?.seat === o.seat ? ' turn' : ''}`} style={seatStyle(o)}>
-            <span className="rm-other-name">{o.name}</span>
+            <span className="rm-other-name">{badges(o.seat)}{o.name}</span>
             <b>{o.life}</b>
             {o.poison > 0 && <span className="rm-other-sub">☠ {o.poison}</span>}
           </div>
@@ -403,7 +482,8 @@ function Remote({
       <div className="rm-bar">
         <button type="button" onClick={() => setSheet('damage')}><span className="material-symbols-rounded" aria-hidden>swords</span>Damage</button>
         <button type="button" onClick={() => setSheet('counters')}><span className="material-symbols-rounded" aria-hidden>water_drop</span>Counters</button>
-        <button type="button" onClick={() => setSheet('background')}><span className="material-symbols-rounded" aria-hidden>image</span>Background</button>
+        <button type="button" onClick={() => setSheet('table')}><span className="material-symbols-rounded" aria-hidden>casino</span>Table</button>
+        <button type="button" onClick={() => setSheet('background')}><span className="material-symbols-rounded" aria-hidden>image</span>Tile</button>
         <button type="button" onClick={() => setSheet('more')}><span className="material-symbols-rounded" aria-hidden>more_horiz</span>More</button>
       </div>
 
@@ -445,7 +525,88 @@ function Remote({
           <p className="rm-muted">Storm goes back to 0 when the turn passes.</p>
         </RmSheet>
       )}
+      {sheet === 'table' && <TableSheet state={state} mine={mine} send={send} onClose={() => setSheet(null)} />}
+      {sheet === 'emote' && (
+        <RmSheet title="Send to the table" onClose={() => setSheet(null)}>
+          <div className="rm-grid">
+            {(Object.keys(EMOTES) as EmoteId[]).map((id) => (
+              <button key={id} type="button" className="rm-grid-btn emote" onClick={() => { send({ type: 'emote', emote: id }); setSheet(null) }}>{EMOTES[id]}</button>
+            ))}
+          </div>
+        </RmSheet>
+      )}
+      {sheet === 'target' && (
+        <RmSheet title="Point at a player" onClose={() => setSheet(null)}>
+          <p className="rm-muted">Their tile lights up on the table for a moment — for a spell, an attack, or “you”.</p>
+          <div className="rm-list">
+            {others.map((o) => (
+              <button key={o.seat} type="button" className="rm-opt" onClick={() => { send({ type: 'target', to: o.seat }); setSheet(null) }} disabled={!!o.out}>
+                <span className="rm-swatch" style={seatStyle(o)} />
+                <span className="rm-opt-text"><b>{o.name}</b><span>{o.out ? 'Out of the game' : `${o.life} life`}</span></span>
+              </button>
+            ))}
+          </div>
+        </RmSheet>
+      )}
     </div>
+  )
+}
+
+/** What belongs to the whole table: the monarch, the initiative, day and night, dice and Planechase. */
+function TableSheet({ state, mine, send, onClose }: { state: RemoteState; mine: RemoteSeat; send: (a: RemoteAction) => void; onClose: () => void }) {
+  const nameOf = (seat: number | null | undefined) => state.players.find((p) => p.seat === seat)?.name
+  const holder = (kind: 'monarch' | 'initiative', title: string) => {
+    const seat = state[kind] ?? null
+    const mineNow = seat === mine.seat
+    return (
+      <div className="rm-holder">
+        <span className="rm-opt-text"><b>{title}</b><span>{mineNow ? 'You have it' : seat != null ? `${nameOf(seat)} has it` : 'Nobody has it'}</span></span>
+        <button type="button" className={`rm-chip${mineNow ? '' : ' gold'}`} onClick={() => send({ type: kind, take: !mineNow })}>
+          {mineNow ? 'Give it up' : 'Take it'}
+        </button>
+      </div>
+    )
+  }
+  const day = state.dayNight ?? null
+  const myTurnOrUntracked = !state.turn || state.turn.seat === mine.seat
+  return (
+    <RmSheet title="Table" onClose={onClose}>
+      {holder('monarch', 'Monarch')}
+      {holder('initiative', 'Initiative')}
+
+      <div className="rm-label">Day and night</div>
+      <div className="rm-seg" role="group" aria-label="Day and night">
+        {([['DAY', 'Day', 'wb_sunny'], ['NIGHT', 'Night', 'bedtime'], [null, 'Off', 'block']] as const).map(([value, label, icon]) => (
+          <button key={label} type="button" aria-pressed={day === value} onClick={() => send({ type: 'dayNight', value })}>
+            <span className="material-symbols-rounded" aria-hidden>{icon}</span>{label}
+          </button>
+        ))}
+      </div>
+
+      <div className="rm-label">Roll — the table rolls, everyone sees it</div>
+      <div className="rm-grid">
+        {REMOTE_DICE.map((sides) => (
+          <button key={sides} type="button" className="rm-grid-btn" onClick={() => { send({ type: 'roll', sides }); onClose() }}>
+            {sides === 2 ? 'Coin' : `d${sides}`}
+          </button>
+        ))}
+      </div>
+
+      {state.plane && (
+        <>
+          <div className="rm-label">Planechase</div>
+          <div className="rm-plane">
+            {state.plane.imageUrl && <img src={state.plane.imageUrl} alt={state.plane.name} />}
+            <span className="rm-opt-text"><b>{state.plane.name}</b><span>{state.plane.left} planes left</span></span>
+          </div>
+          <div className="rm-row">
+            <button type="button" className="rm-btn" disabled={!myTurnOrUntracked} onClick={() => { send({ type: 'planar', what: 'roll' }); onClose() }}>Roll the planar die</button>
+            <button type="button" className="rm-btn line" disabled={!myTurnOrUntracked || state.plane.left === 0} onClick={() => { send({ type: 'planar', what: 'planeswalk' }); onClose() }}>Planeswalk</button>
+          </div>
+          {!myTurnOrUntracked && <p className="rm-muted">Only the player whose turn it is rolls the planar die.</p>}
+        </>
+      )}
+    </RmSheet>
   )
 }
 
@@ -546,12 +707,17 @@ function BackgroundSheet({
   )
 }
 
-/** Search a card by name and show it big on the table. */
+/**
+ * Search a card by name: see it with its official rulings (settling an argument without leaving the
+ * game), then show it big on the table if everyone should see it.
+ */
 function ShowCardSheet({ onShow, onClose }: { onShow: (name: string, imageUrl: string) => void; onClose: () => void }) {
   const [query, setQuery] = useState('')
   const [names, setNames] = useState<string[]>([])
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // The card picked, and its rulings (undefined while they load, null if they couldn't be had).
+  const [picked, setPicked] = useState<{ name: string; imageUrl: string; rulings?: Ruling[] | null } | null>(null)
   useEffect(() => {
     const q = query.trim()
     if (q.length < 2) { setNames([]); return }
@@ -567,16 +733,40 @@ function ShowCardSheet({ onShow, onClose }: { onShow: (name: string, imageUrl: s
     try {
       const card = await getByExactName(name)
       const url = displayImageUrl(card)
-      if (url) onShow(card.name, url)
-      else setError('That card has no picture.')
+      if (!url) { setError('That card has no picture.'); return }
+      setPicked({ name: card.name, imageUrl: url })
+      getRulings(card.name).then(
+        (r) => setPicked((p) => (p?.name === card.name ? { ...p, rulings: r.rulings } : p)),
+        () => setPicked((p) => (p?.name === card.name ? { ...p, rulings: null } : p)),
+      )
     } catch {
       setError('Couldn’t find that card — check your connection.')
     } finally {
       setBusy(null)
     }
   }
+  if (picked) {
+    return (
+      <RmSheet title={picked.name} onClose={onClose}>
+        <img className="rm-card-preview" src={picked.imageUrl} alt={picked.name} />
+        <div className="rm-row">
+          <button type="button" className="rm-btn line" onClick={() => setPicked(null)}>Back</button>
+          <button type="button" className="rm-btn" onClick={() => onShow(picked.name, picked.imageUrl)}>Show on the table</button>
+        </div>
+        <div className="rm-label">Rulings</div>
+        {picked.rulings === undefined ? <p className="rm-muted">Loading the rulings…</p>
+          : picked.rulings === null ? <p className="rm-muted">Couldn’t load the rulings — check your connection.</p>
+          : picked.rulings.length === 0 ? <p className="rm-muted">No official rulings for this card.</p>
+          : (
+            <ul className="rm-rulings">
+              {picked.rulings.map((r, i) => <li key={i}>{r.comment}<small>{r.published_at}</small></li>)}
+            </ul>
+          )}
+      </RmSheet>
+    )
+  }
   return (
-    <RmSheet title="Show a card on the table" onClose={onClose}>
+    <RmSheet title="Look up a card" onClose={onClose}>
       <input className="rm-input" autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Card name" aria-label="Card name" />
       <div className="rm-list">
         {names.map((n) => (
@@ -586,6 +776,56 @@ function ShowCardSheet({ onShow, onClose }: { onShow: (name: string, imageUrl: s
         ))}
       </div>
       {error && <p className="rm-error" role="alert">{error}</p>}
+    </RmSheet>
+  )
+}
+
+/**
+ * The tokens this player's deck makes, each with how many are out — kept on this phone for this
+ * game. Every change also moves the seat's token counter, so the table shows the total; a restart
+ * clears that counter, so the counts here start again with it ([gameKey] is the match and game).
+ */
+function TokensSheet({
+  gameKey, deck, onChange, onPickDeck, onClose,
+}: {
+  gameKey: string
+  deck: Deck | null
+  onChange: (delta: number) => void
+  onPickDeck: () => void
+  onClose: () => void
+}) {
+  const cardsById = useDeckCardData(deck ?? undefined)
+  const tokens = deck ? tokensNeeded(deck, cardsById).filter((t) => !t.isEmblem) : []
+  const key = `mtgweb_remote_tokens:${gameKey}`
+  const [counts, setCounts] = useState<Record<string, number>>(() => readJson(key, {}))
+  const tokenKey = (t: { name: string; typeLine: string | null }) => `${t.name}|${t.typeLine ?? ''}`
+  const step = (id: string, delta: number) => {
+    const next = Math.max(0, (counts[id] ?? 0) + delta)
+    if (next === (counts[id] ?? 0)) return
+    const all = { ...counts, [id]: next }
+    setCounts(all)
+    writeJson(key, all)
+    onChange(delta)
+  }
+  return (
+    <RmSheet title="Tokens" onClose={onClose}>
+      {!deck ? (
+        <>
+          <p className="rm-muted">Pick the deck you’re playing and its tokens show up here.</p>
+          <button type="button" className="rm-btn" onClick={onPickDeck}>Pick my deck</button>
+        </>
+      ) : cardsById === undefined ? (
+        <p className="rm-muted">Reading {deck.name}’s cards…</p>
+      ) : tokens.length === 0 ? (
+        <p className="rm-muted">{cardsById === null ? 'Couldn’t load the deck’s cards — check your connection.' : `Nothing in ${deck.name} makes a token.`}</p>
+      ) : (
+        <>
+          {tokens.map((t) => (
+            <Stepper key={tokenKey(t)} label={t.typeLine ? `${t.name} · ${t.typeLine.replace(/^Token /, '')}` : t.name} icon="toll" value={counts[tokenKey(t)] ?? 0} onChange={(d) => step(tokenKey(t), d)} />
+          ))}
+          <p className="rm-muted">The table shows your total as the Tokens counter.</p>
+        </>
+      )}
     </RmSheet>
   )
 }

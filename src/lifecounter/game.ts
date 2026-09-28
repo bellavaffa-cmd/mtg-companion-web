@@ -68,6 +68,8 @@ export interface Player {
   commander?: string | null
   /** The art of a commander set at the table, while it's the tile's background. */
   commanderArt?: string | null
+  /** How many times they've cast their commander this game — the tax is two for each. */
+  commanderCasts?: number
 }
 
 /** Counters a player can keep besides poison. Storm is cleared when the turn passes. */
@@ -169,9 +171,79 @@ export interface Game {
   undo?: UndoEntry[]
   /** A card a player is showing everyone from their remote, until someone taps it away. */
   shownCard?: ShownCard | null
+  /** The seat that asked everyone to hold on (they have a response), until they let go or the turn passes. */
+  hold?: number | null
+  /** The latest one-off thing to show everyone for a moment: a roll, an emote, a player pointed at. */
+  announce?: Announce | null
 }
 
 export interface ShownCard { name: string; imageUrl: string; seat: number }
+
+/**
+ * Something a player did that the table shows for a few seconds. [id] tells one from the next, so a
+ * second identical roll still shows. Kept on the game so the table's screen and every remote see it.
+ */
+export interface Announce {
+  id: string
+  seat: number
+  kind: 'roll' | 'coin' | 'planar' | 'emote' | 'target'
+  at: number
+  sides?: number
+  value?: string
+  emote?: EmoteId
+  to?: number
+}
+
+/** Quick reactions a player can send to the table, and how they read there. */
+export const EMOTES = {
+  gg: '🤝 GG',
+  thinking: '🤔 Thinking…',
+  wait: '⏳ One sec',
+  laugh: '😂',
+  wow: '😮',
+  sorry: '🙏 Sorry',
+} as const
+export type EmoteId = keyof typeof EMOTES
+
+/** What an announcement says, as a line of text — the same on the table and on a remote. */
+export function announceText(a: Announce, nameOf: (seat: number) => string): string {
+  const who = nameOf(a.seat)
+  switch (a.kind) {
+    case 'roll': return `${who} rolled a d${a.sides}: ${a.value}`
+    case 'coin': return `${who} flipped a coin: ${a.value}`
+    // A planeswalk reads the same whether the die sent them or they chose to go.
+    case 'planar': return a.value === 'PLANESWALK' ? `${who} planeswalked` : a.value === 'CHAOS' ? `${who} rolled Chaos!` : `${who} rolled a blank`
+    case 'emote': return `${who}: ${a.emote ? EMOTES[a.emote] : ''}`
+    case 'target': return `${who} points at ${a.to === undefined ? 'someone' : nameOf(a.to)}`
+  }
+}
+
+/** How long an announcement stays up. */
+export const ANNOUNCE_MS = 4_000
+/** Older than this when it arrives (a page reopened, a phone reconnecting), it's already been seen. */
+const ANNOUNCE_STALE_MS = 15_000
+
+/**
+ * The announcement to show right now: each new one for [ANNOUNCE_MS] from when it arrives, then
+ * nothing. Timed from arrival rather than [Announce.at], which a remote got from another device's clock.
+ */
+export function useAnnouncement(latest: Announce | null): Announce | null {
+  const [shown, setShown] = useState<Announce | null>(null)
+  const seen = useRef<string | null>(null)
+  // Kept apart from the effect: a remote gets a fresh copy of the same announcement with every
+  // update, and that mustn't cancel the timer that takes it down.
+  const timer = useRef<number | undefined>(undefined)
+  useEffect(() => {
+    if (!latest || latest.id === seen.current) return
+    seen.current = latest.id
+    if (Date.now() - latest.at > ANNOUNCE_STALE_MS) return
+    setShown(latest)
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => setShown(null), ANNOUNCE_MS)
+  }, [latest])
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+  return shown
+}
 
 /**
  * One change that can be undone: the players it touched as they were before, and the turn if it
@@ -213,6 +285,8 @@ export function newGame(settings: LifeSettings): Game {
     startedAt: Date.now(),
     undo: [],
     shownCard: null,
+    hold: null,
+    announce: null,
   }
 }
 
@@ -279,7 +353,14 @@ export type GameAction = { by?: number } & (
   | { type: 'commanderDamage'; id: number; from: number; delta: number; costsLife: boolean }
   | { type: 'poison'; id: number; delta: number }
   | { type: 'kill'; id: number }
+  /** A player giving up — the same as being knocked out, said as what it was. */
+  | { type: 'concede'; id: number }
   | { type: 'revive'; id: number; life: number }
+  | { type: 'commanderCast'; id: number; delta: number }
+  /** [id]: the seat asking everyone to hold on, or null to let go. */
+  | { type: 'hold'; id: number | null }
+  /** Shows [announce] for a moment; [note] also goes in the history. */
+  | { type: 'announce'; announce: Announce; note?: string }
   | { type: 'name'; id: number; name: string }
   | { type: 'color'; id: number; colorIndex: number }
   | { type: 'nextTurn'; autoKill?: boolean }
@@ -299,7 +380,8 @@ function undoKey(action: GameAction): string | null {
     case 'commanderDamage': return `cmd:${action.id}:${action.from}`
     case 'poison': return `poison:${action.id}`
     case 'counter': return `counter:${action.id}:${action.counter}`
-    case 'kill': case 'revive': return `out:${action.id}`
+    case 'kill': case 'concede': case 'revive': return `out:${action.id}`
+    case 'commanderCast': return `cast:${action.id}`
     case 'nextTurn': return 'turn'
     default: return null
   }
@@ -307,7 +389,7 @@ function undoKey(action: GameAction): string | null {
 
 /** Whether two versions of a player have the same life, damage, poison and counters. */
 const samePlayState = (a: Player, b: Player) =>
-  a.life === b.life && a.poison === b.poison && a.killed === b.killed &&
+  a.life === b.life && a.poison === b.poison && a.killed === b.killed && (a.commanderCasts ?? 0) === (b.commanderCasts ?? 0) &&
   JSON.stringify(a.commanderDamage) === JSON.stringify(b.commanderDamage) &&
   JSON.stringify(a.counters ?? {}) === JSON.stringify(b.counters ?? {})
 
@@ -358,7 +440,9 @@ function undo(game: Game, by: number | null): Game {
   if (!entry) return game
   const restore = (p: Player): Player => {
     const was = entry.before.find((b) => b.id === p.id)
-    return was ? { ...p, life: was.life, poison: was.poison, killed: was.killed, commanderDamage: was.commanderDamage, counters: was.counters } : p
+    return was
+      ? { ...p, life: was.life, poison: was.poison, killed: was.killed, commanderDamage: was.commanderDamage, counters: was.counters, commanderCasts: was.commanderCasts }
+      : p
   }
   const dropped = new Set(entry.historyIds)
   return {
@@ -478,6 +562,31 @@ function applyAction(game: Game, action: GameAction): Game {
     }
     case 'kill':
       return note(updatePlayer(game, action.id, (p) => ({ ...p, killed: true })), action.id, 'Knocked out')
+    case 'concede':
+      if (game.players.find((p) => p.id === action.id)?.killed) return game
+      // Someone who has left the game has nothing to respond with.
+      return note(
+        { ...updatePlayer(game, action.id, (p) => ({ ...p, killed: true })), hold: game.hold === action.id ? null : game.hold },
+        action.id,
+        'Conceded',
+      )
+    case 'commanderCast': {
+      const p = game.players.find((x) => x.id === action.id)
+      if (!p) return game
+      const casts = Math.max(0, (p.commanderCasts ?? 0) + action.delta)
+      if (casts === (p.commanderCasts ?? 0)) return game
+      return note(
+        updatePlayer(game, action.id, (x) => ({ ...x, commanderCasts: casts })),
+        action.id,
+        action.delta > 0 ? `Cast their commander (tax ${2 * casts})` : `Commander tax back to ${2 * casts}`,
+      )
+    }
+    case 'hold':
+      return game.hold === action.id ? game : { ...game, hold: action.id }
+    case 'announce': {
+      const shown = { ...game, announce: action.announce }
+      return action.note ? note(shown, action.announce.seat, action.note) : shown
+    }
     case 'revive':
       return note(
         updatePlayer(game, action.id, (p) => ({ ...p, killed: false, life: action.life, poison: 0, commanderDamage: {} })),
@@ -499,8 +608,9 @@ function applyAction(game: Game, action: GameAction): Game {
       const turnNumber = moved.roundComplete ? game.turnNumber + 1 : game.turnNumber
       // Storm counts spells cast this turn.
       const players = game.players.map((p) => (p.counters?.storm ? { ...p, counters: { ...p.counters, storm: 0 } } : p))
+      // A "hold on" was about the turn that just ended.
       return note(
-        { ...game, touched: true, players, turnPlayerId: moved.turnPlayerId, turnNumber },
+        { ...game, touched: true, players, turnPlayerId: moved.turnPlayerId, turnNumber, hold: null },
         moved.turnPlayerId,
         `Turn ${turnNumber}`,
       )
