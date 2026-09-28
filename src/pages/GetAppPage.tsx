@@ -8,7 +8,9 @@ import { publicUrl } from '../social/api'
 /** The Android app's GitHub releases. "latest/download/<file>" always serves the newest release's file. */
 const RELEASES = 'https://github.com/bellavaffa-cmd/mtg-companion-app/releases'
 const LATEST_API = 'https://api.github.com/repos/bellavaffa-cmd/mtg-companion-app/releases/latest'
-export const APK_MOST_PHONES = 'app-arm64-v8a-release.apk'
+// Named "-<abi>.apk" at the end, which is how the app's own updater (UpdateManager.pickAsset) tells
+// a per-phone build from the universal one.
+export const APK_MOST_PHONES = 'app-release-arm64-v8a.apk'
 export const APK_UNIVERSAL = 'app-universal-release.apk'
 export const apkUrl = (file: string) => `${RELEASES}/latest/download/${file}`
 
