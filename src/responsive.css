@@ -600,7 +600,8 @@
     width: min(1080px, calc(100vw - 64px));
     margin: 5vh auto;
     padding: 0;
-    grid-template-columns: minmax(300px, 420px) minmax(0, 1fr);
+    /* The card's side gives way on a narrow window, so the details keep room to read. */
+    grid-template-columns: minmax(260px, min(420px, 40%)) minmax(0, 1fr);
     gap: 0;
     align-items: stretch;
     border-radius: 32px;
@@ -612,11 +613,17 @@
   .zoom-left {
     padding: 36px 24px;
     background: radial-gradient(circle at 50% 40%, rgba(230, 180, 94, 0.1), rgba(230, 180, 94, 0) 65%), #0e0f13;
+    min-width: 0;
   }
 
   .zoom-left .stage3d {
     position: sticky;
     top: 36px;
+    min-width: 0;
+  }
+
+  .zoom-left .card3d {
+    width: min(300px, 100%);
   }
 
   .zoom-right {
