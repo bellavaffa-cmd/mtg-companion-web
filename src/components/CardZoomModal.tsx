@@ -4,9 +4,9 @@ import { useMoney } from '../money/currency'
 import { buyCardUrl } from '../api/buy'
 import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
-import { findSimilarCards, getByFuzzyName } from '../api/scryfall'
+import { findSimilarCards, getByExactName, getCardsByIds, getByFuzzyName } from '../api/scryfall'
 import { combosUsingCard, comboUrl, relayAvailable, type ComboVariant } from '../api/relay'
-import { displayImageUrl, largeImageUrl, type ScryfallCard } from '../types/scryfall'
+import { backImageUrl as backImageOf, displayImageUrl, largeImageUrl, type ScryfallCard } from '../types/scryfall'
 import { Icon } from './Icon'
 import { InlineManaText } from './ManaSymbols'
 import { IconButton, PillChip, SectionHeader } from './kit'
@@ -187,7 +187,22 @@ export function CardZoomModal({
   const [similar, setSimilar] = useState<ScryfallCard[] | null | undefined>(undefined)
   // undefined = still loading, null = couldn't reach Commander Spellbook, [] = no combos.
   const [combos, setCombos] = useState<ComboVariant[] | null | undefined>(undefined)
-  const shownImageUrl = flipped && backImageUrl ? backImageUrl : imageUrl
+  // A saved card can be missing its back face — added by an older version, or through a trade, which
+  // only carries the front. A two-part name is the hint that there might be one; Scryfall settles it.
+  // Split, adventure and prepare cards have two-part names too, and come back with no back face.
+  const [lookedUpBack, setLookedUpBack] = useState<{ name: string; url: string | null } | null>(null)
+  const needsBackLookup = !backImageUrl && name.includes(' // ')
+  useEffect(() => {
+    if (!needsBackLookup) return
+    let cancelled = false
+    const lookup = scryfallId ? getCardsByIds([scryfallId]).then((found) => found[0] ?? getByExactName(name)) : getByExactName(name)
+    lookup
+      .then((card) => { if (!cancelled) setLookedUpBack({ name, url: backImageOf(card) }) })
+      .catch(() => { if (!cancelled) setLookedUpBack({ name, url: null }) })
+    return () => { cancelled = true }
+  }, [needsBackLookup, scryfallId, name])
+  const backUrl = backImageUrl ?? (lookedUpBack?.name === name ? lookedUpBack.url : null)
+  const shownImageUrl = flipped && backUrl ? backUrl : imageUrl
 
   useEffect(() => {
     setFlipped(false)
@@ -264,7 +279,7 @@ export function CardZoomModal({
             {onNext && <IconButton icon="chevron_right" label="Next card" variant="glass" className="zoom-step next" onClick={onNext} />}
             <div className="stage3d rise" style={{ ['--i' as string]: 0 }}>
               <TiltCard src={shownImageUrl} alt={name}>
-                {backImageUrl && (
+                {backUrl && (
                   <IconButton icon="autorenew" label="Flip card" variant="glass" className="flip-btn" onClick={() => setFlipped((f) => !f)} />
                 )}
               </TiltCard>
