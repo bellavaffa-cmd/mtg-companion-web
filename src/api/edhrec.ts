@@ -26,10 +26,11 @@ interface RawPage {
 
 /**
  * EDHREC's own slug: lowercase, strip punctuation, spaces to hyphens — e.g.
- * "Yuriko, the Tiger's Shadow" becomes "yuriko-the-tigers-shadow".
+ * "Yuriko, the Tiger's Shadow" becomes "yuriko-the-tigers-shadow". A two-faced card's page is named
+ * for its front face alone — the full "A // B" name finds nothing.
  */
 export function edhrecSlug(cardName: string): string {
-  return cardName.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-')
+  return cardName.split(' // ')[0].toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-')
 }
 
 /** Scryfall's image CDN keys off the card id's first two characters — no API call needed. */
