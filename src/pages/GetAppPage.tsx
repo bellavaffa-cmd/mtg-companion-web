@@ -47,6 +47,9 @@ export function GetAppPage() {
   const latest = useLatestRelease()
   const android = isAndroid()
   const ios = isIos()
+  // A release that shipped only the universal build has no per-phone file to link to, and GitHub
+  // answers that link with a 404 — so the main button offers the universal build instead.
+  const mainApk = latest && !latest.sizes[APK_MOST_PHONES] ? APK_UNIVERSAL : APK_MOST_PHONES
 
   return (
     <>
@@ -68,12 +71,14 @@ export function GetAppPage() {
               </div>
             ) : (
               <>
-                <a className="btn gold" href={apkUrl(APK_MOST_PHONES)} style={{ marginTop: 8 }}>
-                  <Icon name="download" aria-hidden />Download for Android{mb(latest?.sizes[APK_MOST_PHONES])}
+                <a className="btn gold" href={apkUrl(mainApk)} style={{ marginTop: 8 }}>
+                  <Icon name="download" aria-hidden />Download for Android{mb(latest?.sizes[mainApk])}
                 </a>
-                <a className="btn line sm" href={apkUrl(APK_UNIVERSAL)}>
-                  Older phone, or it won't install? Universal version{mb(latest?.sizes[APK_UNIVERSAL])}
-                </a>
+                {mainApk !== APK_UNIVERSAL && (
+                  <a className="btn line sm" href={apkUrl(APK_UNIVERSAL)}>
+                    Older phone, or it won't install? Universal version{mb(latest?.sizes[APK_UNIVERSAL])}
+                  </a>
+                )}
               </>
             )}
           </div>
