@@ -2,6 +2,9 @@
    neutral near-black ground, surfaces separated by tone rather than outlines, gold kept for the one thing
    to press, mana colours as identity, Manrope for the interface and Bebas Neue for numbers. */
 :root {
+  /* An iPhone's notch or Dynamic Island. The page is drawn under the status bar (viewport-fit=cover,
+     black-translucent), so every header keeps this much clear at the top. Zero everywhere else. */
+  --safe-top: env(safe-area-inset-top, 0px);
   --g0: #0c0d11;
   --g1: #16181e;
   --g2: #20222a;
@@ -48,6 +51,20 @@ html,
 body,
 #root {
   min-height: 100%;
+}
+
+/* Behind an iPhone's status bar: without it, a page scrolled up shows through under the clock. Over
+   the page and its top bar, under the card view, sheets and dialogs, which cover it themselves. */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--safe-top);
+  z-index: 30;
+  background: var(--g0);
+  pointer-events: none;
 }
 
 body {
@@ -214,7 +231,7 @@ img {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 26px 20px 14px;
+  padding: calc(26px + var(--safe-top)) 20px 14px;
 }
 
 .page-h h1 {
@@ -250,11 +267,11 @@ img {
   position: sticky;
   top: 0;
   z-index: 20;
-  height: 64px;
+  height: calc(64px + var(--safe-top));
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 12px;
+  padding: var(--safe-top) 12px 0;
   background: rgba(12, 13, 17, calc(var(--p, 1) * 0.9));
   -webkit-backdrop-filter: blur(calc(var(--p, 1) * 18px));
   backdrop-filter: blur(calc(var(--p, 1) * 18px));
@@ -913,7 +930,7 @@ select.input {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 26px 20px 14px;
+  padding: calc(26px + var(--safe-top)) 20px 14px;
 }
 
 .banner {
@@ -1962,7 +1979,7 @@ select.input {
 .zoom-content {
   width: min(var(--frame), 100%);
   margin: 0 auto;
-  padding: 64px 20px 40px;
+  padding: calc(64px + var(--safe-top)) 20px 40px;
   display: grid;
   gap: 12px;
 }
@@ -1970,7 +1987,7 @@ select.input {
 .zoom-close {
   position: fixed;
   z-index: 47 !important;
-  top: 14px;
+  top: calc(14px + var(--safe-top));
   right: max(14px, calc(50% - var(--frame) / 2 + 14px));
   z-index: 46;
 }
