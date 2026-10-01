@@ -62,7 +62,7 @@ export function SearchFiltersPanel({
           <Row label="Type">
             <input className="input" value={filters.typeLine} onChange={(e) => set('typeLine', e.target.value)} placeholder="e.g. legendary creature" />
           </Row>
-          <Row label="Rules text">
+          <Row label="Text">
             <input className="input" value={filters.oracle} onChange={(e) => set('oracle', e.target.value)} placeholder="e.g. draw a card" />
           </Row>
           <Row label="Colors (at least)">
