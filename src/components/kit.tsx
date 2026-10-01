@@ -6,6 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Icon } from './Icon'
+import { manaSymbolUrl } from './ManaSymbols'
 import { SyncButton } from './SyncButton'
 
 /** Magic's five colours plus colorless, tuned to glow on the dark ground (ManaColors in Color.kt). */
@@ -108,7 +109,10 @@ export function IdentityStrip({ colors, className = '', style }: { colors: strin
   return <div className={`strip ${className}`} style={{ background, ...style }} />
 }
 
-/** Colour-identity pips drawn locally, letters in the numbers face. */
+/**
+ * Colour-identity pips: the real mana symbols, each over a lettered pip drawn locally — which is what
+ * shows until the symbol has loaded, and all that shows with no connection.
+ */
 export function ManaPips({ colors, size = 16 }: { colors: string[]; size?: number }) {
   return (
     <span className="pips">
@@ -117,8 +121,10 @@ export function ManaPips({ colors, size = 16 }: { colors: string[]; size?: numbe
           key={c}
           className={`pip${c === 'U' || c === 'B' ? ' dk' : ''}`}
           style={{ ['--c' as string]: MANA[c] ?? MANA.C, width: size, height: size, fontSize: size * 0.68 }}
+          title={`{${c}}`}
         >
           {c}
+          <img className="pip-symbol" src={manaSymbolUrl(c)} alt="" onError={(e) => { e.currentTarget.hidden = true }} />
         </i>
       ))}
     </span>

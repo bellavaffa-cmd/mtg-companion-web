@@ -7,7 +7,7 @@ import type { ReactNode } from 'react'
  *
  * Mirrors the Android app's ui/common/ManaSymbols.kt.
  */
-function manaSymbolUrl(code: string): string {
+export function manaSymbolUrl(code: string): string {
   const upper = code.toUpperCase()
   const symbol = upper === 'COLORLESS' ? 'C' : upper.replace(/\//g, '')
   return `https://svgs.scryfall.io/card-symbols/${encodeURIComponent(symbol)}.svg`
