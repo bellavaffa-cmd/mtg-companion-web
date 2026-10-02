@@ -15,6 +15,7 @@ import { useAddWarning } from './useAddWarning'
 import { ArtImage, PillChip, SearchPill, toArtCrop } from './kit'
 import { SearchFiltersPanel } from './SearchFiltersPanel'
 import { buildScryfallQuery, DEFAULT_SORT, NO_FILTERS, type SearchFilters, type SearchSort } from '../search/filters'
+import { kindDetail, kindsToChoose, type TargetKind } from '../collection/addTargets'
 
 interface Props {
   /** Inside a deck or binder: adding goes straight there. Omitted on the Search tab, where the
@@ -41,6 +42,8 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
   const [error, setError] = useState<string | null>(null)
   const [zoomCard, setZoomCard] = useState<ScryfallCard | null>(null)
   const [sheetCard, setSheetCard] = useState<ScryfallCard | null>(null)
+  // Binders or decks, once picked on the sheet's first step; null shows that first step.
+  const [sheetKind, setSheetKind] = useState<TargetKind | null>(null)
   const [addWarning, setAddWarning] = useAddWarning()
   const [added, setAdded] = useState<string | null>(null)
   const [filters, setFilters] = useState<SearchFilters>(NO_FILTERS)
@@ -95,17 +98,34 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
   function actionsFor(card: ScryfallCard): SheetAction[] {
     const view: SheetAction = { label: 'View card', icon: 'visibility', onClick: () => setZoomCard(card) }
     if (onAdd) return [{ label: 'Add', icon: 'add', tone: 'gold', onClick: () => add(card) }, view]
+    const toDecks = decks.map((d): SheetAction => ({
+      label: `Add to ${d.name}`, icon: 'style', detail: 'Deck',
+      onClick: () => { setAddWarning(addCardToDeck(d.id, card)); setAdded(`Added to ${d.name}`) },
+    }))
+    const toBinders = collections.map((c): SheetAction => ({
+      label: `Add to ${c.name}`,
+      icon: isUnsorted(c) ? 'inbox' : c.type === 'WISHLIST' ? 'star' : 'collections',
+      detail: isUnsorted(c) ? 'Not in a binder' : c.type === 'WISHLIST' ? 'Wishlist' : 'Binder',
+      onClick: () => { addEntryToCollection(c.id, card); setAdded(`Added to ${c.name}`) },
+    }))
+    const kinds = kindsToChoose(toBinders.length, toDecks.length)
+    if (!kinds) return [view, ...toDecks, ...toBinders]
+    // The sheet closes before an action runs, so a step within it opens it again.
+    const step = (kind: TargetKind | null) => () => { setSheetCard(card); setSheetKind(kind) }
+    if (sheetKind) {
+      return [
+        { label: 'Back', icon: 'arrow_back', detail: 'Binder or deck', onClick: step(null) },
+        ...(sheetKind === 'deck' ? toDecks : toBinders),
+      ]
+    }
     return [
       view,
-      ...decks.map((d): SheetAction => ({
-        label: `Add to ${d.name}`, icon: 'style', detail: 'Deck',
-        onClick: () => { setAddWarning(addCardToDeck(d.id, card)); setAdded(`Added to ${d.name}`) },
-      })),
-      ...collections.map((c): SheetAction => ({
-        label: `Add to ${c.name}`,
-        icon: isUnsorted(c) ? 'inbox' : c.type === 'WISHLIST' ? 'star' : 'collections',
-        detail: isUnsorted(c) ? 'Not in a binder' : c.type === 'WISHLIST' ? 'Wishlist' : 'Binder',
-        onClick: () => { addEntryToCollection(c.id, card); setAdded(`Added to ${c.name}`) },
+      ...kinds.map((kind): SheetAction => ({
+        label: kind === 'deck' ? 'Add to a deck' : 'Add to a binder',
+        icon: kind === 'deck' ? 'style' : 'collections',
+        tone: 'gold',
+        detail: kindDetail(kind, kind === 'deck' ? toDecks.length : toBinders.length),
+        onClick: step(kind),
       })),
     ]
   }
@@ -150,7 +170,7 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
           subtitle={[sheetCard.type_line, money.formatPrice(sheetCard.prices?.usd)].filter(Boolean).join(' · ')}
           imageUrl={displayImageUrl(sheetCard)}
           actions={actionsFor(sheetCard)}
-          onClose={() => setSheetCard(null)}
+          onClose={() => { setSheetCard(null); setSheetKind(null) }}
         />
       )}
 

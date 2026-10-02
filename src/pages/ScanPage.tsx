@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getByExactName, getByFuzzyName, getBySetAndNumber, getCardsByIds, getPrintings, OfflineError } from '../api/scryfall'
+import { kindDetail, kindsToChoose, type TargetKind } from '../collection/addTargets'
 import { ActionSheet, type SheetAction } from '../components/ActionSheet'
 import { Icon } from '../components/Icon'
 import { ArtImage, PillChip, toArtCrop, useBack } from '../components/kit'
@@ -130,6 +131,8 @@ export function ScanPage() {
   const [typed, setTyped] = useState('')
   const [lookingUp, setLookingUp] = useState(false)
   const [picking, setPicking] = useState(false)
+  // Binders or decks, once picked on the add sheet's first step; null shows that first step.
+  const [pickingKind, setPickingKind] = useState<TargetKind | null>(null)
   // The row whose art is being chosen, when the printing was guessed from the name.
   const [pickingArt, setPickingArt] = useState<ScanRow | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -540,21 +543,38 @@ export function ScanPage() {
     setPicking(false)
   }
   const unsorted = collections.find(isUnsorted)
-  const targets: SheetAction[] = [
-    // Cards you own but haven't sorted yet: the pile goes in as it is, to be sorted later.
-    {
-      label: 'Unsorted',
-      icon: 'inbox',
-      tone: 'gold',
-      detail: 'Into your collection, to sort into binders later',
-      onClick: () => addAllTo({ kind: 'unsorted', id: UNSORTED_COLLECTION_ID, name: 'Unsorted' }),
-    },
-    ...decks.map((d): SheetAction => ({ label: d.name, icon: 'style', detail: 'Deck', onClick: () => addAllTo({ kind: 'deck', id: d.id, name: d.name }) })),
-    ...collections.filter((c) => c.id !== unsorted?.id).map((c): SheetAction => ({
-      label: c.name, icon: c.type === 'WISHLIST' ? 'star' : 'collections', detail: c.type === 'WISHLIST' ? 'Wishlist' : 'Binder',
-      onClick: () => addAllTo({ kind: 'binder', id: c.id, name: c.name }),
-    })),
-  ]
+  const toDecks = decks.map((d): SheetAction => ({ label: d.name, icon: 'style', detail: 'Deck', onClick: () => addAllTo({ kind: 'deck', id: d.id, name: d.name }) }))
+  const toBinders = collections.filter((c) => c.id !== unsorted?.id).map((c): SheetAction => ({
+    label: c.name, icon: c.type === 'WISHLIST' ? 'star' : 'collections', detail: c.type === 'WISHLIST' ? 'Wishlist' : 'Binder',
+    onClick: () => addAllTo({ kind: 'binder', id: c.id, name: c.name }),
+  }))
+  const kinds = kindsToChoose(toBinders.length, toDecks.length)
+  // The sheet closes before an action runs, so a step within it opens it again.
+  const step = (kind: TargetKind | null) => () => { setPicking(true); setPickingKind(kind) }
+  const targets: SheetAction[] = kinds && pickingKind
+    ? [
+        { label: 'Back', icon: 'arrow_back', detail: 'Unsorted, a binder or a deck', onClick: step(null) },
+        ...(pickingKind === 'deck' ? toDecks : toBinders),
+      ]
+    : [
+        // Cards you own but haven't sorted yet: the pile goes in as it is, to be sorted later.
+        {
+          label: 'Unsorted',
+          icon: 'inbox',
+          tone: 'gold',
+          detail: 'Into your collection, to sort into binders later',
+          onClick: () => addAllTo({ kind: 'unsorted', id: UNSORTED_COLLECTION_ID, name: 'Unsorted' }),
+        },
+        // With binders and decks both on offer, ask which first rather than mixing the two.
+        ...(kinds
+          ? kinds.map((kind): SheetAction => ({
+              label: kind === 'deck' ? 'A deck' : 'A binder',
+              icon: kind === 'deck' ? 'style' : 'collections',
+              detail: kindDetail(kind, kind === 'deck' ? toDecks.length : toBinders.length),
+              onClick: step(kind),
+            }))
+          : [...toDecks, ...toBinders]),
+      ]
 
   return (
     <>
@@ -708,7 +728,7 @@ export function ScanPage() {
         <ActionSheet
           title={`Add ${total} ${total === 1 ? 'card' : 'cards'} to…`}
           actions={targets.length > 0 ? targets : [{ label: 'No decks or binders yet — make one first', icon: 'info', onClick: () => setPicking(false) }]}
-          onClose={() => setPicking(false)}
+          onClose={() => { setPicking(false); setPickingKind(null) }}
         />
       )}
     </>
