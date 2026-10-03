@@ -66,12 +66,46 @@ export function AccountDialogs() {
     mergePrompt, resolveMerge, passwordRecovery, dismissPasswordRecovery, linkNotice, dismissLinkNotice, signOut,
     storageFullNotice, dismissStorageFullNotice, account,
   } = useSync()
+  // "Use my account only" asks again before this browser's library goes; set if it couldn't be kept aside.
+  const [confirmingReplace, setConfirmingReplace] = useState(false)
+  const [replaceFailed, setReplaceFailed] = useState(false)
 
   if (mergePrompt) {
     const parts = [
       mergePrompt.decks > 0 ? `${mergePrompt.decks} deck${mergePrompt.decks === 1 ? '' : 's'}` : null,
       mergePrompt.collections > 0 ? `${mergePrompt.collections} binder${mergePrompt.collections === 1 ? '' : 's'}` : null,
     ].filter(Boolean).join(' and ')
+    if (confirmingReplace) {
+      const replace = () => {
+        if (resolveMerge('replace')) setConfirmingReplace(false)
+        else setReplaceFailed(true)
+      }
+      return (
+        <Dialog
+          title={`Remove ${parts} from this browser?`}
+          onDismiss={() => setConfirmingReplace(false)}
+          actions={
+            <>
+              <button className="btn line" onClick={() => { setConfirmingReplace(false); setReplaceFailed(false) }}>Back</button>
+              <button className="btn danger" onClick={replace} disabled={replaceFailed}>Remove them</button>
+            </>
+          }
+        >
+          <p className="muted" style={{ marginTop: 0 }}>
+            The {parts} this browser has will be taken out of it, and your account's library shown instead.
+            They won't be added to your account.
+          </p>
+          <p className="muted" style={{ marginBottom: 0 }}>
+            A copy stays in this browser: if you change your mind, Account &amp; sync can bring them back.
+          </p>
+          {replaceFailed && (
+            <div className="account-notice" style={{ marginTop: 8 }}>
+              This browser is out of storage, so there's no room to keep that copy. Go back and choose Add to my account, or sign out.
+            </div>
+          )}
+        </Dialog>
+      )
+    }
     return (
       <Dialog
         title="This browser already has a library"
@@ -79,7 +113,7 @@ export function AccountDialogs() {
         actions={
           <>
             <button className="btn line" onClick={() => void signOut()}>Sign out</button>
-            <button className="btn line" onClick={() => resolveMerge('replace')}>Use my account only</button>
+            <button className="btn line" onClick={() => setConfirmingReplace(true)}>Use my account only</button>
             <button className="btn gold" onClick={() => resolveMerge('add')}>Add to my account</button>
           </>
         }

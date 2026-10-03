@@ -12,6 +12,7 @@ import { watchLibrary } from './realtime'
 import type { Account } from './supabaseAuth'
 import type { Library } from './cloudSync'
 import { onStorageFull, saveToStorage } from './storage'
+import { libraryCounts, withBackupAdded } from './libraryBackup'
 import { applyCollectionChanges, type CollectionChange } from '../social/tradeLogic'
 import { dropPushOnSignOut } from '../social/push'
 import {
@@ -21,7 +22,7 @@ import {
 } from './cloudSync'
 import { holdsOwnCopies, intoPile, pileEntryOf, realCopiesLeaving, realCopiesOf, takenFromUnsorted, withUnsortedPile } from '../collection/unsorted'
 import { withDeckPrinting, withEntryPrinting } from '../collection/printings'
-import { WISHLIST_ID, isEmptyWishlist, withWantedCards, withWishlist, withWishlistCardWantedAgain, withoutWishlistCard, type WantedCard } from '../collection/wishlist'
+import { WISHLIST_ID, withWantedCards, withWishlist, withWishlistCardWantedAgain, withoutWishlistCard, type WantedCard } from '../collection/wishlist'
 import { gatherInto, removeEverywhere } from '../collection/allCards'
 import { withSwapIn } from '../decks/proxies'
 
@@ -51,7 +52,7 @@ const MERGE_PENDING_KEY = 'mtgweb_merge_pending'
 const RETURN_SYNC_GAP_MS = 5_000
 
 const LIBRARY_KEY = 'mtgweb_library'
-/** Where "Use my account's library" keeps this browser's old library, just in case. */
+/** Where "Use my account only" keeps this browser's old library, until it's brought back or discarded (Account & sync). */
 const LIBRARY_BACKUP_KEY = 'mtgweb_library_before_account'
 /** Leftover from the retired Google Drive sync. */
 const OLD_DRIVE_SYNC_KEY = 'mtgweb_sync_state'
@@ -112,7 +113,16 @@ interface SyncContextValue {
   cloud: CloudStatus
   /** Set when an account is signed in for the first time in a browser that already has decks/binders. */
   mergePrompt: { decks: number; collections: number; email: string } | null
-  resolveMerge: (choice: 'add' | 'replace') => void
+  /**
+   * Answers the merge prompt. 'replace' sets this browser's library aside (see libraryBackup) and
+   * answers false, changing nothing, when there's no room to keep it.
+   */
+  resolveMerge: (choice: 'add' | 'replace') => boolean
+  /** What "Use my account only" set aside in this browser, if anything is still waiting there. */
+  libraryBackup: { decks: number; collections: number } | null
+  /** Adds the set-aside decks and binders to the library as new ones, then forgets the backup. */
+  restoreLibraryBackup: () => void
+  discardLibraryBackup: () => void
   /** True after a password-reset link signed the user in: ask for a new password. */
   passwordRecovery: boolean
   dismissPasswordRecovery: () => void
@@ -250,6 +260,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const [passwordRecovery, setPasswordRecovery] = useState(false)
   const [linkNotice, setLinkNotice] = useState<string | null>(null)
   const [storageFullNotice, setStorageFullNotice] = useState(false)
+  const [libraryBackup, setLibraryBackup] = useState(() => {
+    const raw = localStorage.getItem(LIBRARY_BACKUP_KEY)
+    const counts = raw ? libraryCounts(loadLibrary(raw)) : null
+    return counts && counts.decks + counts.collections > 0 ? counts : null
+  })
   const syncTimer = useRef<number | undefined>(undefined)
   const syncChain = useRef<Promise<void>>(Promise.resolve())
   const lastAutoSync = useRef(0)
@@ -426,28 +441,36 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }
     accountRef.current = acct
     setAccount(acct)
-    const lib = libraryRef.current
-    // An empty Wishlist is there in every library, so it isn't something to ask about.
-    const binders = lib.collections.filter((c) => !isEmptyWishlist(c)).length
-    if (loadCloudState().userId !== acct.userId && (lib.decks.length > 0 || binders > 0)) {
+    // An empty Wishlist and Unsorted pile are there in every library, so they aren't something to ask about.
+    const counts = libraryCounts(libraryRef.current)
+    if (loadCloudState().userId !== acct.userId && (counts.decks > 0 || counts.collections > 0)) {
       mergePending.current = true
       localStorage.setItem(MERGE_PENDING_KEY, acct.userId)
-      setMergePrompt({ decks: lib.decks.length, collections: binders, email: acct.email })
+      setMergePrompt({ ...counts, email: acct.email })
       return
     }
     void runSync()
   }, [commitLibrary, runSync])
 
-  const resolveMerge = useCallback((choice: 'add' | 'replace') => {
+  const resolveMerge = useCallback((choice: 'add' | 'replace'): boolean => {
     if (choice === 'replace') {
-      localStorage.setItem(LIBRARY_BACKUP_KEY, JSON.stringify(libraryRef.current))
+      const old = libraryRef.current
+      // Emptied first, so the copy set aside has the room the library had.
       commitLibrary({ decks: [], collections: [] })
+      if (!saveToStorage(LIBRARY_BACKUP_KEY, JSON.stringify(old))) {
+        // Nowhere to keep it: leave everything as it was rather than lose it.
+        commitLibrary(old)
+        return false
+      }
+      const counts = libraryCounts(old)
+      setLibraryBackup(counts.decks + counts.collections > 0 ? counts : null)
       clearCloudState()
     }
     mergePending.current = false
     localStorage.removeItem(MERGE_PENDING_KEY)
     setMergePrompt(null)
     void runSync()
+    return true
   }, [commitLibrary, runSync])
 
   // Told once per visit: storage.ts only reports the first write that found no room.
@@ -600,6 +623,17 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     },
     [adoptStoredLibrary, commitLibrary, scheduleSync],
   )
+
+  const discardLibraryBackup = useCallback(() => {
+    localStorage.removeItem(LIBRARY_BACKUP_KEY)
+    setLibraryBackup(null)
+  }, [])
+
+  const restoreLibraryBackup = useCallback(() => {
+    const raw = localStorage.getItem(LIBRARY_BACKUP_KEY)
+    if (raw) updateLibrary((lib) => withBackupAdded(lib, loadLibrary(raw), () => crypto.randomUUID()))
+    discardLibraryBackup()
+  }, [updateLibrary, discardLibraryBackup])
 
   // The Wishlist, always there, holding what decks are considering that isn't owned; and the
   // Unsorted pile, always there for cards not in a binder or deck. Not while "this browser already
@@ -1184,6 +1218,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       cloud,
       mergePrompt,
       resolveMerge,
+      libraryBackup,
+      restoreLibraryBackup,
+      discardLibraryBackup,
       passwordRecovery,
       dismissPasswordRecovery: () => setPasswordRecovery(false),
       linkNotice,
@@ -1237,7 +1274,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       removeEntriesFromCollection,
     }),
     [
-      library, account, cloud, mergePrompt, resolveMerge, passwordRecovery, linkNotice, storageFullNotice, signIn, signUp, signOut,
+      library, account, cloud, mergePrompt, resolveMerge, libraryBackup, restoreLibraryBackup, discardLibraryBackup, passwordRecovery, linkNotice, storageFullNotice, signIn, signUp, signOut,
       signInWithToken, syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, setCardTags, addGameResult,
       addCardsToDeck, stopConsidering, considerIntoDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
