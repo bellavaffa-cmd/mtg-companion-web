@@ -6,7 +6,7 @@ import type {
 } from '../types/models'
 import { DECK_OWNERSHIP_DEFAULT, UNSORTED_COLLECTION_ID, duplicateWarning, normalizeDeck } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
-import { backImageUrl, canBeCommander, cardTags, displayImageUrl, partnerAbility } from '../types/scryfall'
+import { backImageUrl, cardTags, displayImageUrl } from '../types/scryfall'
 import * as auth from './supabaseAuth'
 import { watchLibrary } from './realtime'
 import type { Account } from './supabaseAuth'
@@ -26,6 +26,7 @@ import { WISHLIST_ID, withWantedCards, withWishlist, withWishlistCardWantedAgain
 import { gatherInto, removeEverywhere } from '../collection/allCards'
 import { withSwapIn } from '../decks/proxies'
 import { canPair } from '../decks/pairing'
+import { entryFromCard } from '../decks/newDeck'
 import { takeCopies } from '../collection/addTo'
 import { changeBetween, isNoChange, undoChange } from './undo'
 
@@ -85,20 +86,6 @@ function withSyncLock<T>(fn: () => Promise<T>): Promise<T> {
   return 'locks' in navigator ? navigator.locks.request('mtgweb-sync', fn) : fn()
 }
 
-function entryFromCard(card: ScryfallCard, quantity: number): DeckCardEntry {
-  return {
-    scryfallId: card.id,
-    name: card.name,
-    imageUrl: displayImageUrl(card),
-    quantity,
-    canBeCommander: canBeCommander(card),
-    typeLine: card.type_line ?? null,
-    partnerAbility: partnerAbility(card),
-    backImageUrl: backImageUrl(card),
-    tags: cardTags(card),
-  }
-}
-
 export interface CloudStatus {
   syncing: boolean
   lastSyncedAt: number
@@ -156,8 +143,11 @@ interface SyncContextValue {
   updatePassword: (password: string) => Promise<void>
 
   createDeck: (name: string, gameMode: GameMode) => Deck
-  /** Creates a Commander deck already holding [cards] — importing a precon. */
-  createDeckWithCards: (name: string, cards: DeckCardEntry[], commander?: DeckCardEntry | null, partnerCommander?: DeckCardEntry | null) => Deck
+  /**
+   * Creates a deck already holding [cards] — importing a precon, or a new deck that starts with its
+   * commanders. [gameMode] is Commander unless said otherwise.
+   */
+  createDeckWithCards: (name: string, cards: DeckCardEntry[], commander?: DeckCardEntry | null, partnerCommander?: DeckCardEntry | null, gameMode?: GameMode) => Deck
   /** Deletes a deck; with [keepCards], its real copies go back to the Unsorted pile first (see realCopiesOf). */
   deleteDeck: (deckId: string, keepCards?: boolean) => void
   /** Returns a warning if the resulting copy count breaks the deck's format rules (singleton, max
@@ -728,10 +718,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   )
 
   const createDeckWithCards = useCallback(
-    (name: string, cards: DeckCardEntry[], commander: DeckCardEntry | null = null, partnerCommander: DeckCardEntry | null = null): Deck => {
+    (name: string, cards: DeckCardEntry[], commander: DeckCardEntry | null = null, partnerCommander: DeckCardEntry | null = null, gameMode: GameMode = 'COMMANDER'): Deck => {
       const deck: Deck = {
         id: crypto.randomUUID(), name, commander, partnerCommander, cards,
-        gameMode: 'COMMANDER', createdAt: Date.now(), tags: [], gameResults: [], ownership: DECK_OWNERSHIP_DEFAULT,
+        gameMode, createdAt: Date.now(), tags: [], gameResults: [], ownership: DECK_OWNERSHIP_DEFAULT,
       }
       updateLibrary((lib) => ({ ...lib, decks: [...lib.decks, deck] }))
       return deck

@@ -1,26 +1,27 @@
 import { useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { Icon } from '../components/Icon'
-import { Dialog } from '../components/Dialog'
 import { ArtImage, IconButton, IdentityStrip, ManaPips, PageHeader, PillChip, SearchPill, rise, toArtCrop, useLayoutSize } from '../components/kit'
 import { useDeckColors } from '../components/useDeckColors'
-import { DECK_OWNERSHIP_LABELS, DECK_OWNERSHIP_OPTIONS, GAME_MODES, GAME_MODE_LABELS } from '../types/models'
+import { DECK_OWNERSHIP_LABELS, DECK_OWNERSHIP_OPTIONS, GAME_MODE_LABELS } from '../types/models'
 import type { DeckOwnership, GameMode } from '../types/models'
 
 export function DecksPage() {
   const { decks } = useSync()
   const navigate = useNavigate()
-  const [params, setParams] = useSearchParams()
+  const [params] = useSearchParams()
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<DeckOwnership | 'ALL'>('ALL')
   const deckColors = useDeckColors(decks)
-  const showCreate = params.get('new') === '1'
   const wide = useLayoutSize() !== 'phone'
 
   const q = query.trim().toLowerCase()
   const matching = decks.filter((d) => !q || `${d.name} ${d.commander?.name ?? ''} ${d.partnerCommander?.name ?? ''} ${d.tags.join(' ')}`.toLowerCase().includes(q))
   const shown = matching.filter((d) => filter === 'ALL' || d.ownership === filter)
+
+  // The old address for a new deck, from a bookmark or the other app's links.
+  if (params.get('new') === '1') return <Navigate to="/decks/new" replace />
 
   return (
     <>
@@ -29,12 +30,12 @@ export function DecksPage() {
         actions={wide ? (
           <>
             <button type="button" className="btn line" onClick={() => navigate('/precons')}><Icon name="inventory_2" />Precons</button>
-            <button type="button" className="btn gold" onClick={() => setParams({ new: '1' })}><Icon name="add" />New deck</button>
+            <button type="button" className="btn gold" onClick={() => navigate('/decks/new')}><Icon name="add" />New deck</button>
           </>
         ) : (
           <>
             <IconButton icon="inventory_2" label="Precons" onClick={() => navigate('/precons')} />
-            <IconButton icon="add" label="New deck" variant="gold" onClick={() => setParams({ new: '1' })} />
+            <IconButton icon="add" label="New deck" variant="gold" onClick={() => navigate('/decks/new')} />
           </>
         )}
       />
@@ -43,7 +44,7 @@ export function DecksPage() {
           <div className="empty-state rise" style={rise(1)}>
             <Icon name="style" />
             <div>No decks yet. Build your first one — cards you add sync to your phone when you're signed in.</div>
-            <button type="button" className="btn gold" onClick={() => setParams({ new: '1' })}><Icon name="add" />New deck</button>
+            <div className="tiles"><StartTiles index={2} /></div>
           </div>
         ) : (
           <>
@@ -88,50 +89,35 @@ export function DecksPage() {
                     </button>
                   )
                 })}
+                {/* Fills an odd row, and is the obvious next step when the list is short. */}
+                {!q && filter === 'ALL' && <StartTiles index={Math.min(shown.length, 8) + 3} />}
               </div>
             )}
           </>
         )}
       </div>
-
-      {showCreate && (
-        <CreateDeckDialog
-          onDismiss={() => setParams({}, { replace: true })}
-          onCreated={(id) => navigate(`/decks/${id}`, { replace: true })}
-        />
-      )}
     </>
   )
 }
 
-function CreateDeckDialog({ onDismiss, onCreated }: { onDismiss: () => void; onCreated: (id: string) => void }) {
-  const { createDeck } = useSync()
-  const [name, setName] = useState('')
-  const [gameMode, setGameMode] = useState<GameMode>('COMMANDER')
-  const create = () => {
-    if (!name.trim()) return
-    onCreated(createDeck(name.trim(), gameMode).id)
-  }
-
+/** A deck-sized tile that starts a new deck: from scratch, or from a precon. */
+function StartTile({ icon, title, note, onClick, index }: { icon: string; title: string; note: string; onClick: () => void; index: number }) {
   return (
-    <Dialog
-      title="New deck"
-      onDismiss={onDismiss}
-      actions={
-        <>
-          <button type="button" className="btn line" onClick={onDismiss}>Cancel</button>
-          <button type="button" className="btn gold" disabled={!name.trim()} onClick={create}>Create deck</button>
-        </>
-      }
-    >
-      <div className="field-label">Deck name</div>
-      <input className="input" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && create()} autoFocus />
-      <div className="field-label" style={{ marginTop: 16 }}>Format</div>
-      <div className="chips wrap">
-        {GAME_MODES.map((m) => (
-          <PillChip key={m} label={GAME_MODE_LABELS[m]} selected={gameMode === m} onClick={() => setGameMode(m)} className="on-g2" />
-        ))}
-      </div>
-    </Dialog>
+    <button type="button" className="tile start-tile press rise" style={rise(index)} onClick={onClick}>
+      <span className="start-icon"><Icon name={icon} /></span>
+      <span className="start-title">{title}</span>
+      <span className="start-note">{note}</span>
+    </button>
+  )
+}
+
+/** The two ways to start a deck, after the decks (and all there is when there are none). */
+function StartTiles({ index }: { index: number }) {
+  const navigate = useNavigate()
+  return (
+    <>
+      <StartTile icon="add" title="Start from scratch" note="Pick a format and a commander" onClick={() => navigate('/decks/new')} index={index} />
+      <StartTile icon="inventory_2" title="Start from a precon" note="Import any official Commander deck" onClick={() => navigate('/precons')} index={index + 1} />
+    </>
   )
 }

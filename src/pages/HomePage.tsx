@@ -189,7 +189,7 @@ export function HomePage() {
             <input value={globalQuery} onChange={(e) => setGlobalQuery(e.target.value)} placeholder="Search every card on Scryfall" aria-label="Search cards" />
           </form>
           {desktop && (
-            <button type="button" className="btn gold" onClick={() => navigate('/decks?new=1')}><Icon name="add" />New deck</button>
+            <button type="button" className="btn gold" onClick={() => navigate('/decks/new')}><Icon name="add" />New deck</button>
           )}
         </header>
 
@@ -208,7 +208,7 @@ export function HomePage() {
 
           {desktop ? (
             <section className="home-hero-row rise" style={rise(1)}>
-              {hero ?? <EmptyDecks onNew={() => navigate('/decks?new=1')} />}
+              {hero ?? <EmptyDecks onNew={() => navigate('/decks/new')} />}
               <div className="stats-2x2">
                 <StatFigure value={decks.length} label="Decks" onClick={() => navigate('/decks')} />
                 <StatFigure value={binderCount} label="Binders" onClick={() => navigate('/collections?tab=binders')} />
@@ -221,7 +221,7 @@ export function HomePage() {
             </section>
           ) : (
             <>
-              <div className="rise" style={rise(1)}>{hero ?? <EmptyDecks onNew={() => navigate('/decks?new=1')} />}</div>
+              <div className="rise" style={rise(1)}>{hero ?? <EmptyDecks onNew={() => navigate('/decks/new')} />}</div>
               <div className="stats four rise" style={rise(2)}>
                 <StatFigure value={decks.length} label="Decks" onClick={() => navigate('/decks')} />
                 <StatFigure value={binderCount} label="Binders" onClick={() => navigate('/collections?tab=binders')} />
@@ -239,7 +239,7 @@ export function HomePage() {
               <SectionHeader title="Your decks" action="See all" onAction={() => navigate('/decks')} style={{ paddingTop: 0 }} />
               <div className="deck-grid">
                 {gridDecks.map((deck) => <MiniDeck key={deck.id} deck={deck} colors={deckColors[deck.id] ?? []} onOpen={() => navigate(`/decks/${deck.id}`)} />)}
-                <button type="button" className="mini add press" onClick={() => navigate('/decks?new=1')}>
+                <button type="button" className="mini add press" onClick={() => navigate('/decks/new')}>
                   <span className="ic"><Icon name="add" /></span>
                   New deck
                 </button>
@@ -336,7 +336,7 @@ export function HomePage() {
           <SectionHeader title="Your decks" action={decks.length > 0 ? 'See all' : undefined} onAction={() => navigate('/decks')} />
           <div className="rail">
             {railDecks.map((deck) => <MiniDeck key={deck.id} deck={deck} colors={deckColors[deck.id] ?? []} onOpen={() => navigate(`/decks/${deck.id}`)} />)}
-            <button type="button" className="mini add press" onClick={() => navigate('/decks?new=1')}>
+            <button type="button" className="mini add press" onClick={() => navigate('/decks/new')}>
               <span className="ic"><Icon name="add" /></span>
               New deck
             </button>

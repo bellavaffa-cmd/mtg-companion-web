@@ -3,7 +3,7 @@ import { TokensPanel } from '../components/TokensPanel'
 import { allUserTags, userTagsOf } from '../collection/userTags'
 import { PrintingPicker, printingName } from '../components/PrintingPicker'
 import { useMoney } from '../money/currency'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
@@ -66,7 +66,9 @@ export function DeckDetailPage() {
   const cardData = useDeckCardData(deck)
   // What each card does (mana ramp, removal…): searched with the name, shown in the zoom and Stats.
   const { tags: roleTags, loading: tagging } = useRoleTags(deck ? [...deck.cards, ...(deck.considering ?? [])].map((c) => c.name) : [])
-  const [tabName, setTabName] = useState<'Cards' | 'Considering' | 'Stats' | 'Suggestions' | 'Details'>('Cards')
+  // A deck just made from scratch opens where its next step is (see landingTab in decks/newDeck.ts).
+  const opening = (useLocation().state as { tab?: 'Cards' | 'Suggestions' } | null)?.tab
+  const [tabName, setTabName] = useState<'Cards' | 'Considering' | 'Stats' | 'Suggestions' | 'Details'>(opening ?? 'Cards')
   const [filter, setFilter] = useState('')
   // The chips under the search: every card, only the cut candidates, or only the combo pieces.
   const [cardFilter, setCardFilter] = useState<CardFilter>('ALL')

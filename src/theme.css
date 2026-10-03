@@ -4084,3 +4084,131 @@ button.tag-chip {
   color: var(--t1);
   font-size: 13px;
 }
+
+/* ---- Starting a deck (pages/DecksPage.tsx tiles, pages/NewDeckPage.tsx) ---- */
+
+/* "Start from scratch" and "Start from a precon": deck-tile sized, after the decks. */
+.tile.start-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 18px;
+  color: var(--t0);
+  text-align: center;
+  cursor: pointer;
+}
+.start-tile .start-icon {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 8px;
+  border-radius: 50%;
+  background: var(--g2);
+  display: grid;
+  place-items: center;
+}
+.start-tile .start-title {
+  font-weight: 800;
+  font-size: 15px;
+}
+.start-tile .start-note {
+  font-size: 12.5px;
+  color: var(--t1);
+  line-height: 1.35;
+}
+.empty-state .tiles {
+  width: 100%;
+  max-width: 460px;
+  margin-top: 8px;
+}
+
+.new-deck {
+  max-width: 1100px;
+}
+.format-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.format-card {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--g1);
+  color: var(--t0);
+  text-align: left;
+  cursor: pointer;
+}
+.format-card:hover {
+  box-shadow: inset 0 0 0 1.5px var(--gold);
+}
+.format-name {
+  font-weight: 800;
+  font-size: 16px;
+}
+.format-note {
+  font-size: 13px;
+  color: var(--t1);
+  line-height: 1.4;
+}
+.colour-chip {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+.colour-chip,
+.sort-chips .chip {
+  flex: none;
+}
+.colour-chip[aria-pressed='false'] .pips {
+  opacity: 0.55;
+}
+.sort-chips {
+  padding-top: 0;
+}
+.picker-hint {
+  margin-top: -6px;
+  font-size: 12.5px;
+}
+.picker-count {
+  margin: 8px 0 12px;
+  font-size: 13px;
+}
+.picker-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.picker-grid .card-cell,
+.new-deck-commanders .card-cell {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+.pair-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--g1);
+  font-size: 14px;
+  line-height: 1.4;
+}
+.new-deck-commanders {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.new-deck-commanders .card-cell {
+  width: 150px;
+}

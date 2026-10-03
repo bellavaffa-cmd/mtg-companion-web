@@ -10,6 +10,7 @@ import { CollectionsPage } from './pages/CollectionsPage'
 import { CollectionDetailPage } from './pages/CollectionDetailPage'
 import { DecksPage } from './pages/DecksPage'
 import { PreconsPage } from './pages/PreconsPage'
+import { NewDeckPage } from './pages/NewDeckPage'
 import { DeckDetailPage } from './pages/DeckDetailPage'
 import { SearchPage } from './pages/SearchPage'
 import { AccountPage } from './pages/AccountPage'
@@ -51,6 +52,7 @@ export default function App() {
             <Route path="/collections/:id" element={<CollectionDetailPage />} />
             <Route path="/collections/tag/:tagId" element={<TagBinderPage />} />
             <Route path="/decks" element={<DecksPage />} />
+            <Route path="/decks/new" element={<NewDeckPage />} />
             <Route path="/decks/:id" element={<DeckDetailPage />} />
             <Route path="/precons" element={<PreconsPage />} />
             <Route path="/rules" element={<RulesPage />} />

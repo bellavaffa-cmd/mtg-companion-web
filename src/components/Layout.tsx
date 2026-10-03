@@ -130,7 +130,7 @@ function Sidebar() {
         <>
           <div className="side-sec">
             <span>Recent decks</span>
-            <NavLink to="/decks?new=1" aria-label="New deck" title="New deck"><Icon name="add" style={{ fontSize: 18 }} /></NavLink>
+            <NavLink to="/decks/new" aria-label="New deck" title="New deck"><Icon name="add" style={{ fontSize: 18 }} /></NavLink>
           </div>
           {recent.map((deck) => (
             <NavLink
