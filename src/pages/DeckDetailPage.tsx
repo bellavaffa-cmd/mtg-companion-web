@@ -35,7 +35,7 @@ import { DeckSuggestions } from '../components/DeckSuggestions'
 import { DeckSwaps } from '../components/DeckSwaps'
 import { DeckStats, deckFigures, useDeckCardData } from '../components/DeckStats'
 import { MatchRecordPanel } from '../components/MatchRecordPanel'
-import { GoldfishDialog } from '../components/GoldfishDialog'
+import { PlaytestDialog } from '../components/PlaytestDialog'
 import { Dialog } from '../components/Dialog'
 import {
   ArtImage, CountUp, IconButton, ManaPips, PillChip, SearchPill, SegmentedTabs, TYPE_GROUPS, TYPE_PLURALS,
@@ -674,7 +674,7 @@ export function DeckDetailPage() {
           imageUrl={deck.commander?.imageUrl ?? null}
           actions={[
             { label: 'Share with friends', icon: 'group', detail: 'View only — friends, pods or a link', onClick: () => setSharing(true) },
-            { label: 'Goldfish (playtest)', icon: 'playing_cards', detail: 'Draw an opening hand, then a card at a time', onClick: () => setGoldfish(true) },
+            { label: 'Playtest', icon: 'playing_cards', detail: 'Mulligan, play or draw, then turns', onClick: () => setGoldfish(true) },
             { label: 'Who has it?', icon: 'person_search', detail: "Friends who own the cards you're missing", onClick: () => setWhoHas(true) },
             ...(missing.length > 0
               ? [{
@@ -841,7 +841,7 @@ export function DeckDetailPage() {
       {showExport && <ExportDeckDialog deck={deck} onDismiss={() => setShowExport(false)} />}
       {sharing && <ShareDialog kind="deck" itemId={deck.id} name={deck.name} onClose={() => setSharing(false)} />}
       {whoHas && <WhoHasItSheet deck={deck} onClose={() => setWhoHas(false)} />}
-      {goldfish && <GoldfishDialog deck={deck} onClose={() => setGoldfish(false)} />}
+      {goldfish && <PlaytestDialog deck={deck} cardsById={cardData} onClose={() => setGoldfish(false)} />}
 
       {zoomSuggestion && (
         <CardZoomModal

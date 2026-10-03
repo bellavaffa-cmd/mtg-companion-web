@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
-import { getCardsByIds } from '../api/scryfall'
+import { useState } from 'react'
 import { madeByLabel, tokensNeeded, type TokenNeeded } from '../decks/tokens'
 import { displayImageUrl, largeImageUrl, type ScryfallCard } from '../types/scryfall'
 import type { Deck } from '../types/models'
 import { CardZoomModal } from './CardZoomModal'
 import { ArtImage } from './kit'
+import { useTokenArt } from './useTokenArt'
 
 /**
  * What to put in the box besides the deck. Tokens are read off the cards themselves (decks/tokens.ts)
@@ -13,18 +13,8 @@ import { ArtImage } from './kit'
  */
 export function TokensPanel({ deck, cardsById }: { deck: Deck; cardsById: Map<string, ScryfallCard> | null | undefined }) {
   const tokens = tokensNeeded(deck, cardsById)
-  const [art, setArt] = useState<Map<string, ScryfallCard>>(new Map())
+  const art = useTokenArt(tokens)
   const [zoom, setZoom] = useState<TokenNeeded | null>(null)
-  const ids = tokens.map((t) => t.id).join(',')
-
-  useEffect(() => {
-    if (!ids) { setArt(new Map()); return }
-    let cancelled = false
-    getCardsByIds(ids.split(','))
-      .then((cards) => { if (!cancelled) setArt(new Map(cards.map((c) => [c.id, c]))) })
-      .catch(() => { /* names alone are still worth showing */ })
-    return () => { cancelled = true }
-  }, [ids])
 
   // Nothing to say while the deck's cards are still being read.
   if (!cardsById) return null

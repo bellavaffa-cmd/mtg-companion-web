@@ -1,5 +1,6 @@
-// Solo playtesting ("goldfishing"): the deck shuffled into a library, an opening hand of seven, and
-// a card drawn at a time. The Android app's GoldfishDialog does the same.
+// The deck shuffled into a library, as the first playtest had it. The playtest itself is now
+// decks/playtest.ts; this stays for the check both apps share (goldfish.test.ts, the Android app's
+// GoldfishTest.kt), which the phone keeps too.
 
 import type { Deck, DeckCardEntry } from '../types/models'
 
