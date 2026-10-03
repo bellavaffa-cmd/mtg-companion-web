@@ -12,6 +12,11 @@ import { MANA, TYPE_GROUPS, TYPE_PLURALS, primaryTypeOf, rise } from './kit'
 import { DeckCombosPanel } from './RelayPanels'
 import { DeckLegality } from './DeckLegality'
 import { HandOddsPanel } from './HandOddsPanel'
+import { InlineManaText } from './ManaSymbols'
+import { useDeckCombos } from './useDeckCardSearch'
+import { VersionDetailDialog, VersionHistoryPanel } from './DeckBuildingDialogs'
+import { estimateBracket, gameChangersOf, landSources, manaBaseAdvice, probabilityAtLeastOne } from '../decks/deckAnalysis'
+import { versionSummaries, type VersionSummary } from '../decks/versions'
 
 /** Canonical mana-color order, with generic {C} last. Mirrors the Android app's pipTotals. */
 const PIP_ORDER = ['W', 'U', 'B', 'R', 'G', 'Colorless'] as const
@@ -107,6 +112,9 @@ export function DeckStats({ deck, cardsById, roleTags, tagging = false, onTag }:
   const allEntries = [deck.commander, deck.partnerCommander, ...deck.cards].filter((e) => e !== null)
   // Commanders are also in deck.cards; count each card once.
   const entries = [...new Map(allEntries.map((e) => [e.scryfallId, e])).values()]
+  const deckCombos = useDeckCombos(deck)
+  const history = useMemo(() => versionSummaries(deck), [deck])
+  const [openVersion, setOpenVersion] = useState<VersionSummary | null>(null)
 
   if (entries.length === 0) return <div className="empty-state"><Icon name="bar_chart" />Add some cards to see this deck's stats.</div>
   if (cardsById === undefined) return <div className="empty-state">Loading card data…</div>
@@ -133,8 +141,16 @@ export function DeckStats({ deck, cardsById, roleTags, tagging = false, onTag }:
   const pips = colorPipCounts(entries, cardsById)
   const totalPips = pips.reduce((sum, [, n]) => sum + n, 0)
 
-  return (
-    <div className="detail-grid">
+  // The bracket guess, from Scryfall's Game Changers and the combos Commander Spellbook finds (null:
+  // it couldn't be asked, which the reason says). As on the phone, DeckDetailViewModel.buildAnalysis.
+  const gameChangers = gameChangersOf(deck.cards, cardsById)
+  const bracket = estimateBracket(gameChangers.length, deckCombos === null ? null : deckCombos?.included.length ?? 0)
+  // The mana base: lands making each colour, against the colours the spells ask for.
+  const { sources, lands } = landSources(deck.cards, cardsById)
+  const library = Math.max(0, deck.cards.reduce((n, c) => n + c.quantity, 0) - [deck.commander, deck.partnerCommander].filter((c) => c && deck.cards.some((e) => e.scryfallId === c.scryfallId && e.quantity > 0)).length)
+  const advice = manaBaseAdvice(pips, sources, lands, deck.gameMode)
+
+  const curvePanel = (
       <div className="panel rise" style={rise(0)}>
         <div className="p-h">
           <h3>Mana curve</h3>
@@ -150,7 +166,9 @@ export function DeckStats({ deck, cardsById, roleTags, tagging = false, onTag }:
           ))}
         </div>
       </div>
+  )
 
+  const typesPanel = (
       <div className="panel rise" style={rise(1)}>
         <div className="p-h"><h3>Card types</h3><span className="p-sub">Total<b>{totalCards}</b></span></div>
         {typeCounts.map(([type, n], i) => (
@@ -163,7 +181,9 @@ export function DeckStats({ deck, cardsById, roleTags, tagging = false, onTag }:
           </div>
         ))}
       </div>
+  )
 
+  const symbolsPanel = (
       <div className="panel rise" style={rise(2)}>
         <div className="p-h"><h3>Mana symbols</h3>{totalPips > 0 && <span className="p-sub">Total<b>{totalPips}</b></span>}</div>
         {totalPips === 0 ? (
@@ -188,10 +208,65 @@ export function DeckStats({ deck, cardsById, roleTags, tagging = false, onTag }:
           </>
         )}
       </div>
+  )
+
+  // In the phone's order: versions, bracket, curve, what the cards do, hand odds, mana symbols, mana
+  // base, card types — then legality and combos, which the phone has on tabs of their own.
+  return (
+    <div className="detail-grid">
+      <VersionHistoryPanel history={history} onOpen={setOpenVersion} index={0} />
+      {openVersion && <VersionDetailDialog summary={openVersion} onDismiss={() => setOpenVersion(null)} />}
+
+      <div className="panel rise" style={rise(0)}>
+        <div className="p-h"><h3>Commander bracket</h3></div>
+        <div className="bracket">
+          <span className="bracket-num">{bracket.bracket}</span>
+          <span className="bracket-name">Bracket<b>{bracket.name}</b></span>
+        </div>
+        <div style={{ marginTop: 6, fontSize: 13.5 }}>{bracket.reason}</div>
+        {deckCombos === undefined && <div className="dim" style={{ marginTop: 6 }}>Checking Commander Spellbook for combos…</div>}
+        {gameChangers.length > 0 && <div className="dim" style={{ marginTop: 6 }}>Game Changers: {gameChangers.join(', ')}</div>}
+        <div className="dim" style={{ marginTop: 6 }}>Estimated from Game Changers and combos — not an official rating.</div>
+      </div>
+
+      {curvePanel}
 
       {roleTags && <TagCounts deck={deck} entries={entries} roleTags={roleTags} tagging={tagging} onTag={onTag} />}
 
       <HandOddsPanel deck={deck} cardsById={cardsById} roleTags={roleTags} index={3} />
+
+      {symbolsPanel}
+
+      {lands > 0 && (
+        <div className="panel rise" style={rise(3)}>
+          <div className="p-h"><h3>Mana base</h3></div>
+          <div className="dim" style={{ marginBottom: 8 }}>{lands} lands · {library} cards in library</div>
+          {sources.length === 0 ? (
+            <div className="dim">No colour-producing lands found in this deck's card data.</div>
+          ) : sources.map(([color, n]) => (
+            <div className="meter" key={color}>
+              <div className="m-top">
+                <ManaSymbol code={color} size={18} />
+                <span className="grow">{n} {n === 1 ? 'source' : 'sources'}</span>
+                <span className="m-n">
+                  {Math.floor(probabilityAtLeastOne(library, n, 7) * 100)}% opening hand · {Math.floor(probabilityAtLeastOne(library, n, 10) * 100)}% by turn 3
+                </span>
+              </div>
+            </div>
+          ))}
+          <div className="dim" style={{ marginTop: 8 }}>Hypergeometric odds of drawing at least one source, on the draw.</div>
+          {advice.length > 0 && (
+            <>
+              <ul className="mana-advice">
+                {advice.map((line) => <li key={line}><Icon name="warning" aria-hidden /><span><InlineManaText text={line} /></span></li>)}
+              </ul>
+              <div className="dim" style={{ marginTop: 6 }}>Sources count lands only — mana rocks and creatures that tap for mana aren't included.</div>
+            </>
+          )}
+        </div>
+      )}
+
+      {typesPanel}
 
       <DeckLegality deck={deck} cardsById={cardsById} index={3} />
 
