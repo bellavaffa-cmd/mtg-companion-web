@@ -22,7 +22,9 @@ import { buyCardUrl, buyListUrl } from '../api/buy'
 import { deckProxyCopies, proxiesHeldElsewhere, proxySwaps } from '../decks/proxies'
 import { realCopiesOf } from '../collection/unsorted'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
-import { useAddWarning } from '../components/useAddWarning'
+import { useAddCardTo } from '../components/useAddCardTo'
+import { useUndoBar } from '../components/useUndoBar'
+import { doneMessage } from '../collection/addTo'
 import { backImageUrl, cardTags, displayImageUrl, displayManaCost, displayOracleText, entryCanBeCommander, type ScryfallCard } from '../types/scryfall'
 import { DeckSuggestions } from '../components/DeckSuggestions'
 import { DeckStats, deckFigures, useDeckCardData } from '../components/DeckStats'
@@ -51,9 +53,11 @@ export function DeckDetailPage() {
   const back = useBack('/decks')
   const size = useLayoutSize()
   const {
-    decks, collections, setCardQuantity, removeCardFromDeck, addCardToDeck, setCommander, setPartnerCommander, deleteDeck, addToWishlist,
-    setDeckOwnership, swapInProxy, changeDeckPrinting, stopConsidering, considerIntoDeck, addCardsToDeck, setCardTags, setReplaceable,
+    decks, collections, setCardQuantity, removeCardFromDeck, setCommander, setPartnerCommander, deleteDeck, addToWishlist,
+    setDeckOwnership, swapInProxy, changeDeckPrinting, stopConsidering, considerIntoDeck, setCardTags, setReplaceable, recordUndo,
   } = useSync()
+  const addCardTo = useAddCardTo()
+  const showUndo = useUndoBar()
   // Tags the user has written on their own copies: shown in the zoom, and searchable with the rest.
   const knownTags = useMemo(() => allUserTags(decks, collections), [decks, collections])
   const deck = decks.find((d) => d.id === id)
@@ -91,7 +95,6 @@ export function DeckDetailPage() {
   // Taking the last copy out removes the card, which is easy to do by accident on a small − button:
   // it's asked about first. The card being asked about, while the question is up.
   const [removingLast, setRemovingLast] = useState<DeckCardEntry | null>(null)
-  const [addWarning, setAddWarning] = useAddWarning()
   // What the deck asks for that your binders and the decks you hold don't cover — for
   // "Who has it?", buying, and the Wishlist. Copies in another deck of yours count.
   const missing = useMemo(() => (deck ? missingCards(deck, collections, decks) : []), [deck, collections, decks])
@@ -214,9 +217,18 @@ export function DeckDetailPage() {
     else setRemovingLast(entry)
   }
 
-  const addFromSearch = (card: ScryfallCard) => {
-    setAddWarning(addCardToDeck(deck.id, card))
-    setNotice(`Added ${card.name}`)
+  /** A card from anywhere on the page into the deck, or onto its Considering list — said on the Undo bar. */
+  const addToDeck = (card: ScryfallCard, considering = false) =>
+    addCardTo(card, { kind: 'deck', id: deck.id, name: deck.name, quantity: 1, considering })
+  const addFromSearch = (card: ScryfallCard) => addToDeck(card)
+  /** A card on Considering, into the deck after all. */
+  const intoDeck = (entry: DeckCardEntry) => {
+    const undo = recordUndo(() => considerIntoDeck(deck.id, entry.scryfallId))
+    showUndo({ message: doneMessage('add', entry.name, deck.name), undo })
+  }
+  const notConsidering = (entry: DeckCardEntry) => {
+    const undo = recordUndo(() => stopConsidering(deck.id, entry.scryfallId))
+    showUndo({ message: `Stopped considering ${entry.name}`, undo })
   }
 
   // One box finds the deck's cards and, under them, cards to add; list or grid beside it.
@@ -292,7 +304,6 @@ export function DeckDetailPage() {
           ))}
         </div>
       )}
-      {addWarning && <div className="add-warning" style={{ marginTop: 12 }}>{addWarning}</div>}
       <AddToDeckSection cards={addable} onAdd={addFromSearch} onZoom={setZoomSuggestion} />
     </>
   )
@@ -323,13 +334,13 @@ export function DeckDetailPage() {
               </button>
               <button
                 type="button" className="btn gold sm"
-                onClick={() => { considerIntoDeck(deck.id, entry.scryfallId); setNotice(`${entry.name} is in the deck.`) }}
+                onClick={() => intoDeck(entry)}
               >
                 {size === 'phone' ? 'Add' : 'Add to deck'}
               </button>
               <IconButton
                 icon="close" label={`Stop considering ${entry.name}`}
-                onClick={() => { stopConsidering(deck.id, entry.scryfallId); setNotice(`Stopped considering ${entry.name}.`) }}
+                onClick={() => notConsidering(entry)}
               />
             </div>
           ))}
@@ -339,12 +350,9 @@ export function DeckDetailPage() {
   )
 
   /** A suggestion the user likes goes into Considering, not into the deck. */
-  const consider = (card: ScryfallCard) => {
-    const added = addCardsToDeck(deck.id, [card], true)
-    setNotice(added ? `${card.name} is in Considering.` : `${card.name} is already in this deck or being considered.`)
-  }
+  const consider = (card: ScryfallCard) => addToDeck(card, true)
   const suggestions = <DeckSuggestions deck={deck} onExpand={setZoomSuggestion} onConsider={consider} />
-  const details = <DeckDetails deck={deck} onExport={() => setShowExport(true)} onDelete={() => setConfirmDelete(true)} />
+  const details = <DeckDetails deck={deck} onDelete={() => setConfirmDelete(true)} />
 
   return (
     <>
@@ -353,14 +361,7 @@ export function DeckDetailPage() {
         onBack={back}
         progress={progress}
         actions={
-          <>
-            {size === 'desktop' && (
-              <button type="button" className={`btn ${progress < 0.6 ? 'line' : ''}`} style={progress < 0.6 ? { background: 'rgba(12,13,17,.5)' } : undefined} onClick={() => setShowExport(true)}>
-                <Icon name="ios_share" />Export
-              </button>
-            )}
-            <IconButton icon="more_horiz" label="Deck actions" variant={progress < 0.6 ? 'glass' : ''} onClick={() => setDeckSheet(true)} />
-          </>
+          <IconButton icon="more_horiz" label="Deck actions" variant={progress < 0.6 ? 'glass' : ''} onClick={() => setDeckSheet(true)} />
         }
       />
 
@@ -578,7 +579,7 @@ export function DeckDetailPage() {
                   },
                 }]
               : []),
-            { label: 'Export decklist', icon: 'ios_share', detail: 'Copy it for Moxfield, Archidekt or Arena', onClick: () => setShowExport(true) },
+            { label: 'Export list', icon: 'ios_share', detail: 'Copy it for Moxfield, Archidekt or Arena', onClick: () => setShowExport(true) },
             { label: 'Deck details', icon: 'tune', detail: 'Format, ownership, commander and tags', onClick: () => setTabName('Details') },
             { label: 'Delete deck', icon: 'delete', tone: 'danger', onClick: () => setConfirmDelete(true) },
           ]}
@@ -593,14 +594,14 @@ export function DeckDetailPage() {
         const remove = (keepCards: boolean) => { deleteDeck(deck.id, keepCards); navigate('/decks', { replace: true }) }
         return (
           <Dialog
-            title="Delete this deck?"
+            title="Delete deck?"
             onDismiss={() => setConfirmDelete(false)}
             actions={real > 0
               ? (
                 <>
                   <button type="button" className="btn line" onClick={() => setConfirmDelete(false)}>Cancel</button>
-                  <button type="button" className="btn danger" onClick={() => remove(false)}>Delete cards too</button>
-                  <button type="button" className="btn gold" onClick={() => remove(true)}>Keep cards</button>
+                  <button type="button" className="btn danger" onClick={() => remove(false)}>Delete deck and cards</button>
+                  <button type="button" className="btn gold" onClick={() => remove(true)}>Delete deck, keep cards</button>
                 </>
               )
               : (
@@ -612,7 +613,7 @@ export function DeckDetailPage() {
           >
             {real > 0 && (
               <p style={{ margin: '0 0 8px' }}>
-                “{deck.name}” holds {real} of your cards. <b>Keep cards</b> puts them in Unsorted; <b>Delete cards too</b> takes them out of your collection with the deck.
+                “{deck.name}” holds {real} of your cards. <b>Delete deck, keep cards</b> puts them in Unsorted; <b>Delete deck and cards</b> takes them out of your collection with the deck.
               </p>
             )}
             <p className="muted" style={{ margin: 0 }}>{real > 0 ? 'The deck' : `“${deck.name}”`} will be removed here and, if you're signed in, from your other devices too.</p>
@@ -681,7 +682,7 @@ export function DeckDetailPage() {
           <div className="row" style={{ gap: 8 }}>
             <button
               type="button" className="btn line block"
-              onClick={() => { setAddWarning(addCardToDeck(deck.id, zoomSuggestion)); setZoomSuggestion(null); setNotice(`${zoomSuggestion.name} is in the deck.`) }}
+              onClick={() => { addToDeck(zoomSuggestion); setZoomSuggestion(null) }}
             >
               <Icon name="playing_cards" />Add to deck
             </button>
@@ -714,7 +715,7 @@ export function DeckDetailPage() {
           knownUserTags={knownTags}
           onUserTags={(next) => setCardTags(zoomEntry.scryfallId, next)}
           onTagClick={(label) => { setZoomId(null); setTabName('Cards'); setFilter(label) }}
-          onSelectSimilar={(similar) => setAddWarning(addCardToDeck(deck.id, similar))}
+          onSelectSimilar={(similar) => addToDeck(similar)}
           similarActionLabel="Tap a card to add it to this deck"
           onClose={() => setZoomId(null)}
           {...zoomSteps(zoomConsidered ? considering : listed, zoomEntry, (card) => setZoomId(card.scryfallId))}
@@ -728,13 +729,13 @@ export function DeckDetailPage() {
               <div className="row" style={{ gap: 8 }}>
                 <button
                   type="button" className="btn line sm"
-                  onClick={() => { stopConsidering(deck.id, zoomEntry.scryfallId); setZoomId(null); setNotice(`Stopped considering ${zoomEntry.name}.`) }}
+                  onClick={() => { notConsidering(zoomEntry); setZoomId(null) }}
                 >
                   Not this one
                 </button>
                 <button
                   type="button" className="btn gold sm"
-                  onClick={() => { considerIntoDeck(deck.id, zoomEntry.scryfallId); setZoomId(null); setNotice(`${zoomEntry.name} is in the deck.`) }}
+                  onClick={() => { intoDeck(zoomEntry); setZoomId(null) }}
                 >
                   Add to deck
                 </button>
@@ -760,7 +761,7 @@ export function DeckDetailPage() {
   )
 }
 
-function DeckDetails({ deck, onExport, onDelete }: { deck: Deck; onExport: () => void; onDelete: () => void }) {
+function DeckDetails({ deck, onDelete }: { deck: Deck; onDelete: () => void }) {
   const { setGameMode, setDeckOwnership, setDeckTags, setCommander, setPartnerCommander } = useSync()
   const [tagInput, setTagInput] = useState('')
   // A physical deck becoming one that holds no real cards: asked what happens to the cards it has.
@@ -855,7 +856,6 @@ function DeckDetails({ deck, onExport, onDelete }: { deck: Deck; onExport: () =>
       </div>
 
       <div className="row rise" style={{ ...rise(4), marginTop: 4 }}>
-        <button type="button" className="btn line" style={{ flex: 1 }} onClick={onExport}><Icon name="ios_share" />Export decklist</button>
         <button type="button" className="btn danger" style={{ flex: 1 }} onClick={onDelete}><Icon name="delete" />Delete deck</button>
       </div>
     </div>

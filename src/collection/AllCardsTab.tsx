@@ -10,7 +10,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { Icon } from '../components/Icon'
-import { ActionSheet } from '../components/ActionSheet'
+import { AddToSheet, type AddTarget } from '../components/AddToSheet'
+import { useUndoBar } from '../components/useUndoBar'
+import { cardsLabel, deckPlace, doneMessage } from './addTo'
 import { CardZoomModal, zoomSteps } from '../components/CardZoomModal'
 import { Dialog } from '../components/Dialog'
 import { ManaSymbol } from '../components/ManaSymbols'
@@ -56,7 +58,8 @@ function useCardData(ids: string[]): Map<string, ScryfallCard> | undefined {
 }
 
 export function AllCardsTab({ onImport }: { onImport: () => void }) {
-  const { collections, decks, gatherIntoBinder, removeFromCollection, createCollection, addCardsToDeck, changePrintingEverywhere, setCardTags } = useSync()
+  const { collections, decks, gatherIntoBinder, removeFromCollection, addCardsToDeck, changePrintingEverywhere, setCardTags, recordUndo } = useSync()
+  const showUndo = useUndoBar()
   // A card whose printing is being changed, in every binder and deck that holds it.
   const [changing, setChanging] = useState<{ scryfallId: string; name: string } | null>(null)
   const navigate = useNavigate()
@@ -116,29 +119,34 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [selecting])
-  const [bulk, setBulk] = useState<'binder' | 'deck' | 'export' | 'remove' | 'name' | null>(null)
-  const [newName, setNewName] = useState('')
-  const pickedLabel = picked.length === 1 ? picked[0].name : `${picked.length} cards`
-  const done = (message?: string) => { setBulk(null); setSelected(new Set()); if (message) setNotice(message) }
-  const intoNewBinder = () => {
-    if (!newName.trim()) return
-    const binder = createCollection(newName.trim(), 'OWNED')
-    gatherIntoBinder([...pickedIds], binder.id)
-    done(`Moved ${pickedLabel} into ${binder.name}.`)
-  }
-  const toDeck = async (deckId: string, deckName: string) => {
+  const [bulk, setBulk] = useState<'add' | 'export' | 'remove' | null>(null)
+  const pickedLabel = cardsLabel(picked.map((c) => c.name))
+  const done = () => { setBulk(null); setSelected(new Set()) }
+  /**
+   * The picked cards where the "Add to…" sheet said: a binder gathers every copy from your other
+   * binders; a deck (or its Considering list) gets one copy of each, unless it has the card already.
+   */
+  const addTo = async (target: AddTarget) => {
     const ids = [...pickedIds]
-    setBulk(null)
+    const label = pickedLabel
+    done()
+    if (target.kind === 'binder') {
+      const undo = recordUndo(() => gatherIntoBinder(ids, target.id))
+      showUndo(undo ? { message: doneMessage('move', label, target.name), undo } : { message: `${target.name} already has ${ids.length === 1 ? 'it' : 'them'}` })
+      return
+    }
     const have = ids.flatMap((id) => (known.has(id) ? [known.get(id)!] : []))
     const fetched = have.length < ids.length ? await getCardsByIds(ids.filter((id) => !known.has(id))) : []
     for (const c of fetched) known.set(c.id, c)
-    const added = addCardsToDeck(deckId, [...have, ...fetched], false)
-    done(added === 0 ? `${deckName} already has ${picked.length === 1 ? 'it' : 'them'}.` : `Added ${added} ${added === 1 ? 'card' : 'cards'} to ${deckName}.`)
+    let added = 0
+    const undo = recordUndo(() => { added = addCardsToDeck(target.id, [...have, ...fetched], target.considering) })
+    showUndo(added === 0
+      ? { message: `${target.name} already has ${ids.length === 1 ? 'it' : 'them'}` }
+      : { message: doneMessage('add', added === ids.length ? label : `${added} ${added === 1 ? 'card' : 'cards'}`, deckPlace(target.name, target.considering)), undo })
   }
 
   const unsorted = collections.find(isUnsorted)
   const unsortedCards = unsorted?.entries.reduce((n, e) => n + e.quantity + e.foilQuantity, 0) ?? 0
-  const binderTargets = collections.filter((c) => !isWishlist(c) && c.type !== 'WISHLIST')
   const zoomCard = cards.find((c) => c.scryfallId === zoomId) ?? null
   const money = useMoney()
 
@@ -236,54 +244,23 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
             </button>
           )}
           <span style={{ flex: 1 }} />
-          <button type="button" className="btn line sm" onClick={() => setBulk('binder')}><Icon name="drive_file_move" aria-hidden />To binder</button>
-          <button type="button" className="btn line sm" onClick={() => setBulk('deck')}><Icon name="style" aria-hidden />To deck</button>
+          <button type="button" className="btn line sm" onClick={() => setBulk('add')}><Icon name="add" aria-hidden />Add to…</button>
           <button type="button" className="btn line sm" onClick={() => setBulk('export')}><Icon name="ios_share" aria-hidden />Export</button>
           <button type="button" className="btn line sm danger-text" onClick={() => setBulk('remove')}><Icon name="delete" aria-hidden />Remove</button>
         </div>
       )}
 
-      {bulk === 'binder' && selecting && (
-        <ActionSheet
-          title={`Move ${pickedLabel} into`}
-          subtitle="Every copy in your other binders"
+      {bulk === 'add' && selecting && (
+        <AddToSheet
+          verb="add"
+          what={pickedLabel}
+          subtitle="A binder gathers every copy · a deck gets one of each it doesn't have"
           imageUrl={picked[0]?.imageUrl}
-          actions={[
-            { label: 'New binder…', icon: 'add', tone: 'gold' as const, onClick: () => { setNewName(''); setBulk('name') } },
-            ...binderTargets.map((c: Collection) => ({
-              label: c.name,
-              icon: isUnsorted(c) ? 'inbox' : 'collections',
-              detail: isUnsorted(c) ? 'Not in a binder' : 'Binder',
-              onClick: () => { gatherIntoBinder([...pickedIds], c.id); done(`Moved ${pickedLabel} into ${c.name}.`) },
-            })),
-          ]}
-          onClose={() => setBulk((b) => (b === 'binder' ? null : b))}
-        />
-      )}
-      {bulk === 'name' && selecting && (
-        <Dialog
-          title={`Move ${pickedLabel} to a new binder`}
-          onDismiss={() => setBulk(null)}
-          actions={
-            <>
-              <button type="button" className="btn line" onClick={() => setBulk(null)}>Cancel</button>
-              <button type="button" className="btn gold" disabled={!newName.trim()} onClick={intoNewBinder}>Create &amp; move</button>
-            </>
-          }
-        >
-          <label className="field-label" htmlFor="all-new-binder" style={{ marginTop: 0 }}>Binder name</label>
-          <input id="all-new-binder" className="input" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && intoNewBinder()} autoFocus />
-        </Dialog>
-      )}
-      {bulk === 'deck' && selecting && (
-        <ActionSheet
-          title={`Add ${pickedLabel} to`}
-          subtitle="One copy of each, unless the deck has it already"
-          imageUrl={picked[0]?.imageUrl}
-          actions={decks.length === 0
-            ? [{ label: 'No decks yet', icon: 'style', onClick: () => setBulk(null) }]
-            : decks.map((d) => ({ label: d.name, icon: 'style', onClick: () => { void toDeck(d.id, d.name) } }))}
-          onClose={() => setBulk((b) => (b === 'deck' ? null : b))}
+          binders={(c: Collection) => !isWishlist(c) && c.type !== 'WISHLIST'}
+          create
+          quantity={null}
+          onPick={(target) => { void addTo(target) }}
+          onClose={() => setBulk((b) => (b === 'add' ? null : b))}
         />
       )}
       {bulk === 'export' && selecting && (

@@ -4,7 +4,7 @@ import { createContext, useContext } from 'react'
 export interface UndoNote {
   /** "Added Sol Ring to Elves". */
   message: string
-  /** A second line: the deck now breaks its format's copy rules, say (see useAddWarning). */
+  /** A second line: the deck now breaks its format's copy rules, say (addCardToDeck's warning). */
   warning?: string | null
   /** Takes back exactly what was done (SyncContext's recordUndo); no Undo button without it. */
   undo?: (() => void) | null

@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { AddToSheet } from '../components/AddToSheet'
+import { useUndoBar } from '../components/useUndoBar'
+import { cardsLabel, deckPlace, doneMessage } from './addTo'
 import { useSync } from '../sync/SyncContext'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
@@ -17,28 +20,19 @@ import { ROLE_TAGS, matchedTags, matchesNameOrTag, tagById, tagLabel, tagsOf, us
  * or onto its Considering list.
  */
 export function OwnedForTagDialog({ label, deck, cards, onDismiss }: { label: string; deck: Deck; cards: OwnedCard[]; onDismiss: () => void }) {
-  const { addCardsToDeck } = useSync()
+  const addOwned = useAddOwnedToDeck()
   const [busy, setBusy] = useState<string | null>(null)
-  const [message, setMessage] = useState<string | null>(null)
   const considering = new Set((deck.considering ?? []).map((c) => c.name.trim().toLowerCase()))
 
   const add = async (card: OwnedCard, toConsidering: boolean) => {
     setBusy(card.key)
-    try {
-      // A deck entry needs the full card (type, commander-ness…), which a binder entry doesn't keep.
-      const full = await getCardsByIds([card.scryfallId], true)
-      addCardsToDeck(deck.id, full, toConsidering)
-      setMessage(`Added ${card.name} to ${toConsidering ? 'Considering' : 'the deck'}.`)
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Couldn't reach Scryfall — try again when you're online.")
-    } finally {
-      setBusy(null)
-    }
+    await addOwned([card], { id: deck.id, name: deck.name, considering: toConsidering })
+    setBusy(null)
   }
 
   return (
     <Dialog title={`${label} you own`} onDismiss={onDismiss} actions={<button type="button" className="btn gold" onClick={onDismiss}>Done</button>}>
-      <p className="dim" style={{ margin: '0 0 10px', fontSize: 13 }}>{message ?? 'In your binders, not in this deck yet.'}</p>
+      <p className="dim" style={{ margin: '0 0 10px', fontSize: 13 }}>In your binders, not in this deck yet.</p>
       {cards.length === 0 ? (
         <p className="muted" style={{ margin: 0 }}>All added.</p>
       ) : (
@@ -130,6 +124,7 @@ export function TagBinderPage() {
   const [zoom, setZoom] = useState<OwnedCard | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [adding, setAdding] = useState<OwnedCard[] | null>(null)
+  const addOwned = useAddOwnedToDeck()
   // Another tag's binder, opened from a card's zoom, starts fresh.
   useEffect(() => { setFilter(''); setSelected(new Set()) }, [tagId])
 
@@ -195,7 +190,7 @@ export function TagBinderPage() {
           <button type="button" className="icon-btn" aria-label="Stop selecting" onClick={() => setSelected(new Set())}><Icon name="close" /></button>
           <span className="select-count"><b>{picked.length}</b> selected</span>
           <span style={{ flex: 1 }} />
-          <button type="button" className="btn gold sm" onClick={() => setAdding(picked)}><Icon name="style" aria-hidden />Add to deck</button>
+          <button type="button" className="btn gold sm" onClick={() => setAdding(picked)}><Icon name="add" aria-hidden />Add to…</button>
         </div>
       )}
 
@@ -220,13 +215,29 @@ export function TagBinderPage() {
               <div className="dim">{zoom.where.map((w) => `${w.copies} in ${w.name}`).join(' · ')}</div>
             </div>
             <button type="button" className="btn gold" onClick={() => { setAdding([zoom]); setZoom(null) }}>
-              <Icon name="style" aria-hidden />Add to a deck
+              <Icon name="add" aria-hidden />Add to…
             </button>
           </div>
         </CardZoomModal>
       )}
 
-      {adding && <AddToDeckDialog cards={adding} onDone={() => { setAdding(null); setSelected(new Set()) }} onDismiss={() => setAdding(null)} />}
+      {adding && (
+        <AddToSheet
+          verb="add"
+          what={cardsLabel(adding.map((c) => c.name))}
+          subtitle="One copy of each, unless the deck has it already"
+          imageUrl={adding[0]?.imageUrl}
+          binders={false}
+          create
+          quantity={null}
+          onPick={(target) => {
+            if (target.kind !== 'deck') return
+            setSelected(new Set())
+            void addOwned(adding, target)
+          }}
+          onClose={() => setAdding(null)}
+        />
+      )}
     </>
   )
 }
@@ -254,75 +265,29 @@ function OwnedRow({ card, selecting, selected, onToggle, onOpen }: {
   )
 }
 
-/** Adds [cards] (one copy each) to a deck the user picks — into the deck, or its Considering list. */
-export function AddToDeckDialog({ cards, onDone, onDismiss }: { cards: OwnedCard[]; onDone: () => void; onDismiss: () => void }) {
-  const { decks, addCardsToDeck } = useSync()
-  const navigate = useNavigate()
-  const [deckId, setDeckId] = useState<string | null>(decks[0]?.id ?? null)
-  const [considering, setConsidering] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [result, setResult] = useState<string | null>(null)
-  const deck = decks.find((d) => d.id === deckId)
-  const label = cards.length === 1 ? cards[0].name : `${cards.length} cards`
-
-  const add = async () => {
-    if (!deck) return
-    setBusy(true)
-    setResult(null)
+/**
+ * Adds cards the user owns (one copy each, skipping any the deck has) to a deck or its Considering
+ * list, and says so on the Undo bar. A deck entry needs the full card (type, commander-ness…), which
+ * a binder entry doesn't keep, so they're fetched first.
+ */
+function useAddOwnedToDeck() {
+  const { addCardsToDeck, recordUndo } = useSync()
+  const showUndo = useUndoBar()
+  return async (cards: OwnedCard[], deck: { id: string; name: string; considering: boolean }) => {
     try {
-      // A deck entry needs the full card (type, commander-ness…), which a binder entry doesn't keep.
       const full = await getCardsByIds(cards.map((c) => c.scryfallId), true)
-      const added = addCardsToDeck(deck.id, full, considering)
+      let added = 0
+      const undo = recordUndo(() => { added = addCardsToDeck(deck.id, full, deck.considering) })
       const skipped = cards.length - added
-      setResult(`${added === 0 ? 'Nothing added' : `Added ${added} ${added === 1 ? 'card' : 'cards'}`} to ${considering ? `${deck.name}'s Considering list` : deck.name}` +
-        (skipped > 0 ? ` · ${skipped} ${skipped === 1 ? 'was' : 'were'} already there` : '') + '.')
+      showUndo({
+        message: added === 0
+          ? `${deck.name} already has ${cards.length === 1 ? 'it' : 'them'}`
+          : doneMessage('add', added === cards.length ? cardsLabel(cards.map((c) => c.name)) : `${added} ${added === 1 ? 'card' : 'cards'}`, deckPlace(deck.name, deck.considering)),
+        warning: added > 0 && skipped > 0 ? `${skipped} ${skipped === 1 ? 'was' : 'were'} already there` : null,
+        undo,
+      })
     } catch (e) {
-      setResult(e instanceof Error ? e.message : "Couldn't reach Scryfall — try again when you're online.")
-    } finally {
-      setBusy(false)
+      showUndo({ message: e instanceof Error ? e.message : "Couldn't reach Scryfall — try again when you're online." })
     }
   }
-
-  return (
-    <Dialog
-      title={`Add ${label} to a deck`}
-      onDismiss={onDismiss}
-      actions={result ? (
-        <>
-          {deck && <button type="button" className="btn line" onClick={() => navigate(`/decks/${deck.id}`)}>Open deck</button>}
-          <button type="button" className="btn gold" onClick={onDone}>Done</button>
-        </>
-      ) : (
-        <>
-          <button type="button" className="btn line" onClick={onDismiss}>Cancel</button>
-          <button type="button" className="btn gold" disabled={!deck || busy} onClick={() => void add()}>{busy ? 'Adding…' : 'Add'}</button>
-        </>
-      )}
-    >
-      {result ? (
-        <p className="muted" style={{ margin: 0 }}>{result}</p>
-      ) : decks.length === 0 ? (
-        <p className="muted" style={{ margin: 0 }}>You have no decks yet. Make one in Decks first.</p>
-      ) : (
-        <>
-          <div className="seg-choice" role="radiogroup" aria-label="Where to add">
-            <button type="button" role="radio" aria-checked={!considering} className={!considering ? 'on' : ''} onClick={() => setConsidering(false)}>Into the deck</button>
-            <button type="button" role="radio" aria-checked={considering} className={considering ? 'on' : ''} onClick={() => setConsidering(true)}>Considering</button>
-          </div>
-          <p className="dim" style={{ margin: '8px 0 10px', fontSize: 13 }}>
-            {considering ? 'Cards you might play — kept beside the deck, not counted in it.' : 'One copy of each, skipping any the deck already has.'}
-          </p>
-          <div className="deck-pick-list">
-            {decks.map((d) => (
-              <button key={d.id} type="button" className={`deck-pick${d.id === deckId ? ' on' : ''}`} onClick={() => setDeckId(d.id)} aria-pressed={d.id === deckId}>
-                <ArtImage className="deck-pick-art" src={toArtCrop(d.commander?.imageUrl)} seed={d.name} />
-                <span className="deck-pick-name">{d.name}</span>
-                <span className="dim">{d.cards.reduce((n, c) => n + c.quantity, 0)} cards</span>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </Dialog>
-  )
 }
