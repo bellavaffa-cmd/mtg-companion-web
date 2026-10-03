@@ -20,8 +20,11 @@ export function DeckSuggestions({ deck, onExpand, onConsider, index = 0 }: {
   index?: number
 }) {
   const commander = deck.commander?.name ?? null
-  const have = [...deck.cards.map((c) => c.name), ...(deck.commander ? [deck.commander.name] : [])]
-  const key = `${commander}#${[...have].sort().join('|')}`
+  // With two commanders, EDHREC's page for the pair (see commanderSuggestions).
+  const partner = deck.commander ? deck.partnerCommander?.name ?? null : null
+  const shownName = [commander, partner].filter(Boolean).join(' & ')
+  const have = [...deck.cards.map((c) => c.name), ...[deck.commander, deck.partnerCommander].flatMap((c) => (c ? [c.name] : []))]
+  const key = `${commander}&${partner}#${[...have].sort().join('|')}`
   const [cards, setCards] = useState<EdhrecCard[] | null | undefined>(undefined)
   // Set when EDHREC couldn't be reached at all — a different thing from having no page for the commander.
   const [unreachable, setUnreachable] = useState<string | null>(null)
@@ -29,19 +32,19 @@ export function DeckSuggestions({ deck, onExpand, onConsider, index = 0 }: {
   const [busy, setBusy] = useState<{ name: string; considering: boolean } | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
 
-  // Only a new commander shows the loading state; a card added to the deck just re-ranks the list.
+  // Only new commanders show the loading state; a card added to the deck just re-ranks the list.
   const shownFor = useRef<string | null>(null)
 
   useEffect(() => {
     if (!commander) return
     let cancelled = false
-    if (shownFor.current !== commander) {
+    if (shownFor.current !== shownName) {
       setCards(undefined)
       setUnreachable(null)
     }
-    shownFor.current = commander
+    shownFor.current = shownName
     // edhrec.ts keeps each commander's page, so this is quick after the first time.
-    commanderSuggestions(commander, have)
+    commanderSuggestions(commander, have, 12, partner)
       .then((result) => { if (!cancelled) setCards(result) })
       .catch((e) => {
         if (cancelled) return
@@ -74,10 +77,10 @@ export function DeckSuggestions({ deck, onExpand, onConsider, index = 0 }: {
       </div>
     )
   }
-  if (cards === undefined) return <div className="empty-state">Asking EDHREC what pairs well with {commander}…</div>
+  if (cards === undefined) return <div className="empty-state">Asking EDHREC what pairs well with {shownName}…</div>
   if (unreachable) return <div className="empty-state"><Icon name="cloud_off" />{unreachable}</div>
-  if (cards === null) return <div className="empty-state">EDHREC has no page for {commander} yet.</div>
-  if (cards.length === 0) return <div className="empty-state">This deck already runs EDHREC's picks for {commander}.</div>
+  if (cards === null) return <div className="empty-state">EDHREC has no page for {shownName} yet.</div>
+  if (cards.length === 0) return <div className="empty-state">This deck already runs EDHREC's picks for {shownName}.</div>
 
   return (
     <div className="rise" style={rise(index)}>
@@ -121,7 +124,7 @@ export function DeckSuggestions({ deck, onExpand, onConsider, index = 0 }: {
       </div>
       {failed && <div className="dim" style={{ marginTop: 10 }}>Couldn't find {failed} on Scryfall.</div>}
       <div className="dim" style={{ marginTop: 10 }}>
-        From EDHREC, based on decks people have published with {commander}. Tap a card to read it, or + to put it in Considering.
+        From EDHREC, based on decks people have published with {shownName}. Tap a card to read it, or + to put it in Considering.
       </div>
     </div>
   )

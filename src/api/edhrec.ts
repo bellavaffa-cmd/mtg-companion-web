@@ -33,6 +33,14 @@ export function edhrecSlug(cardName: string): string {
   return cardName.split(' // ')[0].toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-')
 }
 
+/**
+ * EDHREC's page for two commanders together: both slugs in alphabetical order, joined by a hyphen
+ * — "Tymna the Weaver" and "Kraum, Ludevic's Opus" are "kraum-ludevics-opus-tymna-the-weaver".
+ */
+export function edhrecPairSlug(first: string, second: string): string {
+  return [edhrecSlug(first), edhrecSlug(second)].sort().join('-')
+}
+
 /** Scryfall's image CDN keys off the card id's first two characters — no API call needed. */
 export function edhrecImageUrl(card: EdhrecCard): string | null {
   const id = card.id
@@ -71,12 +79,11 @@ async function cardLists(path: string) {
   return page.container?.json_dict?.cardlists ?? []
 }
 
-// One fetch per commander per page load: ranking it against a deck's cards is then instant, so
+// One fetch per commander page per page load: ranking it against a deck's cards is then instant, so
 // adding a suggestion doesn't fetch the whole page again.
 const commanderPages = new Map<string, ReturnType<typeof cardLists>>()
 
-function commanderLists(commanderName: string) {
-  const slug = edhrecSlug(commanderName)
+function commanderPage(slug: string) {
   let page = commanderPages.get(slug)
   if (!page) {
     page = cardLists(`commanders/${slug}`)
@@ -84,6 +91,19 @@ function commanderLists(commanderName: string) {
     commanderPages.set(slug, page)
   }
   return page
+}
+
+/**
+ * The card lists for [commanderName], or for it and [partnerName] together: a pair has its own page
+ * (what people play with both), and when EDHREC has none, the main commander's page stands in.
+ * Brawl decks use these Commander pages too — EDHREC's Brawl pages are fewer and laid out differently.
+ */
+async function commanderLists(commanderName: string, partnerName?: string | null) {
+  if (partnerName) {
+    const pair = await commanderPage(edhrecPairSlug(commanderName, partnerName))
+    if (pair) return pair
+  }
+  return commanderPage(edhrecSlug(commanderName))
 }
 
 const toCard = (raw: RawCardView): EdhrecCard => ({
@@ -95,16 +115,16 @@ const toCard = (raw: RawCardView): EdhrecCard => ({
 })
 
 /**
- * Cards other people play with [commanderName] that this deck doesn't have yet, best first. Null
- * when EDHREC has no page for the commander.
+ * Cards other people play with [commanderName] (and [partnerName], for two commanders) that this
+ * deck doesn't have yet, best first. Null when EDHREC has no page for the commander.
  *
  * EDHREC's top cards are mostly staples a deck already runs, so those are filtered out; if that
  * empties the list (a precon's commander page is mostly the precon itself), it falls through to
  * high-synergy cards and then everything else by how many decks run them. Mirrors the Android app's
  * DeckDetailViewModel.suggestions.
  */
-export async function commanderSuggestions(commanderName: string, alreadyHave: string[], limit = 12): Promise<EdhrecCard[] | null> {
-  const lists = await commanderLists(commanderName)
+export async function commanderSuggestions(commanderName: string, alreadyHave: string[], limit = 12, partnerName?: string | null): Promise<EdhrecCard[] | null> {
+  const lists = await commanderLists(commanderName, partnerName)
   if (!lists) return null
   const have = new Set(alreadyHave.flatMap(cardNameKeys))
   const priority = ['topcards', 'highsynergycards']
