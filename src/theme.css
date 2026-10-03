@@ -351,6 +351,12 @@ img {
   font-size: 21px;
 }
 
+/* A toggle that's on, e.g. All cards' filter while it's open or narrowing the list. */
+.ib.on {
+  color: var(--gold);
+  box-shadow: inset 0 0 0 1.5px var(--gold);
+}
+
 /* ---- Buttons & fields ---- */
 
 .btn {
@@ -2766,6 +2772,10 @@ select.input.sf-sort {
   border: 1px solid var(--line);
   border-radius: 18px;
   background: var(--g1);
+}
+.collection-filter {
+  margin-top: 10px;
+  grid-template-columns: 1fr;
 }
 .sf-row .field-label {
   margin-bottom: 6px;
