@@ -15,6 +15,8 @@
 
 import type { Collection, CollectionEntry, Deck, DeckCardEntry, GameResult } from '../types/models'
 import { canonicalJson } from './canonicalJson'
+// The phone keeps this many saved versions of a deck (DeckRepository.MAX_VERSIONS).
+import { MAX_VERSIONS } from '../decks/versions'
 
 // Key order doesn't count: the server's copy comes back with its keys reordered.
 const same = (a: unknown, b: unknown) => canonicalJson(a ?? null) === canonicalJson(b ?? null)
@@ -138,8 +140,6 @@ function mergeGameResults(base: GameResult[], mine: GameResult[], theirs: GameRe
 }
 
 const DECK_COUNTS: EntryRules<DeckCardEntry> = { counts: ['quantity'], sets: ['userTags'] }
-/** The phone keeps this many saved versions of a deck (DeckRepository.MAX_VERSIONS). */
-const MAX_VERSIONS = 40
 const COLLECTION_COUNTS: EntryRules<CollectionEntry> = { counts: ['quantity', 'foilQuantity'], sets: ['userTags'] }
 
 /** [minePreferred]: this device's edit is the more recent one, so it wins any field both changed. */

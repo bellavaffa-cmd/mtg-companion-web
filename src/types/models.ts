@@ -94,6 +94,18 @@ export const DECK_OWNERSHIP_DESCRIPTIONS: Record<DeckOwnership, string> = {
   PROTOTYPE: "Still being built — its cards aren't counted as owned yet.",
 }
 
+/**
+ * The deck's list as it stood at [savedAt]: card name -> copies (commanders included), keyed by name
+ * so that changing a card's printing doesn't read as a change. Edits within one sitting share one
+ * version — see decks/versions.ts. The Android app's DeckVersion, field for field.
+ */
+export interface DeckVersion {
+  id: string
+  savedAt: number
+  cards: Record<string, number>
+  commanders: string[]
+}
+
 export interface Deck {
   id: string
   name: string
@@ -107,6 +119,8 @@ export interface Deck {
   ownership: DeckOwnership
   /** Cards being thought about for this deck (the Android app's "Considering" list). Not in the deck. */
   considering?: DeckCardEntry[]
+  /** Saved versions of the list, oldest first, capped (decks/versions.ts). */
+  versions?: DeckVersion[]
 }
 
 /** Commander/Brawl allow only 1 copy of any non-basic-land card; other formats allow up to

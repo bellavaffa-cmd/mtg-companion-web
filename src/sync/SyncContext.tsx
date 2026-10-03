@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { withVersion } from '../decks/versions'
 import { collectionWithTags, deckWithTags, keepUserTags, ledgerWith, tidyTags } from '../collection/userTags'
 import type { ReactNode } from 'react'
 import type {
@@ -245,6 +246,12 @@ function withUnsorted(lib: Library, collectionId: string): Library {
 /** The collections that are always there: the Wishlist, kept up for [decks], and the Unsorted pile. */
 const withStandingCollections = (collections: Collection[], decks: Deck[]): Collection[] =>
   withUnsortedPile(withWishlist(collections, decks))
+
+/** [after] with a version recorded on every deck whose list differs from [before]'s. */
+function withVersions(before: Library, after: Library): Library {
+  const was = new Map(before.decks.map((d) => [d.id, d]))
+  return { ...after, decks: after.decks.map((d) => (was.get(d.id) === d ? d : withVersion(was.get(d.id), d))) }
+}
 
 export function SyncProvider({ children }: { children: ReactNode }) {
   const [library, setLibrary] = useState<Library>(() => loadLibrary())
@@ -621,7 +628,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       adoptStoredLibrary()
       // Every write goes through here, so this is where a copy gets back the tags it already had —
       // however it came to be written (moved, re-added, scanned, imported).
-      commitLibrary(keepUserTags(updater(libraryRef.current)))
+      // …and where a deck whose list changed gets a version saved (decks/versions.ts), as on the
+      // phone. A sync doesn't come through here, so it never logs a version of its own.
+      const before = libraryRef.current
+      const after = updater(before)
+      commitLibrary(keepUserTags(after === before ? after : withVersions(before, after)))
       scheduleSync()
     },
     [adoptStoredLibrary, commitLibrary, scheduleSync],
