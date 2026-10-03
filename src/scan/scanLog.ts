@@ -64,9 +64,6 @@ export function grouped(rows: ScanRow[]): { card: ScryfallCard; foil: boolean; q
   return out
 }
 
-/** How many cards are in the pile, however many rows they take. */
-export const totalScanned = (rows: ScanRow[]) => rows.length
-
 /**
  * Keeps the pile for a reload: all of [rows] when [save] takes them, otherwise as many of the newest
  * as it will — a fifth fewer each try — so a browser short of room still keeps most of it. Answers

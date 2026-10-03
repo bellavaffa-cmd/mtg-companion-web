@@ -2,8 +2,6 @@
 // fetches the best version of it that fits under the 2 MB picture limit. No Giphy account or key
 // needed — these are the public files Giphy serves for every GIF.
 
-export const GIPHY_SITE = 'https://giphy.com/'
-
 /** Profile pictures are at most this big. */
 const MAX_BYTES = 2 * 1024 * 1024
 

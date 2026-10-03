@@ -347,9 +347,6 @@ export const markTradeApplied = (tradeId: string) => call<boolean | null>('mark_
 
 // ---- Links (QR codes and share links open the web app at these) ----
 
-/** The web app's own address, e.g. https://manabind.com/add/bob */
-export const appUrl = (path: string) => `${window.location.origin}${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`
-
 export const PUBLIC_APP_URL = 'https://manabind.com/'
 /** Links for other people (QR codes, share links) always point at the live site, even from a dev build. */
 export const publicUrl = (path: string) => PUBLIC_APP_URL + path.replace(/^\//, '')

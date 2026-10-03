@@ -13,10 +13,10 @@ import { toArtCrop } from '../components/kit'
 import { useDeckCardData } from '../components/DeckStats'
 import { tokensNeeded } from '../decks/tokens'
 import type { Deck, GameResult } from '../types/models'
-import { COUNTER_INFO, COUNTER_KINDS, EMOTES, announceText, useAnnouncement, type EmoteId } from './game'
+import { COUNTER_INFO, EMOTES, announceText, useAnnouncement, type EmoteId } from './game'
 import { useStepper } from './PlayerTile'
 import { useWakeLock } from './wakeLock'
-import { HEARTBEAT_MS, REMOTE_DICE, REMOTE_VERSION, type RemoteAction, type RemoteCounter, type RemoteSeat, type RemoteState } from './remote'
+import { HEARTBEAT_MS, REMOTE_COUNTERS, REMOTE_DICE, REMOTE_VERSION, type RemoteAction, type RemoteSeat, type RemoteState } from './remote'
 import '../social/social.css'
 import './remote.css'
 
@@ -515,7 +515,7 @@ function Remote({
       )}
       {sheet === 'counters' && (
         <RmSheet title="Counters" onClose={() => setSheet(null)}>
-          {(['poison', ...COUNTER_KINDS] as RemoteCounter[]).map((k) => (
+          {REMOTE_COUNTERS.map((k) => (
             <Stepper
               key={k}
               label={k === 'poison' ? 'Poison' : COUNTER_INFO[k].label}

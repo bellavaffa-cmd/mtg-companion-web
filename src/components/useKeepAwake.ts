@@ -12,8 +12,6 @@ import { useEffect } from 'react'
 interface WakeLockSentinelish { released: boolean; release: () => Promise<void> }
 interface WakeLockish { request: (type: 'screen') => Promise<WakeLockSentinelish> }
 
-export const wakeLockAvailable = () => 'wakeLock' in navigator
-
 export function useKeepAwake(active: boolean) {
   useEffect(() => {
     if (!active) return

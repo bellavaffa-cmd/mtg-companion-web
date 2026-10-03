@@ -140,21 +140,6 @@ export function duplicateWarning(deck: Deck, card: ScryfallCard, addingQuantity 
   return null
 }
 
-export function newDeck(name: string, gameMode: GameMode = 'COMMANDER'): Deck {
-  return {
-    id: crypto.randomUUID(),
-    name,
-    commander: null,
-    partnerCommander: null,
-    cards: [],
-    gameMode,
-    createdAt: Date.now(),
-    tags: [],
-    gameResults: [],
-    ownership: DECK_OWNERSHIP_DEFAULT,
-  }
-}
-
 /** Fills in fields that may be missing from JSON written by an older version of either app. */
 export function normalizeDeck(raw: Partial<Deck> & { id: string; name: string }): Deck {
   return {
@@ -217,14 +202,3 @@ export const UNSORTED_COLLECTION_NAME = 'Unsorted'
 
 /** Whether [c] is the Unsorted pile — owned cards, but not a binder itself. */
 export const isUnsorted = (c: Collection): boolean => c.id === UNSORTED_COLLECTION_ID
-
-export function newCollection(name: string, type: CollectionType = 'OWNED'): Collection {
-  return { id: crypto.randomUUID(), name, entries: [], createdAt: Date.now(), type }
-}
-
-/** The whole backed-up library, plus the wall-clock time of the edit that produced it. */
-export interface SyncPayload {
-  decks: Deck[]
-  collections: Collection[]
-  updatedAt: number
-}

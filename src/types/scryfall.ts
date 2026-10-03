@@ -107,11 +107,6 @@ export function backImageUrl(card: ScryfallCard | null | undefined): string | nu
   return card!.card_faces?.[1]?.image_uris?.normal ?? null
 }
 
-export function artCropUrl(card: ScryfallCard | null | undefined): string | null {
-  if (!card) return null
-  return card.image_uris?.art_crop ?? card.card_faces?.[0]?.image_uris?.art_crop ?? displayImageUrl(card)
-}
-
 export function displayOracleText(card: ScryfallCard): string | null {
   if (card.oracle_text) return card.oracle_text
   if (card.card_faces?.length) {
