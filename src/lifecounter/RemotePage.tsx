@@ -277,7 +277,9 @@ export function RemotePage() {
       {body}
       {announce && state?.remotes && (
         <div className={`rm-toast ${announce.kind}`} key={announce.id} role="status" aria-live="polite">
-          {announce.kind === 'target' && announce.to === seatNo ? `${nameOfSeat(announce.seat)} points at you` : announceText(announce, (s) => (s === seatNo ? 'You' : nameOfSeat(s)))}
+          {announce.kind === 'target' && announce.to === seatNo ? `${nameOfSeat(announce.seat)} points at you`
+            : announce.kind === 'target' && announce.seat === seatNo && announce.to !== undefined ? `You point at ${nameOfSeat(announce.to)}`
+            : announceText(announce, (s) => (s === seatNo ? 'You' : nameOfSeat(s)))}
         </div>
       )}
 
