@@ -22,7 +22,7 @@ import { cardBySight, choosePrinting, looksLikeAnotherCard, smallPrintAgrees } f
 import { regularInSet } from '../collection/printings'
 import { confirmRead, parseSetAndNumber, parseSetCode, sameCardName, SCAN_MODES, scanModeOf, ScanTracker, type ScanMode } from '../scan/scanLogic'
 import { appLinkPath, qrReader } from '../scan/qr'
-import { copyNumber, grouped, onlyRepeats, repeatedCards, saveNewest, scannedTwiceOver, type ScanRow } from '../scan/scanLog'
+import { copyNumber, grouped, onlyRepeats, repeatedCards, saveNewest, scannedTwiceOver, withPrinting, type ScanRow } from '../scan/scanLog'
 import { useSync } from '../sync/SyncContext'
 import { UNSORTED_COLLECTION_ID } from '../types/models'
 import { displayImageUrl, type ScryfallCard } from '../types/scryfall'
@@ -171,7 +171,7 @@ export function ScanPage() {
   const matchArt = async (id: number, scanned: ScryfallCard, camera: ArtSignature[], setCode: string | null) => {
     const correct = (pick: ScryfallCard, only: boolean, how: string) => {
       setScanned((list) => list.map((s) => (
-        s.id === id && s.card.id === scanned.id && !s.exact ? { ...s, card: pick, exact: only } : s
+        s.id === id && s.card.id === scanned.id && !s.exact ? withPrinting(s, pick, only) : s
       )))
       if (pick.id !== scanned.id) setStatus(`${scanned.name} — ${how}`)
     }
@@ -518,7 +518,7 @@ export function ScanPage() {
   }
   /** The printing on a row, swapped for the art the user picked. */
   const setPrinting = (id: number, card: ScryfallCard) => {
-    setScanned((list) => list.map((s) => (s.id === id ? { ...s, card, exact: true } : s)))
+    setScanned((list) => list.map((s) => (s.id === id ? withPrinting(s, card, true) : s)))
     setPickingArt(null)
   }
 
