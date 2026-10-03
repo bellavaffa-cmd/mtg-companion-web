@@ -19,6 +19,8 @@ export interface PreconCard {
   name: string
   scryfallId: string | null
   quantity: number
+  /** The type line, for listing the deck by type before it's imported. */
+  type?: string | null
 }
 
 export interface PreconContents {
@@ -27,7 +29,7 @@ export interface PreconContents {
 }
 
 interface RawDeckSummary { code: string; fileName: string; name: string; releaseDate?: string; type: string }
-interface RawDeckCard { name: string; count?: number; identifiers?: { scryfallId?: string } }
+interface RawDeckCard { name: string; count?: number; type?: string; identifiers?: { scryfallId?: string } }
 
 let cachedIndex: Promise<PreconInfo[]> | null = null
 
@@ -51,6 +53,6 @@ export async function preconContents(fileName: string): Promise<PreconContents> 
   if (!res.ok) throw new Error(`MTGJSON ${res.status}`)
   const body = (await res.json()) as { data?: { commander?: RawDeckCard[]; mainBoard?: RawDeckCard[] } }
   const map = (cards: RawDeckCard[] = []): PreconCard[] =>
-    cards.map((c) => ({ name: c.name, scryfallId: c.identifiers?.scryfallId ?? null, quantity: c.count ?? 1 }))
+    cards.map((c) => ({ name: c.name, scryfallId: c.identifiers?.scryfallId ?? null, quantity: c.count ?? 1, type: c.type ?? null }))
   return { commander: map(body.data?.commander), cards: map(body.data?.mainBoard) }
 }
