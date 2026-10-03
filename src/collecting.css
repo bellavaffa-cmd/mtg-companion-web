@@ -30,3 +30,182 @@
   background: rgba(0, 0, 0, 0.66);
   color: var(--gold-art);
 }
+
+/* A card's price history (on this device). */
+.price-history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.price-history-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.price-history-head .dim {
+  flex: 1;
+  min-width: 0;
+}
+.price-history-move {
+  font-size: 13px;
+  color: var(--t1);
+  white-space: nowrap;
+}
+.price-history-move.up {
+  color: var(--ok);
+}
+.price-history-move.down {
+  color: var(--error);
+}
+.price-history-chart {
+  position: relative;
+  height: 110px;
+}
+.price-history-chart svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.price-history-line {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.price-history-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+
+/* Home: the price alerts that went off, drops and rises. */
+.banner.price-alert-banner {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.price-alert-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.price-alert-head .banner-text {
+  flex: 1;
+  font-size: 14px;
+}
+.price-alert-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--t0);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.price-alert-row:hover {
+  background: color-mix(in srgb, var(--t0) 6%, transparent);
+}
+.price-alert-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.price-alert-price {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.price-alert-price.below {
+  color: var(--ok);
+}
+.price-alert-price.above {
+  color: var(--gold);
+}
+.price-alert-more {
+  padding: 0 4px;
+  font-size: 12px;
+}
+
+/* A binder card's own details, under its quantities in the enlarged view. */
+.copy-details-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--g1);
+  color: var(--t0);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.copy-details-row > .icon {
+  color: var(--gold);
+  font-size: 18px;
+}
+.copy-details-said {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.copy-details-act {
+  color: var(--gold);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.copy-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.copy-details .field-label {
+  margin: 6px 0 0;
+}
+.copy-details-name {
+  font-size: 12px;
+}
+.copy-details-money {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+.copy-details-money input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  outline: 0;
+}
+.copy-details-money:focus-within {
+  box-shadow: inset 0 0 0 1.5px var(--gold);
+}
+.copy-details-history {
+  margin-top: 10px;
+}
+.icon.copy-alert-bell {
+  color: var(--gold);
+  font-size: 15px;
+}

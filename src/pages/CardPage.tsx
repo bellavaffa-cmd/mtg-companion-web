@@ -15,6 +15,7 @@ import { useMoney } from '../money/currency'
 import { useSync } from '../sync/SyncContext'
 import { sourcesForName } from '../collection/cardSources'
 import { canBeFoil, onlyFoil } from '../collection/addTo'
+import { PriceHistoryPanel } from '../collection/PriceHistoryPanel'
 import {
   backImageUrl, biggerImageUrl, canBeCommander, cardTags, displayImageUrl, displayManaCost, displayOracleText, largeImageUrl, type ScryfallCard,
 } from '../types/scryfall'
@@ -198,6 +199,11 @@ export function CardPage() {
                 <PillChip label="View on TCGplayer" icon="open_in_new" onClick={() => window.open(tcgplayer, '_blank', 'noopener,noreferrer')} />
                 <PillChip label="Rulings" icon="gavel" onClick={() => navigate(`/rules?tab=rulings&card=${encodeURIComponent(card.name)}`)} />
               </div>
+            </div>
+
+            {/* This printing's price as this browser has noted it, day by day (see collection/cardPriceHistory.ts). */}
+            <div className="panel">
+              <PriceHistoryPanel scryfallId={card.id} />
             </div>
 
             <div className="panel">

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { getCardsByIds } from '../api/scryfall'
 import type { Collection } from '../types/models'
 import { recordPrices, type PricedCard } from './priceMovers'
+import { recordCardPrices } from './priceHistoryStore'
 
 /** [date]: "2026-09-20". [cards]: how many cards the value is of. */
 export interface ValuePoint { date: string; usd: number; cards: number }
@@ -121,6 +122,8 @@ export function useCollectionValue(collections: Collection[]): { usd: number; ca
       for (const c of cards) usd += Number(c.prices?.usd ?? 0) * (quantities.get(c.id) ?? 0)
       const count = [...quantities.values()].reduce((a, b) => a + b, 0)
       lastValue = { key, at: Date.now(), usd, cards: count }
+      // And each card's own prices, for its price history (see cardPriceHistory.ts).
+      void recordCardPrices(new Map(cards.map((c) => [c.id, c.prices])))
       setValue({ usd, cards: count })
       // Only a full answer counts: a dropped request mustn't read as a crash in value.
       if (cards.length >= ids.length * 0.98) {
