@@ -18,7 +18,18 @@ export interface ListLine {
   number: string | null
   scryfallId: string | null
   foil: boolean
+  /**
+   * The part of a deck list the line was under — "Sideboard", "Maybeboard", or an "SB:" line. Left
+   * out for the main deck. Binder imports keep every line (they're all cards the user owns); a deck
+   * import puts sideboard and maybeboard cards in Considering, not in the deck.
+   */
+  section?: ListSection
 }
+
+export type ListSection = 'main' | 'sideboard' | 'maybeboard'
+
+/** The section [line] was under, 'main' when it didn't say. */
+export const sectionOf = (line: ListLine): ListSection => line.section ?? 'main'
 
 export interface ParsedList {
   lines: ListLine[]
@@ -34,7 +45,9 @@ const QTY = /^(\d+)\s*[xX]?\s+(.+)$/
 /** "(SLD) 1962", "[MH3] 285", or just "(SLD)". */
 const PRINTING = /[([]([A-Za-z0-9]{2,6})[)\]](?:\s+([A-Za-z0-9\-★]+))?/
 const FOIL = /\*(?:f|foil|e|etched)\*|[([](?:foil|etched)[)\]]/i
-const SECTION_WORDS = new Set(['deck', 'commander', 'companion', 'sideboard', 'maybeboard', 'tokens', 'about', 'name', 'collection', 'binder'])
+const SECTION_WORDS = new Set(['deck', 'mainboard', 'commander', 'companion', 'sideboard', 'maybeboard', 'tokens', 'about', 'name', 'collection', 'binder'])
+/** "SB: 2 Duress" — one sideboard card in an otherwise main-deck list (MTGO, older exports). */
+const SB_PREFIX = /^SB:\s*/i
 
 function isHeader(line: string): boolean {
   if (SECTION_WORDS.has(line.toLowerCase().replace(/:$/, '').trim())) return true
@@ -42,10 +55,15 @@ function isHeader(line: string): boolean {
   return /^[A-Za-z][^\d]*(\(\d+\)|:\s*\d+)\s*$/.test(line)
 }
 
+/** The section a header starts: "Sideboard (15)" the sideboard, any other ("Deck", "Creatures (30)") the main deck. */
+function headerSection(header: string): ListSection {
+  const word = header.toLowerCase().replace(/[:(].*$/, '').trim()
+  return word === 'sideboard' || word === 'maybeboard' ? word : 'main'
+}
+
 function parseTextLine(raw: string): ListLine | 'skip' | null {
-  const line = raw.trim()
+  const line = raw.trim().replace(SB_PREFIX, '')
   if (!line || line.startsWith('#') || line.startsWith('//')) return null
-  if (isHeader(line)) return null
   const qty = QTY.exec(line)
   const quantity = qty ? Math.min(Math.max(Number(qty[1]), 1), MAX_COPIES) : 1
   let rest = qty ? qty[2] : line
@@ -145,10 +163,14 @@ export function parseCardList(text: string): ParsedList {
   if (looksLikeCsv(first)) return parseCsv(rows.slice(rows.indexOf(first)))
   const lines: ListLine[] = []
   const skipped: string[] = []
+  let section: ListSection = 'main'
   for (const row of rows) {
+    const trimmed = row.trim()
+    if (isHeader(trimmed)) { section = headerSection(trimmed); continue }
     const line = parseTextLine(row)
-    if (line === 'skip') skipped.push(row.trim())
-    else if (line) lines.push(line)
+    const lineSection = SB_PREFIX.test(trimmed) ? 'sideboard' : section
+    if (line === 'skip') skipped.push(trimmed)
+    else if (line) lines.push(lineSection === 'main' ? line : { ...line, section: lineSection })
   }
   return { lines, skipped }
 }

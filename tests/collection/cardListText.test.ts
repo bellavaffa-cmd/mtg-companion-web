@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildCardListText, csvCells, parseCardList } from '../../src/collection/cardListText.ts'
+import { buildCardListText, csvCells, parseCardList, sectionOf } from '../../src/collection/cardListText.ts'
 
 const line = (quantity: number, name: string | null, set: string | null = null, number: string | null = null, foil = false, scryfallId: string | null = null) =>
   ({ quantity, name, set, number, scryfallId, foil })
@@ -33,7 +33,26 @@ test('plain text lists in the usual shapes are read', () => {
 
 test('headers, comments and blank lines are passed over', () => {
   const { lines } = parseCardList('Deck\n// my binder\n\nCreatures (30)\nLands: 36\nSideboard:\n1 Forest\n# note')
-  assert.deepEqual(lines, [line(1, 'Forest')])
+  assert.deepEqual(lines, [{ ...line(1, 'Forest'), section: 'sideboard' }])
+})
+
+test('each line says which part of a deck list it was under', () => {
+  const { lines } = parseCardList([
+    'Deck', '4 Lightning Bolt', '',
+    'Sideboard (2)', '2 Duress', '',
+    'Maybeboard', '1 Thoughtseize', '',
+    'Creatures (1)', '1 Goblin Guide',
+    'SB: 3 Pyroblast',
+  ].join('\n'))
+  assert.deepEqual(lines.map((l) => [l.name, l.quantity, sectionOf(l)]), [
+    ['Lightning Bolt', 4, 'main'],
+    ['Duress', 2, 'sideboard'],
+    ['Thoughtseize', 1, 'maybeboard'],
+    ['Goblin Guide', 1, 'main'],
+    ['Pyroblast', 3, 'sideboard'],
+  ])
+  // Main-deck lines carry no section, so they read the same as before.
+  assert.equal('section' in lines[0], false)
 })
 
 test('CSV rows keep their quotes and commas', () => {
