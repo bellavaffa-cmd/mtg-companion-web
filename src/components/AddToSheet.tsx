@@ -35,6 +35,8 @@ interface Props {
   onClose: () => void
 }
 
+const cardCount = (n: number) => `${n} ${n === 1 ? 'card' : 'cards'}`
+
 type Step = 'kinds' | TargetKind | 'new-binder' | 'new-deck'
 
 /**
@@ -163,7 +165,7 @@ export function AddToSheet({
                   key={d.id}
                   icon="style"
                   label={d.name}
-                  detail={`${GAME_MODE_LABELS[d.gameMode as GameMode] ?? d.gameMode} · ${d.cards.reduce((n, c) => n + c.quantity, 0)} cards`}
+                  detail={`${GAME_MODE_LABELS[d.gameMode as GameMode] ?? d.gameMode} · ${cardCount(d.cards.reduce((n, c) => n + c.quantity, 0))}`}
                   onClick={() => toDeck(d)}
                 />
               ))}
