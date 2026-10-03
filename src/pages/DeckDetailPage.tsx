@@ -10,8 +10,10 @@ import { Icon } from '../components/Icon'
 import { CardZoomModal, zoomSteps } from '../components/CardZoomModal'
 import { ActionSheet } from '../components/ActionSheet'
 import type { SheetAction } from '../components/ActionSheet'
-import { useLongPress } from '../components/useLongPress'
-import { CardSearchResults } from '../components/CardSearchResults'
+import { AddToDeckSection, DeckCardRow, DeckCardTile } from '../components/DeckCardViews'
+import { useAddSearch, useComboPieces } from '../components/useDeckCardSearch'
+import { addableCards } from '../decks/addSearch'
+import { CARD_FILTERS, CARD_FILTER_LABELS, filterCounts, noMatchMessage, passesFilter, type CardFilter } from '../decks/comboPieces'
 import { ExportDeckDialog } from '../components/ExportDeckDialog'
 import { ShareDialog } from '../social/ShareDialog'
 import { WhoHasItSheet } from '../social/WhoHasIt'
@@ -28,7 +30,7 @@ import { MatchRecordPanel } from '../components/MatchRecordPanel'
 import { GoldfishDialog } from '../components/GoldfishDialog'
 import { Dialog } from '../components/Dialog'
 import {
-  ArtImage, CountUp, IconButton, ManaPips, PillChip, SearchPill, SectionHeader, SegmentedTabs, TYPE_GROUPS, TYPE_PLURALS,
+  ArtImage, CountUp, IconButton, ManaPips, PillChip, SearchPill, SegmentedTabs, TYPE_GROUPS, TYPE_PLURALS,
   primaryTypeOf, rise, toArtCrop, useBack, useLayoutSize, useScrollProgress,
 } from '../components/kit'
 import { useDeckColors } from '../components/useDeckColors'
@@ -39,6 +41,9 @@ import {
 } from '../types/models'
 import type { Deck, DeckCardEntry, DeckOwnership, GameMode } from '../types/models'
 
+/** Whether the deck's Cards tab shows a list or a grid of card images, remembered in this browser. */
+const DECK_VIEW_KEY = 'mtgweb_deck_cards_view'
+
 export function DeckDetailPage() {
   const money = useMoney()
   const { id } = useParams<{ id: string }>()
@@ -47,7 +52,7 @@ export function DeckDetailPage() {
   const size = useLayoutSize()
   const {
     decks, collections, setCardQuantity, removeCardFromDeck, addCardToDeck, setCommander, setPartnerCommander, deleteDeck, addToWishlist,
-    setDeckOwnership, swapInProxy, changeDeckPrinting, stopConsidering, considerIntoDeck, addCardsToDeck, setCardTags,
+    setDeckOwnership, swapInProxy, changeDeckPrinting, stopConsidering, considerIntoDeck, addCardsToDeck, setCardTags, setReplaceable,
   } = useSync()
   // Tags the user has written on their own copies: shown in the zoom, and searchable with the rest.
   const knownTags = useMemo(() => allUserTags(decks, collections), [decks, collections])
@@ -58,6 +63,19 @@ export function DeckDetailPage() {
   const { tags: roleTags, loading: tagging } = useRoleTags(deck ? [...deck.cards, ...(deck.considering ?? [])].map((c) => c.name) : [])
   const [tabName, setTabName] = useState<'Cards' | 'Considering' | 'Stats' | 'Suggestions' | 'Details'>('Cards')
   const [filter, setFilter] = useState('')
+  // The chips under the search: every card, only the cut candidates, or only the combo pieces.
+  const [cardFilter, setCardFilter] = useState<CardFilter>('ALL')
+  const [view, setView] = useState<'list' | 'grid'>(() => {
+    try { return localStorage.getItem(DECK_VIEW_KEY) === 'grid' ? 'grid' : 'list' } catch { return 'list' }
+  })
+  const switchView = () => {
+    const next = view === 'list' ? 'grid' : 'list'
+    setView(next)
+    try { localStorage.setItem(DECK_VIEW_KEY, next) } catch { /* this visit only */ }
+  }
+  // Cards from all of Magic for what's typed in the search, offered under the deck's own matches.
+  const addResults = useAddSearch(filter)
+  const combo = useComboPieces(deck)
   const [zoomId, setZoomId] = useState<string | null>(null)
   // A suggestion opened to read: it belongs to neither list, so it zooms on its own.
   const [zoomSuggestion, setZoomSuggestion] = useState<ScryfallCard | null>(null)
@@ -70,6 +88,9 @@ export function DeckDetailPage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   // A commander (or partner) about to come out of the deck, waiting for a yes.
   const [removingCommander, setRemovingCommander] = useState<DeckCardEntry | null>(null)
+  // Taking the last copy out removes the card, which is easy to do by accident on a small − button:
+  // it's asked about first. The card being asked about, while the question is up.
+  const [removingLast, setRemovingLast] = useState<DeckCardEntry | null>(null)
   const [addWarning, setAddWarning] = useAddWarning()
   // What the deck asks for that your binders and the decks you hold don't cover — for
   // "Who has it?", buying, and the Wishlist. Copies in another deck of yours count.
@@ -127,9 +148,13 @@ export function DeckDetailPage() {
   const figures = deckFigures(deck, cardData)
   const q = filter.trim().toLowerCase()
   const matches = (c: DeckCardEntry) =>
-    !q || matchesNameOrTag(c.name, [...tagsOf(roleTags, c.name), ...(c.userTags ?? [])], q) || (c.typeLine ?? '').toLowerCase().includes(q)
+    passesFilter(c, cardFilter, combo) &&
+    (!q || matchesNameOrTag(c.name, [...tagsOf(roleTags, c.name), ...(c.userTags ?? [])], q) || (c.typeLine ?? '').toLowerCase().includes(q))
+  const counts = filterCounts(deck.cards, combo)
+  // Scryfall's matches the deck doesn't have yet, by name.
+  const addable = addableCards(addResults, deck.cards.map((c) => c.name))
   // A search that found cards by their tag says which, since tags only show in the zoom.
-  const tagHits = q ? [...new Set(deck.cards.filter((c) => !c.name.toLowerCase().includes(q)).flatMap((c) => matchedTags(tagsOf(roleTags, c.name), q)))] : []
+  const tagHits = q ? [...new Set(deck.cards.filter((c) => matches(c) && !c.name.toLowerCase().includes(q)).flatMap((c) => matchedTags(tagsOf(roleTags, c.name), q)))] : []
   const shownCount = q ? deck.cards.filter(matches).length : 0
 
   const groups = TYPE_GROUPS.map((type) => {
@@ -152,6 +177,12 @@ export function DeckDetailPage() {
   function cardActions(entry: DeckCardEntry): SheetAction[] {
     const isCommander = commanderIds.has(entry.scryfallId)
     const actions: SheetAction[] = [{ label: 'View card', icon: 'visibility', onClick: () => setZoomId(entry.scryfallId) }]
+    // A cut candidate stays in the deck, flagged as the first thing to take out for something better.
+    if (!isCommander) {
+      actions.push(entry.replaceable
+        ? { label: 'Not a cut candidate', icon: 'swap_horiz', onClick: () => setReplaceable(deck!.id, entry.scryfallId, false) }
+        : { label: 'Mark as cut candidate', icon: 'swap_horiz', onClick: () => setReplaceable(deck!.id, entry.scryfallId, true) })
+    }
     if (usesCommander && !isCommander && entryCanBeCommander(entry, deck!.gameMode)) {
       actions.push({ label: 'Set as commander', icon: 'star', tone: 'gold', detail: deck!.commander ? `Replaces ${deck!.commander.name}` : undefined, onClick: () => setCommander(deck!.id, entry) })
     }
@@ -176,6 +207,37 @@ export function DeckDetailPage() {
     return actions
   }
 
+  /** One copy fewer; the last copy is asked about first (a commander, with the commander's question). */
+  const fewer = (entry: DeckCardEntry) => {
+    if (entry.quantity > 1) setCardQuantity(deck.id, entry.scryfallId, entry.quantity - 1)
+    else if (commanderIds.has(entry.scryfallId)) setRemovingCommander(entry)
+    else setRemovingLast(entry)
+  }
+
+  const addFromSearch = (card: ScryfallCard) => {
+    setAddWarning(addCardToDeck(deck.id, card))
+    setNotice(`Added ${card.name}`)
+  }
+
+  // One box finds the deck's cards and, under them, cards to add; list or grid beside it.
+  const cardSearch = (
+    <div className="deck-search">
+      <SearchPill value={filter} onChange={setFilter} placeholder="Find or add a card" />
+      <IconButton icon={view === 'list' ? 'grid_view' : 'view_list'} label={view === 'list' ? 'Show as a grid' : 'Show as a list'} onClick={switchView} />
+    </div>
+  )
+
+  const filterChips = (counts.cut > 0 || counts.combo > 0 || cardFilter !== 'ALL') && (
+    <div className="chips" style={{ marginTop: 10 }}>
+      {CARD_FILTERS.map((f) => (
+        <PillChip
+          key={f} label={CARD_FILTER_LABELS[f]} selected={cardFilter === f} onClick={() => setCardFilter(f)}
+          count={f === 'CUT' ? counts.cut : f === 'COMBO' ? counts.combo : undefined}
+        />
+      ))}
+    </div>
+  )
+
   const searchNote = q && deck.cards.length > 0 && (
     <div className="dim search-note">
       {shownCount} {shownCount === 1 ? 'card' : 'cards'}
@@ -184,40 +246,55 @@ export function DeckDetailPage() {
     </div>
   )
 
-  const cardList = deck.cards.length === 0 ? (
-    <div className="empty-state"><Icon name="playing_cards" />No cards yet — search {size === 'desktop' ? 'on the right' : 'below'} to add some.</div>
-  ) : groups.length === 0 && shownCommanders.length === 0 ? (
-    <div className="empty-state">No cards in this deck match “{filter}”.</div>
-  ) : (
-    <div className={size === 'phone' ? '' : 'card-groups'}>
-      {shownCommanders.length > 0 && (
-        <div>
-          <div className="grp">{shownCommanders.length > 1 ? 'Commanders' : 'Commander'}<span>{shownCommanders.length}</span></div>
-          <div className="list">
-            {shownCommanders.map((entry) => (
-              <CardRow key={entry.scryfallId} entry={entry} commander onZoom={() => setZoomId(entry.scryfallId)} onMore={() => setCardSheet(entry)} />
-            ))}
-          </div>
-        </div>
-      )}
-      {groups.map((g) => (
-        <div key={g.type}>
-          <div className="grp">{TYPE_PLURALS[g.type]}<span>{g.count}</span></div>
-          <div className="list">
-            {g.cards.map((entry) => (
-              <CardRow
-                key={entry.scryfallId}
-                entry={entry}
-                onZoom={() => setZoomId(entry.scryfallId)}
-                onMore={() => setCardSheet(entry)}
-                onIncrement={() => setCardQuantity(deck.id, entry.scryfallId, entry.quantity + 1)}
-                onDecrement={() => setCardQuantity(deck.id, entry.scryfallId, entry.quantity - 1)}
-              />
-            ))}
-          </div>
-        </div>
+  const cardViews = (entries: DeckCardEntry[], commander?: boolean) => view === 'grid' ? (
+    <div className="card-grid">
+      {entries.map((entry) => (
+        <DeckCardTile
+          key={entry.scryfallId} entry={entry} combo={combo} commander={commander}
+          onZoom={() => setZoomId(entry.scryfallId)} onMore={() => setCardSheet(entry)}
+        />
       ))}
     </div>
+  ) : (
+    <div className="list">
+      {entries.map((entry) => (
+        <DeckCardRow
+          key={entry.scryfallId} entry={entry} combo={combo} commander={commander}
+          onZoom={() => setZoomId(entry.scryfallId)} onMore={() => setCardSheet(entry)}
+          onIncrement={commander ? undefined : () => setCardQuantity(deck.id, entry.scryfallId, entry.quantity + 1)}
+          onDecrement={commander ? undefined : () => fewer(entry)}
+        />
+      ))}
+    </div>
+  )
+
+  const cardList = (
+    <>
+      {filterChips}
+      {searchNote}
+      {deck.cards.length === 0 ? (
+        <div className="empty-state"><Icon name="playing_cards" />No cards yet. Type a card's name above to add it.</div>
+      ) : groups.length === 0 && shownCommanders.length === 0 ? (
+        <div className="empty-state">{noMatchMessage(filter.trim(), cardFilter)}</div>
+      ) : (
+        <div className={size === 'phone' || view === 'grid' ? '' : 'card-groups'}>
+          {shownCommanders.length > 0 && (
+            <div>
+              <div className="grp">{shownCommanders.length > 1 ? 'Commanders' : 'Commander'}<span>{shownCommanders.length}</span></div>
+              {cardViews(shownCommanders, true)}
+            </div>
+          )}
+          {groups.map((g) => (
+            <div key={g.type}>
+              <div className="grp">{TYPE_PLURALS[g.type]}<span>{g.count}</span></div>
+              {cardViews(g.cards)}
+            </div>
+          ))}
+        </div>
+      )}
+      {addWarning && <div className="add-warning" style={{ marginTop: 12 }}>{addWarning}</div>}
+      <AddToDeckSection cards={addable} onAdd={addFromSearch} onZoom={setZoomSuggestion} />
+    </>
   )
 
   const consideringList = (
@@ -259,13 +336,6 @@ export function DeckDetailPage() {
         </div>
       )}
     </div>
-  )
-
-  const addCards = (
-    <>
-      {addWarning && <div className="add-warning">{addWarning}</div>}
-      <CardSearchResults onAdd={(card) => setAddWarning(addCardToDeck(deck.id, card))} placeholder="Search Scryfall to add cards" />
-    </>
   )
 
   /** A suggestion the user likes goes into Considering, not into the deck. */
@@ -335,19 +405,14 @@ export function DeckDetailPage() {
                   labels={tabs} selected={tabs.indexOf(tab)} onSelect={(i) => setTabName(tabs[i])}
                   counts={{ [tabs.indexOf('Considering')]: considering.length }}
                 />
-                {tab === 'Cards' && <SearchPill value={filter} onChange={setFilter} placeholder="Name or tag, e.g. ramp" />}
+                {tab === 'Cards' && cardSearch}
               </div>
-              {tab === 'Cards' && searchNote}
               {tab === 'Cards' ? cardList : tab === 'Considering' ? consideringList : tab === 'Suggestions' ? suggestions : details}
             </div>
             <aside className="deck-aside">
               <MatchRecordPanel deck={deck} />
               <DeckStats deck={deck} cardsById={cardData} roleTags={roleTags} tagging={!!tagging} onTag={(label) => { setTabName('Cards'); setFilter(label) }} />
               <TokensPanel deck={deck} cardsById={cardData} />
-              <div className="panel">
-                <div className="p-h"><h3>Add cards</h3></div>
-                {addCards}
-              </div>
             </aside>
           </div>
         ) : (
@@ -357,17 +422,12 @@ export function DeckDetailPage() {
                 labels={tabs} selected={tabs.indexOf(tab)} onSelect={(i) => setTabName(tabs[i])}
                 counts={{ [tabs.indexOf('Considering')]: considering.length }}
               />
-              {size === 'tablet' && tab === 'Cards' && <SearchPill value={filter} onChange={setFilter} placeholder="Name or tag, e.g. ramp" />}
+              {size === 'tablet' && tab === 'Cards' && cardSearch}
             </div>
             {tab === 'Cards' && (
               <>
-                {size === 'phone' && deck.cards.length > 0 && (
-                  <div style={{ marginTop: 12 }}><SearchPill value={filter} onChange={setFilter} placeholder="Name or tag, e.g. ramp" /></div>
-                )}
-                {searchNote}
+                {size === 'phone' && <div style={{ marginTop: 12 }}>{cardSearch}</div>}
                 {cardList}
-                <SectionHeader title="Add cards" />
-                {addCards}
               </>
             )}
             {tab === 'Considering' && consideringList}
@@ -580,6 +640,21 @@ export function DeckDetailPage() {
         )
       })()}
 
+      {removingLast && (
+        <Dialog
+          title={`Remove ${removingLast.name}?`}
+          onDismiss={() => setRemovingLast(null)}
+          actions={
+            <>
+              <button type="button" className="btn line" onClick={() => setRemovingLast(null)}>Cancel</button>
+              <button type="button" className="btn danger" onClick={() => { setCardQuantity(deck.id, removingLast.scryfallId, 0); setRemovingLast(null) }}>Remove</button>
+            </>
+          }
+        >
+          <p className="muted" style={{ margin: 0 }}>That was the last copy in this deck. Removing it takes the card out of the deck.</p>
+        </Dialog>
+      )}
+
       {showExport && <ExportDeckDialog deck={deck} onDismiss={() => setShowExport(false)} />}
       {sharing && <ShareDialog kind="deck" itemId={deck.id} name={deck.name} onClose={() => setSharing(false)} />}
       {whoHas && <WhoHasItSheet deck={deck} onClose={() => setWhoHas(false)} />}
@@ -673,7 +748,7 @@ export function DeckDetailPage() {
                 <div className="dim">{GAME_MODE_LABELS[deck.gameMode as GameMode] ?? deck.gameMode}</div>
               </div>
               <div className="stepper-big">
-                <button type="button" onClick={() => setCardQuantity(deck.id, zoomEntry.scryfallId, zoomEntry.quantity - 1)} disabled={zoomEntry.quantity <= 1} aria-label="One fewer">−</button>
+                <button type="button" onClick={() => fewer(zoomEntry)} aria-label="One fewer">−</button>
                 <span className="qn">{zoomEntry.quantity}</span>
                 <button type="button" onClick={() => setCardQuantity(deck.id, zoomEntry.scryfallId, zoomEntry.quantity + 1)} aria-label="One more">+</button>
               </div>
@@ -682,46 +757,6 @@ export function DeckDetailPage() {
         </CardZoomModal>
       )}
     </>
-  )
-}
-
-function CardRow({
-  entry, commander, onZoom, onMore, onIncrement, onDecrement,
-}: {
-  entry: DeckCardEntry
-  commander?: boolean
-  onZoom: () => void
-  onMore: () => void
-  onIncrement?: () => void
-  onDecrement?: () => void
-}) {
-  const longPress = useLongPress({ onLongPress: onMore, onClick: onZoom })
-  const hasQty = !!onIncrement && !!onDecrement
-  return (
-    <div className={`crow${hasQty ? '' : ' no-qty'}`}>
-      <div className="thumb-wrap" onClick={onZoom} style={{ cursor: 'pointer' }}>
-        <ArtImage className="thumb" src={toArtCrop(entry.imageUrl)} seed={entry.name} />
-        {entry.backImageUrl && <span className="flip-badge"><Icon name="autorenew" /></span>}
-      </div>
-      <div className="cmain" {...longPress}>
-        <div className="cname">{entry.name}</div>
-        <div className="cmeta">
-          {commander && <span className="badge gold"><Icon name="star" />Commander</span>}
-          <span>{entry.typeLine ?? ''}</span>
-        </div>
-      </div>
-      {hasQty && (
-        <div className="qty">
-          {/* Stops at 1: taking the last copy out is "Remove from deck" in the card's menu, so it's never one stray tap. */}
-          <button type="button" onClick={onDecrement} disabled={entry.quantity <= 1} aria-label={`One fewer ${entry.name}`}>−</button>
-          <span className="qn">{entry.quantity}</span>
-          <button type="button" onClick={onIncrement} aria-label={`One more ${entry.name}`}>+</button>
-        </div>
-      )}
-      <button type="button" className="more" onClick={onMore} aria-label={`Actions for ${entry.name}`}>
-        <Icon name="more_vert" style={{ fontSize: 20 }} />
-      </button>
-    </div>
   )
 }
 

@@ -164,6 +164,8 @@ interface SyncContextValue {
   addCardToDeck: (deckId: string, card: ScryfallCard, quantity?: number, fromPile?: boolean) => string | null
   removeCardFromDeck: (deckId: string, scryfallId: string) => void
   setCardQuantity: (deckId: string, scryfallId: string, quantity: number) => void
+  /** Flags a deck card as a cut candidate, or takes the flag off. */
+  setReplaceable: (deckId: string, scryfallId: string, replaceable: boolean) => void
   setCommander: (deckId: string, entry: DeckCardEntry | null) => void
   setPartnerCommander: (deckId: string, entry: DeckCardEntry | null) => void
   setGameMode: (deckId: string, mode: GameMode) => void
@@ -883,6 +885,18 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [updateLibrary, mapDeck, pileFollows],
   )
 
+  const setReplaceable = useCallback(
+    (deckId: string, scryfallId: string, replaceable: boolean) => {
+      updateLibrary((lib) =>
+        mapDeck(lib, deckId, (deck) => ({
+          ...deck,
+          cards: deck.cards.map((c) => (c.scryfallId === scryfallId ? { ...c, replaceable } : c)),
+        })),
+      )
+    },
+    [updateLibrary, mapDeck],
+  )
+
   const setCommander = useCallback(
     (deckId: string, entry: DeckCardEntry | null) => {
       updateLibrary((lib) =>
@@ -1242,6 +1256,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       addCardToDeck,
       removeCardFromDeck,
       setCardQuantity,
+      setReplaceable,
       setCommander,
       setPartnerCommander,
       setGameMode,
@@ -1276,7 +1291,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [
       library, account, cloud, mergePrompt, resolveMerge, libraryBackup, restoreLibraryBackup, discardLibraryBackup, passwordRecovery, linkNotice, storageFullNotice, signIn, signUp, signOut,
       signInWithToken, syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
-      setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, setCardTags, addGameResult,
+      setReplaceable, setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, setCardTags, addGameResult,
       addCardsToDeck, stopConsidering, considerIntoDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
       setEntryQuantities, setEntryPriceAlert, changeCollections, importIntoCollection, moveEntries, removeEntriesFromCollection,
     ],

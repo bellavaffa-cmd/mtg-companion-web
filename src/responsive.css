@@ -539,6 +539,11 @@
   height: 46px;
 }
 
+.deck-toolbar .deck-search {
+  flex: 1;
+  min-width: 0;
+}
+
 .card-groups {
   /* Two columns only when each still fits a full card row (name, stepper, menu). */
   columns: 2 380px;

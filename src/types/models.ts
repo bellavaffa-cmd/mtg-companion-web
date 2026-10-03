@@ -30,6 +30,11 @@ export interface DeckCardEntry {
    * the deck is": all of them in a deck marked Proxy, none in any other.
    */
   proxyQuantity?: number
+  /**
+   * A cut candidate: still in the deck (and in every stat) but flagged as the first thing to take
+   * out for something better. Synced under the same key as the phone's DeckCardEntry.replaceable.
+   */
+  replaceable?: boolean
 }
 
 export interface GameResult {

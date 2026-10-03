@@ -623,6 +623,13 @@ select.input {
   color: #1e0d02;
 }
 
+/* One card away from a combo: the combo badge's colour, outlined rather than filled. */
+.badge.line {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--gold);
+  color: var(--gold);
+}
+
 .bchip {
   padding: 3px 10px;
   border-radius: 999px;
@@ -1538,13 +1545,6 @@ select.input {
 
 .qty button:hover:not(:disabled) {
   color: var(--gold);
-}
-
-/* "−" at one copy: removing the card is the menu's job. */
-.qty button:disabled,
-.stepper-big button:disabled {
-  opacity: 0.35;
-  cursor: default;
 }
 
 .qn {
@@ -3472,6 +3472,18 @@ select.input.sf-sort {
 
 /* ---- Card tags (what a card does) ---- */
 
+/* The deck's Cards tab: its one search box, with the list/grid switch beside it. */
+.deck-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deck-search .searchpill {
+  flex: 1;
+  min-width: 0;
+}
+
 .search-note {
   margin: 8px 2px 0;
   font-size: 13px;
@@ -3857,6 +3869,35 @@ button.tag-chip {
   color: var(--t1);
   font-size: 11px;
   font-weight: 700;
+}
+
+/* A deck's commander, on its card in the grid. */
+.card-cell-star {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.65);
+  color: var(--gold);
+}
+
+.card-cell-star .icon {
+  font-size: 15px;
+}
+
+.card-cell-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 3px;
+}
+
+.card-cell-badges:empty {
+  display: none;
 }
 
 .card-cell-name {
