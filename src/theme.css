@@ -1978,6 +1978,20 @@ select.input {
   transform: scale(0.97);
 }
 
+/* A group's heading in an action sheet ("Commander", "In this deck"…). */
+.sa-section {
+  padding: 12px 10px 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--t1);
+}
+.sa-section.first {
+  padding-top: 2px;
+}
+.sa-gap {
+  height: 10px;
+}
+
 .sa-ic {
   width: 40px;
   height: 40px;

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { Fragment, useEffect } from 'react'
 import { Icon } from './Icon'
 import { ArtImage, toArtCrop } from './kit'
 
@@ -8,6 +8,11 @@ export interface SheetAction {
   /** A short second line under the label. */
   detail?: string
   tone?: 'gold' | 'danger'
+  /**
+   * A heading over a group: consecutive actions with the same section sit under one small heading
+   * of that name. An action without one after a group (Remove, say) gets a little air instead.
+   */
+  section?: string
   onClick: () => void
 }
 
@@ -43,22 +48,30 @@ export function ActionSheet({ title, subtitle, imageUrl, actions, onClose }: Pro
           </div>
         )}
         <div className="sheet-actions">
-          {actions.map((action) => (
-            <button
-              key={action.label}
-              type="button"
-              onClick={() => {
-                onClose()
-                action.onClick()
-              }}
-            >
-              <span className={`sa-ic ${action.tone ?? ''}`}><Icon name={action.icon} /></span>
-              <span className={`sa-t ${action.tone === 'danger' ? 'danger' : ''}`}>
-                {action.label}
-                {action.detail && <small>{action.detail}</small>}
-              </span>
-            </button>
-          ))}
+          {actions.map((action, i) => {
+            const before = i > 0 ? actions[i - 1].section : undefined
+            const heading = action.section && action.section !== before ? action.section : null
+            const gap = !action.section && before
+            return (
+              <Fragment key={action.label}>
+                {heading && <div className={`sa-section${i === 0 ? ' first' : ''}`}>{heading}</div>}
+                {gap && <div className="sa-gap" aria-hidden />}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose()
+                    action.onClick()
+                  }}
+                >
+                  <span className={`sa-ic ${action.tone ?? ''}`}><Icon name={action.icon} /></span>
+                  <span className={`sa-t ${action.tone === 'danger' ? 'danger' : ''}`}>
+                    {action.label}
+                    {action.detail && <small>{action.detail}</small>}
+                  </span>
+                </button>
+              </Fragment>
+            )
+          })}
         </div>
       </div>
     </>

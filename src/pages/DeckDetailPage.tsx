@@ -215,39 +215,51 @@ export function DeckDetailPage() {
     return secondCommanderKind(main) ?? 'PARTNER'
   }
 
+  /**
+   * A deck card's ⋮, grouped as on the phone: who leads the deck, the card within this deck, then
+   * elsewhere — and Remove last, in the danger style.
+   */
   function cardActions(entry: DeckCardEntry): SheetAction[] {
     const isCommander = commanderIds.has(entry.scryfallId)
-    const actions: SheetAction[] = [{ label: 'View card', icon: 'visibility', onClick: () => setZoomId(entry.scryfallId) }]
-    // A cut candidate stays in the deck, flagged as the first thing to take out for something better.
-    if (!isCommander) {
-      actions.push(entry.replaceable
-        ? { label: 'Not a cut candidate', icon: 'swap_horiz', onClick: () => setReplaceable(deck!.id, entry.scryfallId, false) }
-        : { label: 'Mark as cut candidate', icon: 'swap_horiz', onClick: () => markCut(entry) })
-      // Swapping and moving keep the card on Considering, so either can be taken back.
-      if (considering.length > 0) {
-        actions.push({ label: 'Swap with a considered card', icon: 'swap_horiz', onClick: () => setSwapOut(entry) })
-      }
-      actions.push({ label: 'Move to Considering', icon: 'drive_file_move', detail: 'Out of the deck, still on your list', onClick: () => toConsidering(entry) })
-      if (hasSideboard(deck!.gameMode)) {
-        actions.push({ label: 'Move to sideboard', icon: 'drive_file_move', onClick: () => toSideboard(entry) })
-      }
-    }
+    const actions: SheetAction[] = []
+    // Commander: who leads the deck.
+    const commander = 'Commander'
     if (usesCommander && !isCommander && entryCanBeCommander(entry, deck!.gameMode)) {
-      actions.push({ label: 'Set as commander', icon: 'star', tone: 'gold', detail: deck!.commander ? `Replaces ${deck!.commander.name}` : undefined, onClick: () => setCommander(deck!.id, entry) })
+      actions.push({ label: 'Set as commander', icon: 'star', tone: 'gold', section: commander, detail: deck!.commander ? `Replaces ${deck!.commander.name}` : undefined, onClick: () => setCommander(deck!.id, entry) })
     }
     const pairKind = usesCommander && !isCommander ? pairsAs(entry) : null
     if (pairKind) {
-      actions.push({ label: `Set as ${SECOND_COMMANDER_NOUN[pairKind]}`, icon: 'star_half', tone: 'gold', onClick: () => setPartnerCommander(deck!.id, entry) })
+      actions.push({ label: `Set as ${SECOND_COMMANDER_NOUN[pairKind]}`, icon: 'star_half', tone: 'gold', section: commander, onClick: () => setPartnerCommander(deck!.id, entry) })
     }
     if (isCommander) {
       actions.push({
         label: 'Remove as commander',
         icon: 'star_outline',
         detail: 'Stays in the deck',
+        section: commander,
         onClick: () => (deck!.partnerCommander?.scryfallId === entry.scryfallId ? setPartnerCommander(deck!.id, null) : setCommander(deck!.id, null)),
       })
     }
-    actions.push({ label: 'Change printing', icon: 'swap_horiz', detail: 'Another art or set — the copies stay', onClick: () => setChangingPrinting(entry) })
+    // In this deck: cutting, swapping and moving it within the deck's own lists, and its printing.
+    const inDeck = 'In this deck'
+    // A cut candidate stays in the deck, flagged as the first thing to take out for something better.
+    if (!isCommander) {
+      actions.push(entry.replaceable
+        ? { label: 'Not a cut candidate', icon: 'swap_horiz', section: inDeck, onClick: () => setReplaceable(deck!.id, entry.scryfallId, false) }
+        : { label: 'Mark as cut candidate', icon: 'swap_horiz', detail: 'Stays in, flagged as first to go', section: inDeck, onClick: () => markCut(entry) })
+      // Swapping and moving keep the card on Considering, so either can be taken back.
+      if (considering.length > 0) {
+        actions.push({ label: 'Swap with a considered card', icon: 'swap_horiz', section: inDeck, onClick: () => setSwapOut(entry) })
+      }
+      actions.push({ label: 'Move to Considering', icon: 'drive_file_move', detail: 'Out of the deck, still on your list', section: inDeck, onClick: () => toConsidering(entry) })
+      if (hasSideboard(deck!.gameMode)) {
+        actions.push({ label: 'Move to sideboard', icon: 'drive_file_move', section: inDeck, onClick: () => toSideboard(entry) })
+      }
+    }
+    actions.push({ label: 'Change printing', icon: 'swap_horiz', detail: 'Another art or set — the copies stay', section: inDeck, onClick: () => setChangingPrinting(entry) })
+    // Elsewhere: the card itself, away from the deck.
+    actions.push({ label: 'View card', icon: 'visibility', section: 'Elsewhere', onClick: () => setZoomId(entry.scryfallId) })
+    // Last, set apart, in the danger style.
     actions.push({
       label: 'Remove from deck',
       icon: 'delete',
