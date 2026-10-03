@@ -21,7 +21,7 @@ import { deckProxyCopies, proxiesHeldElsewhere, proxySwaps } from '../decks/prox
 import { realCopiesOf } from '../collection/unsorted'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
 import { useAddWarning } from '../components/useAddWarning'
-import { backImageUrl, cardTags, displayImageUrl, displayManaCost, displayOracleText, type ScryfallCard } from '../types/scryfall'
+import { backImageUrl, cardTags, displayImageUrl, displayManaCost, displayOracleText, entryCanBeCommander, type ScryfallCard } from '../types/scryfall'
 import { DeckSuggestions } from '../components/DeckSuggestions'
 import { DeckStats, deckFigures, useDeckCardData } from '../components/DeckStats'
 import { MatchRecordPanel } from '../components/MatchRecordPanel'
@@ -150,7 +150,7 @@ export function DeckDetailPage() {
   function cardActions(entry: DeckCardEntry): SheetAction[] {
     const isCommander = commanderIds.has(entry.scryfallId)
     const actions: SheetAction[] = [{ label: 'View card', icon: 'visibility', onClick: () => setZoomId(entry.scryfallId) }]
-    if (usesCommander && !isCommander && entry.canBeCommander) {
+    if (usesCommander && !isCommander && entryCanBeCommander(entry, deck!.gameMode)) {
       actions.push({ label: 'Set as commander', icon: 'star', tone: 'gold', detail: deck!.commander ? `Replaces ${deck!.commander.name}` : undefined, onClick: () => setCommander(deck!.id, entry) })
     }
     if (usesCommander && !isCommander && canPartner(entry)) {

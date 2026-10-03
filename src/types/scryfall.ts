@@ -130,11 +130,26 @@ export function displayManaCost(card: ScryfallCard): string | null {
   return card.card_faces?.[0]?.mana_cost ?? null
 }
 
-export function canBeCommander(card: ScryfallCard): boolean {
+/**
+ * Whether [card] can lead a deck of [gameMode]. Commander takes a legendary creature or a card that
+ * says it "can be your commander"; Brawl takes those and any legendary planeswalker too. Decks store
+ * the Commander answer on each card (DeckCardEntry.canBeCommander) — see entryCanBeCommander.
+ */
+export function canBeCommander(card: ScryfallCard, gameMode: string = 'COMMANDER'): boolean {
   const type = card.type_line ?? ''
   const isLegendaryCreature = type.includes('Legendary') && type.includes('Creature')
   const explicit = (card.oracle_text ?? '').toLowerCase().includes('can be your commander')
-  return isLegendaryCreature || explicit
+  return isLegendaryCreature || explicit || (gameMode === 'BRAWL' && isLegendaryPlaneswalker(type))
+}
+
+const isLegendaryPlaneswalker = (typeLine: string) => typeLine.includes('Legendary') && typeLine.includes('Planeswalker')
+
+/**
+ * Whether a card already in a deck can be that deck's commander. The stored flag is the Commander
+ * rule (it's the same field the Android app writes), so Brawl's planeswalkers are read off the type line.
+ */
+export function entryCanBeCommander(entry: { canBeCommander: boolean; typeLine: string | null }, gameMode: string): boolean {
+  return entry.canBeCommander || (gameMode === 'BRAWL' && isLegendaryPlaneswalker(entry.typeLine ?? ''))
 }
 
 /** null (no partner ability), "Partner" (plain), or the exact "Partner with <Name>" target. */
