@@ -10,6 +10,7 @@ import { mergeCollection, mergeDeck } from './mergeItems'
 import { normalizeDeck } from '../types/models'
 import { apiHeaders, OfflineError, restUrl } from './supabaseAuth'
 import { canonicalJson } from './canonicalJson'
+import { saveToStorage } from './storage'
 
 const STATE_KEY = 'mtgweb_cloud_state'
 
@@ -105,8 +106,12 @@ export function loadCloudState(): CloudState {
   }
 }
 
+/**
+ * Not saved when this browser's storage is full (see storage.ts): the next pass starts again from
+ * the last bookkeeping that was saved, rather than the pass failing.
+ */
 export function saveCloudState(state: CloudState) {
-  localStorage.setItem(STATE_KEY, JSON.stringify(state))
+  saveToStorage(STATE_KEY, JSON.stringify(state))
 }
 
 export function clearCloudState() {
@@ -632,7 +637,7 @@ export function applyRescue(library: Library, rescue: Rescue): Library {
 }
 
 export function saveRescue(rescue: Rescue) {
-  localStorage.setItem(RESCUE_KEY, JSON.stringify(rescue))
+  saveToStorage(RESCUE_KEY, JSON.stringify(rescue))
 }
 
 export function loadRescue(): Rescue | null {

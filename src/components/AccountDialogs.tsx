@@ -60,9 +60,12 @@ export function SetPasswordDialog({ title, explanation, onDismiss }: { title: st
   )
 }
 
-/** App-wide account prompts: first sign-in in a browser with a library, password reset, email-link notices. */
+/** App-wide account prompts: first sign-in in a browser with a library, password reset, email-link notices, storage full. */
 export function AccountDialogs() {
-  const { mergePrompt, resolveMerge, passwordRecovery, dismissPasswordRecovery, linkNotice, dismissLinkNotice, signOut } = useSync()
+  const {
+    mergePrompt, resolveMerge, passwordRecovery, dismissPasswordRecovery, linkNotice, dismissLinkNotice, signOut,
+    storageFullNotice, dismissStorageFullNotice, account,
+  } = useSync()
 
   if (mergePrompt) {
     const parts = [
@@ -103,6 +106,22 @@ export function AccountDialogs() {
         explanation="You're signed in from the reset link. Set a new password to use next time."
         onDismiss={dismissPasswordRecovery}
       />
+    )
+  }
+
+  if (storageFullNotice) {
+    return (
+      <Dialog title="This browser is out of storage" onDismiss={dismissStorageFullNotice} actions={<button className="btn gold" onClick={dismissStorageFullNotice}>OK</button>}>
+        <p className="muted" style={{ marginTop: 0 }}>
+          This browser has run out of room to save Manabind's decks and binders. Your changes still show
+          here, but they aren't saved in this browser.
+        </p>
+        <p className="muted" style={{ marginBottom: 0 }}>
+          {account
+            ? "They're only safe once they've synced to your account — keep this tab open until it says Synced."
+            : 'They\'re only safe once they\'re synced to an account. Sign in before you close this tab, or they\'ll be lost.'}
+        </p>
+      </Dialog>
     )
   }
 

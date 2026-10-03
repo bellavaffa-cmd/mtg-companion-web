@@ -11,6 +11,7 @@ import * as auth from './supabaseAuth'
 import { watchLibrary } from './realtime'
 import type { Account } from './supabaseAuth'
 import type { Library } from './cloudSync'
+import { onStorageFull, saveToStorage } from './storage'
 import { applyCollectionChanges, type CollectionChange } from '../social/tradeLogic'
 import { dropPushOnSignOut } from '../social/push'
 import {
@@ -118,6 +119,9 @@ interface SyncContextValue {
   /** A one-off message from opening an account email link. */
   linkNotice: string | null
   dismissLinkNotice: () => void
+  /** Set the first time this browser's storage turns out to be full (see storage.ts). */
+  storageFullNotice: boolean
+  dismissStorageFullNotice: () => void
   signIn: (email: string, password: string) => Promise<void>
   /**
    * Signs in with a one-time token a phone approved by scanning this browser's code (see
@@ -245,6 +249,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const mergePending = useRef(false)
   const [passwordRecovery, setPasswordRecovery] = useState(false)
   const [linkNotice, setLinkNotice] = useState<string | null>(null)
+  const [storageFullNotice, setStorageFullNotice] = useState(false)
   const syncTimer = useRef<number | undefined>(undefined)
   const syncChain = useRef<Promise<void>>(Promise.resolve())
   const lastAutoSync = useRef(0)
@@ -255,8 +260,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   const persistLibrary = useCallback((lib: Library) => {
     const raw = JSON.stringify(lib)
-    localStorage.setItem(LIBRARY_KEY, raw)
-    storedLibrary.current = raw
+    // Storage full: the change still happens in memory (and syncs, if signed in). The stored copy
+    // stays what it was, and so does storedLibrary — otherwise the old copy would read as another
+    // tab's change and be adopted over this one.
+    if (saveToStorage(LIBRARY_KEY, raw)) storedLibrary.current = raw
   }, [])
 
   /** Every change to the library goes through here. */
@@ -442,6 +449,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     setMergePrompt(null)
     void runSync()
   }, [commitLibrary, runSync])
+
+  // Told once per visit: storage.ts only reports the first write that found no room.
+  useEffect(() => onStorageFull(() => setStorageFullNotice(true)), [])
 
   // On load: finish an account email link if one opened the page, otherwise resume a saved session.
   useEffect(() => {
@@ -1178,6 +1188,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       dismissPasswordRecovery: () => setPasswordRecovery(false),
       linkNotice,
       dismissLinkNotice: () => setLinkNotice(null),
+      storageFullNotice,
+      dismissStorageFullNotice: () => setStorageFullNotice(false),
       signIn,
       signInWithToken,
       signUp,
@@ -1225,7 +1237,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       removeEntriesFromCollection,
     }),
     [
-      library, account, cloud, mergePrompt, resolveMerge, passwordRecovery, linkNotice, signIn, signUp, signOut,
+      library, account, cloud, mergePrompt, resolveMerge, passwordRecovery, linkNotice, storageFullNotice, signIn, signUp, signOut,
       signInWithToken, syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, setCardTags, addGameResult,
       addCardsToDeck, stopConsidering, considerIntoDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
