@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { applyCollectionChanges, awaitingMyUpdate, tradeChanges, tradeSides } from '../../src/social/tradeLogic.ts'
+import { appliedByMe, applyCollectionChanges, awaitingMyUpdate, shouldMoveCards, tradeChanges, tradeSides } from '../../src/social/tradeLogic.ts'
 import type { Trade } from '../../src/social/api.ts'
 import type { Collection } from '../../src/types/models.ts'
 import { DEFAULT_SETTINGS, gameReducer, newGame } from '../../src/lifecounter/game.ts'
@@ -36,6 +36,21 @@ test('only an accepted trade waits for each side to update their binders', () =>
   assert.ok(!awaitingMyUpdate(trade({ from_applied: true }), A))
   assert.ok(awaitingMyUpdate(trade({ from_applied: true }), B))
   assert.ok(!awaitingMyUpdate(trade({ status: 'open' }), B))
+})
+
+test("each side knows whether they've already updated their binders", () => {
+  assert.ok(!appliedByMe(trade(), A))
+  assert.ok(appliedByMe(trade({ from_applied: true }), A))
+  assert.ok(!appliedByMe(trade({ from_applied: true }), B))
+  assert.ok(appliedByMe(trade({ to_applied: true }), B))
+})
+
+test('cards only move when the server says this call marked the trade, or says nothing', () => {
+  assert.ok(shouldMoveCards(true))
+  assert.ok(!shouldMoveCards(false))
+  // An older server returns nothing.
+  assert.ok(shouldMoveCards(null))
+  assert.ok(shouldMoveCards(undefined))
 })
 
 test("the giver's copies come out of their binder and the received ones go in", () => {

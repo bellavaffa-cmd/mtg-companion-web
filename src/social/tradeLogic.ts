@@ -21,10 +21,23 @@ export function tradeSides(trade: Trade, me: string): { give: TradeCard[]; get: 
     : { give: trade.want, get: trade.give, other: trade.from_user }
 }
 
+/** Whether the caller has already updated their binders for [trade]. */
+export function appliedByMe(trade: Trade, me: string): boolean {
+  return trade.from_user === me ? trade.from_applied : trade.to_applied
+}
+
 /** Whether the caller still has to update their binders for [trade]. */
 export function awaitingMyUpdate(trade: Trade, me: string): boolean {
-  return trade.status === 'accepted' && (trade.from_user === me ? !trade.from_applied : !trade.to_applied)
+  return trade.status === 'accepted' && !appliedByMe(trade, me)
 }
+
+/**
+ * Whether to move the cards after marking a trade applied. The server answers true when this call
+ * marked the caller's side, and false when that side was already done (another tab or device got
+ * there first) — moving the cards again would apply the trade twice. An older server answers
+ * nothing, which counts as go ahead. The Android app reads the answer the same way.
+ */
+export const shouldMoveCards = (marked: boolean | null | undefined) => marked !== false
 
 /**
  * The binder changes for the caller's side of an accepted [trade]: each card given comes out of the

@@ -342,7 +342,8 @@ export const proposeTrade = (to: string, want: TradeCard[], give: TradeCard[], m
   call<string>('propose_trade', { p_to: to, p_want: want, p_give: give, p_message: message || null, p_reply_to: replyTo })
 export const respondTrade = (tradeId: string, action: 'accept' | 'decline' | 'cancel', reply = '') =>
   call<void>('respond_trade', { p_trade: tradeId, p_action: action, p_reply: reply || null })
-export const markTradeApplied = (tradeId: string) => call<void>('mark_trade_applied', { p_trade: tradeId })
+/** True: this call marked the caller's side, so move the cards. False: it was already done. Null: an older server that doesn't say. */
+export const markTradeApplied = (tradeId: string) => call<boolean | null>('mark_trade_applied', { p_trade: tradeId })
 
 // ---- Links (QR codes and share links open the web app at these) ----
 

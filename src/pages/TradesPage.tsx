@@ -9,7 +9,7 @@ import * as api from '../social/api'
 import { TradeCardList } from '../social/CardPicker'
 import { TradeValue } from '../social/TradeValue'
 import { useOverview } from '../social/SocialContext'
-import { awaitingMyUpdate, cardTotal, tradeChanges, tradeSides, type CollectionChange } from '../social/tradeLogic'
+import { appliedByMe, awaitingMyUpdate, cardTotal, shouldMoveCards, tradeChanges, tradeSides, type CollectionChange } from '../social/tradeLogic'
 import { Avatar } from '../social/ui'
 import { SocialGate } from './FriendsPage'
 
@@ -197,22 +197,47 @@ function UpdateBindersDialog({ trade, me, theirName, onClose }: { trade: api.Tra
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [short, setShort] = useState<CollectionChange[] | null>(null)
+  const [alreadyDone, setAlreadyDone] = useState(false)
 
   const apply = async () => {
+    // This trade already shows our side done (another tab or device): moving the cards again would
+    // apply it twice.
+    if (appliedByMe(trade, me)) {
+      setAlreadyDone(true)
+      void refresh().catch(() => {})
+      return
+    }
     setBusy(true)
     setError(null)
+    let missing: CollectionChange[]
     try {
       // Marked first: if that fails (offline), nothing has changed and the user can simply try again.
-      await api.markTradeApplied(trade.id)
-      const missing = changeCollections(tradeChanges(trade, me, into, givenFrom ?? null))
-      await refresh()
-      if (missing.length > 0) setShort(missing)
-      else onClose()
+      const marked = await api.markTradeApplied(trade.id)
+      if (!shouldMoveCards(marked)) {
+        setAlreadyDone(true)
+        await refresh().catch(() => {})
+        return
+      }
+      missing = changeCollections(tradeChanges(trade, me, into, givenFrom ?? null))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.')
+      return
     } finally {
       setBusy(false)
     }
+    // The cards have moved, so the job is done even if the refresh fails — offering to try again
+    // here would move them a second time. The trade list catches up on its next refresh.
+    await refresh().catch(() => {})
+    if (missing.length > 0) setShort(missing)
+    else onClose()
+  }
+
+  if (alreadyDone) {
+    return (
+      <Dialog title="Already updated" onDismiss={onClose} actions={<button type="button" className="btn gold" onClick={onClose}>OK</button>}>
+        <p className="muted" style={{ marginTop: 0 }}>Your binders were already updated for this trade.</p>
+      </Dialog>
+    )
   }
 
   if (short) {
