@@ -1536,8 +1536,15 @@ select.input {
   line-height: 1;
 }
 
-.qty button:hover {
+.qty button:hover:not(:disabled) {
   color: var(--gold);
+}
+
+/* "−" at one copy: removing the card is the menu's job. */
+.qty button:disabled,
+.stepper-big button:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .qn {
@@ -1582,7 +1589,7 @@ select.input {
   font-size: 22px;
 }
 
-.stepper-big button:hover {
+.stepper-big button:hover:not(:disabled) {
   background: var(--g3);
 }
 

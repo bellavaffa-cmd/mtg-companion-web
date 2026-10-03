@@ -68,6 +68,8 @@ export function DeckDetailPage() {
   const [whoHas, setWhoHas] = useState(false)
   const [goldfish, setGoldfish] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // A commander (or partner) about to come out of the deck, waiting for a yes.
+  const [removingCommander, setRemovingCommander] = useState<DeckCardEntry | null>(null)
   const [addWarning, setAddWarning] = useAddWarning()
   // What the deck asks for that your binders and the decks you hold don't cover — for
   // "Who has it?", buying, and the Wishlist. Copies in another deck of yours count.
@@ -165,7 +167,12 @@ export function DeckDetailPage() {
       })
     }
     actions.push({ label: 'Change printing', icon: 'swap_horiz', detail: 'Another art or set — the copies stay', onClick: () => setChangingPrinting(entry) })
-    actions.push({ label: 'Remove from deck', icon: 'delete', tone: 'danger', onClick: () => removeCardFromDeck(deck!.id, entry.scryfallId) })
+    actions.push({
+      label: 'Remove from deck',
+      icon: 'delete',
+      tone: 'danger',
+      onClick: () => (isCommander ? setRemovingCommander(entry) : removeCardFromDeck(deck!.id, entry.scryfallId)),
+    })
     return actions
   }
 
@@ -553,6 +560,26 @@ export function DeckDetailPage() {
         )
       })()}
 
+      {removingCommander && (() => {
+        const partner = deck.partnerCommander?.scryfallId === removingCommander.scryfallId
+        return (
+          <Dialog
+            title={`Remove ${removingCommander.name}?`}
+            onDismiss={() => setRemovingCommander(null)}
+            actions={
+              <>
+                <button type="button" className="btn line" onClick={() => setRemovingCommander(null)}>Cancel</button>
+                <button type="button" className="btn danger" onClick={() => { removeCardFromDeck(deck.id, removingCommander.scryfallId); setRemovingCommander(null) }}>Remove from deck</button>
+              </>
+            }
+          >
+            <p className="muted" style={{ margin: 0 }}>
+              It's this deck's {partner ? 'partner commander' : 'commander'}, so the deck will be left without one. To keep the card but choose another commander, use “Remove as commander” instead.
+            </p>
+          </Dialog>
+        )
+      })()}
+
       {showExport && <ExportDeckDialog deck={deck} onDismiss={() => setShowExport(false)} />}
       {sharing && <ShareDialog kind="deck" itemId={deck.id} name={deck.name} onClose={() => setSharing(false)} />}
       {whoHas && <WhoHasItSheet deck={deck} onClose={() => setWhoHas(false)} />}
@@ -646,7 +673,7 @@ export function DeckDetailPage() {
                 <div className="dim">{GAME_MODE_LABELS[deck.gameMode as GameMode] ?? deck.gameMode}</div>
               </div>
               <div className="stepper-big">
-                <button type="button" onClick={() => setCardQuantity(deck.id, zoomEntry.scryfallId, zoomEntry.quantity - 1)} aria-label="One fewer">−</button>
+                <button type="button" onClick={() => setCardQuantity(deck.id, zoomEntry.scryfallId, zoomEntry.quantity - 1)} disabled={zoomEntry.quantity <= 1} aria-label="One fewer">−</button>
                 <span className="qn">{zoomEntry.quantity}</span>
                 <button type="button" onClick={() => setCardQuantity(deck.id, zoomEntry.scryfallId, zoomEntry.quantity + 1)} aria-label="One more">+</button>
               </div>
@@ -685,7 +712,8 @@ function CardRow({
       </div>
       {hasQty && (
         <div className="qty">
-          <button type="button" onClick={onDecrement} aria-label={`One fewer ${entry.name}`}>−</button>
+          {/* Stops at 1: taking the last copy out is "Remove from deck" in the card's menu, so it's never one stray tap. */}
+          <button type="button" onClick={onDecrement} disabled={entry.quantity <= 1} aria-label={`One fewer ${entry.name}`}>−</button>
           <span className="qn">{entry.quantity}</span>
           <button type="button" onClick={onIncrement} aria-label={`One more ${entry.name}`}>+</button>
         </div>
