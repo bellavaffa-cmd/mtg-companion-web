@@ -25,6 +25,8 @@ import { buyCardUrl, buyListUrl } from '../api/buy'
 import { askForNotifications, usePrices } from '../collection/priceAlerts'
 import { useMoney } from '../money/currency'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
+import { useCardViewMode } from '../settings/settings'
+import { biggerImageUrl } from '../types/scryfall'
 
 export function CollectionDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -52,6 +54,8 @@ export function CollectionDetailPage() {
   const [zoomId, setZoomId] = useState<string | null>(null)
   const [sheet, setSheet] = useState<CollectionEntry | null>(null)
   const [filter, setFilter] = useState('')
+  // List or grid: opens as Settings → Card Display says; the toggle changes that default.
+  const [view, setView] = useCardViewMode('binder')
   const [sharing, setSharing] = useState(false)
   const [listDialog, setListDialog] = useState<'import' | 'export' | null>(null)
   // The cards whose "Move to…" or "Copy to…" sheet is open.
@@ -179,18 +183,37 @@ export function CollectionDetailPage() {
           Cards you own that aren't in a binder yet. Use <Icon name="more_vert" style={{ fontSize: 16, verticalAlign: -3 }} /> → <b>Move to…</b> on a card to sort it — into a binder or deck you have, or a new one.
         </p>
       )}
-      {(collection.entries.length > 8 || filter) && (
-        <div className="rise" style={{ ...rise(2), marginTop: 14, maxWidth: size === 'phone' ? undefined : 480 }}>
-          <SearchPill value={filter} onChange={setFilter} placeholder="Name or tag, e.g. ramp" />
-          {q && (
+      <div className="rise" style={{ ...rise(2), marginTop: 14, maxWidth: size === 'phone' ? undefined : 480 }}>
+        <div className="row" style={{ gap: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {(collection.entries.length > 8 || filter) && <SearchPill value={filter} onChange={setFilter} placeholder="Name or tag, e.g. ramp" />}
+          </div>
+          <IconButton icon={view === 'list' ? 'grid_view' : 'view_list'} label={view === 'list' ? 'Show as a grid' : 'Show as a list'} onClick={() => setView(view === 'list' ? 'grid' : 'list')} />
+        </div>
+        {q && (
             <div className="dim search-note">
               {shown.length} {shown.length === 1 ? 'card' : 'cards'}
               {tagHits.length > 0 && ` · tag: ${tagHits.slice(0, 2).map(tagLabel).join(', ')}${tagHits.length > 2 ? '…' : ''}`}
               {tagging && ' · finding tags…'}
             </div>
-          )}
+        )}
+      </div>
+      {view === 'grid' ? (
+        <div className="card-grid" style={{ marginTop: 14 }}>
+          {shown.map((entry) => (
+            <EntryTile
+              key={entry.scryfallId}
+              entry={entry}
+              selecting={selecting}
+              selected={selected.has(entry.scryfallId)}
+              onToggle={() => toggle(entry)}
+              onZoom={() => setZoomId(entry.scryfallId)}
+              onMore={() => setSheet(entry)}
+            />
+          ))}
+          {shown.length === 0 && <div className="empty-state">Nothing in this binder matches “{filter}”.</div>}
         </div>
-      )}
+      ) : (
       <div className="list wide-list" style={{ marginTop: 14 }}>
         {shown.map((entry) => (
           <EntryRow
@@ -209,6 +232,7 @@ export function CollectionDetailPage() {
         ))}
         {shown.length === 0 && <div className="empty-state">Nothing in this binder matches “{filter}”.</div>}
       </div>
+      )}
     </>
   )
 
@@ -549,6 +573,31 @@ function EntryRow({
       <button type="button" className="more" onClick={onMore} aria-label={`Actions for ${entry.name}`}>
         <Icon name="more_vert" style={{ fontSize: 20 }} />
       </button>
+    </div>
+  )
+}
+
+/** A binder card in the grid: the card, how many, and its actions in the corner. */
+function EntryTile({ entry, selecting, selected, onToggle, onZoom, onMore }: {
+  entry: CollectionEntry; selecting: boolean; selected: boolean; onToggle: () => void; onZoom: () => void; onMore: () => void
+}) {
+  const longPress = useLongPress({ onLongPress: onToggle, onClick: selecting ? onToggle : onZoom })
+  const total = entry.quantity + entry.foilQuantity
+  return (
+    <div className={`card-cell press${selected ? ' picked' : ''}`}>
+      <div className="card-cell-img" {...longPress}>
+        {entry.imageUrl ? <img src={entry.imageUrl} alt={entry.name} loading="lazy" data-card-preview={biggerImageUrl(entry.imageUrl) ?? undefined} /> : <ArtImage src={null} seed={entry.name} />}
+        {selecting && <span className={`pick-mark${selected ? ' on' : ''}`} aria-label={selected ? 'Selected' : 'Not selected'}>{selected && <Icon name="check" />}</span>}
+        <span className="card-cell-count">×{total}</span>
+        {entry.foilQuantity > 0 && <span className="card-cell-proxy"><Icon name="auto_awesome" style={{ fontSize: 12, verticalAlign: -2 }} />{entry.foilQuantity}</span>}
+        {entry.backImageUrl && <span className="flip-badge"><Icon name="autorenew" /></span>}
+      </div>
+      <div className="row" style={{ gap: 2, alignItems: 'center' }}>
+        <div className="card-cell-name" style={{ flex: 1, minWidth: 0 }}>{entry.name}</div>
+        <button type="button" className="more" onClick={onMore} aria-label={`Actions for ${entry.name}`}>
+          <Icon name="more_vert" style={{ fontSize: 18 }} />
+        </button>
+      </div>
     </div>
   )
 }

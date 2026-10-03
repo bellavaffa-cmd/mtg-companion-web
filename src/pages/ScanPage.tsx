@@ -5,12 +5,13 @@ import { canBeFoil, doneMessage } from '../collection/addTo'
 import { AddToSheet, type AddTarget } from '../components/AddToSheet'
 import { useUndoBar } from '../components/useUndoBar'
 import { Icon } from '../components/Icon'
-import { ArtImage, PillChip, toArtCrop, useBack } from '../components/kit'
+import { ArtImage, IconButton, PillChip, toArtCrop, useBack } from '../components/kit'
 import { Dialog } from '../components/Dialog'
 import { PrintingPicker, printingName } from '../components/PrintingPicker'
 import { useLeaveGuard } from '../components/useLeaveGuard'
 import { useKeepAwake } from '../components/useKeepAwake'
 import { TopBar } from '../components/TopBar'
+import { hasTorch, torchConstraints } from '../scan/torch'
 import { cardNameIndex, MIN_MATCH } from '../scan/cardNames'
 import { guideInVideo, zoomFor } from '../scan/guide'
 import { cameraSignatures, decideInSet, matchPrinting, measurePrintings, type ArtSignature } from '../scan/printingMatch'
@@ -111,6 +112,8 @@ export function ScanPage() {
   const guideRef = useRef<HTMLDivElement>(null)
   const scanNow = useRef(false)
   const [camera, setCamera] = useState<Camera>('starting')
+  // The camera's light, when it has one (see scan/torch.ts), and whether it's on.
+  const [torch, setTorch] = useState<{ track: MediaStreamTrack; on: boolean } | null>(null)
   const [mode, setMode] = useState<ScanMode>(() => {
     try { return scanModeOf(localStorage.getItem(MODE_KEY)) } catch { return 'accurate' }
   })
@@ -258,6 +261,7 @@ export function ScanPage() {
     const release = () => {
       stream?.getTracks().forEach((t) => t.stop())
       stream = null
+      setTorch(null)
     }
     const onVisibility = () => {
       if (!document.hidden) setCameraAttempt((n) => n + 1)
@@ -282,6 +286,9 @@ export function ScanPage() {
           // Not every browser that reports zoom will accept it, so a refusal is not a failed camera.
           void t.applyConstraints({ advanced: [{ zoom: ratio }] } as unknown as MediaTrackConstraints).catch(() => {})
         })
+        // The light, when this camera has one; it starts off, as the camera does.
+        const lit = s.getVideoTracks().find((t) => hasTorch(t.getCapabilities?.()))
+        setTorch(lit ? { track: lit, on: false } : null)
         const video = videoRef.current
         if (video) {
           video.srcObject = s
@@ -561,12 +568,29 @@ export function ScanPage() {
     setPicking(false)
   }
 
+  const toggleTorch = () => {
+    if (!torch) return
+    const on = !torch.on
+    torch.track.applyConstraints(torchConstraints(on))
+      .then(() => setTorch((t) => (t && t.track === torch.track ? { ...t, on } : t)))
+      .catch(() => setTorch(null))
+  }
+
   return (
     <>
       <TopBar
         title="Scan"
         onBack={() => (scanned.length > 0 ? setLeaving(() => back) : back())}
         actions={
+          <>
+          {torch && (
+            <IconButton
+              icon={torch.on ? 'flash_on' : 'flash_off'}
+              label={torch.on ? 'Turn off the light' : 'Turn on the light'}
+              className={torch.on ? 'on' : ''}
+              onClick={toggleTorch}
+            />
+          )}
           <button
             type="button"
             className="chip scan-mode"
@@ -578,6 +602,7 @@ export function ScanPage() {
           >
             <Icon name={mode === 'fast' ? 'bolt' : 'verified'} aria-hidden />{SCAN_MODES[mode].label}
           </button>
+          </>
         }
       />
       <div className="content-scroll scan-page">

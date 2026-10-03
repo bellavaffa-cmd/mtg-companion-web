@@ -145,6 +145,10 @@ function Sidebar() {
         </>
       )}
       <div style={{ flex: 1 }} />
+      <NavLink to="/settings" className={({ isActive }) => `side-nav${isActive ? ' active' : ''}`}>
+        <Icon name="settings" />
+        Settings
+      </NavLink>
       <NavLink to="/app" className={({ isActive }) => `side-nav${isActive ? ' active' : ''}`}>
         <Icon name="android" />
         Get the Android app
@@ -181,6 +185,10 @@ function NavRail() {
         <span>Friends</span>
       </NavLink>
       <div style={{ flex: 1 }} />
+      <NavLink to="/settings" className={({ isActive }) => `nav-tab${isActive ? ' active' : ''}`}>
+        <span className="pill"><Icon name="settings" /></span>
+        <span>Settings</span>
+      </NavLink>
       <NavLink to="/app" className={({ isActive }) => `nav-tab${isActive ? ' active' : ''}`}>
         <span className="pill"><Icon name="android" /></span>
         <span>App</span>

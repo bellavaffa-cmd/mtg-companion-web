@@ -29,9 +29,10 @@ import { TradeOfferSheet } from '../social/TradeOffer'
 import { ExportCollectionDialog } from './CardListDialogs'
 import { useMoney } from '../money/currency'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
+import { cardFactsOf, filterActive, filterCount, filterMatches, NO_COLLECTION_FILTER, type CardFacts, type CollectionFilter } from './cardFilter'
+import { CollectionFilterPanel } from './CollectionFilterPanel'
+import { useCardViewMode } from '../settings/settings'
 
-type ViewMode = 'list' | 'grid'
-const VIEW_KEY = 'mtgweb_all_cards_view'
 
 // Scryfall's data for the cards owned (price, colours, type), kept for this visit: a card added
 // later is fetched on its own, not the whole collection again.
@@ -70,14 +71,18 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
   const { tags: roleTags, loading: tagging } = useRoleTags(cards.map((c) => c.name))
 
   const [query, setQuery] = useState('')
-  const [view, setView] = useState<ViewMode>(() => {
-    try { return localStorage.getItem(VIEW_KEY) === 'grid' ? 'grid' : 'list' } catch { return 'list' }
-  })
-  const switchView = () => {
-    const next = view === 'list' ? 'grid' : 'list'
-    setView(next)
-    try { localStorage.setItem(VIEW_KEY, next) } catch { /* this visit only */ }
-  }
+  // Color, type and rarity, as in Search — narrowing the same list the search field does.
+  const [cardFilter, setCardFilter] = useState<CollectionFilter>(NO_COLLECTION_FILTER)
+  const [filterOpen, setFilterOpen] = useState(false)
+  const filtering = filterActive(cardFilter)
+  const facts = useMemo(() => {
+    const m = new Map<string, CardFacts>()
+    if (cardsById) for (const [id, c] of cardsById) m.set(id, cardFactsOf(c))
+    return m
+  }, [cardsById])
+  // Opens as Settings → Card Display says; the toggle changes that default.
+  const [view, setView] = useCardViewMode('allCards')
+  const switchView = () => setView(view === 'list' ? 'grid' : 'list')
   const [zoomId, setZoomId] = useState<string | null>(null)
   // Spares: binder cards no deck of yours plays — the obvious things to trade away.
   const [sparesOnly, setSparesOnly] = useState(false)
@@ -99,7 +104,10 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
     const role = tagsOf(roleTags, c.name)
     return c.proxies > 0 ? [...role, ...mine, 'proxy'] : [...role, ...mine]
   }
-  const shown = cards.filter((c) => matchesNameOrTag(c.name, tagsFor(c), q)).filter((c) => !sparesOnly || inSpares(c))
+  const shown = cards
+    .filter((c) => matchesNameOrTag(c.name, tagsFor(c), q))
+    .filter((c) => !filtering || filterMatches(cardFilter, facts.get(c.scryfallId)))
+    .filter((c) => !sparesOnly || inSpares(c))
   const tagHits = q ? [...new Set(shown.filter((c) => !c.name.toLowerCase().includes(q)).flatMap((c) => matchedTags(tagsFor(c), q)))] : []
 
   // Cards picked by pressing and holding (scryfall ids); ones no longer owned drop from the pick.
@@ -183,8 +191,19 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <SearchPill value={query} onChange={setQuery} placeholder="Name or tag, e.g. ramp" />
         </div>
+        <IconButton
+          icon="filter_list"
+          label={filtering ? `Filters, ${filterCount(cardFilter)} on` : 'Filters'}
+          className={filtering || filterOpen ? 'on' : ''}
+          onClick={() => setFilterOpen((o) => !o)}
+        />
         <IconButton icon={view === 'list' ? 'grid_view' : 'view_list'} label={view === 'list' ? 'Show as a grid' : 'Show as a list'} onClick={switchView} />
       </div>
+      {filterOpen && (
+        <div className="rise" style={{ maxWidth: size === 'phone' ? undefined : 560 }}>
+          <CollectionFilterPanel filter={cardFilter} onChange={setCardFilter} />
+        </div>
+      )}
       {spareCards.length > 0 && (
         <div className="chips" style={{ marginTop: 10 }}>
           <PillChip
@@ -203,7 +222,7 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
       <div className="dim search-note">
         {sparesOnly
           ? <>{shown.length} spare {shown.length === 1 ? 'card' : 'cards'} — in your binders, in none of your decks</>
-          : q
+          : q || filtering
             ? <>{shown.length} of {cards.length} unique match{tagHits.length > 0 && ` · tag: ${tagHits.slice(0, 2).map(tagLabel).join(', ')}${tagHits.length > 2 ? '…' : ''}`}</>
             : <>{cards.reduce((n, c) => n + c.total, 0)} cards · {cards.length} unique (across all binders &amp; decks)</>}
         {tagging && ' · finding tags…'}
@@ -211,7 +230,7 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
       {notice && <div className="notice" style={{ marginTop: 10 }}><Icon name="check_circle" style={{ color: 'var(--ok)', fontSize: 18, marginRight: 6 }} />{notice}</div>}
 
       {shown.length === 0 ? (
-        <div className="empty-state">No cards match “{query}”.</div>
+        <div className="empty-state">{filtering ? 'No cards match these filters.' : <>No cards match “{query}”.</>}</div>
       ) : view === 'grid' ? (
         <div className="card-grid" style={{ marginTop: 14 }}>
           {shown.map((c) => (

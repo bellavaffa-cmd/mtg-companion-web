@@ -1392,3 +1392,221 @@
 @media (prefers-reduced-motion: reduce) {
   .lc-hold-banner { animation: none; }
 }
+
+/* ---- Settings → Player cards ---- */
+
+/* Vertical tap areas: top half adds, bottom half subtracts. */
+.lc-tile.vertical-taps .lc-tap {
+  left: 0;
+  right: 0;
+  width: auto;
+  height: 50%;
+  justify-content: center;
+  padding: min(6cqh, 30px) 0;
+}
+.lc-tile.vertical-taps .lc-tap.plus {
+  top: 0;
+  bottom: auto;
+  align-items: flex-start;
+}
+.lc-tile.vertical-taps .lc-tap.minus {
+  top: auto;
+  bottom: 0;
+  align-items: flex-end;
+}
+.lc-life u {
+  text-decoration-thickness: 0.05em;
+  text-underline-offset: 0.06em;
+}
+.lc-name.bare {
+  padding: 2px 8px 0;
+}
+.lc-name.bare .material-symbols-rounded {
+  font-size: clamp(16px, 8cqh, 24px);
+  vertical-align: middle;
+}
+
+/* The defeat or victory message over a tile that's out, or that won. */
+.lc-outcome {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  padding: 0 8%;
+  text-align: center;
+  font-size: min(16cqh, 11cqw);
+  line-height: 1;
+  color: #fff;
+  pointer-events: none;
+  animation: lc-fade 0.25s both;
+}
+.lc-outcome.defeat {
+  background: rgba(0, 0, 0, 0.6);
+}
+.lc-outcome.victory {
+  background: rgba(0, 0, 0, 0.3);
+}
+.lc-tile.out .lc-life {
+  visibility: hidden;
+}
+
+/* ---- Settings sheet ---- */
+
+.lc-toggle:disabled {
+  opacity: 0.4;
+}
+.lc-toggle.static {
+  padding-bottom: 4px;
+}
+.lc-choices.wrap {
+  flex-wrap: wrap;
+  padding-bottom: 8px;
+}
+.lc-choices.wrap button {
+  font-size: 20px;
+}
+.lc-number {
+  width: 88px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--lc-raised);
+  color: inherit;
+  padding: 8px 12px 6px;
+  font: inherit;
+  font-size: 24px;
+  text-align: center;
+}
+.lc-messages-head {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 24px;
+  text-align: left;
+}
+.lc-muted {
+  color: var(--lc-muted);
+  font-size: 20px;
+}
+.lc-message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+  padding: 8px 12px 6px;
+  border-radius: 12px;
+  background: var(--lc-surface);
+  font-size: 22px;
+}
+.lc-message span {
+  flex: 1;
+  min-width: 0;
+}
+.lc-message button {
+  border: 0;
+  background: transparent;
+  color: var(--lc-accent);
+  font-size: 22px;
+}
+.lc-message-add {
+  display: flex;
+  gap: 10px;
+  padding-bottom: 10px;
+}
+.lc-message-add .lc-name-input {
+  flex: 1;
+  min-width: 0;
+}
+.lc-add {
+  border: 0;
+  border-radius: 999px;
+  background: var(--lc-yellow);
+  color: #000;
+  padding: 6px 18px 4px;
+  font-size: 22px;
+}
+.lc-add:disabled {
+  background: var(--lc-raised);
+  color: var(--lc-muted);
+}
+.lc-message-input {
+  width: 100%;
+}
+
+/* ---- Game modes: Archenemy and Bounty beside Planechase ---- */
+
+.lc-spinner {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 0 7px;
+  border: 2px solid var(--lc-yellow);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: lc-spin 0.8s linear infinite;
+}
+@keyframes lc-spin {
+  to { transform: rotate(360deg); }
+}
+.lc-mode-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 32px 0 20px;
+  text-align: center;
+  font-size: 26px;
+  color: var(--lc-muted);
+}
+.lc-mode-text {
+  margin: 0;
+  max-width: 560px;
+  font-family: var(--ui);
+  font-size: 15px;
+  line-height: 1.45;
+  white-space: pre-line;
+  color: var(--lc-muted);
+}
+.lc-plane.portrait img {
+  max-width: 360px;
+}
+.lc-ongoing {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+  font-size: 22px;
+}
+.lc-dice button.accent {
+  background: var(--lc-accent);
+  color: #fff;
+}
+.lc-link {
+  display: block;
+  margin: 16px auto 0;
+  border: 0;
+  background: transparent;
+  color: var(--lc-yellow);
+  font-size: 24px;
+}
+.lc-seat-picks {
+  display: grid;
+  gap: 10px;
+  padding-top: 8px;
+}
+.lc-seat-pick {
+  border: 0;
+  border-radius: 18px;
+  background: var(--seat);
+  color: var(--ink);
+  padding: 14px 18px 10px;
+  text-align: left;
+  font-size: 34px;
+  animation: lc-pop 0.35s cubic-bezier(0.49, 0.2, 0.19, 1.48) both;
+}
+@supports (color: color(display-p3 1 1 1)) {
+  .lc-seat-pick {
+    background: var(--seat-p3);
+  }
+}
