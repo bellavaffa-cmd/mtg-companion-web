@@ -5,7 +5,7 @@ import { CURRENCIES, currencyOf, refreshRates, setCurrency, useCurrencySetting, 
  * The currency prices show in. Prices stay US dollars underneath; this only changes how they read,
  * at the European Central Bank's rate of the day. The Android app's is Settings → Prices.
  */
-export function PricesPanel() {
+export function PricesPanel({ heading = true }: { heading?: boolean }) {
   const money = useMoney()
   const { chosen, ratesDate, loading } = useCurrencySetting()
   const [failed, setFailed] = useState(false)
@@ -14,8 +14,8 @@ export function PricesPanel() {
   const date = ratesDate ? new Date(`${ratesDate}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : null
 
   return (
-    <div className="panel" style={{ marginTop: 16 }}>
-      <div className="p-h"><h3>Prices</h3></div>
+    <div className="panel" style={heading ? { marginTop: 16 } : undefined}>
+      {heading && <div className="p-h"><h3>Prices</h3></div>}
       <label className="field-label" htmlFor="currency">Show prices in</label>
       <select id="currency" className="input" value={chosen} onChange={(e) => { setFailed(false); setCurrency(e.target.value) }}>
         {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.name} ({c.symbol.trim()})</option>)}

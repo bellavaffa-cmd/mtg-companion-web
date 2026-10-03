@@ -16,7 +16,7 @@ import { DeckDetailPage } from './pages/DeckDetailPage'
 import { SearchPage } from './pages/SearchPage'
 import { CardPage } from './pages/CardPage'
 import { AccountPage } from './pages/AccountPage'
-import { SettingsPage } from './pages/SettingsPage'
+import { SettingsPage, SettingsSectionPage } from './pages/SettingsPage'
 import { LifeCounterPage } from './lifecounter/LifeCounterPage'
 import { RemotePage } from './lifecounter/RemotePage'
 import { PlayPage } from './lifecounter/PlayPage'
@@ -67,6 +67,7 @@ export default function App() {
             <Route path="/scan" element={<ScanPage />} />
             <Route path="/account" element={<AccountPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/:section" element={<SettingsSectionPage />} />
             <Route path="/friends" element={<FriendsPage />} />
             <Route path="/friends/:id" element={<FriendPage />} />
             <Route path="/trades" element={<TradesPage />} />

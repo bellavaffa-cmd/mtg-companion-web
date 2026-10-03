@@ -4563,6 +4563,48 @@ button.tag-chip {
 .settings .chip:not([aria-pressed='true']) {
   background: var(--g2);
 }
+/* Settings: one row per section, each opening the section on a page of its own. */
+.settings-list {
+  display: grid;
+  gap: 8px;
+}
+.settings-section {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--g1);
+  color: var(--t0);
+  text-decoration: none;
+}
+.ss-ic {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: var(--g2);
+  color: var(--gold);
+}
+.ss-t {
+  min-width: 0;
+  font-weight: 700;
+  font-size: 14.5px;
+}
+.ss-t small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--t1);
+}
+.ss-go {
+  color: var(--t2);
+}
 .settings-note {
   margin: 0 0 14px;
   font-size: 13px;
