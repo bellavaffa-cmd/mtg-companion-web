@@ -15,6 +15,8 @@ import { SearchFiltersPanel } from './SearchFiltersPanel'
 import { buildScryfallQuery, DEFAULT_SORT, NO_FILTERS, type SearchFilters, type SearchSort } from '../search/filters'
 import { canBeFoil, onlyFoil } from '../collection/addTo'
 import { appendPage } from '../search/pages'
+import { useSync } from '../sync/SyncContext'
+import { cardSources, sourcesLabel, type HeldIn } from '../collection/cardSources'
 
 interface Props {
   /** Inside a deck or binder: adding goes straight there (the page shows the Undo bar). Omitted on
@@ -35,6 +37,9 @@ interface Props {
 export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. c:g t:creature', examples, autoFocus, initialQuery = '', wide, filterable }: Props) {
   const money = useMoney()
   const addCardTo = useAddCardTo()
+  // Where you own each printing already, said on its row (the phone shows it on the card's zoom).
+  const { collections, decks } = useSync()
+  const held = useMemo(() => cardSources(collections, decks), [collections, decks])
   const [query, setQuery] = useState(initialQuery)
   const [cards, setCards] = useState<ScryfallCard[]>([])
   const [loading, setLoading] = useState(false)
@@ -147,7 +152,7 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
       {!loading && !error && effective.trim() && cards.length === 0 && <div className="empty-state">No cards match.</div>}
       <div className={`list${wide ? ' wide-list' : ''}`} style={{ marginTop: 12 }}>
         {cards.map((card) => (
-          <ResultRow key={card.id} card={card} onZoom={() => setZoomCard(card)} onMore={() => setSheetCard(card)} onAdd={onAdd ? () => add(card) : undefined} />
+          <ResultRow key={card.id} card={card} held={held.get(card.id)} onZoom={() => setZoomCard(card)} onMore={() => setSheetCard(card)} onAdd={onAdd ? () => add(card) : undefined} />
         ))}
       </div>
       {!loading && !error && hasMore && (
@@ -216,7 +221,7 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
   )
 }
 
-function ResultRow({ card, onZoom, onMore, onAdd }: { card: ScryfallCard; onZoom: () => void; onMore: () => void; onAdd?: () => void }) {
+function ResultRow({ card, held, onZoom, onMore, onAdd }: { card: ScryfallCard; held?: HeldIn[]; onZoom: () => void; onMore: () => void; onAdd?: () => void }) {
   const money = useMoney()
   const longPress = useLongPress({ onLongPress: onMore, onClick: onZoom })
   return (
@@ -228,6 +233,11 @@ function ResultRow({ card, onZoom, onMore, onAdd }: { card: ScryfallCard; onZoom
       <div className="cmain" {...longPress}>
         <div className="cname">{card.name}</div>
         <div className="cmeta"><span>{card.type_line ?? ''}</span></div>
+        {held && held.length > 0 && (
+          <div className="cmeta held-in" title={held.map((h) => `${h.name} ×${h.quantity}`).join(', ')}>
+            <span><Icon name="inventory_2" aria-hidden />{sourcesLabel(held)}</span>
+          </div>
+        )}
       </div>
       {card.prices?.usd ? <span className="cprice">{money.formatPrice(card.prices.usd)}</span> : <span />}
       {onAdd ? (

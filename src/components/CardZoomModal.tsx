@@ -80,7 +80,7 @@ export function zoomSteps<T>(
 }
 
 /** A tilting card that catches a foil sheen under the pointer — the Android app's card detail. */
-function TiltCard({ src, alt, children }: { src: string; alt: string; children?: ReactNode }) {
+export function TiltCard({ src, alt, children }: { src: string; alt: string; children?: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState(false)
 
@@ -328,6 +328,7 @@ export function CardZoomModal({
         )}
 
         <div className="chips wrap">
+          <PillChip label="Open card page" icon="open_in_full" onClick={() => goTo(`/card/${encodeURIComponent(name)}${scryfallId ? `?id=${encodeURIComponent(scryfallId)}` : ''}`)} />
           <PillChip label="Rulings" icon="gavel" onClick={() => goTo(`/rules?tab=rulings&card=${encodeURIComponent(name)}`)} />
           <PillChip
             label="Buy"

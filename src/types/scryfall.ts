@@ -51,7 +51,7 @@ export interface ScryfallCard {
   /** Where EDHREC ranks the card by how many decks play it (1 = most). Absent for unplayed cards. */
   edhrec_rank?: number
   legalities?: Record<string, string>
-  prices?: { usd?: string | null; usd_foil?: string | null }
+  prices?: { usd?: string | null; usd_foil?: string | null; eur?: string | null }
   /** Where to buy this printing (see api/buy.ts). */
   purchase_uris?: { tcgplayer?: string | null; cardmarket?: string | null; cardhoarder?: string | null }
   image_uris?: ScryfallImageUris

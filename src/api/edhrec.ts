@@ -149,3 +149,24 @@ export async function commanderSuggestions(commanderName: string, alreadyHave: s
   }
   return out
 }
+
+/** One of an EDHREC page's lists ("Top Cards", "High Synergy Cards"…), as the card page shows it. */
+export interface EdhrecSection {
+  tag: string
+  header: string
+  cards: EdhrecCard[]
+}
+
+const sectionsOf = (lists: Awaited<ReturnType<typeof cardLists>>): EdhrecSection[] | null =>
+  lists && lists
+    .map((l) => ({ tag: l.tag ?? '', header: l.header ?? '', cards: (l.cardviews ?? []).map(toCard) }))
+    .filter((l) => l.cards.length > 0)
+
+/**
+ * EDHREC's lists for a card's page: built around it as a commander ([asCommander]), or what's played
+ * alongside it in other decks. Null when EDHREC has no such page. The Android app's
+ * getRecommendationsForCommander / getCardPage.
+ */
+export async function cardPageSections(cardName: string, asCommander: boolean): Promise<EdhrecSection[] | null> {
+  return sectionsOf(await (asCommander ? commanderPage(edhrecSlug(cardName)) : cardLists(`cards/${edhrecSlug(cardName)}`)))
+}

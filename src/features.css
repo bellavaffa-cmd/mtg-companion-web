@@ -333,3 +333,126 @@
 .combo-link .icon {
   font-size: 14px;
 }
+
+/* ---- Where you own it: search rows and the card page ---- */
+
+.cmeta.held-in {
+  color: var(--gold);
+}
+.cmeta.held-in .icon {
+  font-size: 13px;
+  margin-right: 3px;
+  vertical-align: -2px;
+}
+.held-list {
+  display: grid;
+  gap: 2px;
+  margin: 0 -12px;
+}
+.held-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--t0);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.held-row:hover {
+  background: var(--g2);
+}
+.held-row .icon {
+  color: var(--gold);
+  font-size: 18px;
+}
+.held-row span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.held-row b {
+  color: var(--gold-light);
+}
+
+/* ---- The card page ---- */
+
+.card-page {
+  display: grid;
+  gap: 24px;
+  padding-bottom: 24px;
+}
+.card-page-main {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  min-width: 0;
+}
+.card-page-browse {
+  min-width: 0;
+}
+@media (min-width: 900px) {
+  .card-page {
+    grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+    align-items: start;
+  }
+  .card-page-main {
+    position: sticky;
+    top: 72px;
+  }
+}
+.print-strip .similar-card.on img {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+.card-prices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.card-prices > div {
+  display: grid;
+}
+.card-prices .lbl {
+  font-size: 12px;
+  color: var(--t2);
+}
+.card-prices b {
+  font-family: var(--num);
+  font-weight: 400;
+  font-size: 30px;
+  line-height: 1.05;
+}
+.legality-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px;
+}
+.legality {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--g2);
+  font-size: 13px;
+}
+.legality b {
+  font-size: 12px;
+}
+.legality.legal b {
+  color: var(--ok);
+}
+.legality.banned b {
+  color: var(--error);
+}
+.legality.not_legal b,
+.legality.restricted b {
+  color: var(--t2);
+}
