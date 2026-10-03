@@ -19,6 +19,11 @@ export function AccountPage() {
           <AccountPanel />
           <LibraryBackupPanel />
           <PricesPanel />
+          <Link to="/settings" className="banner press" style={{ marginTop: 16, textDecoration: 'none' }}>
+            <Icon name="settings" />
+            <span style={{ flex: 1 }}>Settings — brightness, accent color and how cards are shown</span>
+            <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
+          </Link>
           <Link to="/app" className="banner press" style={{ marginTop: 16, textDecoration: 'none' }}>
             <Icon name="android" />
             <span style={{ flex: 1 }}>Get the Android app: the same account, with notifications and offline card search.</span>

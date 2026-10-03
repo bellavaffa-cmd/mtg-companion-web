@@ -191,6 +191,7 @@ export function HomePage() {
           {desktop && (
             <button type="button" className="btn gold" onClick={() => navigate('/decks/new')}><Icon name="add" />New deck</button>
           )}
+          {!desktop && <IconButton icon="settings" label="Settings" onClick={() => navigate('/settings')} />}
         </header>
 
         <div className="content-scroll" style={{ display: 'grid', gap: desktop ? 28 : 20, alignContent: 'start' }}>
@@ -266,20 +267,23 @@ export function HomePage() {
           <div className="eyebrow">{greeting()}</div>
           <div className="brand">Manabind</div>
         </div>
-        {accountsAvailable && (
-          <div className="row" style={{ gap: 8 }}>
-            <SyncButton />
-            <span className="badge-anchor">
-              <IconButton icon="group" label="Friends" onClick={() => navigate('/friends')} />
-              <InboxBadge dot />
-            </span>
-            <IconButton
-              icon={account ? (cloud.failed ? 'cloud_off' : 'cloud_done') : 'account_circle'}
-              label="Account & sync"
-              onClick={() => navigate('/account')}
-            />
-          </div>
-        )}
+        <div className="row" style={{ gap: 8 }}>
+          {accountsAvailable && (
+            <>
+              <SyncButton />
+              <span className="badge-anchor">
+                <IconButton icon="group" label="Friends" onClick={() => navigate('/friends')} />
+                <InboxBadge dot />
+              </span>
+              <IconButton
+                icon={account ? (cloud.failed ? 'cloud_off' : 'cloud_done') : 'account_circle'}
+                label="Account & sync"
+                onClick={() => navigate('/account')}
+              />
+            </>
+          )}
+          <IconButton icon="settings" label="Settings" onClick={() => navigate('/settings')} />
+        </div>
       </header>
 
       <div className="content-scroll with-nav">

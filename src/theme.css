@@ -17,6 +17,8 @@
   --gold-dim: #8e6a2c;
   --gold-soft: rgba(230, 180, 94, 0.16);
   --gold-ink: #1c1405;
+  /* The accent on a dark scrim over card art, bright in either theme. */
+  --gold-art: #e6b45e;
   --cut: #ff8a4c;
   --ok: #5bcb8f;
   --warn: #f3b64a;
@@ -41,6 +43,37 @@
   --out: cubic-bezier(0.2, 0.9, 0.25, 1);
   --frame: 440px;
   color-scheme: dark;
+}
+
+/* Settings → Appearance → Light (or System on a light device): the Android app's light palette —
+   cool paper white, surfaces by tone, the accent darkened so it keeps its contrast (set with the
+   rest of the --gold family by src/settings/settings.ts). The quietest text is a step darker than the
+   app's #80848f so it still reads at 4.5:1 on the ground and on cards. */
+:root[data-theme='light'] {
+  --g0: #f4f4f7;
+  --g1: #ffffff;
+  --g2: #ecedf2;
+  --g3: #e0e2e9;
+  --t0: #15161b;
+  --t1: #555a66;
+  --t2: #62666f;
+  --cut: #d9621f;
+  --ok: #1f8a55;
+  --warn: #b57a10;
+  --error: #c62f24;
+  --line: rgba(0, 0, 0, 0.09);
+  --shell: #e4e5ea;
+  color-scheme: light;
+}
+
+/* Over card art the text stays light whatever the theme, so it keeps the dark set. */
+:root[data-theme='light'] .lc-root,
+:root[data-theme='light'] .rm-root,
+:root[data-theme='light'] .on-art {
+  --t0: #f1eee6;
+  --t1: #c9cad3;
+  --t2: #9a9ca7;
+  --line: rgba(255, 255, 255, 0.08);
 }
 
 * {
@@ -69,7 +102,7 @@ body::before {
 
 body {
   margin: 0;
-  background: #050507;
+  background: var(--shell, #050507);
   color: var(--t0);
   font-family: var(--ui);
   font-size: 14px;
@@ -272,7 +305,7 @@ img {
   align-items: center;
   gap: 10px;
   padding: var(--safe-top) 12px 0;
-  background: rgba(12, 13, 17, calc(var(--p, 1) * 0.9));
+  background: color-mix(in srgb, var(--g0) calc(var(--p, 1) * 90%), transparent);
   -webkit-backdrop-filter: blur(calc(var(--p, 1) * 18px));
   backdrop-filter: blur(calc(var(--p, 1) * 18px));
 }
@@ -336,8 +369,8 @@ img {
 }
 
 .ib.glass {
-  background: rgba(12, 13, 17, 0.45);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09);
+  background: color-mix(in srgb, var(--g0) 50%, transparent);
+  box-shadow: inset 0 0 0 1px var(--line);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
 }
@@ -610,7 +643,7 @@ select.input {
 }
 
 .badge.soft {
-  background: rgba(241, 238, 230, 0.12);
+  background: color-mix(in srgb, var(--t0) 12%, transparent);
   color: var(--t0);
 }
 
@@ -1303,7 +1336,7 @@ select.input {
 .hero-fade {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, rgba(12, 13, 17, 0.3), rgba(12, 13, 17, 0.05) 30%, rgba(12, 13, 17, 0.78) 70%, var(--g0) 99%);
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--g0) 30%, transparent), color-mix(in srgb, var(--g0) 5%, transparent) 30%, color-mix(in srgb, var(--g0) 78%, transparent) 70%, var(--g0) 99%);
 }
 
 .hero-body {
@@ -1322,7 +1355,7 @@ select.input {
   min-width: 0;
   font-size: 13px;
   font-weight: 600;
-  color: rgba(241, 238, 230, 0.85);
+  color: color-mix(in srgb, var(--t0) 85%, transparent);
 }
 
 .h-cmd span:last-child {
@@ -1407,7 +1440,7 @@ select.input {
 }
 
 .crow:hover {
-  background: #1a1c23;
+  background: color-mix(in srgb, var(--g1) 65%, var(--g2));
 }
 
 /* Cards picked by pressing and holding: a gold ring and a tick on the art. */
@@ -1805,10 +1838,10 @@ select.input {
   grid-template-columns: repeat(4, 1fr);
   align-items: center;
   border-radius: 28px;
-  background: rgba(22, 24, 30, 0.84);
+  background: color-mix(in srgb, var(--g1) 84%, transparent);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   backdrop-filter: blur(20px) saturate(1.4);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 12px 30px -12px rgba(0, 0, 0, 0.7);
+  box-shadow: inset 0 0 0 1px var(--line), 0 12px 30px -12px rgba(0, 0, 0, 0.7);
 }
 
 .nav-tab {
@@ -2436,7 +2469,7 @@ html {
   stroke-width: 3;
 }
 .pull-sync-ring .track {
-  stroke: rgba(255, 255, 255, 0.08);
+  stroke: var(--line);
 }
 .pull-sync-ring .arc {
   stroke: var(--t1);
@@ -3031,7 +3064,7 @@ select.input.sf-sort {
   cursor: pointer;
 }
 .banner .icon-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--t0) 6%, transparent);
 }
 
 /* ---- Get the Android app ---- */
@@ -3572,16 +3605,16 @@ button.tag-chip {
   color: var(--t2);
 }
 .tag-target.short {
-  background: rgba(230, 180, 94, 0.18);
+  background: var(--gold-soft);
   color: var(--gold);
 }
 .tag-target.ok {
-  background: rgba(93, 202, 165, 0.16);
-  color: #5dcaa5;
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
+  color: var(--ok);
 }
 .tag-target.over {
-  background: rgba(240, 153, 123, 0.16);
-  color: #f0997b;
+  background: color-mix(in srgb, var(--cut) 16%, transparent);
+  color: var(--cut);
 }
 
 /* ---- Automatic tag binders ---- */
@@ -3809,7 +3842,9 @@ button.tag-chip {
 
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  /* Settings → Card Display → Grid tile size: as many columns across a phone's width, more on a
+     wider screen (the Android app's gridColumnsFor). */
+  grid-template-columns: repeat(auto-fill, minmax(calc(380px / var(--grid-columns, 3) - 8px), 1fr));
   gap: 14px 10px;
 }
 
@@ -3862,7 +3897,7 @@ button.tag-chip {
   padding: 2px 7px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.65);
-  color: var(--gold);
+  color: var(--gold-art);
   font-size: 12px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -3892,7 +3927,7 @@ button.tag-chip {
   display: grid;
   place-items: center;
   background: rgba(0, 0, 0, 0.65);
-  color: var(--gold);
+  color: var(--gold-art);
 }
 
 .card-cell-star .icon {
@@ -4221,4 +4256,102 @@ button.tag-chip {
 }
 .new-deck-commanders .card-cell {
   width: 150px;
+}
+
+/* ---- Settings ---- */
+
+.settings .panel + .panel {
+  margin-top: 14px;
+}
+.settings .chip:not([aria-pressed='true']) {
+  background: var(--g2);
+}
+.settings-note {
+  margin: 0 0 14px;
+  font-size: 13px;
+}
+.settings-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  min-height: 44px;
+}
+.settings-row + .settings-row {
+  margin-top: 6px;
+}
+.settings-row .grow {
+  flex: 1;
+  min-width: 120px;
+  font-weight: 600;
+}
+.settings-label {
+  margin-top: 16px;
+  font-weight: 600;
+}
+.settings-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold-light);
+}
+.settings-divider {
+  height: 1px;
+  margin: 14px 0;
+  background: var(--line);
+}
+.accent-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 10px;
+}
+.accent-swatch {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--t1);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.accent-swatch .dot {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--line);
+  transition: transform 0.25s var(--spring);
+}
+.accent-swatch[aria-checked='true'] {
+  color: var(--gold-light);
+}
+.accent-swatch[aria-checked='true'] .dot {
+  box-shadow: 0 0 0 2px var(--g1), 0 0 0 4px var(--t0);
+}
+.accent-swatch:active .dot {
+  transform: scale(0.9);
+}
+.grid-preview {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+.grid-preview span {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 0.72;
+  border-radius: 10px;
+  background: var(--g2);
+  color: var(--gold-dim);
+}
+.grid-preview .icon {
+  font-size: 16px;
+}
+.settings-slider {
+  width: 100%;
+  margin: 14px 0 8px;
+  accent-color: var(--gold);
 }

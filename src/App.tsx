@@ -14,6 +14,7 @@ import { NewDeckPage } from './pages/NewDeckPage'
 import { DeckDetailPage } from './pages/DeckDetailPage'
 import { SearchPage } from './pages/SearchPage'
 import { AccountPage } from './pages/AccountPage'
+import { SettingsPage } from './pages/SettingsPage'
 import { LifeCounterPage } from './lifecounter/LifeCounterPage'
 import { RemotePage } from './lifecounter/RemotePage'
 import { GetAppPage } from './pages/GetAppPage'
@@ -59,6 +60,7 @@ export default function App() {
             <Route path="/search" element={<SearchPage />} />
             <Route path="/scan" element={<ScanPage />} />
             <Route path="/account" element={<AccountPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="/friends" element={<FriendsPage />} />
             <Route path="/friends/:id" element={<FriendPage />} />
             <Route path="/trades" element={<TradesPage />} />

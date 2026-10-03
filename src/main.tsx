@@ -3,6 +3,11 @@ import { createRoot } from 'react-dom/client'
 import './theme.css'
 import './responsive.css'
 import App from './App.tsx'
+import { applyAppearance, watchSystemTheme } from './settings/settings'
+
+// Light or dark and the accent colour, before the first paint.
+applyAppearance()
+watchSystemTheme()
 
 // Keeps the app's files on the device so it opens offline and can be installed (pwa/sw.template.js).
 // Built sites only: the dev server serves fresh files on every change.

@@ -31,9 +31,8 @@ import { useMoney } from '../money/currency'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
 import { cardFactsOf, filterActive, filterCount, filterMatches, NO_COLLECTION_FILTER, type CardFacts, type CollectionFilter } from './cardFilter'
 import { CollectionFilterPanel } from './CollectionFilterPanel'
+import { useCardViewMode } from '../settings/settings'
 
-type ViewMode = 'list' | 'grid'
-const VIEW_KEY = 'mtgweb_all_cards_view'
 
 // Scryfall's data for the cards owned (price, colours, type), kept for this visit: a card added
 // later is fetched on its own, not the whole collection again.
@@ -81,14 +80,9 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
     if (cardsById) for (const [id, c] of cardsById) m.set(id, cardFactsOf(c))
     return m
   }, [cardsById])
-  const [view, setView] = useState<ViewMode>(() => {
-    try { return localStorage.getItem(VIEW_KEY) === 'grid' ? 'grid' : 'list' } catch { return 'list' }
-  })
-  const switchView = () => {
-    const next = view === 'list' ? 'grid' : 'list'
-    setView(next)
-    try { localStorage.setItem(VIEW_KEY, next) } catch { /* this visit only */ }
-  }
+  // Opens as Settings → Card Display says; the toggle changes that default.
+  const [view, setView] = useCardViewMode('allCards')
+  const switchView = () => setView(view === 'list' ? 'grid' : 'list')
   const [zoomId, setZoomId] = useState<string | null>(null)
   // Spares: binder cards no deck of yours plays — the obvious things to trade away.
   const [sparesOnly, setSparesOnly] = useState(false)
