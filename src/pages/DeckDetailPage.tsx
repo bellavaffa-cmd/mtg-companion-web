@@ -11,7 +11,10 @@ import { CardZoomModal, zoomSteps } from '../components/CardZoomModal'
 import { ActionSheet } from '../components/ActionSheet'
 import type { SheetAction } from '../components/ActionSheet'
 import { AddToDeckSection, DeckCardRow, DeckCardTile } from '../components/DeckCardViews'
-import { useAddSearch, useComboPieces } from '../components/useDeckCardSearch'
+import { useAddSearch, useComboPieces, useDeckCombos } from '../components/useDeckCardSearch'
+import { ComboPieceWarningDialog, DeckImportDialog, SwapPickerDialog } from '../components/DeckBuildingDialogs'
+import { combosWithCard } from '../decks/considering'
+import { deckPlace } from '../collection/addTo'
 import { addableCards } from '../decks/addSearch'
 import { CARD_FILTERS, CARD_FILTER_LABELS, filterCounts, noMatchMessage, passesFilter, type CardFilter } from '../decks/comboPieces'
 import { ExportDeckDialog } from '../components/ExportDeckDialog'
@@ -56,6 +59,7 @@ export function DeckDetailPage() {
   const {
     decks, collections, setCardQuantity, removeCardFromDeck, setCommander, setPartnerCommander, deleteDeck, addToWishlist,
     setDeckOwnership, swapInProxy, changeDeckPrinting, stopConsidering, considerIntoDeck, setCardTags, setReplaceable, recordUndo,
+    moveToConsidering, swapConsidered, importIntoDeck,
   } = useSync()
   const addCardTo = useAddCardTo()
   const showUndo = useUndoBar()
@@ -83,6 +87,14 @@ export function DeckDetailPage() {
   // Cards from all of Magic for what's typed in the search, offered under the deck's own matches.
   const addResults = useAddSearch(filter)
   const combo = useComboPieces(deck)
+  // The deck's combos, for the warning before a combo piece is marked as a cut candidate.
+  const deckCombos = useDeckCombos(deck)
+  // Swaps: a deck card choosing what replaces it, or a considered card choosing what it replaces.
+  const [swapOut, setSwapOut] = useState<DeckCardEntry | null>(null)
+  const [swapIn, setSwapIn] = useState<DeckCardEntry | null>(null)
+  // A combo piece the user asked to mark as a cut candidate, waiting for a yes.
+  const [comboWarningFor, setComboWarningFor] = useState<DeckCardEntry | null>(null)
+  const [importing, setImporting] = useState(false)
   const [zoomId, setZoomId] = useState<string | null>(null)
   // A suggestion opened to read: it belongs to neither list, so it zooms on its own.
   const [zoomSuggestion, setZoomSuggestion] = useState<ScryfallCard | null>(null)
@@ -188,7 +200,12 @@ export function DeckDetailPage() {
     if (!isCommander) {
       actions.push(entry.replaceable
         ? { label: 'Not a cut candidate', icon: 'swap_horiz', onClick: () => setReplaceable(deck!.id, entry.scryfallId, false) }
-        : { label: 'Mark as cut candidate', icon: 'swap_horiz', onClick: () => setReplaceable(deck!.id, entry.scryfallId, true) })
+        : { label: 'Mark as cut candidate', icon: 'swap_horiz', onClick: () => markCut(entry) })
+      // Swapping and moving keep the card on Considering, so either can be taken back.
+      if (considering.length > 0) {
+        actions.push({ label: 'Swap with a considered card', icon: 'swap_horiz', onClick: () => setSwapOut(entry) })
+      }
+      actions.push({ label: 'Move to Considering', icon: 'drive_file_move', detail: 'Out of the deck, still on your list', onClick: () => toConsidering(entry) })
     }
     if (usesCommander && !isCommander && entryCanBeCommander(entry, deck!.gameMode)) {
       actions.push({ label: 'Set as commander', icon: 'star', tone: 'gold', detail: deck!.commander ? `Replaces ${deck!.commander.name}` : undefined, onClick: () => setCommander(deck!.id, entry) })
@@ -214,6 +231,21 @@ export function DeckDetailPage() {
     })
     return actions
   }
+
+  /** Flags a cut candidate — asking first when it's a piece of one of the deck's combos. */
+  const markCut = (entry: DeckCardEntry) => {
+    if (deckCombos && combosWithCard(deckCombos.included, entry.name).length > 0) setComboWarningFor(entry)
+    else setReplaceable(deck.id, entry.scryfallId, true)
+  }
+  const toConsidering = (entry: DeckCardEntry) => {
+    const undo = recordUndo(() => moveToConsidering(deck.id, entry.scryfallId))
+    showUndo({ message: doneMessage('move', entry.name, deckPlace(deck.name, true)), undo })
+  }
+  const swap = (outgoing: DeckCardEntry, incoming: DeckCardEntry) => {
+    const undo = recordUndo(() => swapConsidered(deck.id, outgoing.scryfallId, incoming.scryfallId))
+    showUndo({ message: `Swapped in ${incoming.name} for ${outgoing.name}.`, undo })
+  }
+  const cutCount = deck.cards.filter((c) => c.replaceable).length
 
   /** One copy fewer; the last copy is asked about first (a commander, with the commander's question). */
   const fewer = (entry: DeckCardEntry) => {
@@ -318,15 +350,20 @@ export function DeckDetailPage() {
       <div className="dim" style={{ marginBottom: 10 }}>
         Cards you think might work but haven't committed to. They don't count towards this deck's size, curve, price or legality — and a card here that you don't own shows up on your Wishlist.
       </div>
+      {cutCount > 0 && considering.length > 0 && (
+        <div className="dim" style={{ marginBottom: 10, color: 'var(--cut)' }}>
+          {cutCount} cut {cutCount === 1 ? 'candidate' : 'candidates'} in the deck — Swap in trades one out for a card here.
+        </div>
+      )}
       {considering.length === 0 ? (
         <div className="empty-state">
           <Icon name="lightbulb" />
-          Nothing here yet. Add a card to Considering from a tag binder, or from the app on your phone.
+          Nothing here yet. Add cards from a card's page (Add to… → Considering), from the Suggestions tab, or move a card out of the deck from its ⋮ menu.
         </div>
       ) : (
         <div className="list">
           {considering.map((entry) => (
-            <div key={entry.scryfallId} className="crow no-qty" style={{ gridTemplateColumns: '56px minmax(0, 1fr) auto auto' }}>
+            <div key={entry.scryfallId} className="crow no-qty" style={{ gridTemplateColumns: '56px minmax(0, 1fr) auto auto auto' }}>
               <button type="button" className="thumb-wrap" onClick={() => setZoomId(entry.scryfallId)} aria-label={`Look at ${entry.name}`}>
                 <ArtImage className="thumb" src={toArtCrop(entry.imageUrl)} seed={entry.name} />
               </button>
@@ -342,6 +379,13 @@ export function DeckDetailPage() {
                 onClick={() => intoDeck(entry)}
               >
                 {size === 'phone' ? 'Add' : 'Add to deck'}
+              </button>
+              <button
+                type="button" className="btn line sm" disabled={deck.cards.length === 0}
+                onClick={() => setSwapIn(entry)}
+                style={{ color: deck.cards.length > 0 ? 'var(--cut)' : undefined }}
+              >
+                Swap in
               </button>
               <IconButton
                 icon="close" label={`Stop considering ${entry.name}`}
@@ -584,6 +628,7 @@ export function DeckDetailPage() {
                   },
                 }]
               : []),
+            { label: 'Import list', icon: 'upload_file', detail: 'Paste a decklist or choose a file', onClick: () => setImporting(true) },
             { label: 'Export list', icon: 'ios_share', detail: 'Copy it for Moxfield, Archidekt or Arena', onClick: () => setShowExport(true) },
             { label: 'Deck details', icon: 'tune', detail: 'Format, ownership, commander and tags', onClick: () => setTabName('Details') },
             { label: 'Delete deck', icon: 'delete', tone: 'danger', onClick: () => setConfirmDelete(true) },
@@ -661,6 +706,48 @@ export function DeckDetailPage() {
         </Dialog>
       )}
 
+      {swapOut && (considering.length === 0 ? (
+        <SwapPickerDialog
+          title="Nothing to swap in yet"
+          message="Add cards to this deck's Considering list first — from a card's page, the Suggestions tab, or budget swaps."
+          options={[]} onPick={() => {}} onDismiss={() => setSwapOut(null)}
+        />
+      ) : (
+        <SwapPickerDialog
+          title={`Replace ${swapOut.name} with…`}
+          message={`${swapOut.name} moves to Considering, so you can swap it back later.`}
+          options={considering}
+          onPick={(incoming) => { swap(swapOut, incoming); setSwapOut(null) }}
+          onDismiss={() => setSwapOut(null)}
+        />
+      ))}
+      {swapIn && (
+        <SwapPickerDialog
+          title={`Swap ${swapIn.name} in for…`}
+          message="The card you pick moves to Considering. Cut candidates are listed first."
+          options={deck.cards.filter((c) => !commanderIds.has(c.scryfallId))}
+          onPick={(outgoing) => { swap(outgoing, swapIn); setSwapIn(null) }}
+          onDismiss={() => setSwapIn(null)}
+        />
+      )}
+      {comboWarningFor && (
+        <ComboPieceWarningDialog
+          name={comboWarningFor.name}
+          combos={combosWithCard(deckCombos?.included ?? [], comboWarningFor.name)}
+          onConfirm={() => { setReplaceable(deck.id, comboWarningFor.scryfallId, true); setComboWarningFor(null) }}
+          onDismiss={() => setComboWarningFor(null)}
+        />
+      )}
+      {importing && (
+        <DeckImportDialog
+          onImport={(cards, side) => {
+            const undo = recordUndo(() => importIntoDeck(deck.id, cards, side))
+            const copies = cards.reduce((n, c) => n + c.quantity, 0)
+            showUndo({ message: `Imported ${copies} ${copies === 1 ? 'card' : 'cards'} into ${deck.name}`, undo })
+          }}
+          onDismiss={() => setImporting(false)}
+        />
+      )}
       {showExport && <ExportDeckDialog deck={deck} onDismiss={() => setShowExport(false)} />}
       {sharing && <ShareDialog kind="deck" itemId={deck.id} name={deck.name} onClose={() => setSharing(false)} />}
       {whoHas && <WhoHasItSheet deck={deck} onClose={() => setWhoHas(false)} />}

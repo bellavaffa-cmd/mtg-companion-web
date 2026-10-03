@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './theme.css'
 import './responsive.css'
+import './features.css'
 import App from './App.tsx'
 
 // Keeps the app's files on the device so it opens offline and can be installed (pwa/sw.template.js).

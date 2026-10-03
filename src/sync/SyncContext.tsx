@@ -27,6 +27,7 @@ import { WISHLIST_ID, withWantedCards, withWishlist, withWishlistCardWantedAgain
 import { gatherInto, removeEverywhere } from '../collection/allCards'
 import { withSwapIn } from '../decks/proxies'
 import { canPair } from '../decks/pairing'
+import { moveToConsidering as movedToConsidering, swapConsidered as swappedConsidered } from '../decks/considering'
 import { entryFromCard } from '../decks/newDeck'
 import { takeCopies } from '../collection/addTo'
 import { changeBetween, isNoChange, undoChange } from './undo'
@@ -185,6 +186,12 @@ interface SyncContextValue {
   stopConsidering: (deckId: string, scryfallId: string) => void
   /** Moves a card from a deck's Considering list into the deck itself. */
   considerIntoDeck: (deckId: string, scryfallId: string) => void
+  /** Takes a card (all copies) out of the deck and onto its Considering list; real copies go back to Unsorted. */
+  moveToConsidering: (deckId: string, scryfallId: string) => void
+  /** [outId] out of the deck onto Considering, [inId] off Considering into the deck — one step. */
+  swapConsidered: (deckId: string, outId: string, inId: string) => void
+  /** A decklist's cards into the deck (copies added) and its sideboard/maybeboard onto Considering. */
+  importIntoDeck: (deckId: string, cards: { card: ScryfallCard; quantity: number }[], considering: ScryfallCard[]) => void
   removeGameResult: (deckId: string, resultId: string) => void
 
   createCollection: (name: string, type: CollectionType) => Collection
@@ -878,6 +885,43 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [updateLibrary, mapDeck, pileFollows],
   )
 
+  const moveToConsidering = useCallback(
+    (deckId: string, scryfallId: string) => {
+      // The deck's real copies of it are loose again: back to the Unsorted pile, as removing it does.
+      updateLibrary((lib) => pileFollows(lib, mapDeck(lib, deckId, (d) => movedToConsidering(d, scryfallId)), deckId, scryfallId, 0))
+    },
+    [updateLibrary, mapDeck, pileFollows],
+  )
+
+  const swapConsidered = useCallback(
+    (deckId: string, outId: string, inId: string) => {
+      updateLibrary((lib) => {
+        const incoming = lib.decks.find((d) => d.id === deckId)?.considering?.find((c) => c.scryfallId === inId)
+        const next = pileFollows(lib, mapDeck(lib, deckId, (d) => swappedConsidered(d, outId, inId)), deckId, outId, 0)
+        return incoming ? outOfPile(next, deckId, { id: incoming.scryfallId, name: incoming.name }, incoming.quantity) : next
+      })
+    },
+    [updateLibrary, mapDeck, pileFollows, outOfPile],
+  )
+
+  const importIntoDeck = useCallback(
+    (deckId: string, cards: { card: ScryfallCard; quantity: number }[], considering: ScryfallCard[]) => {
+      // One write for the whole list, as on the phone (DeckRepository.addEntries/addConsideringEntries).
+      updateLibrary((lib) => mapDeck(lib, deckId, (d) => {
+        let deckCards = d.cards
+        for (const { card, quantity } of cards) {
+          deckCards = deckCards.some((c) => c.scryfallId === card.id)
+            ? deckCards.map((c) => (c.scryfallId === card.id ? { ...c, quantity: c.quantity + quantity } : c))
+            : [...deckCards, entryFromCard(card, quantity)]
+        }
+        let list = d.considering ?? []
+        for (const card of considering) if (!list.some((c) => c.scryfallId === card.id)) list = [...list, entryFromCard(card, 1)]
+        return { ...d, cards: deckCards, ...(considering.length > 0 ? { considering: list } : {}) }
+      }))
+    },
+    [updateLibrary, mapDeck],
+  )
+
   const setCardQuantity = useCallback(
     (deckId: string, scryfallId: string, quantity: number) => {
       updateLibrary((lib) => pileFollows(lib,
@@ -1303,6 +1347,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       addCardsToDeck,
       stopConsidering,
       considerIntoDeck,
+      moveToConsidering,
+      swapConsidered,
+      importIntoDeck,
       removeGameResult,
       createCollection,
       deleteCollection,
@@ -1329,7 +1376,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       library, account, cloud, mergePrompt, resolveMerge, libraryBackup, restoreLibraryBackup, discardLibraryBackup, passwordRecovery, linkNotice, storageFullNotice, signIn, signUp, signOut,
       signInWithToken, syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setReplaceable, setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, setCardTags, addGameResult,
-      addCardsToDeck, stopConsidering, considerIntoDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
+      addCardsToDeck, stopConsidering, considerIntoDeck, moveToConsidering, swapConsidered, importIntoDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
       setEntryQuantities, setEntryPriceAlert, changeCollections, importIntoCollection, moveEntries, recordUndo, removeEntriesFromCollection,
     ],
   )

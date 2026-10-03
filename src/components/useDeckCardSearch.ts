@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { searchCards } from '../api/scryfall'
-import { findCombosInDeck, relayAvailable } from '../api/relay'
+import { findCombosInDeck, relayAvailable, type DeckCombos } from '../api/relay'
 import { ADD_SEARCH_PAUSE_MS, addSearchQuery, latestOnly } from '../decks/addSearch'
 import { NO_COMBO_PIECES, comboLookupNames, comboPieces, type ComboPieces } from '../decks/comboPieces'
 import type { Deck } from '../types/models'
@@ -32,6 +32,35 @@ export function useAddSearch(typed: string): ScryfallCard[] {
   }, [query])
 
   return query ? results : []
+}
+
+/**
+ * What Commander Spellbook says about the deck's list: its complete combos and those it's nearly
+ * got. undefined until it answers (a previous list's answer is kept meanwhile), null when it can't be
+ * reached — so "no combos" isn't claimed offline — and without the relay.
+ */
+export function useDeckCombos(deck: Deck | undefined): DeckCombos | null | undefined {
+  const [found, setFound] = useState<DeckCombos | null | undefined>(relayAvailable ? undefined : null)
+  const names = deck ? comboLookupNames(deck) : { commanders: [], main: [] }
+  const empty = names.commanders.length + names.main.length === 0
+  const key = `${names.commanders.join('|')}#${[...names.main].sort().join('|')}`
+
+  useEffect(() => {
+    if (!relayAvailable) return
+    if (empty) {
+      setFound({ included: [], almostIncluded: [] })
+      return
+    }
+    let cancelled = false
+    findCombosInDeck(names.commanders, names.main)
+      .then((combos) => { if (!cancelled) setFound(combos) })
+      .catch(() => { if (!cancelled) setFound(null) })
+    return () => { cancelled = true }
+    // key captures every name the lookup depends on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
+
+  return found
 }
 
 /**

@@ -1,0 +1,224 @@
+/* Deck building (swaps, import, versions, budget swaps, mana advice), combo search, the card page
+   and precon previews. Colours come from theme.css's tokens, so light and dark both follow. */
+
+.btn.cut {
+  background: var(--cut);
+  color: #1e0d02;
+}
+
+/* ---- Swap picker and the combo-piece warning ---- */
+
+.swap-pick {
+  display: grid;
+  gap: 2px;
+  max-height: 380px;
+  overflow-y: auto;
+  margin: 0 -8px;
+}
+.swap-pick-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--t0);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.swap-pick-row:hover {
+  background: var(--g2);
+}
+.swap-pick-art {
+  flex: none;
+  width: 48px;
+  height: 34px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+.swap-pick-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+}
+.warn-combos {
+  margin: 0 0 6px;
+  padding-left: 18px;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+/* ---- Version history ---- */
+
+.version-list {
+  display: grid;
+  gap: 2px;
+  margin: 0 -12px;
+}
+.version-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--t0);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.version-row:hover {
+  background: var(--g2);
+}
+.version-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.version-when {
+  font-size: 14px;
+  font-weight: 600;
+}
+.version-what {
+  font-size: 12px;
+  color: var(--t2);
+}
+.version-record {
+  color: var(--gold-light);
+}
+.version-detail {
+  font-size: 13.5px;
+  line-height: 1.55;
+  max-height: 420px;
+  overflow-y: auto;
+}
+.version-rec {
+  margin: 0 0 10px;
+  color: var(--gold-light);
+  font-weight: 600;
+}
+.version-added {
+  color: var(--gold);
+}
+.version-removed {
+  color: var(--error);
+}
+
+/* ---- Commander bracket and mana advice ---- */
+
+.bracket {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.bracket-num {
+  font-family: var(--num);
+  font-size: 46px;
+  line-height: 1;
+}
+.bracket-name {
+  display: grid;
+  padding-bottom: 4px;
+  font-size: 12px;
+  color: var(--t2);
+}
+.bracket-name b {
+  font-size: 16px;
+  color: var(--gold-light);
+}
+.mana-advice {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.mana-advice li {
+  display: flex;
+  gap: 8px;
+}
+.mana-advice .icon {
+  flex: none;
+  font-size: 16px;
+  color: var(--cut);
+  margin-top: 2px;
+}
+
+/* ---- Suggestions: near misses and budget swaps ---- */
+
+.sugg-section + .sugg-section {
+  margin-top: 16px;
+}
+.near-miss-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -2px 0 6px;
+  font-size: 12.5px;
+  color: var(--gold-light);
+}
+.near-miss-foot span {
+  flex: 1;
+  min-width: 0;
+}
+.budget-swap {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--g1);
+}
+.budget-swap + .budget-swap {
+  margin-top: 8px;
+}
+.budget-swap-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.budget-swap-head > div {
+  flex: 1;
+  min-width: 0;
+}
+.budget-alts {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.budget-alt {
+  flex: none;
+  width: 96px;
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--t2);
+}
+.budget-alt img {
+  width: 96px;
+  aspect-ratio: 63 / 88;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.link-btn {
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--gold);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.link-btn.cut-link {
+  color: var(--cut);
+}
