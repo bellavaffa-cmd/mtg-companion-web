@@ -76,6 +76,11 @@ export interface Player {
   partnerDamage?: Record<number, number>
   /** Casts of their partner, taxed on its own. */
   partnerCasts?: number
+  /** Their own victory and defeat messages; unset, the table's lists in Settings → Messages are used. */
+  victoryMessage?: string | null
+  defeatMessage?: string | null
+  /** Poison has been counted for them this game, so "Keep zero counters" keeps it on the tile at 0. */
+  poisonUsed?: boolean
 }
 
 /** Damage [p] has taken from [from]'s commander (slot 0) or partner (slot 1). */
@@ -116,14 +121,53 @@ export function lossReason(p: Player, autoKill: boolean): LossReason | null {
   return null
 }
 
+/** Counters that can be pinned to every tile: poison, then the others. Android's PlayerCounter, in its order. */
+export const PINNABLE_COUNTERS = ['poison', ...COUNTER_KINDS] as const
+export type PinnableCounter = (typeof PINNABLE_COUNTERS)[number]
+export const pinnableLabel = (k: PinnableCounter) => (k === 'poison' ? 'Poison' : COUNTER_INFO[k].label)
+
+/**
+ * How the life counter behaves and looks, kept between games. The same settings, defaults and
+ * meanings as the Android app's LifeCounterSettings (named as the web always named the first few).
+ */
 export interface LifeSettings {
   layoutId: string
   multiplayerStartingLife: number
   twoPlayerStartingLife: number
   turnTracker: boolean
+  /** Every new game opens with a high roll for who goes first. */
+  highRollAtStart: boolean
   autoKill: boolean
   commanderDamageCostsLife: boolean
+  /** Poison, other counters and commander tax on the tile once they're above 0. */
+  countersOnTile: boolean
+  /** Counters someone has used stay on the tile after dropping back to 0. */
+  keepZeroCounters: boolean
+  /** Shown on every tile in every game regardless of value. */
+  pinnedCounters: PinnableCounter[]
+  showCommanderDamageOnTile: boolean
+  playerNamesOnTile: boolean
+  /** Draw defeat/victory messages from the lists below instead of a plain "Defeated"/"Victory!". */
+  saltyMessages: boolean
+  /** The drawn messages change every few seconds. */
+  cycleMessages: boolean
+  /** Each new game deals the seats random colours. */
+  shuffleColors: boolean
+  /** Top half adds / bottom half subtracts, instead of right adds / left subtracts. */
+  verticalTapAreas: boolean
+  /** Hides the + and − hints on each tile. */
+  minimalist: boolean
+  /** Underlines 6 and 9 so they can't be misread from across the table. */
+  underlineSixNine: boolean
+  /** A red glow while life is below 10. */
+  lowLifeWarning: boolean
+  /** What one tap adds or takes away. */
+  tapAmount: number
   longPressAmount: number
+  defeatMessages: string[]
+  commanderDefeatMessages: string[]
+  poisonDefeatMessages: string[]
+  victoryMessages: string[]
   /** Players who joined a seat by QR code can change their own seat from their phone. */
   remotes: boolean
   /** The table owner's own seat, when they play without a phone of their own — see tableGames.ts meResultOf. */
@@ -132,15 +176,132 @@ export interface LifeSettings {
   meDeckId?: string | null
 }
 
+export const DEFAULT_DEFEAT_MESSAGES = ['Defeated', 'Out of the game', 'Better luck next game', 'Off to the graveyard', "That's the game for you"]
+export const DEFAULT_COMMANDER_DEFEAT_MESSAGES = ['Taken out by a commander', '21 and done', 'Commander damage claims another']
+export const DEFAULT_POISON_DEFEAT_MESSAGES = ['Poisoned', 'Ten counters too many', 'A toxic ending']
+export const DEFAULT_VICTORY_MESSAGES = ['Victory!', 'Last one standing', 'The table is yours', 'Winner']
+
 export const DEFAULT_SETTINGS: LifeSettings = {
   layoutId: DEFAULT_LAYOUT_ID,
   multiplayerStartingLife: 40,
   twoPlayerStartingLife: 20,
   turnTracker: false,
+  highRollAtStart: false,
   autoKill: true,
   commanderDamageCostsLife: true,
+  countersOnTile: true,
+  keepZeroCounters: false,
+  pinnedCounters: [],
+  showCommanderDamageOnTile: true,
+  playerNamesOnTile: true,
+  saltyMessages: true,
+  cycleMessages: false,
+  shuffleColors: false,
+  verticalTapAreas: false,
+  minimalist: false,
+  underlineSixNine: true,
+  lowLifeWarning: true,
+  tapAmount: 1,
   longPressAmount: 10,
+  defeatMessages: DEFAULT_DEFEAT_MESSAGES,
+  commanderDefeatMessages: DEFAULT_COMMANDER_DEFEAT_MESSAGES,
+  poisonDefeatMessages: DEFAULT_POISON_DEFEAT_MESSAGES,
+  victoryMessages: DEFAULT_VICTORY_MESSAGES,
   remotes: true,
+}
+
+/** Tap and long-press amounts the settings take: 1 to 999. */
+export const clampAmount = (n: unknown, fallback: number) =>
+  typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= 999 ? n : fallback
+
+/**
+ * Settings as stored by any version: whatever's missing (everything added since) takes its
+ * default, and whatever's the wrong shape is put right rather than breaking the table.
+ */
+export function normalizeSettings(raw: unknown): LifeSettings {
+  const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  const s = { ...DEFAULT_SETTINGS, ...o } as LifeSettings
+  for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof LifeSettings)[]) {
+    const d = DEFAULT_SETTINGS[key]
+    if (typeof d === 'boolean' && typeof s[key] !== 'boolean') (s as unknown as Record<string, unknown>)[key] = d
+  }
+  const strings = (v: unknown, d: string[]) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim() !== '') : d)
+  return {
+    ...s,
+    tapAmount: clampAmount(s.tapAmount, DEFAULT_SETTINGS.tapAmount),
+    longPressAmount: clampAmount(s.longPressAmount, DEFAULT_SETTINGS.longPressAmount),
+    pinnedCounters: Array.isArray(s.pinnedCounters)
+      ? PINNABLE_COUNTERS.filter((k) => (s.pinnedCounters as unknown[]).includes(k))
+      : [],
+    defeatMessages: strings(s.defeatMessages, DEFAULT_DEFEAT_MESSAGES),
+    commanderDefeatMessages: strings(s.commanderDefeatMessages, DEFAULT_COMMANDER_DEFEAT_MESSAGES),
+    poisonDefeatMessages: strings(s.poisonDefeatMessages, DEFAULT_POISON_DEFEAT_MESSAGES),
+    victoryMessages: strings(s.victoryMessages, DEFAULT_VICTORY_MESSAGES),
+  }
+}
+
+/** Settings → Reset settings: everything back to its default, but the seating and whose seat is yours. */
+export const resetSettings = (s: LifeSettings): LifeSettings =>
+  ({ ...DEFAULT_SETTINGS, layoutId: s.layoutId, meSeat: s.meSeat, meDeckId: s.meDeckId })
+
+/** A whole number for a game, from its id — so a message drawn for it holds steady for the game. */
+export function gameNumberOf(gameId: string | undefined): number {
+  let h = 0
+  for (const ch of gameId ?? '') h = (h * 31 + ch.charCodeAt(0)) | 0
+  return Math.abs(h)
+}
+
+const floorMod = (a: number, n: number) => ((a % n) + n) % n
+
+/** One message from [list] for [playerId] in game [gameNumber], moving on with [tick] while cycling. */
+export function pickMessage(list: string[], fallback: string, playerId: number, gameNumber: number, tick: number): string {
+  return list.length === 0 ? fallback : list[floorMod(playerId * 31 + gameNumber * 17 + tick, list.length)]
+}
+
+/**
+ * What a player who is out reads on their tile: their own message, else one drawn from the list for
+ * why they lost (with salty messages on), else plainly "Defeated".
+ */
+export function defeatMessageFor(p: Player, reason: LossReason, s: LifeSettings, gameNumber: number, tick: number): string {
+  if (p.defeatMessage) return p.defeatMessage
+  if (!s.saltyMessages) return 'Defeated'
+  const list = reason === 'COMMANDER_DAMAGE' ? s.commanderDefeatMessages : reason === 'POISON' ? s.poisonDefeatMessages : s.defeatMessages
+  return pickMessage(list, 'Defeated', p.id, gameNumber, tick)
+}
+
+/** What the last player standing reads on their tile. */
+export function victoryMessageFor(p: Player, s: LifeSettings, gameNumber: number, tick: number): string {
+  if (p.victoryMessage) return p.victoryMessage
+  if (!s.saltyMessages) return 'Victory!'
+  return pickMessage(s.victoryMessages, 'Victory!', p.id, gameNumber, tick)
+}
+
+/** The counters a tile shows, per Settings → Counters on player card. */
+export function tileCounters(p: Player, s: LifeSettings): PinnableCounter[] {
+  return PINNABLE_COUNTERS.filter((k) => {
+    if (s.pinnedCounters.includes(k)) return true
+    if (!s.countersOnTile) return false
+    if (k === 'poison') return p.poison > 0 || (s.keepZeroCounters && !!p.poisonUsed)
+    return counterOf(p, k) > 0 || (s.keepZeroCounters && p.counters?.[k] !== undefined)
+  })
+}
+
+/** Low life: below 10 and still in it, with the warning on. */
+export const lowLife = (p: Player, s: LifeSettings) => s.lowLifeWarning && p.life >= 1 && p.life <= 9
+
+/** Whether a new game opens with a high roll: asked for in Settings, and someone to roll against. */
+export const wantsHighRoll = (s: LifeSettings, players: number) => s.highRollAtStart && players > 1
+
+/** The seat colours a new game deals: in seat order, or shuffled with "Shuffle player colors" on. */
+export function dealColors(count: number, shuffle: boolean, random: () => number = Math.random): number[] {
+  const colors = Array.from({ length: PLAYER_COLOR_COUNT }, (_, i) => i)
+  if (shuffle) {
+    for (let i = colors.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1))
+      ;[colors[i], colors[j]] = [colors[j], colors[i]]
+    }
+  }
+  return Array.from({ length: count }, (_, i) => colors[i % colors.length])
 }
 
 export const startingLifeFor = (s: LifeSettings, players: number) =>
@@ -278,13 +439,14 @@ const UNDO_MERGE_MS = 2_000
 
 const newGameId = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`)
 
-export function newGame(settings: LifeSettings): Game {
+export function newGame(settings: LifeSettings, random: () => number = Math.random): Game {
   const count = playerCount(layoutById(settings.layoutId))
   const life = startingLifeFor(settings, count)
+  const colors = dealColors(count, !!settings.shuffleColors, random)
   return {
     layoutId: settings.layoutId,
     players: Array.from({ length: count }, (_, i) => ({
-      id: i + 1, life, commanderDamage: {}, poison: 0, colorIndex: i % PLAYER_COLOR_COUNT, name: null, killed: false,
+      id: i + 1, life, commanderDamage: {}, poison: 0, colorIndex: colors[i], name: null, killed: false,
     })),
     turnPlayerId: 1,
     turnNumber: 1,
@@ -380,6 +542,8 @@ export type GameAction = { by?: number } & (
   /** Shows [announce] for a moment; [note] also goes in the history. */
   | { type: 'announce'; announce: Announce; note?: string }
   | { type: 'name'; id: number; name: string }
+  /** A player's own victory and defeat messages; blank goes back to the table's lists. */
+  | { type: 'messages'; id: number; victory?: string; defeat?: string }
   | { type: 'color'; id: number; colorIndex: number }
   | { type: 'nextTurn'; autoKill?: boolean }
   | { type: 'firstPlayer'; id: number }
@@ -613,7 +777,7 @@ function applyAction(game: Game, action: GameAction): Game {
     }
     case 'poison': {
       const poison = Math.max(0, (game.players.find((p) => p.id === action.id)?.poison ?? 0) + action.delta)
-      return note(updatePlayer(game, action.id, (p) => ({ ...p, poison })), action.id, `Poison: ${poison}`)
+      return note(updatePlayer(game, action.id, (p) => ({ ...p, poison, poisonUsed: true })), action.id, `Poison: ${poison}`)
     }
     case 'kill':
       return note(updatePlayer(game, action.id, (p) => ({ ...p, killed: true })), action.id, 'Knocked out')
@@ -656,6 +820,12 @@ function applyAction(game: Game, action: GameAction): Game {
       return updatePlayer(game, action.id, (p) => ({ ...p, name: action.name.trim() || null }))
     case 'color':
       return updatePlayer(game, action.id, (p) => ({ ...p, colorIndex: action.colorIndex }))
+    case 'messages':
+      return updatePlayer(game, action.id, (p) => ({
+        ...p,
+        ...(action.victory !== undefined ? { victoryMessage: action.victory.trim() || null } : {}),
+        ...(action.defeat !== undefined ? { defeatMessage: action.defeat.trim() || null } : {}),
+      }))
     case 'nextTurn': {
       const moved = nextTurnFrom(
         game.players,
@@ -756,7 +926,7 @@ function save(key: string, value: unknown) {
 
 /** The life counter's settings and current game, kept in localStorage across reloads. */
 export function useLifeCounter() {
-  const [settings, setSettings] = useState<LifeSettings>(() => load(SETTINGS_KEY, DEFAULT_SETTINGS))
+  const [settings, setSettings] = useState<LifeSettings>(() => normalizeSettings(load<Partial<LifeSettings>>(SETTINGS_KEY, {})))
   const [game, dispatch] = useReducer(gameReducer, settings, (s) => {
     const saved = load<Game | null>(GAME_KEY, null)
     if (!saved || saved.layoutId !== s.layoutId || !Array.isArray(saved.players)) return newGame(s)

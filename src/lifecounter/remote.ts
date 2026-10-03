@@ -14,7 +14,7 @@ import {
   COUNTER_KINDS, EMOTES, canUndo, displayName, gameOver, lossReason, seatColor,
   type Announce, type CounterKind, type DayNight, type EmoteId, type Game, type GameAction, type LifeSettings,
 } from './game'
-import type { PlanarFace } from './Planechase'
+import type { PlanarFace } from './gameModes'
 
 export const REMOTE_VERSION = 1
 

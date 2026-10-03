@@ -1,12 +1,13 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  announceText, canUndo, displayName, gameOver, highRoll, lossReason, useAnnouncement, useLifeCounter,
-  type Game, type GameAction, type ShownCard,
+  announceText, canUndo, clampAmount, displayName, gameNumberOf, gameOver, highRoll, lossReason, PINNABLE_COUNTERS, pinnableLabel,
+  resetSettings, useAnnouncement, useLifeCounter, wantsHighRoll,
+  type Game, type GameAction, type LifeSettings, type ShownCard,
 } from './game'
 import { displayImageUrl } from '../types/scryfall'
 import { PlayerTile, seatStyle } from './PlayerTile'
-import { PlaneBanner, PlaneSheet, usePlanechase } from './Planechase'
+import { ArchenemyPicker, ModeBanner, ModeSheet, useGameMode } from './GameModes'
 import {
   layoutById, layoutDescription, playerCount, sections, TABLE_LAYOUTS, turned,
   type SeatCell, type TableLayout,
@@ -19,7 +20,7 @@ import { clearTableGames, deleteTableGame, meResultOf, recordTableGame, tableGam
 import { CommanderSheet, MeSheet, TableGamesSheet } from './TableSheets'
 import './lifecounter.css'
 
-type Overlay = null | 'seating' | 'settings' | 'restart' | 'dice' | 'history' | 'table' | 'plane' | 'games'
+type Overlay = null | 'seating' | 'settings' | 'restart' | 'dice' | 'history' | 'table' | 'mode' | 'archenemy' | 'games'
 
 /**
  * Whether the screen is wider than tall, and — when it is — whether the device was turned
@@ -55,12 +56,12 @@ export function LifeCounterPage() {
   const [roll, setRoll] = useState<ReturnType<typeof highRoll> | null>(null)
   // A panel covering a tile would sit under the menu button, so the button steps aside.
   const [panelsOpen, setPanelsOpen] = useState(0)
-  const { planechase, startPlanechase, planeswalk, rollPlanarDie, stopPlanechase } = usePlanechase()
+  const { gameMode, lastRoll, startGameMode, planeswalk, rollPlanarDie, revealScheme, revealBounty, stopGameMode } = useGameMode()
   const links = useSeatLinks(game, dispatch)
   // Players' phones see the plane too, and can roll the planar die or planeswalk from there.
-  const plane = useMemo(() => (planechase?.current
-    ? { name: planechase.current.name, imageUrl: displayImageUrl(planechase.current), left: planechase.deck.length }
-    : null), [planechase])
+  const plane = useMemo(() => (gameMode?.mode === 'PLANECHASE' && gameMode.currentPlane
+    ? { name: gameMode.currentPlane.name, imageUrl: displayImageUrl(gameMode.currentPlane), left: gameMode.planeDeck.length }
+    : null), [gameMode])
   const planes = useMemo(() => ({
     plane,
     play: (what: 'roll' | 'planeswalk') => {
@@ -128,6 +129,24 @@ export function LifeCounterPage() {
     return () => { document.title = 'Manabind' }
   }, [])
 
+  // Settings → High roll at game start: each new game (not the one reopened) opens with a roll.
+  const lastGameId = useRef(game.gameId)
+  useEffect(() => {
+    if (game.gameId === lastGameId.current) return
+    lastGameId.current = game.gameId
+    if (wantsHighRoll(settings, game.players.length)) setRoll(highRoll(game.players.map((p) => p.id)))
+  }, [game.gameId, game.players, settings])
+
+  // Settings → Cycle messages: the drawn victory and defeat messages move on every few seconds.
+  const [messageTick, setMessageTick] = useState(0)
+  useEffect(() => {
+    if (!settings.saltyMessages || !settings.cycleMessages) return
+    const t = window.setInterval(() => setMessageTick((n) => n + 1), 4_000)
+    return () => window.clearInterval(t)
+  }, [settings.saltyMessages, settings.cycleMessages])
+  const over = gameOver(game, settings.autoKill)
+  const gameNumber = gameNumberOf(game.gameId)
+
   // A high roll stays on the tiles until the centre button (or Escape) closes it; closing starts
   // the game with its winner.
   const closeRoll = () => {
@@ -169,6 +188,9 @@ export function LifeCounterPage() {
           holding={game.hold === player.id}
           targetedBy={announce?.kind === 'target' && announce.to === player.id ? nameOfSeat(announce.seat) : null}
           highRoll={roll ? { value: roll.rolls[player.id], winner: roll.winnerId === player.id } : null}
+          winner={!!over && over.winnerId === player.id}
+          gameNumber={gameNumber}
+          messageTick={messageTick}
           dispatch={dispatch}
           onPanelOpenChange={(open) => setPanelsOpen((n) => Math.max(0, n + (open ? 1 : -1)))}
           onLinkSeat={() => void links.showCode(player.id)}
@@ -208,8 +230,13 @@ export function LifeCounterPage() {
           canUndo={canUndo(game)}
           onUndo={() => dispatch({ type: 'undo' })}
           onPlanechase={() => {
-            if (!planechase) void startPlanechase()
-            open('plane')
+            if (gameMode?.mode !== 'PLANECHASE') void startGameMode('PLANECHASE')
+            open('mode')
+          }}
+          onArchenemy={() => open(gameMode?.mode === 'ARCHENEMY' ? 'mode' : 'archenemy')}
+          onBounty={() => {
+            if (gameMode?.mode !== 'BOUNTY') void startGameMode('BOUNTY')
+            open('mode')
           }}
           onExit={() => navigate('/')}
         />
@@ -267,15 +294,21 @@ export function LifeCounterPage() {
           {announceText(announce, nameOfSeat)}
         </div>
       )}
-      {planechase && overlay !== 'plane' && <PlaneBanner state={planechase} onOpen={() => open('plane')} />}
-      {overlay === 'plane' && planechase && (
-        <PlaneSheet
-          state={planechase}
+      {gameMode && overlay !== 'mode' && <ModeBanner state={gameMode} onOpen={() => open('mode')} />}
+      {overlay === 'mode' && gameMode && (
+        <ModeSheet
+          state={gameMode}
+          lastRoll={lastRoll}
           onRoll={() => rollPlanarDie()}
           onPlaneswalk={planeswalk}
-          onStop={() => { stopPlanechase(); closeAll() }}
+          onRevealScheme={revealScheme}
+          onRevealBounty={revealBounty}
+          onStop={stopGameMode}
           onClose={closeAll}
         />
+      )}
+      {overlay === 'archenemy' && (
+        <ArchenemyPicker players={game.players} onPick={(id) => { void startGameMode('ARCHENEMY', id); setOverlay('mode') }} onClose={() => setOverlay((o) => (o === 'archenemy' ? null : o))} />
       )}
     </div>
   )
@@ -396,6 +429,7 @@ function MenuButton({ open, hidden, onClick, label }: { open: boolean; hidden: b
 function RadialMenu(props: {
   onRestart: () => void; onHighRoll: () => void; onSeating: () => void; onSettings: () => void
   onDice: () => void; onTable: () => void; onHistory: () => void; onGames: () => void; onPlanechase: () => void; onExit: () => void
+  onArchenemy: () => void; onBounty: () => void
   canUndo: boolean; onUndo: () => void
 }) {
   const items: [string, string, () => void][] = [
@@ -428,6 +462,12 @@ function RadialMenu(props: {
         </button>
         <button type="button" role="menuitem" className="lc-menu-chip" onClick={props.onPlanechase}>
           <span className="material-symbols-rounded" aria-hidden>public</span>Planechase
+        </button>
+        <button type="button" role="menuitem" className="lc-menu-chip" onClick={props.onArchenemy}>
+          <span className="material-symbols-rounded" aria-hidden>shield</span>Archenemy
+        </button>
+        <button type="button" role="menuitem" className="lc-menu-chip" onClick={props.onBounty}>
+          <span className="material-symbols-rounded" aria-hidden>flag</span>Bounty
         </button>
       </div>
     </div>
@@ -597,6 +637,7 @@ const LIFE_CHOICES = [20, 25, 30, 40]
 function SettingsOverlay({ lc, onClose }: { lc: ReturnType<typeof useLifeCounter>; onClose: () => void }) {
   const { settings, updateSettings, setStartingLife } = lc
   const [fullscreen, setFullscreen] = useState(!!document.fullscreenElement)
+  const [confirmReset, setConfirmReset] = useState(false)
   useEffect(() => {
     const onChange = () => setFullscreen(!!document.fullscreenElement)
     document.addEventListener('fullscreenchange', onChange)
@@ -606,47 +647,172 @@ function SettingsOverlay({ lc, onClose }: { lc: ReturnType<typeof useLifeCounter
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
     else document.documentElement.requestFullscreen?.().catch(() => {})
   }, [])
+  const set = <K extends keyof LifeSettings>(key: K) => (v: LifeSettings[K]) => updateSettings({ [key]: v } as Partial<LifeSettings>)
 
+  // Grouped and worded as the Android app's life counter settings.
   return (
-    <Sheet title="Settings" onClose={onClose}>
-      <section>
-        <h3>Starting life</h3>
-        <div className="lc-setting-row">
-          <span>Two players</span>
-          <div className="lc-choices">
-            {LIFE_CHOICES.map((n) => (
-              <button key={n} type="button" aria-pressed={settings.twoPlayerStartingLife === n} onClick={() => setStartingLife(true, n)}>{n}</button>
-            ))}
+    <>
+      <Sheet title="Settings" onClose={onClose}>
+        <section>
+          <h3>Starting life</h3>
+          <div className="lc-setting-row">
+            <span>Two players</span>
+            <div className="lc-choices">
+              {LIFE_CHOICES.map((n) => (
+                <button key={n} type="button" aria-pressed={settings.twoPlayerStartingLife === n} onClick={() => setStartingLife(true, n)}>{n}</button>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="lc-setting-row">
-          <span>Three or more</span>
-          <div className="lc-choices">
-            {LIFE_CHOICES.map((n) => (
-              <button key={n} type="button" aria-pressed={settings.multiplayerStartingLife === n} onClick={() => setStartingLife(false, n)}>{n}</button>
-            ))}
+          <div className="lc-setting-row">
+            <span>Three or more</span>
+            <div className="lc-choices">
+              {LIFE_CHOICES.map((n) => (
+                <button key={n} type="button" aria-pressed={settings.multiplayerStartingLife === n} onClick={() => setStartingLife(false, n)}>{n}</button>
+              ))}
+            </div>
           </div>
-        </div>
-        <p className="lc-hint">A new starting life applies straight away to a game nobody has touched, otherwise from the next restart.</p>
-      </section>
-      <section>
-        <h3>Table</h3>
-        <Toggle label="Turn tracker" detail="Whose turn it is, with a Next turn button" on={settings.turnTracker} onChange={(v) => updateSettings({ turnTracker: v })} />
-        <Toggle label="Knock players out automatically" detail="At 0 life, 10 poison or 21 damage from one commander" on={settings.autoKill} onChange={(v) => updateSettings({ autoKill: v })} />
-        <Toggle label="Commander damage costs life" detail="Off if your table tracks life and commander damage separately" on={settings.commanderDamageCostsLife} onChange={(v) => updateSettings({ commanderDamageCostsLife: v })} />
-        <Toggle label="Phones as remotes" detail="Players who joined a seat by QR code can change their own life and counters from their phone" on={settings.remotes} onChange={(v) => updateSettings({ remotes: v })} />
-        {typeof document.documentElement.requestFullscreen === 'function' && (
-          <Toggle label="Full screen" detail="Hide the browser's toolbars" on={fullscreen} onChange={toggleFullscreen} />
-        )}
-      </section>
-    </Sheet>
+          <p className="lc-hint">Takes effect on the next game, or right away if nothing's happened yet</p>
+        </section>
+        <section>
+          <h3>Gameplay</h3>
+          <Toggle label="Turn tracker" detail="Whose turn it is gets a bigger tile and an End turn button" on={settings.turnTracker} onChange={set('turnTracker')} />
+          <Toggle label="High roll at game start" on={settings.highRollAtStart} onChange={set('highRollAtStart')} />
+          <Toggle label="Auto-kill" detail="Kill players from life, poison or commander damage" on={settings.autoKill} onChange={set('autoKill')} />
+          <Toggle label="Commander damage" detail="Commander damage causes players to lose life" on={settings.commanderDamageCostsLife} onChange={set('commanderDamageCostsLife')} />
+          <Toggle label="Phones as remotes" detail="Players who joined a seat by QR code can change their own life and counters from their phone" on={settings.remotes} onChange={set('remotes')} />
+          {typeof document.documentElement.requestFullscreen === 'function' && (
+            <Toggle label="Full screen" detail="Hide the browser's toolbars" on={fullscreen} onChange={toggleFullscreen} />
+          )}
+        </section>
+        <section>
+          <h3>Counters on player card</h3>
+          <Toggle label="Regular counters" detail="Poison, tax, energy and more" on={settings.countersOnTile} onChange={set('countersOnTile')} />
+          <Toggle label="Keep zero counters" detail="Keep counters at 0 visible on the card" on={settings.keepZeroCounters} disabled={!settings.countersOnTile} onChange={set('keepZeroCounters')} />
+          <div className="lc-toggle static">
+            <span className="txt"><b>Pinned counters</b><span>Chosen counters stay on every card, even between games</span></span>
+          </div>
+          <div className="lc-choices wrap">
+            {PINNABLE_COUNTERS.map((k) => {
+              const pinned = settings.pinnedCounters.includes(k)
+              return (
+                <button key={k} type="button" aria-pressed={pinned} onClick={() => updateSettings({ pinnedCounters: pinned ? settings.pinnedCounters.filter((x) => x !== k) : PINNABLE_COUNTERS.filter((x) => x === k || settings.pinnedCounters.includes(x)) })}>
+                  {pinnableLabel(k)}
+                </button>
+              )
+            })}
+          </div>
+          <Toggle label="Commander damage" detail="Show received commander damage" on={settings.showCommanderDamageOnTile} onChange={set('showCommanderDamageOnTile')} />
+        </section>
+        <section>
+          <h3>Player cards</h3>
+          <Toggle label="Player names on card" detail="Show a name on each player card" on={settings.playerNamesOnTile} onChange={set('playerNamesOnTile')} />
+          <Toggle label="Shuffle player colors" detail="Player cards get random colors on start" on={settings.shuffleColors} onChange={set('shuffleColors')} />
+          <Toggle label="Vertical tap areas" detail="Top adds, bottom subtracts, instead of right and left" on={settings.verticalTapAreas} onChange={set('verticalTapAreas')} />
+          <Toggle label="Minimalist mode" detail="Hide the + and − hints" on={settings.minimalist} onChange={set('minimalist')} />
+          <Toggle label="Underlined 6 and 9" detail="So they aren't confused when read upside down" on={settings.underlineSixNine} onChange={set('underlineSixNine')} />
+          <Toggle label="Low health warning" detail="Red glow when life is below 10" on={settings.lowLifeWarning} onChange={set('lowLifeWarning')} />
+          <AmountRow label="Single tap value" value={settings.tapAmount} onChange={set('tapAmount')} />
+          <AmountRow label="Long tap value" value={settings.longPressAmount} onChange={set('longPressAmount')} />
+        </section>
+        <section>
+          <h3>Messages</h3>
+          <Toggle label="Salty defeat messages" detail="Draw defeat and victory messages from the lists below" on={settings.saltyMessages} onChange={set('saltyMessages')} />
+          <Toggle label="Cycle messages" detail="Messages change over time" on={settings.cycleMessages} disabled={!settings.saltyMessages} onChange={set('cycleMessages')} />
+          <MessageListEditor title="Defeat messages" messages={settings.defeatMessages} onChange={set('defeatMessages')} />
+          <MessageListEditor title="Commander defeat messages" messages={settings.commanderDefeatMessages} onChange={set('commanderDefeatMessages')} />
+          <MessageListEditor title="Poison defeat messages" messages={settings.poisonDefeatMessages} onChange={set('poisonDefeatMessages')} />
+          <MessageListEditor title="Victory messages" messages={settings.victoryMessages} onChange={set('victoryMessages')} />
+        </section>
+        <section>
+          <h3>Customize</h3>
+          <button type="button" className="lc-toggle" onClick={() => setConfirmReset(true)}>
+            <span className="txt"><b>Reset settings</b><span>Put every setting here back to its default</span></span>
+          </button>
+        </section>
+      </Sheet>
+      {confirmReset && (
+        <Confirm
+          text="Reset all settings? Seating is kept."
+          confirm="Reset"
+          onConfirm={() => { updateSettings(resetSettings(settings)); setConfirmReset(false) }}
+          onCancel={() => setConfirmReset(false)}
+        />
+      )}
+    </>
   )
 }
 
-function Toggle({ label, detail, on, onChange }: { label: string; detail: string; on: boolean; onChange: (v: boolean) => void }) {
+/** A tap or long-press amount, 1 to 999; anything else typed is left until it's a number in range. */
+function AmountRow({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  const [text, setText] = useState(String(value))
+  useEffect(() => setText(String(value)), [value])
   return (
-    <button type="button" role="switch" aria-checked={on} className="lc-toggle" onClick={() => onChange(!on)}>
-      <span className="txt"><b>{label}</b><span>{detail}</span></span>
+    <label className="lc-setting-row">
+      <span>{label}</span>
+      <input
+        className="lc-number"
+        type="number"
+        inputMode="numeric"
+        min={1}
+        max={999}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value)
+          const n = clampAmount(Number(e.target.value), -1)
+          if (n > 0) onChange(n)
+        }}
+        onBlur={() => setText(String(value))}
+      />
+    </label>
+  )
+}
+
+/** A folding list of messages, each with a remove button, and a field to add one. */
+function MessageListEditor({ title, messages, onChange }: { title: string; messages: string[]; onChange: (list: string[]) => void }) {
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState('')
+  const add = () => {
+    if (!draft.trim()) return
+    onChange([...messages, draft.trim()])
+    setDraft('')
+  }
+  return (
+    <div className="lc-messages">
+      <button type="button" className="lc-setting-row lc-messages-head" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <span>{title}</span>
+        <span className="lc-muted">{messages.length}  {open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <>
+          {messages.map((m, i) => (
+            <div key={`${i}-${m}`} className="lc-message">
+              <span>{m}</span>
+              <button type="button" onClick={() => onChange(messages.filter((_, j) => j !== i))} aria-label={`Remove “${m}”`}>✕</button>
+            </div>
+          ))}
+          {messages.length === 0 && <p className="lc-hint">Empty — a plain message is used instead</p>}
+          <div className="lc-message-add">
+            <input
+              className="lc-name-input"
+              value={draft}
+              placeholder="Add a message"
+              maxLength={60}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') add() }}
+              aria-label={`Add to ${title.toLowerCase()}`}
+            />
+            <button type="button" className="lc-add" disabled={!draft.trim()} onClick={add}>Add</button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function Toggle({ label, detail, on, disabled, onChange }: { label: string; detail?: string; on: boolean; disabled?: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} className="lc-toggle" disabled={disabled} onClick={() => onChange(!on)}>
+      <span className="txt"><b>{label}</b>{detail && <span>{detail}</span>}</span>
       <span className={`sw${on ? ' on' : ''}`}><i /></span>
     </button>
   )

@@ -1,79 +1,69 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { searchCards } from '../api/scryfall'
-import { displayImageUrl, type ScryfallCard } from '../types/scryfall'
+import {
+  cardFace, currentCard, loadingMode, MODE_LABEL, MODE_QUERY, planarFace, planeswalk as walk, revealNextBounty, revealNextScheme, startedMode,
+  type GameModeKind, type GameModeState, type PlanarFace,
+} from './gameModes'
+import { displayName, type Player } from './game'
+import { seatStyle } from './PlayerTile'
 
 /**
- * Planechase for the life counter, as in the Android app: a shuffled deck of planes and phenomena,
- * the current plane shown to the table, a planar die, and planeswalking to the next one.
+ * The life counter's game modes, as in the Android app: Planechase (a shuffled deck of planes and
+ * phenomena, a planar die, planeswalking), Archenemy (one player against the table, revealing
+ * schemes) and Bounty (a bounty to claim, from Outlaws of Thunder Junction Commander). One at a time.
  */
+export function useGameMode() {
+  const [state, setState] = useState<GameModeState | null>(null)
+  const [lastRoll, setLastRoll] = useState<{ face: PlanarFace; n: number } | null>(null)
+  // The latest start: cards for a mode that has since been ended or swapped are dropped.
+  const starting = useRef(0)
 
-export type PlanarFace = 'BLANK' | 'CHAOS' | 'PLANESWALK'
-
-export interface PlanechaseState {
-  current: ScryfallCard | null
-  deck: ScryfallCard[]
-  loading: boolean
-  error: string | null
-  lastRoll: { face: PlanarFace; n: number } | null
-}
-
-const idle: PlanechaseState = { current: null, deck: [], loading: false, error: null, lastRoll: null }
-
-function shuffle<T>(list: T[]): T[] {
-  const out = [...list]
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[out[i], out[j]] = [out[j], out[i]]
-  }
-  return out
-}
-
-export function usePlanechase() {
-  const [state, setState] = useState<PlanechaseState | null>(null)
-
-  const start = async () => {
-    setState({ ...idle, loading: true })
+  const start = useCallback(async (mode: GameModeKind, archenemyPlayerId: number | null = null) => {
+    const token = ++starting.current
+    setLastRoll(null)
+    setState(loadingMode(mode, archenemyPlayerId))
+    let cards: Awaited<ReturnType<typeof searchCards>>['cards'] = []
     try {
-      const page = await searchCards('t:plane or t:phenomenon')
-      const planes = shuffle(page.cards.filter((c) => /Plane|Phenomenon/.test(c.type_line ?? '')))
-      if (planes.length === 0) throw new Error("Couldn't find any planes on Scryfall.")
-      setState({ ...idle, current: planes[0], deck: planes.slice(1) })
-    } catch (e) {
-      setState({ ...idle, error: e instanceof Error ? e.message : "Couldn't load planes." })
+      cards = (await searchCards(MODE_QUERY[mode])).cards
+    } catch {
+      // Offline: an empty deck, which the sheet explains.
     }
-  }
+    if (token === starting.current) setState(startedMode(mode, cards, archenemyPlayerId))
+  }, [])
 
-  /** Move to the next plane, cycling the current one to the bottom of the deck. */
-  const planeswalk = () =>
-    setState((s) => (s && s.deck.length > 0
-      ? { ...s, current: s.deck[0], deck: [...s.deck.slice(1), ...(s.current ? [s.current] : [])] }
-      : s))
+  const planeswalk = useCallback(() => setState((s) => (s ? walk(s) : s)), [])
 
   /** A real planar die: four blank faces, one Chaos, one Planeswalk (which moves you on). */
-  const roll = (): PlanarFace => {
-    const n = Math.floor(Math.random() * 6)
-    const face: PlanarFace = n === 0 ? 'CHAOS' : n === 1 ? 'PLANESWALK' : 'BLANK'
-    setState((s) => (s ? { ...s, lastRoll: { face, n: (s.lastRoll?.n ?? 0) + 1 } } : s))
+  const rollPlanarDie = useCallback((): PlanarFace => {
+    const face = planarFace(Math.floor(Math.random() * 6))
+    setLastRoll((r) => ({ face, n: (r?.n ?? 0) + 1 }))
     if (face === 'PLANESWALK') planeswalk()
     return face
-  }
+  }, [planeswalk])
 
-  const stop = () => setState(null)
+  const revealScheme = useCallback(() => setState((s) => (s ? revealNextScheme(s) : s)), [])
+  const revealBounty = useCallback(() => setState((s) => (s ? revealNextBounty(s) : s)), [])
+  const stop = useCallback(() => {
+    starting.current++
+    setState(null)
+    setLastRoll(null)
+  }, [])
 
-  return { planechase: state, startPlanechase: start, planeswalk, rollPlanarDie: roll, stopPlanechase: stop }
+  return { gameMode: state, lastRoll, startGameMode: start, planeswalk, rollPlanarDie, revealScheme, revealBounty, stopGameMode: stop }
 }
 
-/** The current plane, pinned to the top of the table; tap it for the full card and the die. */
-export function PlaneBanner({ state, onOpen }: { state: PlanechaseState; onOpen: () => void }) {
-  if (state.loading) return <div className="lc-plane-banner">Shuffling the planes…</div>
-  if (state.error) return <button type="button" className="lc-plane-banner" onClick={onOpen}>{state.error}</button>
-  if (!state.current) return null
-  const art = displayImageUrl(state.current)?.replace('/normal/', '/art_crop/')
+/** The mode's card, pinned to the top of the table; tap it for the full card and what to do next. */
+export function ModeBanner({ state, onOpen }: { state: GameModeState; onOpen: () => void }) {
+  const card = currentCard(state)
+  const face = card ? cardFace(state, card) : null
+  const art = face?.imageUrl?.replace('/normal/', '/art_crop/')
+  const label = MODE_LABEL[state.mode]
+  const what = state.loading ? 'Shuffling' : face ? face.name : 'Tap to draw'
   return (
-    <button type="button" className="lc-plane-banner" onClick={onOpen} aria-label={`Planechase: ${state.current.name}. Open the plane`}>
-      {art && <img src={art} alt="" />}
-      <span className="lc-plane-label">Planechase</span>
-      <span className="lc-plane-name">{state.current.name}</span>
+    <button type="button" className="lc-plane-banner" onClick={onOpen} aria-label={`${label}: ${what}. Open`}>
+      {state.loading ? <span className="lc-spinner" aria-hidden /> : art ? <img src={art} alt="" /> : null}
+      <span className="lc-plane-label">{label}</span>
+      <span className="lc-plane-name">{what}</span>
     </button>
   )
 }
@@ -84,47 +74,140 @@ const FACE_TEXT: Record<PlanarFace, string> = {
   PLANESWALK: 'Planeswalk — on to the next plane',
 }
 
-/** The plane at full size, with the planar die and a way out. */
-export function PlaneSheet({
-  state, onRoll, onPlaneswalk, onStop, onClose,
+/** The mode at full size: the card, what to do next, and a way out. */
+export function ModeSheet({
+  state, lastRoll, onRoll, onPlaneswalk, onRevealScheme, onRevealBounty, onStop, onClose,
 }: {
-  state: PlanechaseState
+  state: GameModeState
+  lastRoll: { face: PlanarFace; n: number } | null
   onRoll: () => void
   onPlaneswalk: () => void
+  onRevealScheme: () => void
+  onRevealBounty: () => void
   onStop: () => void
   onClose: () => void
 }) {
-  const [flipKey, setFlipKey] = useState(0)
-  useEffect(() => setFlipKey((k) => k + 1), [state.current?.id])
-  const image = state.current ? displayImageUrl(state.current) : null
+  const [showRules, setShowRules] = useState(false)
+  const card = currentCard(state)
+  const face = card ? cardFace(state, card) : null
+  const title = MODE_LABEL[state.mode]
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  const subtitle = state.loading ? undefined
+    : state.mode === 'PLANECHASE' ? `${state.planeDeck.length} ${state.planeDeck.length === 1 ? 'plane' : 'planes'} left in the deck`
+      : state.mode === 'ARCHENEMY' ? `${state.schemeDeck.length} ${state.schemeDeck.length === 1 ? 'scheme' : 'schemes'} left in the deck`
+        : undefined
   return (
-    <div className="lc-sheet" role="dialog" aria-modal="true" aria-label="Planechase">
+    <div className="lc-sheet" role="dialog" aria-modal="true" aria-label={title}>
       <div className="lc-sheet-head">
         <div>
-          <h2>Planechase</h2>
-          <p>{state.deck.length} planes left in the deck</p>
+          <h2>{title}</h2>
+          {subtitle && <p>{subtitle}</p>}
         </div>
         <button type="button" className="lc-close" onClick={onClose} aria-label="Close">
           <span className="material-symbols-rounded">close</span>
         </button>
       </div>
       <div className="lc-sheet-body">
-        {state.current && (
-          <figure className="lc-plane" key={flipKey}>
-            {image && <img src={image} alt={state.current.name} />}
-            <figcaption>{state.current.name}</figcaption>
-          </figure>
+        {state.loading ? (
+          <div className="lc-mode-note"><span className="lc-spinner" aria-hidden />Shuffling</div>
+        ) : (
+          <>
+            {face && card && (
+              <figure className={`lc-plane${state.mode === 'BOUNTY' ? ' portrait' : ''}`} key={card.id}>
+                {face.imageUrl && <img src={face.imageUrl} alt={face.name} />}
+                <figcaption>{face.name}</figcaption>
+                {face.text && <p className="lc-mode-text">{face.text}</p>}
+              </figure>
+            )}
+            {state.mode === 'PLANECHASE' && (
+              <>
+                {!face && <div className="lc-mode-note">Couldn't load planes — check your connection</div>}
+                {lastRoll && (
+                  <div className={`lc-die-result ${lastRoll.face.toLowerCase()}`} key={lastRoll.n} aria-live="polite">
+                    {FACE_TEXT[lastRoll.face]}
+                  </div>
+                )}
+                <div className="lc-dice">
+                  <button type="button" onClick={onRoll} disabled={!face}>Roll planar die</button>
+                  <button type="button" onClick={onPlaneswalk} disabled={state.planeDeck.length === 0}>Planeswalk</button>
+                </div>
+              </>
+            )}
+            {state.mode === 'ARCHENEMY' && (
+              <>
+                {!face && (
+                  <div className="lc-mode-note">
+                    {state.schemeDeck.length === 0 ? "Couldn't load schemes — check your connection" : 'Reveal the first scheme to begin'}
+                  </div>
+                )}
+                {state.ongoingSchemes.length > 0 && (
+                  <section>
+                    <h3>Ongoing</h3>
+                    <ul className="lc-ongoing">{state.ongoingSchemes.map((s) => <li key={s.id}>{s.name}</li>)}</ul>
+                  </section>
+                )}
+                <div className="lc-dice">
+                  <button type="button" className="accent" onClick={onRevealScheme} disabled={state.schemeDeck.length === 0}>Reveal scheme</button>
+                </div>
+              </>
+            )}
+            {state.mode === 'BOUNTY' && (
+              <>
+                {!face && (
+                  <div className="lc-mode-note">
+                    {state.bountyDeck.length === 0 ? "Couldn't load bounty cards — check your connection" : "Reveal the first bounty as the starting player's third turn begins"}
+                  </div>
+                )}
+                <div className="lc-dice">
+                  <button type="button" className="accent" onClick={onRevealBounty} disabled={state.bountyDeck.length === 0}>
+                    {face ? 'Claimed · next bounty' : 'Reveal bounty'}
+                  </button>
+                </div>
+                {state.bountyRules && (
+                  <>
+                    <button type="button" className="lc-link" onClick={() => setShowRules((v) => !v)} aria-expanded={showRules}>
+                      {showRules ? 'Hide rules' : 'How bounty works'}
+                    </button>
+                    {showRules && <p className="lc-mode-text">{state.bountyRules}</p>}
+                  </>
+                )}
+              </>
+            )}
+          </>
         )}
-        {state.lastRoll && (
-          <div className={`lc-die-result ${state.lastRoll.face.toLowerCase()}`} key={state.lastRoll.n} aria-live="polite">
-            {FACE_TEXT[state.lastRoll.face]}
-          </div>
-        )}
-        <div className="lc-dice">
-          <button type="button" onClick={onRoll}>Roll the planar die</button>
-          <button type="button" onClick={onPlaneswalk} disabled={state.deck.length === 0}>Planeswalk</button>
+        <button type="button" className="lc-wide-btn" style={{ marginTop: 24 }} onClick={() => { onStop(); onClose() }}>End {title}</button>
+      </div>
+    </div>
+  )
+}
+
+/** Archenemy is one player against the rest: who it is, before the schemes are shuffled. */
+export function ArchenemyPicker({ players, onPick, onClose }: { players: Player[]; onPick: (id: number) => void; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return (
+    <div className="lc-sheet" role="dialog" aria-modal="true" aria-label="Who's the Archenemy?">
+      <div className="lc-sheet-head">
+        <div><h2>Who's the Archenemy?</h2></div>
+        <button type="button" className="lc-close" onClick={onClose} aria-label="Close">
+          <span className="material-symbols-rounded">close</span>
+        </button>
+      </div>
+      <div className="lc-sheet-body">
+        <div className="lc-seat-picks">
+          {players.map((p, i) => (
+            <button key={p.id} type="button" className="lc-seat-pick" style={{ ...seatStyle(p.colorIndex), animationDelay: `${40 * i}ms` }} onClick={() => { onPick(p.id); onClose() }}>
+              {displayName(p)}
+            </button>
+          ))}
         </div>
-        <button type="button" className="lc-wide-btn" style={{ marginTop: 24 }} onClick={onStop}>End Planechase</button>
       </div>
     </div>
   )

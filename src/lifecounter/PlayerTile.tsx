@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import {
-  COUNTER_INFO, COUNTER_KINDS, counterOf, damageFrom, displayName, inDanger, lossReason, PLAYER_PALETTE, seatColor, startingLifeFor,
+  COUNTER_INFO, COUNTER_KINDS, counterOf, damageFrom, defeatMessageFor, displayName, inDanger, lossReason, lowLife, PLAYER_PALETTE, seatColor,
+  startingLifeFor, tileCounters, victoryMessageFor,
   type GameAction, type LifeSettings, type Player,
 } from './game'
 import type { SeatFacing } from './tableLayouts'
@@ -11,11 +12,11 @@ const FEEDBACK_HOLD_MS = 1500
 const LONG_PRESS_MS = 450
 const REPEAT_MS = 600
 
-const LOSS_TEXT: Record<string, string> = {
-  LIFE: 'Out of life',
-  POISON: 'Poisoned out',
-  COMMANDER_DAMAGE: 'Commander damage',
-  KILLED: 'Out',
+/** The life total, with 6 and 9 underlined (Settings → Underlined 6 and 9) so upside down they can't be misread. */
+export function LifeNumber({ value, underline }: { value: number; underline: boolean }) {
+  const text = String(value)
+  if (!underline || !/[69]/.test(text)) return <>{text}</>
+  return <>{[...text].map((ch, i) => (ch === '6' || ch === '9' ? <u key={i}>{ch}</u> : ch))}</>
 }
 
 /** Style for a seat: its colour (P3 where supported, via CSS) and ink. */
@@ -48,12 +49,12 @@ export function Face({ facing, className = '', children }: { facing: SeatFacing;
 }
 
 /**
- * Tap for ±1, hold for ±[longPressAmount] (repeating while held). A hold stops when [active] turns
+ * Tap for ±[tapAmount] (1 unless set), hold for ±[longPressAmount] (repeating while held). A hold stops when [active] turns
  * false — the buttons go away (a high roll starting, say) without ever seeing the finger lift.
- * Enter, Space and a screen reader's activate give one ±1 too: they fire a click with no pointer
+ * Enter, Space and a screen reader's activate give one tap too: they fire a click with no pointer
  * behind it (detail 0), while a real tap's click is skipped since its pointer events already counted.
  */
-export function useStepper(onStep: (amount: number) => void, longPressAmount: number, active: boolean) {
+export function useStepper(onStep: (amount: number) => void, longPressAmount: number, active: boolean, tapAmount = 1) {
   const timer = useRef<number | null>(null)
   const held = useRef(false)
   const stop = () => {
@@ -78,10 +79,10 @@ export function useStepper(onStep: (amount: number) => void, longPressAmount: nu
       const wasHeld = held.current
       const pending = timer.current !== null
       stop()
-      if (!wasHeld && pending) onStep(1)
+      if (!wasHeld && pending) onStep(tapAmount)
     },
     onClick: (e: React.MouseEvent) => {
-      if (e.detail === 0) onStep(1)
+      if (e.detail === 0) onStep(tapAmount)
     },
     onPointerLeave: stop,
     onPointerCancel: stop,
@@ -109,6 +110,9 @@ export function PlayerTile({
   meDeck,
   holding = false,
   targetedBy = null,
+  winner = false,
+  gameNumber = 0,
+  messageTick = 0,
 }: {
   player: Player
   opponents: Player[]
@@ -121,6 +125,11 @@ export function PlayerTile({
   holding?: boolean
   /** Who is pointing at this player from their phone, for a moment. */
   targetedBy?: string | null
+  /** The game is over and this player is the last one standing. */
+  winner?: boolean
+  /** Which game this is and how far cycling messages have moved, so a drawn message holds steady. */
+  gameNumber?: number
+  messageTick?: number
   /** This player's high roll and whether it was the highest, while one is showing. */
   highRoll: { value: number; winner: boolean } | null
   /** Shown on the tile whose turn it is, with the button that ends it. */
@@ -167,23 +176,33 @@ export function PlayerTile({
     if (Math.abs(delta) >= settings.longPressAmount) setShake((s) => s + 1)
     navigator.vibrate?.(8)
   }
-  const minus = useStepper((n) => change(-n), settings.longPressAmount, !highRoll)
-  const plus = useStepper((n) => change(n), settings.longPressAmount, !highRoll)
+  const minus = useStepper((n) => change(-n), settings.longPressAmount, !highRoll, settings.tapAmount)
+  const plus = useStepper((n) => change(n), settings.longPressAmount, !highRoll, settings.tapAmount)
 
   const loss = lossReason(player, settings.autoKill)
-  const damageTaken = opponents
-    .flatMap((o) => [0, 1].map((slot) => ({ o, slot, dmg: damageFrom(player, o.id, slot) })))
-    .filter((x) => x.dmg > 0)
+  const defeat = loss ? defeatMessageFor(player, loss, settings, gameNumber, messageTick) : null
+  const victory = !loss && winner ? victoryMessageFor(player, settings, gameNumber, messageTick) : null
+  const damageTaken = settings.showCommanderDamageOnTile
+    ? opponents
+      .flatMap((o) => [0, 1].map((slot) => ({ o, slot, dmg: damageFrom(player, o.id, slot) })))
+      .filter((x) => x.dmg > 0)
+    : []
+  const counters = tileCounters(player, settings)
+  const casts = (player.commanderCasts ?? 0) + (player.partnerCasts ?? 0)
 
   const label = (sign: 1 | -1) => {
     const active = pending !== 0 && (pending > 0) === (sign > 0)
-    return { text: active ? `${pending > 0 ? '+' : '−'}${Math.abs(pending)}` : sign > 0 ? '+' : '−', active }
+    // Minimalist mode: no + and − until a tap shows what it did.
+    return { text: active ? `${pending > 0 ? '+' : '−'}${Math.abs(pending)}` : settings.minimalist ? '' : sign > 0 ? '+' : '−', active }
   }
   const minusLabel = label(-1)
   const plusLabel = label(1)
 
   return (
-    <Face facing={facing} className={`lc-tile${activeTurn ? ' active' : ''}${loss ? ' out' : ''}${!loss && inDanger(player) ? ' danger' : ''}${targetedBy ? ' targeted' : ''}`}>
+    <Face
+      facing={facing}
+      className={`lc-tile${activeTurn ? ' active' : ''}${loss ? ' out' : ''}${!loss && (inDanger(player) || lowLife(player, settings)) ? ' danger' : ''}${targetedBy ? ' targeted' : ''}${settings.verticalTapAreas ? ' vertical-taps' : ''}`}
+    >
       <div className={`lc-tile-body${player.background ? ' has-bg' : ''}`} style={tileStyle(player)}>
         {targetedBy && <div className="lc-target-note" key={targetedBy}><span className="material-symbols-rounded" aria-hidden>my_location</span>{targetedBy} points at you</div>}
         <div className="lc-top">
@@ -205,9 +224,12 @@ export function PlayerTile({
               <span className="lc-token-label">Initiative</span>
             </span>
           )}
-          <button type="button" className={`lc-name${player.linked ? ' linked' : ''}`} onClick={() => setPanelOpen(true)} aria-label={`${displayName(player)} — commander damage, poison and more`}>
+          {/* Without names on the cards the button stays, as a plain handle to the player's panel. */}
+          <button type="button" className={`lc-name${player.linked ? ' linked' : ''}${settings.playerNamesOnTile ? '' : ' bare'}`} onClick={() => setPanelOpen(true)} aria-label={`${displayName(player)} — commander damage, poison and more`}>
             {player.linked && <SeatAvatar player={player} />}
-            <span className="lc-name-text">{displayName(player)}</span>
+            {settings.playerNamesOnTile
+              ? <span className="lc-name-text">{displayName(player)}</span>
+              : !player.linked && <span className="material-symbols-rounded" aria-hidden>more_horiz</span>}
           </button>
           {damageTaken.length > 0 && (
             <button type="button" className="lc-chip" onClick={() => setPanelOpen(true)} aria-label="Commander damage received">
@@ -219,17 +241,16 @@ export function PlayerTile({
               ))}
             </button>
           )}
-          {player.poison > 0 && (
-            <button type="button" className="lc-chip" onClick={() => setPanelOpen(true)} aria-label={`${player.poison} poison`}>
+          {counters.map((k) => k === 'poison' ? (
+            <button key={k} type="button" className="lc-chip" onClick={() => setPanelOpen(true)} aria-label={`${player.poison} poison`}>
               <span className="material-symbols-rounded" aria-hidden>water_drop</span>{player.poison}
             </button>
-          )}
-          {COUNTER_KINDS.filter((k) => counterOf(player, k) > 0).map((k) => (
+          ) : (
             <button key={k} type="button" className="lc-chip" onClick={() => setPanelOpen(true)} aria-label={`${COUNTER_INFO[k].label} ${counterOf(player, k)}`}>
               <span className="material-symbols-rounded" aria-hidden>{COUNTER_INFO[k].icon}</span>{counterOf(player, k)}
             </button>
           ))}
-          {((player.commanderCasts ?? 0) > 0 || (player.partnerCasts ?? 0) > 0) && (
+          {settings.countersOnTile && casts > 0 && (
             <span
               className="lc-chip"
               title={`Cast their commander ${player.commanderCasts ?? 0} times${player.hasPartner ? `, their partner ${player.partnerCasts ?? 0}` : ''}`}
@@ -241,8 +262,9 @@ export function PlayerTile({
           )}
         </div>
 
-        <div className="lc-life" key={shake} data-shake={shake > 0 || undefined}>{player.life}</div>
-        {loss && !highRoll && <div className="lc-out-note">{LOSS_TEXT[loss]}</div>}
+        <div className="lc-life" key={shake} data-shake={shake > 0 || undefined}><LifeNumber value={player.life} underline={settings.underlineSixNine} /></div>
+        {defeat && !highRoll && <div className="lc-outcome defeat" role="status">{defeat}</div>}
+        {victory && !highRoll && <div className="lc-outcome victory" role="status">{victory}</div>}
 
         {/* The corners of the tile whose turn it is: out of the way of the life total in the middle. */}
         {activeTurn && !loss && !highRoll && (
@@ -256,10 +278,10 @@ export function PlayerTile({
 
         {!highRoll && (
           <>
-            <button type="button" className="lc-tap minus" aria-label={`Lose 1 life, ${displayName(player)} (hold for ${settings.longPressAmount})`} {...minus}>
+            <button type="button" className="lc-tap minus" aria-label={`Lose ${settings.tapAmount} life, ${displayName(player)} (hold for ${settings.longPressAmount})`} {...minus}>
               <span className={minusLabel.active ? 'on' : ''}>{minusLabel.text}</span>
             </button>
-            <button type="button" className="lc-tap plus" aria-label={`Gain 1 life, ${displayName(player)} (hold for ${settings.longPressAmount})`} {...plus}>
+            <button type="button" className="lc-tap plus" aria-label={`Gain ${settings.tapAmount} life, ${displayName(player)} (hold for ${settings.longPressAmount})`} {...plus}>
               <span className={plusLabel.active ? 'on' : ''}>{plusLabel.text}</span>
             </button>
           </>
@@ -427,6 +449,10 @@ function PlayerPanel({
         {COUNTER_KINDS.map((k) => (
           <Counter key={k} label={COUNTER_INFO[k].label} value={counterOf(player, k)} onChange={(delta) => dispatch({ type: 'counter', id: player.id, counter: k, delta })} />
         ))}
+        <div className="lc-panel-label">My victory message</div>
+        <MessageField value={player.victoryMessage ?? ''} label="My victory message" onCommit={(v) => dispatch({ type: 'messages', id: player.id, victory: v })} />
+        <div className="lc-panel-label">My defeat message</div>
+        <MessageField value={player.defeatMessage ?? ''} label="My defeat message" onCommit={(v) => dispatch({ type: 'messages', id: player.id, defeat: v })} />
         {player.background && (
           <button type="button" className="lc-wide-btn" onClick={() => dispatch({ type: 'background', id: player.id, url: null })}>
             <span className="material-symbols-rounded" aria-hidden>hide_image</span>Remove the tile picture
@@ -481,5 +507,22 @@ function Counter({ label, value, dot, onChange }: { label: string; value: number
       </div>
       <button type="button" className="lc-step" onClick={() => onChange(1)} aria-label={`${label} plus one`}>+</button>
     </div>
+  )
+}
+
+/** A player's own message; empty uses the table's lists. Saved when the field is left. */
+function MessageField({ value, label, onCommit }: { value: string; label: string; onCommit: (v: string) => void }) {
+  const [text, setText] = useState(value)
+  return (
+    <input
+      className="lc-name-input lc-message-input"
+      value={text}
+      placeholder="Use the table's messages"
+      maxLength={60}
+      aria-label={label}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => { if (text.trim() !== value) onCommit(text) }}
+      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+    />
   )
 }
