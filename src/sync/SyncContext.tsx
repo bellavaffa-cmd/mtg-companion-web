@@ -31,6 +31,7 @@ import { moveToConsidering as movedToConsidering, swapConsidered as swappedConsi
 import { entryFromCard } from '../decks/newDeck'
 import { takeCopies } from '../collection/addTo'
 import { changeBetween, isNoChange, undoChange } from './undo'
+import { withCopiesOf, withCopyDetails, withOptional } from '../collection/copyDetails'
 
 /** What a user-requested sync ended with. */
 export type RefreshResult =
@@ -209,8 +210,12 @@ interface SyncContextValue {
   setEntryQuantities: (collectionId: string, scryfallId: string, quantity: number, foilQuantity: number) => void
   /** A wishlist card's price alert (USD); null turns it off. */
   setEntryPriceAlert: (collectionId: string, scryfallId: string, usd: number | null) => void
+  /** An owned card's "tell me when it rises to" alert (USD); null turns it off. */
+  setEntryPriceAlertAbove: (collectionId: string, scryfallId: string, usd: number | null) => void
+  /** The condition and language of a binder card's copies (see collection/copyDetails.ts); null leaves one unsaid. */
+  setEntryCopyDetails: (collectionId: string, scryfallId: string, condition: string | null, language: string | null) => void
   /** Adds a whole imported list to a binder in one change (to UNSORTED_COLLECTION_ID: the Unsorted pile, made if needed). */
-  importIntoCollection: (collectionId: string, cards: { card: ScryfallCard; quantity: number; foilQuantity: number }[]) => void
+  importIntoCollection: (collectionId: string, cards: { card: ScryfallCard; quantity: number; foilQuantity: number; condition?: string | null; language?: string | null }[]) => void
   /**
    * Moves every copy of some cards from one binder into another, in one change — or [count] copies
    * of each (regular ones first; see takeCopies). With [copy], the first binder keeps its copies.
@@ -1149,18 +1154,20 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   )
 
   const importIntoCollection = useCallback(
-    (collectionId: string, cards: { card: ScryfallCard; quantity: number; foilQuantity: number }[]) => {
+    (collectionId: string, cards: { card: ScryfallCard; quantity: number; foilQuantity: number; condition?: string | null; language?: string | null }[]) => {
       updateLibrary((lib) =>
         mapCollection(withUnsorted(lib, collectionId), collectionId, (collection) => {
           let entries = collection.entries
-          for (const { card, quantity, foilQuantity } of cards) {
+          for (const { card, quantity, foilQuantity, condition, language } of cards) {
             const existing = entries.find((e) => e.scryfallId === card.id)
+            // The copies' condition and language, when the list said (a CSV's columns).
+            const added = withCopyDetails({
+              scryfallId: card.id, name: card.name, imageUrl: displayImageUrl(card), quantity, foilQuantity,
+              backImageUrl: backImageUrl(card), tags: cardTags(card),
+            }, condition ?? null, language ?? null)
             entries = existing
-              ? entries.map((e) => (e.scryfallId === card.id ? { ...e, quantity: e.quantity + quantity, foilQuantity: e.foilQuantity + foilQuantity } : e))
-              : [...entries, {
-                  scryfallId: card.id, name: card.name, imageUrl: displayImageUrl(card), quantity, foilQuantity,
-                  backImageUrl: backImageUrl(card), tags: cardTags(card),
-                }]
+              ? entries.map((e) => (e.scryfallId === card.id ? withCopiesOf(e, added) : e))
+              : [...entries, added]
           }
           return { ...collection, entries }
         }),
@@ -1229,7 +1236,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
             for (const entry of moving) {
               const existing = entries.find((e) => e.scryfallId === entry.scryfallId)
               entries = existing
-                ? entries.map((e) => (e.scryfallId === entry.scryfallId ? { ...e, quantity: e.quantity + entry.quantity, foilQuantity: e.foilQuantity + entry.foilQuantity } : e))
+                ? entries.map((e) => (e.scryfallId === entry.scryfallId ? withCopiesOf(e, entry) : e))
                 : [...entries, { ...entry }]
             }
             return { ...c, entries }
@@ -1279,7 +1286,31 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       updateLibrary((lib) =>
         mapCollection(lib, collectionId, (collection) => ({
           ...collection,
-          entries: collection.entries.map((e) => (e.scryfallId === scryfallId ? { ...e, priceAlert: usd } : e)),
+          entries: collection.entries.map((e) => (e.scryfallId === scryfallId ? withOptional(e, 'priceAlert', usd) : e)),
+        })),
+      )
+    },
+    [updateLibrary, mapCollection],
+  )
+
+  const setEntryPriceAlertAbove = useCallback(
+    (collectionId: string, scryfallId: string, usd: number | null) => {
+      updateLibrary((lib) =>
+        mapCollection(lib, collectionId, (collection) => ({
+          ...collection,
+          entries: collection.entries.map((e) => (e.scryfallId === scryfallId ? withOptional(e, 'priceAlertAbove', usd) : e)),
+        })),
+      )
+    },
+    [updateLibrary, mapCollection],
+  )
+
+  const setEntryCopyDetails = useCallback(
+    (collectionId: string, scryfallId: string, condition: string | null, language: string | null) => {
+      updateLibrary((lib) =>
+        mapCollection(lib, collectionId, (collection) => ({
+          ...collection,
+          entries: collection.entries.map((e) => (e.scryfallId === scryfallId ? withCopyDetails(e, condition, language) : e)),
         })),
       )
     },
@@ -1360,6 +1391,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       changePrintingEverywhere,
       setEntryQuantities,
       setEntryPriceAlert,
+      setEntryPriceAlertAbove,
+      setEntryCopyDetails,
       changeCollections,
       importIntoCollection,
       moveEntries,
@@ -1377,7 +1410,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       signInWithToken, syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setReplaceable, setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, setCardTags, addGameResult,
       addCardsToDeck, stopConsidering, considerIntoDeck, moveToConsidering, swapConsidered, importIntoDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
-      setEntryQuantities, setEntryPriceAlert, changeCollections, importIntoCollection, moveEntries, recordUndo, removeEntriesFromCollection,
+      setEntryQuantities, setEntryPriceAlert, setEntryPriceAlertAbove, setEntryCopyDetails, changeCollections, importIntoCollection, moveEntries, recordUndo, removeEntriesFromCollection,
     ],
   )
 

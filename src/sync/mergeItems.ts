@@ -11,6 +11,8 @@
 //  - Counts that both sides changed add up: +1 here and +2 there lands on +3; two cuts that would
 //    take it below zero settle on the lower count rather than removing the card.
 //  - A field both sides changed differently (a deck's name, say) goes to the more recent edit.
+//    Clearing a field is a change too. A binder card's own fields — its price alerts, its copies'
+//    condition and language — merge this way, each on its own.
 // The Android app merges the same way — see data/supabase/ItemMerge.kt.
 
 import type { Collection, CollectionEntry, Deck, DeckCardEntry, GameResult } from '../types/models'
@@ -113,7 +115,11 @@ function mergeEntries<T extends { scryfallId: string }>(
         if (set.length > 0) merged[key] = set as T[keyof T]
         else delete merged[key]
       } else {
-        merged[key] = pick(b[key], m![key], t![key], minePreferred)
+        // A field cleared on the side that changed it (a condition taken off, an alert turned off)
+        // stays left out, rather than coming back as an empty key.
+        const value = pick(b[key], m![key], t![key], minePreferred)
+        if (value === undefined) delete merged[key]
+        else merged[key] = value
       }
     }
     // Every count down to zero means both sides emptied it out — that's a removal.

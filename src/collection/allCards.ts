@@ -6,6 +6,7 @@
 import type { Collection, CollectionEntry, Deck } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 import { proxyCopies } from '../decks/proxies'
+import { withCopiesOf } from './copyDetails'
 
 export interface CardSource {
   kind: 'binder' | 'deck'
