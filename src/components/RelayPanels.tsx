@@ -3,6 +3,7 @@ import { comboUrl, fetchNews, findCombosInDeck, relayAvailable, type ComboVarian
 import type { Deck } from '../types/models'
 import { Icon } from './Icon'
 import { rise } from './kit'
+import { PanelHead } from './StatsFold'
 
 function timeAgo(ms: number): string {
   const mins = Math.round((Date.now() - ms) / 60000)
@@ -74,10 +75,9 @@ export function DeckCombosPanel({ deck, index = 3 }: { deck: Deck; index?: numbe
 
   return (
     <div className="panel rise" style={rise(index)}>
-      <div className="p-h">
-        <h3>Combos</h3>
+      <PanelHead title="Combos">
         {combos && <span className="p-sub">In deck<b>{combos.included.length}</b></span>}
-      </div>
+      </PanelHead>
       {combos === undefined && <div className="dim">Checking Commander Spellbook…</div>}
       {combos === null && <div className="dim">Couldn't reach Commander Spellbook. Check your connection and try again later.</div>}
       {combos && (

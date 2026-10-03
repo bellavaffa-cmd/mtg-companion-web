@@ -4,6 +4,7 @@ import { displayImageUrl, largeImageUrl, type ScryfallCard } from '../types/scry
 import type { Deck } from '../types/models'
 import { CardZoomModal } from './CardZoomModal'
 import { ArtImage } from './kit'
+import { PanelHead } from './StatsFold'
 import { useTokenArt } from './useTokenArt'
 
 /**
@@ -21,7 +22,7 @@ export function TokensPanel({ deck, cardsById }: { deck: Deck; cardsById: Map<st
   if (tokens.length === 0) {
     return (
       <div className="panel">
-        <div className="p-h"><h3>Tokens</h3></div>
+        <PanelHead title="Tokens" />
         <div className="dim">Nothing in this deck makes a token.</div>
       </div>
     )
@@ -30,10 +31,9 @@ export function TokensPanel({ deck, cardsById }: { deck: Deck; cardsById: Map<st
   const zoomCard = zoom ? art.get(zoom.id) : null
   return (
     <div className="panel">
-      <div className="p-h">
-        <h3>Tokens to bring</h3>
+      <PanelHead title="Tokens to bring">
         <span className="p-sub">Kinds<b>{tokens.length}</b></span>
-      </div>
+      </PanelHead>
       <div className="token-grid">
         {tokens.map((token) => {
           const card = art.get(token.id)

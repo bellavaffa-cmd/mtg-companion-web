@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Dialog } from './Dialog'
 import { Icon } from './Icon'
 import { ArtImage, toArtCrop } from './kit'
+import { PanelHead } from './StatsFold'
 import type { ComboVariant } from '../api/relay'
 import type { DeckCardEntry } from '../types/models'
 import { breakText, swapOptions } from '../decks/considering'
@@ -188,7 +189,7 @@ export function DeckImportDialog({ mode, onImport, onDismiss }: {
 export function VersionHistoryPanel({ history, onOpen, index = 0 }: { history: VersionSummary[]; onOpen: (s: VersionSummary) => void; index?: number }) {
   return (
     <div className="panel rise" style={{ ['--i' as string]: index }}>
-      <div className="p-h"><h3>Version history</h3>{history.length > 0 && <span className="p-sub">Saved<b>{history.length}</b></span>}</div>
+      <PanelHead title="Version history">{history.length > 0 && <span className="p-sub">Saved<b>{history.length}</b></span>}</PanelHead>
       {history.length === 0 ? (
         <div className="dim">Each time you change this deck's list, the new list is saved here as a version — with what changed and how it did in games you log.</div>
       ) : (

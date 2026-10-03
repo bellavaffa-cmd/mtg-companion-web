@@ -3027,6 +3027,107 @@ select.input.sf-sort {
   color: var(--t1);
 }
 
+.legal-fix {
+  display: block;
+  margin-top: 4px;
+}
+
+/* ---- Stats: the summary strip, the legality badge, and panels that fold away ---- */
+
+.fold {
+  display: contents;
+}
+/* Folded: just the heading row. Dialogs a panel opens from its heading still show. */
+.fold.closed .panel > :not(.p-h):not(.dialog-overlay) {
+  display: none;
+}
+.fold.closed .p-h {
+  margin-bottom: 0;
+  align-items: center;
+}
+.p-fold {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin: -4px -6px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--t0);
+  text-align: left;
+}
+.p-fold:hover {
+  background: var(--g2);
+}
+.p-fold .icon {
+  font-size: 20px;
+  color: var(--t1);
+}
+.summary-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.summary-figure {
+  flex: 1 1 auto;
+  display: grid;
+  white-space: nowrap;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: var(--g2);
+}
+.summary-figure b {
+  font-family: var(--num);
+  font-weight: 400;
+  font-size: 24px;
+  line-height: 1.1;
+  color: var(--t0);
+}
+.summary-figure span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t1);
+}
+.legal-section {
+  margin-top: 12px;
+}
+.legal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px 4px 10px;
+  border: 0;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 13.5px;
+}
+.legal-badge .icon {
+  font-size: 18px;
+  padding: 0;
+}
+.legal-badge.ok {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
+}
+.legal-badge.bad {
+  color: var(--error);
+  background: color-mix(in srgb, var(--error) 16%, transparent);
+}
+.legal-details {
+  margin-top: 12px;
+}
+.legal-head {
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+.legal-head.ok {
+  color: var(--ok);
+}
+.legal-head.bad {
+  color: var(--error);
+}
+
 /* Importing a card list: the pasted text keeps its columns. */
 .import-text {
   height: auto;

@@ -3,6 +3,7 @@ import type { Deck } from '../types/models'
 import { KEEPABLE_LANDS, handOdds, oddsPercent } from '../decks/handOdds'
 import { tagsOf } from '../tags/roleTags'
 import { rise } from './kit'
+import { PanelHead } from './StatsFold'
 
 /**
  * How the opening hand tends to look, worked out exactly from the list: a keepable seven, how many
@@ -33,7 +34,7 @@ export function HandOddsPanel({ deck, cardsById, roleTags, index }: {
 
   return (
     <div className="panel rise" style={rise(index)}>
-      <div className="p-h"><h3>Opening hand</h3></div>
+      <PanelHead title="Opening hand" closed={`${oddsPercent(odds.keepable)} keepable`} />
       <div className="match-head">
         <span className="match-score">{oddsPercent(odds.keepable)}</span>
         <span className="match-rate">chance of a keepable seven ({KEEPABLE_LANDS[0]}–{KEEPABLE_LANDS[1]} lands)</span>

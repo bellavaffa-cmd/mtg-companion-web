@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { getCardsByIds } from '../api/scryfall'
 import { displayManaCost, type ScryfallCard } from '../types/scryfall'
 import type { Deck, DeckCardEntry } from '../types/models'
@@ -10,7 +10,12 @@ import { ManaSymbol } from './ManaSymbols'
 import { Icon } from './Icon'
 import { MANA, TYPE_GROUPS, TYPE_PLURALS, primaryTypeOf, rise } from './kit'
 import { DeckCombosPanel } from './RelayPanels'
-import { DeckLegality } from './DeckLegality'
+import { LegalitySection } from './DeckLegality'
+import { Fold, PanelHead } from './StatsFold'
+import { useStatsPanels } from './useStatsPanels'
+import { MatchRecordPanel } from './MatchRecordPanel'
+import { TokensPanel } from './TokensPanel'
+import { useMoney } from '../money/currency'
 import { HandOddsPanel } from './HandOddsPanel'
 import { InlineManaText } from './ManaSymbols'
 import { useDeckCombos } from './useDeckCardSearch'
@@ -100,7 +105,11 @@ export function deckFigures(deck: Deck, cardsById: DeckCardData): { value: numbe
   return { value, avgMv: spells > 0 ? mv / spells : 0 }
 }
 
-/** The deck's stats: mana curve, card types and mana symbols. Pass [cardsById] from useDeckCardData. */
+/**
+ * The deck's Stats: the summary strip (with the legality badge) first, then the match record, the
+ * versions, the bracket, the curve and the rest — every panel folding away, its state remembered
+ * (StatsFold). Pass [cardsById] from useDeckCardData.
+ */
 export function DeckStats({ deck, cardsById, roleTags, tagging = false, onTag }: {
   deck: Deck
   cardsById: DeckCardData
@@ -116,10 +125,24 @@ export function DeckStats({ deck, cardsById, roleTags, tagging = false, onTag }:
   const deckCombos = useDeckCombos(deck)
   const history = useMemo(() => versionSummaries(deck), [deck])
   const [openVersion, setOpenVersion] = useState<VersionSummary | null>(null)
+  const money = useMoney()
+  const [isOpen, toggle] = useStatsPanels()
+  const fold = (id: string, panel: ReactNode) => <Fold key={id} open={isOpen(id)} onToggle={() => toggle(id)}>{panel}</Fold>
+  const games = deck.gameResults.length
+  const match = fold('match', <MatchRecordPanel deck={deck} closed={games === 0 ? 'No games yet' : `${games} ${games === 1 ? 'game' : 'games'}`} />)
 
-  if (entries.length === 0) return <div className="empty-state"><Icon name="bar_chart" />Add some cards to see this deck's stats.</div>
-  if (cardsById === undefined) return <div className="empty-state">Loading card data…</div>
-  if (cardsById === null) return <div className="empty-state">Couldn't load card data. Check your connection and try again.</div>
+  if (entries.length === 0 || !cardsById) {
+    return (
+      <>
+        {match}
+        {entries.length === 0
+          ? <div className="empty-state"><Icon name="bar_chart" />Add some cards to see this deck's stats.</div>
+          : cardsById === undefined
+            ? <div className="empty-state">Loading card data…</div>
+            : <div className="empty-state">Couldn't load card data. Check your connection and try again.</div>}
+      </>
+    )
+  }
 
   // Mana curve: non-land spells by mana value, 7+ grouped.
   const curve = Array.from({ length: 8 }, () => 0)
@@ -153,10 +176,9 @@ export function DeckStats({ deck, cardsById, roleTags, tagging = false, onTag }:
 
   const curvePanel = (
       <div className="panel rise" style={rise(0)}>
-        <div className="p-h">
-          <h3>Mana curve</h3>
+        <PanelHead title="Mana curve">
           {spellCount > 0 && <span className="p-sub">Average<b>{(mvTotal / spellCount).toFixed(2)}</b></span>}
-        </div>
+        </PanelHead>
         <div className="curve">
           {curve.map((n, i) => (
             <div className="bcol" key={i}>
@@ -171,7 +193,7 @@ export function DeckStats({ deck, cardsById, roleTags, tagging = false, onTag }:
 
   const typesPanel = (
       <div className="panel rise" style={rise(1)}>
-        <div className="p-h"><h3>Card types</h3><span className="p-sub">Total<b>{totalCards}</b></span></div>
+        <PanelHead title="Card types"><span className="p-sub">Total<b>{totalCards}</b></span></PanelHead>
         {typeCounts.map(([type, n], i) => (
           <div className="meter" key={type}>
             <div className="m-top">
@@ -186,7 +208,7 @@ export function DeckStats({ deck, cardsById, roleTags, tagging = false, onTag }:
 
   const symbolsPanel = (
       <div className="panel rise" style={rise(2)}>
-        <div className="p-h"><h3>Mana symbols</h3>{totalPips > 0 && <span className="p-sub">Total<b>{totalPips}</b></span>}</div>
+        <PanelHead title="Mana symbols">{totalPips > 0 && <span className="p-sub">Total<b>{totalPips}</b></span>}</PanelHead>
         {totalPips === 0 ? (
           <div className="dim">No colored mana symbols — this deck's cards all cost generic mana.</div>
         ) : (
@@ -211,15 +233,34 @@ export function DeckStats({ deck, cardsById, roleTags, tagging = false, onTag }:
       </div>
   )
 
-  // In the phone's order: versions, bracket, curve, what the cards do, hand odds, mana symbols, mana
-  // base, card types — then legality and combos, which the phone has on tabs of their own.
+  const figures = deckFigures(deck, cardsById)
+  const totalInDeck = deck.cards.reduce((n, c) => n + c.quantity, 0)
+  const value = money.format(figures?.value ?? 0, true)
+  const summary = (
+    <div className="panel rise" style={rise(0)}>
+      <PanelHead title="Summary" closed={`${totalInDeck} ${totalInDeck === 1 ? 'card' : 'cards'} · ${value}`} />
+      <div className="summary-strip">
+        <SummaryFigure value={String(totalInDeck)} label={totalInDeck === 1 ? 'card' : 'cards'} />
+        <SummaryFigure value={value} label="total value" />
+        <SummaryFigure value={(figures?.avgMv ?? 0).toFixed(2)} label="avg mana value" />
+        <SummaryFigure value={String(bracket.bracket)} label="bracket" />
+      </div>
+      <LegalitySection deck={deck} cardsById={cardsById} />
+    </div>
+  )
+
+  // The summary, then the phone's order: match record, versions, bracket, curve, what the cards do,
+  // hand odds, mana symbols, mana base, card types — then combos and tokens.
   return (
     <div className="detail-grid">
-      <VersionHistoryPanel history={history} onOpen={setOpenVersion} index={0} />
+      {fold('summary', summary)}
+      {match}
+      {fold('versions', <VersionHistoryPanel history={history} onOpen={setOpenVersion} index={0} />)}
       {openVersion && <VersionDetailDialog summary={openVersion} onDismiss={() => setOpenVersion(null)} />}
 
+      {fold('bracket', (
       <div className="panel rise" style={rise(0)}>
-        <div className="p-h"><h3>Commander bracket</h3></div>
+        <PanelHead title="Commander bracket" closed={`${bracket.bracket} · ${bracket.name}`} />
         <div className="bracket">
           <span className="bracket-num">{bracket.bracket}</span>
           <span className="bracket-name">Bracket<b>{bracket.name}</b></span>
@@ -229,18 +270,19 @@ export function DeckStats({ deck, cardsById, roleTags, tagging = false, onTag }:
         {gameChangers.length > 0 && <div className="dim" style={{ marginTop: 6 }}>Game Changers: {gameChangers.join(', ')}</div>}
         <div className="dim" style={{ marginTop: 6 }}>Estimated from Game Changers and combos — not an official rating.</div>
       </div>
+      ))}
 
-      {curvePanel}
+      {fold('curve', curvePanel)}
 
-      {roleTags && <TagCounts deck={deck} entries={entries} roleTags={roleTags} tagging={tagging} onTag={onTag} />}
+      {roleTags && fold('roles', <TagCounts deck={deck} entries={entries} roleTags={roleTags} tagging={tagging} onTag={onTag} />)}
 
-      <HandOddsPanel deck={deck} cardsById={cardsById} roleTags={roleTags} index={3} />
+      {fold('hand', <HandOddsPanel deck={deck} cardsById={cardsById} roleTags={roleTags} index={3} />)}
 
-      {symbolsPanel}
+      {fold('pips', symbolsPanel)}
 
-      {lands > 0 && (
+      {lands > 0 && fold('manabase', (
         <div className="panel rise" style={rise(3)}>
-          <div className="p-h"><h3>Mana base</h3></div>
+          <PanelHead title="Mana base" closed={`${lands} ${lands === 1 ? 'land' : 'lands'}`} />
           <div className="dim" style={{ marginBottom: 8 }}>{lands} lands · {library} cards in library</div>
           {sources.length === 0 ? (
             <div className="dim">No colour-producing lands found in this deck's card data.</div>
@@ -265,15 +307,19 @@ export function DeckStats({ deck, cardsById, roleTags, tagging = false, onTag }:
             </>
           )}
         </div>
-      )}
+      ))}
 
-      {typesPanel}
+      {fold('types', typesPanel)}
 
-      <DeckLegality deck={deck} cardsById={cardsById} index={3} />
+      {fold('combos', <DeckCombosPanel deck={deck} index={4} />)}
 
-      <DeckCombosPanel deck={deck} index={4} />
+      {fold('tokens', <TokensPanel deck={deck} cardsById={cardsById} />)}
     </div>
   )
+}
+
+function SummaryFigure({ value, label }: { value: string; label: string }) {
+  return <div className="summary-figure"><b>{value}</b><span>{label}</span></div>
 }
 
 /**
@@ -316,7 +362,7 @@ function TagCounts({ deck, entries, roleTags, tagging, onTag }: {
 
   return (
     <div className="panel rise" style={rise(3)}>
-      <div className="p-h"><h3>What the cards do</h3>{tagging && <span className="p-sub">Finding tags…</span>}</div>
+      <PanelHead title="What the cards do">{tagging && <span className="p-sub">Finding tags…</span>}</PanelHead>
       {ids.length === 0 ? (
         <div className="dim">{tagging ? 'Looking up what each card does…' : 'No tags for these cards yet.'}</div>
       ) : ids.map((id, i) => {

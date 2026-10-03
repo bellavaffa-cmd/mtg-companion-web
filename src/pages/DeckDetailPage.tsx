@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { TokensPanel } from '../components/TokensPanel'
 import { allUserTags, userTagsOf } from '../collection/userTags'
 import { PrintingPicker, printingName } from '../components/PrintingPicker'
 import { useMoney } from '../money/currency'
@@ -36,7 +35,6 @@ import { ShareSwitch } from '../social/ShareDialog'
 import { ownedNameKeys } from '../collection/owned'
 import { DeckSwaps } from '../components/DeckSwaps'
 import { DeckStats, deckFigures, useDeckCardData } from '../components/DeckStats'
-import { MatchRecordPanel } from '../components/MatchRecordPanel'
 import { PlaytestDialog } from '../components/PlaytestDialog'
 import { CompareScreen, ComparePickerDialog, type CompareTarget } from '../components/CompareDialogs'
 import { Dialog } from '../components/Dialog'
@@ -534,9 +532,7 @@ export function DeckDetailPage() {
               {tab === 'Cards' ? cardList : tab === 'Considering' ? consideringList : tab === 'Suggestions' ? suggestions : details}
             </div>
             <aside className="deck-aside">
-              <MatchRecordPanel deck={deck} />
               <DeckStats deck={deck} cardsById={cardData} roleTags={roleTags} tagging={!!tagging} onTag={(label) => { setTabName('Cards'); setFilter(label) }} />
-              <TokensPanel deck={deck} cardsById={cardData} />
             </aside>
           </div>
         ) : (
@@ -557,9 +553,7 @@ export function DeckDetailPage() {
             {tab === 'Considering' && consideringList}
             {tab === 'Stats' && (
               <div style={{ marginTop: 12 }}>
-                <MatchRecordPanel deck={deck} />
                 <DeckStats deck={deck} cardsById={cardData} roleTags={roleTags} tagging={!!tagging} onTag={(label) => { setTabName('Cards'); setFilter(label) }} />
-                <TokensPanel deck={deck} cardsById={cardData} />
               </div>
             )}
             {tab === 'Suggestions' && <div style={{ marginTop: 12 }}>{suggestions}</div>}

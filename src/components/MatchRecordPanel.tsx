@@ -6,6 +6,7 @@ import { gameStats, matchupRecord, type Matchup } from '../decks/gameStats'
 import { Dialog } from './Dialog'
 import { Icon } from './Icon'
 import { rise } from './kit'
+import { PanelHead } from './StatsFold'
 
 // A deck's games on its Stats: the record and recent form, how long its games run, and how it does
 // against each commander and each person it has faced — then the latest games. Mirrors the
@@ -14,7 +15,8 @@ import { rise } from './kit'
 const LATEST = 5
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 
-export function MatchRecordPanel({ deck }: { deck: Deck }) {
+/** [closed]: the line its heading shows while the panel is folded away on Stats. */
+export function MatchRecordPanel({ deck, closed }: { deck: Deck; closed?: string }) {
   const { addGameResult, removeGameResult } = useSync()
   const stats = useMemo(() => gameStats(deck.gameResults), [deck.gameResults])
   const [logging, setLogging] = useState(false)
@@ -25,10 +27,9 @@ export function MatchRecordPanel({ deck }: { deck: Deck }) {
 
   return (
     <div className="panel match-panel rise" style={rise(0)}>
-      <div className="p-h">
-        <h3>Match record</h3>
+      <PanelHead title="Match record" closed={closed}>
         <button type="button" className="link" onClick={() => setLogging(true)}>Log result</button>
-      </div>
+      </PanelHead>
       {stats.games === 0 ? (
         <div className="dim">No games logged yet. Games you play with your phone as a remote at a life counter table are saved here by themselves.</div>
       ) : (
