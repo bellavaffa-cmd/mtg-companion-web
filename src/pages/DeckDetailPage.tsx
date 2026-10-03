@@ -38,6 +38,7 @@ import { DeckSwaps } from '../components/DeckSwaps'
 import { DeckStats, deckFigures, useDeckCardData } from '../components/DeckStats'
 import { MatchRecordPanel } from '../components/MatchRecordPanel'
 import { PlaytestDialog } from '../components/PlaytestDialog'
+import { CompareScreen, ComparePickerDialog, type CompareTarget } from '../components/CompareDialogs'
 import { Dialog } from '../components/Dialog'
 import {
   ArtImage, CountUp, IconButton, ManaPips, PillChip, SearchPill, SegmentedTabs, TYPE_GROUPS, TYPE_PLURALS,
@@ -113,6 +114,9 @@ export function DeckDetailPage() {
   const [sharing, setSharing] = useState(false)
   const [whoHas, setWhoHas] = useState(false)
   const [goldfish, setGoldfish] = useState(false)
+  // "Compare with…": first the picker (a deck or a saved version), then the comparison itself.
+  const [comparePicking, setComparePicking] = useState(false)
+  const [compareWith, setCompareWith] = useState<CompareTarget | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   // A commander (or partner) about to come out of the deck, waiting for a yes.
   const [removingCommander, setRemovingCommander] = useState<DeckCardEntry | null>(null)
@@ -683,6 +687,7 @@ export function DeckDetailPage() {
           actions={[
             { label: 'Share with friends', icon: 'group', detail: 'View only — friends, pods or a link', onClick: () => setSharing(true) },
             { label: 'Playtest', icon: 'playing_cards', detail: 'Mulligan, play or draw, then turns', onClick: () => setGoldfish(true) },
+            { label: 'Compare with…', icon: 'compare_arrows', detail: 'Another deck or a saved version', onClick: () => setComparePicking(true) },
             { label: 'Who has it?', icon: 'person_search', detail: "Friends who own the cards you're missing", onClick: () => setWhoHas(true) },
             ...(missing.length > 0
               ? [{
@@ -849,6 +854,14 @@ export function DeckDetailPage() {
       {showExport && <ExportDeckDialog deck={deck} onDismiss={() => setShowExport(false)} />}
       {sharing && <ShareDialog kind="deck" itemId={deck.id} name={deck.name} onClose={() => setSharing(false)} />}
       {whoHas && <WhoHasItSheet deck={deck} onClose={() => setWhoHas(false)} />}
+      {comparePicking && (
+        <ComparePickerDialog
+          deck={deck} decks={decks}
+          onPick={(target) => { setComparePicking(false); setCompareWith(target) }}
+          onDismiss={() => setComparePicking(false)}
+        />
+      )}
+      {compareWith && <CompareScreen deck={deck} target={compareWith} onClose={() => setCompareWith(null)} />}
       {goldfish && <PlaytestDialog deck={deck} cardsById={cardData} onClose={() => setGoldfish(false)} />}
 
       {zoomSuggestion && (
