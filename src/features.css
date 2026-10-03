@@ -256,3 +256,80 @@
   color: var(--gold-light);
   font-weight: 700;
 }
+
+/* ---- Search: Cards / Combos, and the combo search ---- */
+
+.search-mode {
+  margin-bottom: 12px;
+}
+.combo-colors {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+.combo-color {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--g1);
+  cursor: pointer;
+}
+.combo-color.on {
+  border: 2px solid var(--gold);
+  background: var(--gold-soft);
+}
+.combo-results-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.combo-card {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--g1);
+  color: inherit;
+  text-decoration: none;
+}
+.combo-card:hover {
+  background: var(--g2);
+}
+.combo-arts {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.combo-arts img,
+.combo-art-blank {
+  width: 56px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--g2);
+}
+.combo-names {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--gold-light);
+}
+.combo-produces {
+  font-size: 12.5px;
+  color: var(--t2);
+}
+.combo-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold);
+}
+.combo-link .icon {
+  font-size: 14px;
+}

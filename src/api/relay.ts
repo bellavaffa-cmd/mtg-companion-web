@@ -121,3 +121,14 @@ export async function combosUsingCard(cardName: string, limit = 6): Promise<Comb
 }
 
 export const comboUrl = (id: string) => `https://commanderspellbook.com/combo/${encodeURIComponent(id)}/`
+
+/**
+ * Commander Spellbook's combo search, for the Search page's Combos mode: a query built by
+ * search/comboSearch.ts (card, result, colour identity), most popular first.
+ */
+export async function searchCombos(query: string, limit = 30): Promise<ComboVariant[]> {
+  if (!query.trim()) return []
+  const params = new URLSearchParams({ q: query, limit: String(limit) })
+  const res = await relay<{ results?: ComboVariant[] }>(`/combos/variants?${params}`)
+  return res.results ?? []
+}

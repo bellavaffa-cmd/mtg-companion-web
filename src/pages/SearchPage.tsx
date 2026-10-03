@@ -1,7 +1,8 @@
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Icon } from '../components/Icon'
 import { CardSearchResults } from '../components/CardSearchResults'
-import { PageHeader, rise, useLayoutSize } from '../components/kit'
+import { ComboSearch } from '../components/ComboSearch'
+import { PageHeader, PillChip, rise, useLayoutSize } from '../components/kit'
 
 const EXAMPLES = [
   { label: 'Green creatures', query: 'c:g t:creature' },
@@ -12,9 +13,12 @@ const EXAMPLES = [
 ]
 
 export function SearchPage() {
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
   const wide = useLayoutSize() !== 'phone'
+  // Cards (Scryfall) or Combos (Commander Spellbook), as the phone's Search; kept in the address.
+  const combos = params.get('mode') === 'combos'
+  const setMode = (toCombos: boolean) => setParams(toCombos ? { mode: 'combos' } : {}, { replace: true })
   return (
     <>
       <PageHeader
@@ -23,12 +27,20 @@ export function SearchPage() {
         actions={<button type="button" className="btn line" onClick={() => navigate('/scan')}><Icon name="photo_camera" />Scan</button>}
       />
       <div className={`content-scroll${wide ? '' : ' with-nav'} rise`} style={rise(1)}>
-        <div className="wide-search">
-          <CardSearchResults examples={EXAMPLES} autoFocus initialQuery={params.get('q') ?? ''} wide={wide} filterable />
+        <div className="chips search-mode" role="group" aria-label="Search for">
+          <PillChip label="Cards" selected={!combos} onClick={() => setMode(false)} />
+          <PillChip label="Combos" selected={combos} onClick={() => setMode(true)} />
         </div>
-        <p className="dim" style={{ margin: '18px 4px 0' }}>
-          Tap a card to see it up close. Use ⋮ (or right-click) to add it to a deck or binder.
-        </p>
+        <div className="wide-search">
+          {combos
+            ? <ComboSearch />
+            : <CardSearchResults examples={EXAMPLES} autoFocus initialQuery={params.get('q') ?? ''} wide={wide} filterable />}
+        </div>
+        {!combos && (
+          <p className="dim" style={{ margin: '18px 4px 0' }}>
+            Tap a card to see it up close. Use ⋮ (or right-click) to add it to a deck or binder.
+          </p>
+        )}
       </div>
     </>
   )
