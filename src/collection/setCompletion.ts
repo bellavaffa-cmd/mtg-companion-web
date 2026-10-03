@@ -19,7 +19,6 @@ export interface SetInfo {
 /** How much of [set] the user has: [owned] of its printings. */
 export interface SetProgress { set: SetInfo; owned: number }
 
-export const setTotal = (p: SetProgress) => p.set.cardCount
 /** 0..1; 0 when the set's size isn't known. */
 export const setFraction = (p: SetProgress) => (p.set.cardCount <= 0 ? 0 : Math.min(1, Math.max(0, p.owned / p.set.cardCount)))
 /** Whole percent, rounded down so a set shows 100% only when it's complete. */

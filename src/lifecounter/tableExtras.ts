@@ -43,7 +43,6 @@ export const TRIGGER_STEPS = [
 ] as const
 export type TriggerStep = (typeof TRIGGER_STEPS)[number]['wire']
 
-const stepIndex = (step: TriggerStep) => TRIGGER_STEPS.findIndex((s) => s.wire === step)
 export const triggerStepOfWire = (wire: unknown): TriggerStep | null =>
   TRIGGER_STEPS.find((s) => s.wire === wire)?.wire ?? null
 
@@ -245,5 +244,3 @@ export function changedTokenCounts(counts: Record<string, number>, tokens: SeatT
 export const holdAfterOk = (holder: number | null | undefined, seat: number): number | null =>
   holder != null && holder !== seat ? null : holder ?? null
 
-/** The steps' order, for sorting. */
-export const compareSteps = (a: TriggerStep, b: TriggerStep) => stepIndex(a) - stepIndex(b)

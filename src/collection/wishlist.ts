@@ -13,9 +13,6 @@ export const isWishlist = (c: Collection): boolean => c.id === WISHLIST_ID
 
 const key = (name: string) => name.trim().toLowerCase()
 
-/** Whether [c] is the Wishlist with nothing in it — not something the user made. */
-export const isEmptyWishlist = (c: Collection): boolean => isWishlist(c) && c.entries.length === 0
-
 /**
  * [collections] with the Wishlist as it should be:
  *  - there, whatever else;

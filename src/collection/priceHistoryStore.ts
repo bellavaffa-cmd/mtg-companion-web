@@ -73,9 +73,6 @@ export function loadPriceHistory(): Promise<Map<string, PriceTrack>> {
   return loading
 }
 
-/** The history as it stands; null until it's been read ([loadPriceHistory]). */
-export const priceHistoryNow = () => tracks
-
 /**
  * Notes today's prices of these cards (scryfallId → Scryfall's prices); stored only when something
  * changed. Never throws: a failed write leaves the history in memory for this visit.

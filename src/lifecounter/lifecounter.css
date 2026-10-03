@@ -165,16 +165,6 @@
 @keyframes lc-pop {
   from { transform: scale(0); opacity: 0; }
 }
-.lc-out-note {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 12%;
-  z-index: 1;
-  text-align: center;
-  font-size: min(11cqh, 7cqw);
-  pointer-events: none;
-}
 
 .lc-tap {
   position: absolute;
@@ -252,8 +242,7 @@
   gap: 3px;
 }
 .lc-dmg i,
-.lc-counter-mid i,
-.lc-dot {
+.lc-counter-mid i {
   display: inline-block;
   width: 0.5em;
   height: 0.5em;

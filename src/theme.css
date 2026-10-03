@@ -72,8 +72,7 @@
 
 /* Over card art the text stays light whatever the theme, so it keeps the dark set. */
 :root[data-theme='light'] .lc-root,
-:root[data-theme='light'] .rm-root,
-:root[data-theme='light'] .on-art {
+:root[data-theme='light'] .rm-root {
   --t0: #f1eee6;
   --t1: #c9cad3;
   --t2: #9a9ca7;
@@ -445,14 +444,12 @@ img {
   font-size: 18px;
 }
 
-.btn.gold,
-.btn-primary {
+.btn.gold {
   background: var(--gold);
   color: var(--gold-ink);
 }
 
-.btn.gold:hover,
-.btn-primary:hover {
+.btn.gold:hover {
   background: var(--gold-light);
 }
 
@@ -471,8 +468,7 @@ img {
   border-radius: 11px;
 }
 
-.btn.danger,
-.btn-danger {
+.btn.danger {
   background: color-mix(in srgb, var(--error) 12%, transparent);
   color: var(--error);
 }
@@ -656,8 +652,7 @@ select.input {
   font-size: 12px;
 }
 
-.badge.gold,
-.badge-gold {
+.badge.gold {
   background: var(--gold);
   color: var(--gold-ink);
 }
@@ -865,15 +860,13 @@ select.input {
 
 /* ---- Panels & stats ---- */
 
-.panel,
-.card-panel {
+.panel {
   background: var(--g1);
   border-radius: 22px;
   padding: 16px;
 }
 
-.panel + .panel,
-.card-panel + .card-panel {
+.panel + .panel {
   margin-top: 10px;
 }
 
@@ -989,8 +982,7 @@ select.input {
   line-height: 1.45;
 }
 
-.notice.warn,
-.add-warning {
+.notice.warn {
   background: color-mix(in srgb, var(--warn) 14%, transparent);
   color: var(--warn);
   padding: 10px 14px;
