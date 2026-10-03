@@ -7,6 +7,7 @@ import { allUserTags, userTagsOf } from '../collection/userTags'
 import { biggerImageUrl } from '../types/scryfall'
 import { PrintingPicker, printingName } from '../components/PrintingPicker'
 import { useEffect, useMemo, useState } from 'react'
+import { knownCards, useCardData } from './cardData'
 import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { Icon } from '../components/Icon'
@@ -20,7 +21,6 @@ import { useLongPress } from '../components/useLongPress'
 import { ArtImage, IconButton, PillChip, SearchPill, rise, toArtCrop, useLayoutSize } from '../components/kit'
 import { getCardsByIds } from '../api/scryfall'
 import { buyCardUrl } from '../api/buy'
-import type { ScryfallCard } from '../types/scryfall'
 import { isUnsorted, type Collection } from '../types/models'
 import { isWishlist } from './wishlist'
 import { allCardsOf, copiesInBinders, csvExportEntries, dashboardOf, exportEntries, type AllCard, type CollectionDashboard } from './allCards'
@@ -34,29 +34,8 @@ import { CollectionFilterPanel } from './CollectionFilterPanel'
 import { useCardViewMode } from '../settings/settings'
 
 
-// Scryfall's data for the cards owned (price, colours, type), kept for this visit: a card added
-// later is fetched on its own, not the whole collection again.
-const known = new Map<string, ScryfallCard>()
-
-/** Scryfall's data for [ids], as it comes: undefined while the first batch loads. */
-function useCardData(ids: string[]): Map<string, ScryfallCard> | undefined {
-  const key = [...ids].sort().join(',')
-  const [version, setVersion] = useState(0)
-  useEffect(() => {
-    const missing = ids.filter((id) => !known.has(id))
-    if (missing.length === 0) return
-    let cancelled = false
-    void getCardsByIds(missing).then((cards) => {
-      for (const c of cards) known.set(c.id, c)
-      if (!cancelled) setVersion((v) => v + 1)
-    })
-    return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key])
-  return useMemo(() => (ids.length === 0 || ids.some((id) => known.has(id)) ? new Map(known) : undefined),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [key, version])
-}
+// Scryfall's data for the cards owned, kept for this visit (see cardData.ts).
+const known = knownCards
 
 export function AllCardsTab({ onImport }: { onImport: () => void }) {
   const { collections, decks, gatherIntoBinder, removeFromCollection, addCardsToDeck, changePrintingEverywhere, setCardTags, recordUndo } = useSync()

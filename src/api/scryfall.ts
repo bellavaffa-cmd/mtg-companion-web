@@ -1,4 +1,5 @@
 import { primaryType, type ScryfallCard } from '../types/scryfall'
+import type { SetInfo } from '../collection/setCompletion'
 
 // Scryfall sends `Access-Control-Allow-Origin: *` on every response (verified live) so this can
 // call the API directly from the browser with no proxy. Still identify the app per their API
@@ -230,4 +231,38 @@ export async function findSimilarCards(card: ScryfallCard, limit = 12): Promise<
   const { cards } = await searchCards(parts.join(' '), 1, 'edhrec')
   const excludeId = card.oracle_id ?? card.id
   return cards.filter((c) => (c.oracle_id ?? c.id) !== excludeId).slice(0, limit)
+}
+
+/** Scryfall's sets, kept for this visit: they change a few times a month. */
+let setsCache: Map<string, SetInfo> | null = null
+
+/** Every set by its (lower-case) code, from Scryfall's /sets — asked once a visit, then remembered. */
+export async function getSets(): Promise<Map<string, SetInfo>> {
+  if (setsCache) return setsCache
+  const res = await get(`${BASE}/sets`)
+  if (!res.ok) throw new Error(`Scryfall couldn't send its sets (HTTP ${res.status}).`)
+  const json = await res.json()
+  const sets = new Map<string, SetInfo>()
+  for (const s of (json.data ?? []) as { code?: string; name?: string; card_count?: number; released_at?: string; icon_svg_uri?: string }[]) {
+    // One odd set mustn't fail the whole list.
+    const code = s.code?.toLowerCase()
+    if (!code) continue
+    sets.set(code, { code, name: s.name ?? code.toUpperCase(), cardCount: s.card_count ?? 0, releasedAt: s.released_at ?? null, iconSvgUri: s.icon_svg_uri ?? null })
+  }
+  if (sets.size > 0) setsCache = sets
+  return sets
+}
+
+/**
+ * Every printing in the set [code], in the set's order — a page of 175 at a time, up to [maxPages]
+ * pages. Scryfall's extras (art cards and the like) are included, as its card_count counts them.
+ */
+export async function getSetCards(code: string, maxPages = 12): Promise<ScryfallCard[]> {
+  const all: ScryfallCard[] = []
+  for (let page = 1; page <= maxPages; page++) {
+    const result = await searchCards(`e:${code.toLowerCase()} unique:prints include:extras`, page, 'set', 'asc')
+    all.push(...result.cards)
+    if (!result.hasMore) break
+  }
+  return all
 }

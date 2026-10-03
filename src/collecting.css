@@ -209,3 +209,139 @@
   color: var(--gold);
   font-size: 15px;
 }
+
+/* Collection → Sets: a row a set, with how much of it you have. */
+.set-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.set-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--g1);
+  color: var(--t0);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+:root[data-theme='light'] .set-row {
+  border-color: var(--g3);
+}
+.set-row.complete {
+  border-color: var(--gold);
+}
+.set-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+}
+.set-symbol {
+  display: block;
+  width: 26px;
+  height: 26px;
+  background: var(--t0);
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+}
+.set-row.complete .set-symbol {
+  background: var(--gold);
+}
+.set-code {
+  color: var(--t1);
+  font-size: 10px;
+  font-weight: 800;
+}
+.set-main {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+}
+.set-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.set-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+}
+.set-percent {
+  font-size: 13px;
+}
+.set-row.complete .set-percent {
+  color: var(--gold);
+}
+.set-bar {
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--g3);
+  overflow: hidden;
+}
+.set-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--gold);
+}
+.set-meta {
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A set's cards: owned ones stand out, missing ones are dimmed. */
+.set-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 720px;
+  margin-top: 12px;
+}
+.set-head .set-bar {
+  height: 6px;
+}
+.card-cell.set-card {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--t0);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.set-card.owned .card-cell-img {
+  box-shadow: inset 0 0 0 2px var(--gold);
+}
+.set-card.owned .card-cell-img > img {
+  padding: 2px;
+  border-radius: 12px;
+}
+.set-card.missing .card-cell-img {
+  opacity: 0.35;
+}
+.set-card.missing .card-cell-name {
+  color: var(--t1);
+}
