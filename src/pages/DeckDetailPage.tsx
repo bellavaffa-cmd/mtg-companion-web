@@ -31,6 +31,7 @@ import { useUndoBar } from '../components/useUndoBar'
 import { doneMessage } from '../collection/addTo'
 import { backImageUrl, cardTags, displayImageUrl, displayManaCost, displayOracleText, entryCanBeCommander, type ScryfallCard } from '../types/scryfall'
 import { DeckSuggestions } from '../components/DeckSuggestions'
+import { DeckSwaps } from '../components/DeckSwaps'
 import { DeckStats, deckFigures, useDeckCardData } from '../components/DeckStats'
 import { MatchRecordPanel } from '../components/MatchRecordPanel'
 import { GoldfishDialog } from '../components/GoldfishDialog'
@@ -400,7 +401,13 @@ export function DeckDetailPage() {
 
   /** A suggestion the user likes goes into Considering, not into the deck. */
   const consider = (card: ScryfallCard) => addToDeck(card, true)
-  const suggestions = <DeckSuggestions deck={deck} onExpand={setZoomSuggestion} onConsider={consider} />
+  const suggestions = (
+    <>
+      <DeckSwaps deck={deck} cardsById={cardData} roleTags={roleTags} onExpand={setZoomSuggestion} onMarkCut={markCut} />
+      <div className="p-h" style={{ marginTop: 18 }}><h3>EDHREC suggestions</h3></div>
+      <DeckSuggestions deck={deck} onExpand={setZoomSuggestion} onConsider={consider} />
+    </>
+  )
   const details = <DeckDetails deck={deck} onDelete={() => setConfirmDelete(true)} />
 
   return (

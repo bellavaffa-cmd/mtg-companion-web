@@ -21,6 +21,8 @@ interface Props {
   binders?: boolean | ((c: Collection) => boolean)
   /** Whether decks are on offer (default: yes). */
   decks?: boolean
+  /** Only this deck on offer — a suggestion for the deck being viewed, into it or its Considering list. */
+  onlyDeckId?: string
   /** Offer "New binder…" and "New deck…". */
   create?: boolean
   /** Scan: the Unsorted pile, first thing on the first step. */
@@ -46,12 +48,12 @@ type Step = 'kinds' | TargetKind | 'new-binder' | 'new-deck'
  * steps. Its own component rather than an ActionSheet, which closes before its action runs.
  */
 export function AddToSheet({
-  verb, what, imageUrl, subtitle, binders = true, decks: decksOffered = true, create = false, unsorted = false,
+  verb, what, imageUrl, subtitle, binders = true, decks: decksOffered = true, onlyDeckId, create = false, unsorted = false,
   considering: consideringAtFirst = false, quantity = { initial: 1 }, foil = null, onPick, onClose,
 }: Props) {
   const { collections, decks, createCollection, createDeck } = useSync()
   const binderList = binders === false ? [] : collections.filter((c) => (unsorted ? !isUnsorted(c) : true) && (binders === true || binders(c)))
-  const deckList = decksOffered ? decks : []
+  const deckList = !decksOffered ? [] : onlyDeckId ? decks.filter((d) => d.id === onlyDeckId) : decks
   const offersBinders = binders !== false && (binderList.length > 0 || create)
   const offersDecks = decksOffered && (deckList.length > 0 || create)
   const asksFirst = unsorted || (offersBinders && offersDecks)
