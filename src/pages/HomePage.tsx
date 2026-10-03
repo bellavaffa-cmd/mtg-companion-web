@@ -473,7 +473,7 @@ function BinderSummary({ collections: all, onOpen, onAll }: { collections: Colle
 function PriceAlertBanner({ hits, onOpen, onDismiss }: { hits: AlertHit[]; onOpen: (hit: AlertHit) => void; onDismiss: () => void }) {
   const money = useMoney()
   return (
-    <div className="banner rise price-alert-banner" style={{ ...rise(1), marginBottom: 0 }} role="status">
+    <div className="banner rise price-alert-banner" style={rise(1)} role="status">
       <div className="price-alert-head">
         <Icon name="notifications_active" />
         <b className="banner-text">{hits.length === 1 ? 'A price alert went off' : `${hits.length} price alerts went off`}</b>

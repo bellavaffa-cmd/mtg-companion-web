@@ -83,7 +83,10 @@ export const priceHistoryNow = () => tracks
 export async function recordCardPrices(prices: Map<string, ScryfallPrices | null | undefined>): Promise<void> {
   if (prices.size === 0) return
   try {
-    const had = await loadPriceHistory()
+    await loadPriceHistory()
+    // The history as it is now, not as it was read: two notes can be on their way at once (Home's
+    // value and the alert check), and the second mustn't undo the first.
+    const had = tracks ?? new Map<string, PriceTrack>()
     const next = withPricesNoted(had, epochDay(), prices)
     if (next === had) return
     tracks = next
