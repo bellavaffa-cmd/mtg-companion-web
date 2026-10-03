@@ -18,6 +18,7 @@ import { isUnsorted, type Collection, type Deck } from '../types/models'
 import { isBinder } from '../collection/unsorted'
 import { isWishlist } from '../collection/wishlist'
 import { usePriceAlertHits } from '../collection/priceAlerts'
+import type { AlertHit } from '../collection/priceAlertRules'
 import { useCollectionValue } from '../collection/valueHistory'
 import { useMoney } from '../money/currency'
 import { proxySwaps } from '../decks/proxies'
@@ -108,7 +109,11 @@ export function HomePage() {
   )
 
   const alertBanner = priceAlerts.hits.length > 0 && (
-    <PriceAlertBanner hits={priceAlerts.hits} onOpen={(id) => navigate(`/collections/${id}`)} onDismiss={priceAlerts.dismiss} />
+    <PriceAlertBanner
+      hits={priceAlerts.hits}
+      onOpen={(hit) => navigate(`/card/${encodeURIComponent(hit.watch.entry.name)}?id=${hit.watch.entry.scryfallId}`)}
+      onDismiss={priceAlerts.dismiss}
+    />
   )
   // Proxies you've since bought for real: worth saying here, rather than only inside the deck.
   const swaps = useMemo(() => proxySwaps(collections, decks), [collections, decks])
@@ -460,20 +465,32 @@ function BinderSummary({ collections: all, onOpen, onAll }: { collections: Colle
   )
 }
 
-/** Wishlist cards that dropped to (or under) the price the user asked to hear about. */
-function PriceAlertBanner({ hits, onOpen, onDismiss }: { hits: import('../collection/priceAlerts').PriceAlertHit[]; onOpen: (collectionId: string) => void; onDismiss: () => void }) {
-  const first = hits[0]
+/**
+ * The price alerts that have gone off, both kinds: wishlist cards now at or under the price set
+ * ("buy it") and owned cards now at or over it ("sell or trade it"). A card opens its page. The
+ * Android app's PriceAlertBanner (HomeScreen.kt), with a close button for this visit.
+ */
+function PriceAlertBanner({ hits, onOpen, onDismiss }: { hits: AlertHit[]; onOpen: (hit: AlertHit) => void; onDismiss: () => void }) {
   const money = useMoney()
-  const formatUsd = (v: number) => money.format(v)
   return (
-    <div className="banner rise price-alert-banner" style={{ ...rise(1), marginBottom: 0 }} role="status">
-      <Icon name="notifications_active" />
-      <button type="button" className="banner-text" onClick={() => onOpen(first.collectionId)}>
-        {hits.length === 1
-          ? <><b>{first.entry.name}</b> is {formatUsd(first.price)} — under your {formatUsd(first.entry.priceAlert ?? 0)} alert</>
-          : <><b>{hits.length} wishlist cards</b> are under your alert prices: {hits.map((h) => `${h.entry.name} ${formatUsd(h.price)}`).join(', ')}</>}
-      </button>
-      <button type="button" className="icon-btn" aria-label="Dismiss" onClick={onDismiss}><Icon name="close" /></button>
+    <div className="banner rise price-alert-banner" style={rise(1)} role="status">
+      <div className="price-alert-head">
+        <Icon name="notifications_active" />
+        <b className="banner-text">{hits.length === 1 ? 'A price alert went off' : `${hits.length} price alerts went off`}</b>
+        <button type="button" className="icon-btn" aria-label="Dismiss" onClick={onDismiss}><Icon name="close" /></button>
+      </div>
+      {hits.slice(0, 6).map((hit) => {
+        const below = hit.watch.direction === 'BELOW'
+        return (
+          <button key={`${hit.watch.collectionId}:${hit.watch.direction}:${hit.watch.entry.scryfallId}`} type="button" className="price-alert-row press" onClick={() => onOpen(hit)}>
+            <span className="price-alert-name">{hit.watch.entry.name}</span>
+            <span className={`price-alert-price ${below ? 'below' : 'above'}`}>
+              {money.format(hit.price)}{below ? ` · under ${money.format(hit.watch.target)} (wishlist)` : ` · over ${money.format(hit.watch.target)} (owned)`}
+            </span>
+          </button>
+        )
+      })}
+      {hits.length > 6 && <div className="dim price-alert-more">and {hits.length - 6} more</div>}
     </div>
   )
 }

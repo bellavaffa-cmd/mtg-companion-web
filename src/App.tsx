@@ -8,6 +8,7 @@ import { UndoProvider } from './components/UndoBar'
 import { HomePage } from './pages/HomePage'
 import { CollectionsPage } from './pages/CollectionsPage'
 import { CollectionDetailPage } from './pages/CollectionDetailPage'
+import { SetCardsPage } from './pages/SetCardsPage'
 import { DecksPage } from './pages/DecksPage'
 import { PreconsPage } from './pages/PreconsPage'
 import { NewDeckPage } from './pages/NewDeckPage'
@@ -53,6 +54,7 @@ export default function App() {
             <Route path="/collections" element={<CollectionsPage />} />
             <Route path="/collections/:id" element={<CollectionDetailPage />} />
             <Route path="/collections/tag/:tagId" element={<TagBinderPage />} />
+            <Route path="/collections/set/:code" element={<SetCardsPage />} />
             <Route path="/decks" element={<DecksPage />} />
             <Route path="/decks/new" element={<NewDeckPage />} />
             <Route path="/decks/:id" element={<DeckDetailPage />} />

@@ -3,6 +3,8 @@ import { Icon } from '../components/Icon'
 import { ArtImage, SearchPill, toArtCrop } from '../components/kit'
 import type { CollectionEntry } from '../types/models'
 import type { TradeCard } from './api'
+import { CopyBadge } from '../components/CopyBadge'
+import { conditionName } from '../collection/copyDetails'
 
 /** The same card, finish and binder are one line of a trade. */
 export const tradeKey = (c: Pick<TradeCard, 'scryfallId' | 'foil' | 'collectionId'>) => `${c.collectionId ?? ''}:${c.scryfallId}:${c.foil ? 'f' : 'n'}`
@@ -35,7 +37,7 @@ export function BinderPicker({
   const count = (e: CollectionEntry, foil: boolean) =>
     picked.find((c) => tradeKey(c) === tradeKey({ scryfallId: e.scryfallId, foil, collectionId }))?.quantity ?? 0
   const set = (e: CollectionEntry, foil: boolean, quantity: number) =>
-    onChange(withQuantity(picked, { scryfallId: e.scryfallId, name: e.name, imageUrl: e.imageUrl, foil, quantity: 0, collectionId }, quantity))
+    onChange(withQuantity(picked, { scryfallId: e.scryfallId, name: e.name, imageUrl: e.imageUrl, foil, quantity: 0, collectionId, ...(e.condition ? { condition: e.condition } : {}) }, quantity))
 
   if (entries.length === 0) return <div className="notice">{emptyText}</div>
   return (
@@ -82,6 +84,8 @@ export function TradeCardList({ cards, empty, onRemove }: { cards: TradeCard[]; 
           <span className="tc-qty">{c.quantity}×</span>
           <span className="tc-name">{c.name}</span>
           {c.foil && <span className="badge gold"><Icon name="auto_awesome" aria-hidden />Foil</span>}
+          {/* The condition the giver gave their copies, when they said. */}
+          {c.condition && <CopyBadge text={c.condition} title={conditionName(c.condition)} />}
           {onRemove && (
             <button type="button" className="tc-remove" onClick={() => onRemove(c)} aria-label={`Remove ${c.name}`}><Icon name="close" /></button>
           )}

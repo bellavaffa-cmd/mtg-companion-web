@@ -7,6 +7,9 @@ import { allUserTags, userTagsOf } from '../collection/userTags'
 import { biggerImageUrl } from '../types/scryfall'
 import { PrintingPicker, printingName } from '../components/PrintingPicker'
 import { useEffect, useMemo, useState } from 'react'
+import { knownCards, useCardData } from './cardData'
+import { BreakdownPanel } from './BreakdownPanel'
+import { collectionBreakdown } from './breakdown'
 import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { Icon } from '../components/Icon'
@@ -20,10 +23,9 @@ import { useLongPress } from '../components/useLongPress'
 import { ArtImage, IconButton, PillChip, SearchPill, rise, toArtCrop, useLayoutSize } from '../components/kit'
 import { getCardsByIds } from '../api/scryfall'
 import { buyCardUrl } from '../api/buy'
-import type { ScryfallCard } from '../types/scryfall'
 import { isUnsorted, type Collection } from '../types/models'
 import { isWishlist } from './wishlist'
-import { allCardsOf, copiesInBinders, dashboardOf, exportEntries, type AllCard, type CollectionDashboard } from './allCards'
+import { allCardsOf, copiesInBinders, csvExportEntries, dashboardOf, exportEntries, type AllCard, type CollectionDashboard } from './allCards'
 import { spares } from './spares'
 import { TradeOfferSheet } from '../social/TradeOffer'
 import { ExportCollectionDialog } from './CardListDialogs'
@@ -34,29 +36,8 @@ import { CollectionFilterPanel } from './CollectionFilterPanel'
 import { useCardViewMode } from '../settings/settings'
 
 
-// Scryfall's data for the cards owned (price, colours, type), kept for this visit: a card added
-// later is fetched on its own, not the whole collection again.
-const known = new Map<string, ScryfallCard>()
-
-/** Scryfall's data for [ids], as it comes: undefined while the first batch loads. */
-function useCardData(ids: string[]): Map<string, ScryfallCard> | undefined {
-  const key = [...ids].sort().join(',')
-  const [version, setVersion] = useState(0)
-  useEffect(() => {
-    const missing = ids.filter((id) => !known.has(id))
-    if (missing.length === 0) return
-    let cancelled = false
-    void getCardsByIds(missing).then((cards) => {
-      for (const c of cards) known.set(c.id, c)
-      if (!cancelled) setVersion((v) => v + 1)
-    })
-    return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key])
-  return useMemo(() => (ids.length === 0 || ids.some((id) => known.has(id)) ? new Map(known) : undefined),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [key, version])
-}
+// Scryfall's data for the cards owned, kept for this visit (see cardData.ts).
+const known = knownCards
 
 export function AllCardsTab({ onImport }: { onImport: () => void }) {
   const { collections, decks, gatherIntoBinder, removeFromCollection, addCardsToDeck, changePrintingEverywhere, setCardTags, recordUndo } = useSync()
@@ -69,6 +50,26 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
   const cardsById = useCardData(cards.map((c) => c.scryfallId))
   const dashboard = useMemo(() => (cardsById ? dashboardOf(cards, cardsById) : null), [cards, cardsById])
   const { tags: roleTags, loading: tagging } = useRoleTags(cards.map((c) => c.name))
+  // Null until the cards' details have loaded.
+  const breakdown = useMemo(() => {
+    if (!cardsById || !dashboard || cards.length === 0) return null
+    return collectionBreakdown(cards.map((c) => {
+      const card = cardsById.get(c.scryfallId)
+      return {
+        id: c.scryfallId,
+        name: c.name,
+        imageUrl: c.imageUrl,
+        // Proxies are print-outs: held, but worth nothing.
+        copies: c.total - c.proxies,
+        usd: dashboard.prices.get(c.scryfallId) ?? null,
+        setCode: card?.set?.toLowerCase() ?? '',
+        setName: card?.set_name ?? '',
+        colors: new Set((card?.color_identity ?? card?.colors ?? []).map((x) => x.charAt(0).toUpperCase())),
+        rarity: card?.rarity ?? '',
+        typeLine: card?.type_line ?? card?.card_faces?.[0]?.type_line ?? '',
+      }
+    }))
+  }, [cards, cardsById, dashboard])
 
   const [query, setQuery] = useState('')
   // Color, type and rarity, as in Search — narrowing the same list the search field does.
@@ -186,6 +187,8 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
       )}
 
       <DashboardPanel dashboard={dashboard} loading={cardsById === undefined} />
+      {/* Where the value sits — by set, colour, rarity, type — and the dearest cards. */}
+      <BreakdownPanel breakdown={breakdown} onViewCard={(c) => navigate(`/card/${encodeURIComponent(c.name)}?id=${c.id}`)} />
 
       <div className="row rise" style={{ ...rise(3), gap: 8, marginTop: 14, maxWidth: size === 'phone' ? undefined : 560 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -285,6 +288,7 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
       {bulk === 'export' && selecting && (
         <ExportCollectionDialog
           collection={{ id: 'all-cards', name: 'All cards', createdAt: 0, type: 'OWNED', entries: exportEntries(collections, cards, pickedIds) }}
+          csvEntries={csvExportEntries(collections, cards, pickedIds)}
           title={`Export ${pickedLabel}`}
           onDismiss={() => setBulk(null)}
         />

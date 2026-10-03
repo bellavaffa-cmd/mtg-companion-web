@@ -81,6 +81,11 @@ export interface TradeCard {
   foil: boolean
   quantity: number
   collectionId?: string
+  /**
+   * The giver's copies' condition ("NM", "LP"… — CollectionEntry.condition), when they've said, so
+   * the other side knows what they'd get. JSON key "condition", left out when there's none.
+   */
+  condition?: string
 }
 
 export type TradeStatus = 'open' | 'accepted' | 'declined' | 'cancelled' | 'countered'

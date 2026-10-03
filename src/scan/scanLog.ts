@@ -6,6 +6,7 @@
  */
 
 import type { ScryfallCard } from '../types/scryfall'
+import { canBeFoil } from '../collection/addTo'
 
 /** [id] counts up per scan, so rows stay apart even when they're the same card. */
 export interface ScanRow {
@@ -19,6 +20,15 @@ export interface ScanRow {
   exact?: boolean
   /** When it was scanned (ms), for spotting a card read twice in the same breath. */
   at: number
+}
+
+/**
+ * [row] as the printing [card]: a printing that never comes in foil can't be a foil copy, so a row
+ * marked foil stops being foil. [exact]: the printing was picked or read off the card. The Android
+ * app's ScanViewModel does the same when a row's printing changes.
+ */
+export function withPrinting(row: ScanRow, card: ScryfallCard, exact: boolean): ScanRow {
+  return { ...row, card, exact, foil: row.foil && canBeFoil(card) }
 }
 
 /** A repeat within this long of the card's last scan reads as the camera catching it twice. */

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './theme.css'
 import './responsive.css'
 import './features.css'
+import './collecting.css'
 import App from './App.tsx'
 import { applyAppearance, watchSystemTheme } from './settings/settings'
 

@@ -27,12 +27,15 @@ import { useMoney } from '../money/currency'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
 import { useCardViewMode } from '../settings/settings'
 import { biggerImageUrl } from '../types/scryfall'
+import { CopyDetailsButton } from '../collection/CopyDetails'
+import { CopyBadge } from '../components/CopyBadge'
+import { conditionName, copyBadges, languageName } from '../collection/copyDetails'
 
 export function CollectionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const back = useBack('/collections?tab=binders')
   const {
-    collections, decks, setEntryQuantities, setEntryPriceAlert, removeEntryFromCollection, removeEntriesFromCollection, moveEntries,
+    collections, decks, setEntryQuantities, setEntryPriceAlert, setEntryPriceAlertAbove, setEntryCopyDetails, removeEntryFromCollection, removeEntriesFromCollection, moveEntries,
     notInterested, wantAgain, changeEntryPrinting, setCardTags, addCardToDeck, addCardsToDeck, recordUndo,
   } = useSync()
   const addCardTo = useAddCardTo()
@@ -519,6 +522,12 @@ export function CollectionDetailPage() {
               </div>
             </div>
           </div>
+          {/* Condition, language and a "rises to" alert belong to owned copies; a wishlist card still has its price history. */}
+          <CopyDetailsButton
+            entry={zoomEntry}
+            onCopyDetails={wishlist ? null : (condition, language) => setEntryCopyDetails(collection.id, zoomEntry.scryfallId, condition, language)}
+            onAlertAbove={wishlist ? null : (usd) => setEntryPriceAlertAbove(collection.id, zoomEntry.scryfallId, usd)}
+          />
         </CardZoomModal>
       )}
     </>
@@ -556,6 +565,9 @@ function EntryRow({
         <div className="cname">{entry.name}</div>
         <div className="cmeta">
           {entry.foilQuantity > 0 && <span className="badge gold"><Icon name="auto_awesome" />{entry.foilQuantity} foil</span>}
+          {/* The copies' condition and language, only when the user has said. */}
+          {copyBadges(entry).map((b) => <CopyBadge key={b} text={b} title={b === entry.condition ? conditionName(b) : languageName(entry.language ?? '')} />)}
+          {entry.priceAlertAbove ? <Icon name="notifications_active" className="copy-alert-bell" aria-label="Price alert set" /> : null}
           {(price != null || entry.priceAlert) && (
             <span className={`price-tag${price != null && entry.priceAlert && price <= entry.priceAlert ? ' hit' : ''}`}>
               {price != null && formatUsd(price)}
@@ -590,6 +602,9 @@ function EntryTile({ entry, selecting, selected, onToggle, onZoom, onMore }: {
         {selecting && <span className={`pick-mark${selected ? ' on' : ''}`} aria-label={selected ? 'Selected' : 'Not selected'}>{selected && <Icon name="check" />}</span>}
         <span className="card-cell-count">×{total}</span>
         {entry.foilQuantity > 0 && <span className="card-cell-proxy"><Icon name="auto_awesome" style={{ fontSize: 12, verticalAlign: -2 }} />{entry.foilQuantity}</span>}
+        {copyBadges(entry).length > 0 && (
+          <span className="card-cell-badges">{copyBadges(entry).map((b) => <CopyBadge key={b} text={b} />)}</span>
+        )}
         {entry.backImageUrl && <span className="flip-badge"><Icon name="autorenew" /></span>}
       </div>
       <div className="row" style={{ gap: 2, alignItems: 'center' }}>

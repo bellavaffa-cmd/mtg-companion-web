@@ -21,6 +21,7 @@ export function offerCards(spares: Spare[], prices?: Map<string, number>, limit 
     imageUrl: s.entry.imageUrl,
     foil: s.copies === s.foils,
     quantity: s.copies,
+    ...(s.entry.condition ? { condition: s.entry.condition } : {}),
   }))
 }
 

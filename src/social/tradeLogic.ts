@@ -7,7 +7,7 @@ import type { SharedCardHit, Trade, TradeCard } from './api'
 
 export interface CollectionChange {
   collectionId: string
-  card: Pick<TradeCard, 'scryfallId' | 'name' | 'imageUrl'>
+  card: Pick<TradeCard, 'scryfallId' | 'name' | 'imageUrl' | 'condition'>
   /** Change in regular copies (negative: taken out). */
   quantity: number
   /** Change in foil copies. */
@@ -80,7 +80,8 @@ export function applyCollectionChanges(collections: Collection[], changes: Colle
       if (existing) {
         entries = q === 0 && f === 0 ? entries.filter((_, j) => j !== i) : entries.map((e, j) => (j === i ? { ...e, quantity: q, foilQuantity: f } : e))
       } else if (q > 0 || f > 0) {
-        entries.push({ scryfallId: ch.card.scryfallId, name: ch.card.name, imageUrl: ch.card.imageUrl ?? null, quantity: q, foilQuantity: f })
+        // Cards a trade brings in arrive in the condition the giver said they were in.
+        entries.push({ scryfallId: ch.card.scryfallId, name: ch.card.name, imageUrl: ch.card.imageUrl ?? null, quantity: q, foilQuantity: f, ...(ch.card.condition ? { condition: ch.card.condition } : {}) })
       }
     }
     return { ...collection, entries }
@@ -134,7 +135,7 @@ export function cardsTheyWant(mine: Collection[], theirs: Collection[]): WantedC
       imageUrl: e.imageUrl,
       copies: copies.reduce((n, c) => n + c.entry.quantity + c.entry.foilQuantity, 0),
       wishlist: wants.get(key)!,
-      card: { scryfallId: e.scryfallId, name: e.name, imageUrl: e.imageUrl, foil: e.quantity <= 0, quantity: 1, collectionId: best.collectionId },
+      card: { scryfallId: e.scryfallId, name: e.name, imageUrl: e.imageUrl, foil: e.quantity <= 0, quantity: 1, collectionId: best.collectionId, ...(e.condition ? { condition: e.condition } : {}) },
     }
   }).sort((a, b) => a.name.localeCompare(b.name))
 }

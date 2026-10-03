@@ -73,9 +73,10 @@ test('ManaBox CSV: set code, number, foil and Scryfall id are used', () => {
 
 test('Moxfield and Deckbox CSV: a set name in Edition is ignored, a code is used', () => {
   const moxfield = 'Count,Tradelist Count,Name,Edition,Condition,Language,Foil,Tags,Last Modified,Collector Number\r\n3,0,Counterspell,mh2,Near Mint,English,foil,,2024-01-01,267\r\n'
-  assert.deepEqual(parseCardList(moxfield).lines, [line(3, 'Counterspell', 'mh2', '267', true)])
+  // Their Condition and Language columns come along too (see copyDetails.test.ts).
+  assert.deepEqual(parseCardList(moxfield).lines, [{ ...line(3, 'Counterspell', 'mh2', '267', true), condition: 'NM', language: 'en' }])
   const deckbox = 'Count,Tradelist Count,Name,Edition,Card Number,Condition,Language,Foil\n1,0,Lightning Bolt,Magic 2010,146,Near Mint,English,'
-  assert.deepEqual(parseCardList(deckbox).lines, [line(1, 'Lightning Bolt', null, '146')])
+  assert.deepEqual(parseCardList(deckbox).lines, [{ ...line(1, 'Lightning Bolt', null, '146'), condition: 'NM', language: 'en' }])
 })
 
 test('the list is written back one line per finish, with printings when given', () => {

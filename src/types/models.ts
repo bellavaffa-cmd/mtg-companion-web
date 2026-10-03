@@ -205,7 +205,26 @@ export interface CollectionEntry {
   userTags?: string[]
   /** The Wishlist: added by itself because a deck is considering the card (see collection/wishlist.ts). */
   auto?: boolean
+  /**
+   * Owned binders: tell the user when this card's price rises to this or more (US dollars; see
+   * collection/priceAlertRules.ts). Checked against the non-foil price, or the foil price when every
+   * copy in the entry is foil. The "above" twin of [priceAlert], the wishlist's "at or below".
+   */
+  priceAlertAbove?: number | null
+  /** The copies' condition: one of CARD_CONDITIONS ("NM", "LP", "MP", "HP", "DMG"); left out = not said. */
+  condition?: string | null
+  /** The language the copies are printed in, as Scryfall codes it (CARD_LANGUAGES: "en", "ja"…); left out = not said. */
+  language?: string | null
 }
+
+// The entry as JSON — locally, in sync and in shared binders — is these fields by name. Keys added
+// for collecting, which the Android app reads and writes the same way (all optional, left out when
+// there's nothing to say; see collection/copyDetails.ts):
+//   "priceAlert":      number, USD — wishlists: notify when the price is at or below it
+//   "priceAlertAbove": number, USD — owned binders: notify when the price is at or above it
+//   "condition":       "NM" | "LP" | "MP" | "HP" | "DMG" — for every copy in the entry
+//   "language":        "en" | "ja" | "de" | "fr" | "it" | "es" | "pt" | "ru" | "ko" | "zhs" | "zht"
+// Copies of one printing in different conditions aren't split into entries: the entry says one.
 
 export interface Collection {
   id: string

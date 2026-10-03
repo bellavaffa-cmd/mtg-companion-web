@@ -59,3 +59,16 @@ test('with no room at all, nothing older comes back after a reload', () => {
   assert.equal(saveNewest(rows(['a', 1]), (keep) => { if (keep.length > 0) return false; stored = keep; return true }), 0)
   assert.deepEqual(stored, [])
 })
+
+test('copies marked foil go in as foil, and a printing without foil drops the mark', async () => {
+  const { withPrinting } = await import('../../src/scan/scanLog.ts')
+  const list = rows(['sol', 9000], ['sol', 4000], ['cult', 2000], ['sol', 0]).map((r, i) => (i < 2 ? { ...r, foil: true } : r))
+  const groups = grouped(list)
+  // Into a binder the foil copies are their own stack; together they're the pile's copies of the card.
+  assert.deepEqual(groups.filter((g) => g.card.id === 'sol').map((g) => [g.foil, g.quantity]), [[false, 1], [true, 2]])
+  assert.equal(groups.filter((g) => g.card.id === 'cult' && g.foil).length, 0)
+  const foilRow = list[0]
+  assert.equal(withPrinting(foilRow, { ...foilRow.card, id: 'x', finishes: ['nonfoil'] }, true).foil, false)
+  assert.equal(withPrinting(foilRow, { ...foilRow.card, id: 'y', finishes: ['nonfoil', 'foil'] }, true).foil, true)
+  assert.equal(withPrinting(foilRow, { ...foilRow.card, id: 'z' }, false).exact, false)
+})

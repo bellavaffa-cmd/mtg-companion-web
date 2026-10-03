@@ -13,12 +13,14 @@ import { ExportCollectionDialog, ImportCardsDialog } from '../collection/CardLis
 import { ShareCollectionDialog } from '../social/ShareWithFriend'
 import { TagBindersSection } from '../collection/TagBinders'
 import { AllCardsTab } from '../collection/AllCardsTab'
+import { SetsTab } from '../collection/SetsTab'
 
 export function CollectionsPage() {
   const { collections, deleteCollection, accountsAvailable } = useSync()
-  // All cards (first, like the Android app), your binders, or (with accounts) what friends share with you.
+  // All cards (first, like the Android app), your binders, your sets — how much of each you have —
+  // or (with accounts) what friends share with you.
   const [params, setParams] = useSearchParams()
-  const tabs = accountsAvailable ? ['all', 'binders', 'shared'] : ['all', 'binders']
+  const tabs = accountsAvailable ? ['all', 'binders', 'sets', 'shared'] : ['all', 'binders', 'sets']
   const tab = tabs.includes(params.get('tab') ?? '') ? params.get('tab')! : 'all'
   const sharedTab = tab === 'shared'
   const navigate = useNavigate()
@@ -65,12 +67,12 @@ export function CollectionsPage() {
       <div className={`content-scroll${wide ? '' : ' with-nav'}`}>
         <div className="rise" style={{ ...rise(0), marginBottom: 14, maxWidth: 480 }}>
           <SegmentedTabs
-            labels={accountsAvailable ? ['All cards', 'Binders', 'Shared'] : ['All cards', 'Binders']}
+            labels={accountsAvailable ? ['All cards', 'Binders', 'Sets', 'Shared'] : ['All cards', 'Binders', 'Sets']}
             selected={tabs.indexOf(tab)}
             onSelect={(i) => setParams(i === 0 ? {} : { tab: tabs[i] }, { replace: true })}
           />
         </div>
-        {sharedTab ? <SharedFriendsView /> : tab === 'all' ? <AllCardsTab onImport={() => setImporting('new')} /> : binders.length === 0 && unsortedCards === 0 && !wishlist?.entries.length ? (
+        {sharedTab ? <SharedFriendsView /> : tab === 'sets' ? <SetsTab /> : tab === 'all' ? <AllCardsTab onImport={() => setImporting('new')} /> : binders.length === 0 && unsortedCards === 0 && !wishlist?.entries.length ? (
           <div className="empty-state rise" style={rise(1)}>
             <Icon name="collections" />
             <div>No binders yet. Make one for the cards you own — or import your whole collection from another app and sort it later. Cards you want go in your Wishlist.</div>
@@ -126,7 +128,7 @@ export function CollectionsPage() {
           actions={[
             { label: 'Open binder', icon: 'folder_open', onClick: () => navigate(`/collections/${sheet.id}`) },
             { label: 'Import list', icon: 'playlist_add', detail: 'A list from Moxfield, ManaBox, Archidekt…', onClick: () => setImporting(sheet) },
-            { label: 'Export list', icon: 'ios_share', detail: 'For other apps, or a .txt file', onClick: () => setExporting(sheet) },
+            { label: 'Export list', icon: 'ios_share', detail: 'For other apps, or a .txt or .csv file', onClick: () => setExporting(sheet) },
             // The Wishlist is always there.
             ...(isWishlist(sheet) ? [] : [{ label: 'Delete binder', icon: 'delete', tone: 'danger' as const, onClick: () => setConfirmDelete(sheet) }]),
           ]}
