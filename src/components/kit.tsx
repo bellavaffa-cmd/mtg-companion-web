@@ -254,15 +254,26 @@ export function IconButton({
   )
 }
 
-/** Big page title for the top-level tabs (Decks, Collection, Search). */
-export function PageHeader({ title, eyebrow, actions }: { title: string; eyebrow?: string; actions?: ReactNode }) {
+/**
+ * The one back button, on every page: the arrow in the accent colour (mirrored right to left). Over
+ * card art it sits on the glass scrim, as the phone's hero and scanner buttons do.
+ */
+export function BackButton({ onClick, overArt = false }: { onClick: () => void; overArt?: boolean }) {
+  return <IconButton icon="arrow_back" label="Back" onClick={onClick} variant={overArt ? 'glass' : ''} className="back" />
+}
+
+/** Big page title for the top-level tabs (Decks, Collection, Search); [onBack] puts a back button before it. */
+export function PageHeader({ title, eyebrow, actions, onBack }: { title: string; eyebrow?: string; actions?: ReactNode; onBack?: () => void }) {
   // Phones have no sidebar, so the sync button rides in each page's header.
   const phone = useLayoutSize() === 'phone'
   return (
     <header className="page-h rise" style={rise(0)}>
-      <div>
-        {eyebrow && <div className="eyebrow">{eyebrow}</div>}
-        <h1>{title}</h1>
+      <div className="page-h-title">
+        {onBack && <BackButton onClick={onBack} />}
+        <div>
+          {eyebrow && <div className="eyebrow">{eyebrow}</div>}
+          <h1>{title}</h1>
+        </div>
       </div>
       {(actions || phone) && <div className="acts">{actions}{phone && <SyncButton />}</div>}
     </header>

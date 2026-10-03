@@ -83,7 +83,7 @@ export function PreconsPage() {
       <PageHeader
         title="Precons"
         eyebrow="Official Commander decks"
-        actions={<button type="button" className="btn line" onClick={back}><Icon name="arrow_back" />Back</button>}
+        onBack={back}
       />
       <div className="content-scroll with-nav">
         <SearchPill value={filter} onChange={setFilter} placeholder="Filter precons" />

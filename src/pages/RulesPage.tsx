@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { getRulings, OfflineError, type Ruling } from '../api/scryfall'
-import { Icon } from '../components/Icon'
 import { InlineManaText } from '../components/ManaSymbols'
 import { ArtImage, PageHeader, SearchPill, SegmentedTabs, rise, toArtCrop, useBack, useLayoutSize } from '../components/kit'
 import { searchKeywords } from '../rules/keywords'
@@ -59,7 +58,7 @@ export function RulesPage() {
       <PageHeader
         title="Rules"
         eyebrow="Keywords and card rulings"
-        actions={wide ? undefined : <button type="button" className="btn line" onClick={back}><Icon name="arrow_back" />Back</button>}
+        onBack={wide ? undefined : back}
       />
       <div className={`content-scroll${wide ? '' : ' with-nav'}`}>
         <div className="rules">

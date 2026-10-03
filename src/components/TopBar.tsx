@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { IconButton, useLayoutSize } from './kit'
+import { BackButton, useLayoutSize } from './kit'
 import { SyncButton } from './SyncButton'
 
 interface Props {
@@ -22,7 +22,7 @@ export function TopBar({ title, onBack, actions, progress }: Props) {
     : undefined
   return (
     <div className="top-bar" style={style}>
-      {onBack && <IconButton icon="arrow_back" label="Back" onClick={onBack} variant={overHero ? 'glass' : ''} />}
+      {onBack && <BackButton onClick={onBack} overArt={overHero} />}
       <div className="top-bar-title">{title}</div>
       {phone && <SyncButton variant={overHero && progress < 0.6 ? 'glass' : ''} />}
       {actions}

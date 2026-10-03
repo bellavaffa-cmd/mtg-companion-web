@@ -271,6 +271,13 @@ img {
   padding: calc(26px + var(--safe-top)) 20px 14px;
 }
 
+.page-h-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
 .page-h h1 {
   margin: 0;
   font-size: 32px;
@@ -386,6 +393,15 @@ img {
 
 .ib .icon {
   font-size: 21px;
+}
+
+/* The back button (kit.tsx BackButton): the accent arrow, on glass over art too, mirrored for
+   right-to-left. */
+.ib.back {
+  color: var(--gold);
+}
+[dir='rtl'] .ib.back .icon {
+  transform: scaleX(-1);
 }
 
 /* A toggle that's on, e.g. All cards' filter while it's open or narrowing the list. */
