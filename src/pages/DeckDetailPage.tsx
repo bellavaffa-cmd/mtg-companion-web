@@ -386,7 +386,7 @@ export function DeckDetailPage() {
                 onClick={() => setSwapIn(entry)}
                 style={{ color: deck.cards.length > 0 ? 'var(--cut)' : undefined }}
               >
-                Swap in
+                {size === 'phone' ? 'Swap' : 'Swap in'}
               </button>
               <IconButton
                 icon="close" label={`Stop considering ${entry.name}`}
