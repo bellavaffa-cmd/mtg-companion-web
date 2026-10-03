@@ -1,4 +1,5 @@
-import { GAME_MODE_LABELS, type Deck, type GameMode } from '../types/models'
+import { canPair, pairingAbility, type PairCard } from '../decks/pairing'
+import { GAME_MODE_LABELS, type Deck, type DeckCardEntry, type GameMode } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 import type { DeckCardData } from './DeckStats'
 import { Icon } from './Icon'
@@ -38,11 +39,15 @@ const BASIC_LAND_NAMES = new Set([
 const isBasicLand = (name: string, card?: ScryfallCard) =>
   BASIC_LAND_NAMES.has(name) || (card?.type_line ?? '').toLowerCase().includes('basic')
 
-/** Whether two commanders may be paired: both plain Partner, or one naming the other. */
-function partnersWith(a: { name: string; partnerAbility: string | null }, b: { name: string; partnerAbility: string | null }): boolean {
-  if (!a.partnerAbility || !b.partnerAbility) return false
-  if (a.partnerAbility === 'Partner' && b.partnerAbility === 'Partner') return true
-  return a.partnerAbility.toLowerCase() === b.name.toLowerCase() || b.partnerAbility.toLowerCase() === a.name.toLowerCase()
+/**
+ * A commander as pairing sees it, its ability read from the card itself where we have it: an entry
+ * saved by an older version may have stored a Friends forever card as plain "Partner".
+ */
+function pairCard(entry: DeckCardEntry, cardsById: Map<string, ScryfallCard>): PairCard {
+  const card = cardsById.get(entry.scryfallId)
+  return card
+    ? { name: card.name, typeLine: card.type_line ?? entry.typeLine, partnerAbility: pairingAbility(card) }
+    : entry
 }
 
 export function deckIssues(deck: Deck, cardsById: Map<string, ScryfallCard>): Issue[] {
@@ -61,8 +66,8 @@ export function deckIssues(deck: Deck, cardsById: Map<string, ScryfallCard>): Is
       const main = cardsById.get(deck.commander.scryfallId)?.color_identity ?? []
       const partner = deck.partnerCommander
       if (partner) {
-        if (!partnersWith(deck.commander, partner)) {
-          issues.push({ card: null, reason: `${deck.commander.name} and ${partner.name} don't have a valid Partner pairing.`, kind: 'COMMANDER' })
+        if (!canPair(pairCard(deck.commander, cardsById), pairCard(partner, cardsById))) {
+          issues.push({ card: null, reason: `${deck.commander.name} and ${partner.name} can't be commanders together.`, kind: 'COMMANDER' })
         }
         commanderIdentity = new Set([...main, ...(cardsById.get(partner.scryfallId)?.color_identity ?? [])])
       } else {

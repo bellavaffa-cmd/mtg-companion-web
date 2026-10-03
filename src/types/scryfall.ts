@@ -1,6 +1,8 @@
 // Trimmed to the fields this app actually uses — mirrors the shape of
 // MtgCompanionApp's ScryfallCard, not Scryfall's full schema.
 
+import { pairingAbility } from '../decks/pairing'
+
 export interface ScryfallImageUris {
   small?: string
   normal?: string
@@ -46,6 +48,8 @@ export interface ScryfallCard {
   /** The finishes this printing comes in: 'nonfoil', 'foil', 'etched'. */
   finishes?: string[]
   released_at?: string
+  /** Where EDHREC ranks the card by how many decks play it (1 = most). Absent for unplayed cards. */
+  edhrec_rank?: number
   legalities?: Record<string, string>
   prices?: { usd?: string | null; usd_foil?: string | null }
   /** Where to buy this printing (see api/buy.ts). */
@@ -147,17 +151,12 @@ export function entryCanBeCommander(entry: { canBeCommander: boolean; typeLine: 
   return entry.canBeCommander || (gameMode === 'BRAWL' && isLegendaryPlaneswalker(entry.typeLine ?? ''))
 }
 
-/** null (no partner ability), "Partner" (plain), or the exact "Partner with <Name>" target. */
+/**
+ * The card's way of having a second commander, as a deck entry stores it — "Partner", the name a
+ * "Partner with" names, "Choose a Background"… See decks/pairing.ts, which also says how they pair.
+ */
 export function partnerAbility(card: ScryfallCard): string | null {
-  const text = displayOracleText(card)
-  if (!text) return null
-  const line = text.split('\n').map((l) => l.trim()).find((l) => l.startsWith('Partner'))
-  if (!line) return null
-  const withPrefix = 'Partner with '
-  if (line.toLowerCase().startsWith(withPrefix.toLowerCase())) {
-    return line.slice(withPrefix.length).split(' (')[0].trim()
-  }
-  return 'Partner'
+  return pairingAbility(card)
 }
 
 /** Checked in order, so e.g. "Artifact Creature" resolves to "Creature". Mirrors the Android

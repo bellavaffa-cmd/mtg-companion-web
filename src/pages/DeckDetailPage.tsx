@@ -18,6 +18,7 @@ import { ExportDeckDialog } from '../components/ExportDeckDialog'
 import { ShareDialog } from '../social/ShareDialog'
 import { WhoHasItSheet } from '../social/WhoHasIt'
 import { missingCards } from '../decks/missing'
+import { canPair, secondCommanderKind, SECOND_COMMANDER_NOUN, type SecondCommanderKind } from '../decks/pairing'
 import { buyCardUrl, buyListUrl } from '../api/buy'
 import { deckProxyCopies, proxiesHeldElsewhere, proxySwaps } from '../decks/proxies'
 import { realCopiesOf } from '../collection/unsorted'
@@ -170,11 +171,12 @@ export function DeckDetailPage() {
   // The cards as the list shows them, which the zoom swipes along.
   const listed = [...shownCommanders, ...groups.flatMap((g) => g.cards)]
 
-  function canPartner(entry: DeckCardEntry): boolean {
+  // The second commander this card could be next to the main one (decks/pairing.ts): a partner, a
+  // Background, a Doctor… Null when the two can't lead together.
+  function pairsAs(entry: DeckCardEntry): SecondCommanderKind | null {
     const main = deck!.commander
-    if (!main || !entry.partnerAbility || !main.partnerAbility || entry.scryfallId === main.scryfallId) return false
-    if (entry.partnerAbility === 'Partner' && main.partnerAbility === 'Partner') return true
-    return entry.partnerAbility.toLowerCase() === main.name.toLowerCase() || main.partnerAbility.toLowerCase() === entry.name.toLowerCase()
+    if (!main || entry.scryfallId === main.scryfallId || !canPair(main, entry)) return null
+    return secondCommanderKind(main) ?? 'PARTNER'
   }
 
   function cardActions(entry: DeckCardEntry): SheetAction[] {
@@ -189,8 +191,9 @@ export function DeckDetailPage() {
     if (usesCommander && !isCommander && entryCanBeCommander(entry, deck!.gameMode)) {
       actions.push({ label: 'Set as commander', icon: 'star', tone: 'gold', detail: deck!.commander ? `Replaces ${deck!.commander.name}` : undefined, onClick: () => setCommander(deck!.id, entry) })
     }
-    if (usesCommander && !isCommander && canPartner(entry)) {
-      actions.push({ label: 'Set as partner commander', icon: 'star_half', tone: 'gold', onClick: () => setPartnerCommander(deck!.id, entry) })
+    const pairKind = usesCommander && !isCommander ? pairsAs(entry) : null
+    if (pairKind) {
+      actions.push({ label: `Set as ${SECOND_COMMANDER_NOUN[pairKind]}`, icon: 'star_half', tone: 'gold', onClick: () => setPartnerCommander(deck!.id, entry) })
     }
     if (isCommander) {
       actions.push({

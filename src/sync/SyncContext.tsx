@@ -25,6 +25,7 @@ import { withDeckPrinting, withEntryPrinting } from '../collection/printings'
 import { WISHLIST_ID, withWantedCards, withWishlist, withWishlistCardWantedAgain, withoutWishlistCard, type WantedCard } from '../collection/wishlist'
 import { gatherInto, removeEverywhere } from '../collection/allCards'
 import { withSwapIn } from '../decks/proxies'
+import { canPair } from '../decks/pairing'
 import { takeCopies } from '../collection/addTo'
 import { changeBetween, isNoChange, undoChange } from './undo'
 
@@ -912,11 +913,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       updateLibrary((lib) =>
         mapDeck(lib, deckId, (deck) => {
           // Clearing the commander drops the partner too; setting a new one drops an existing
-          // partner if it no longer has a valid Partner pairing with it.
+          // partner if the two can no longer pair (decks/pairing.ts).
           let partnerCommander = deck.partnerCommander
           if (entry === null) {
             partnerCommander = null
-          } else if (partnerCommander !== null && !partnersMatch(entry, partnerCommander)) {
+          } else if (partnerCommander !== null && !canPair(entry, partnerCommander)) {
             partnerCommander = null
           }
           return { ...deck, commander: entry, partnerCommander }
@@ -1333,15 +1334,6 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   )
 
   return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>
-}
-
-/** Whether [a] and [b] can legally be co-commanders under the Partner mechanic. */
-function partnersMatch(a: DeckCardEntry, b: DeckCardEntry): boolean {
-  if (!a.partnerAbility || !b.partnerAbility) return false
-  if (a.partnerAbility === 'Partner' && b.partnerAbility === 'Partner') return true
-  if (a.partnerAbility.toLowerCase() === b.name.toLowerCase()) return true
-  if (b.partnerAbility.toLowerCase() === a.name.toLowerCase()) return true
-  return false
 }
 
 export function useSync(): SyncContextValue {
