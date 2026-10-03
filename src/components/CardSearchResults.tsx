@@ -3,24 +3,22 @@ import { useMoney } from '../money/currency'
 import { searchCards } from '../api/scryfall'
 import type { ScryfallCard } from '../types/scryfall'
 import { backImageUrl, cardTags, displayImageUrl, displayManaCost, displayOracleText, hasFlipSides } from '../types/scryfall'
-import { useSync } from '../sync/SyncContext'
-import { isUnsorted } from '../types/models'
 import { ActionSheet } from './ActionSheet'
-import type { SheetAction } from './ActionSheet'
+import { AddToSheet } from './AddToSheet'
+import { useAddCardTo } from './useAddCardTo'
 import { Icon } from './Icon'
 import { useLongPress } from './useLongPress'
 import { CardZoomModal, zoomSteps } from './CardZoomModal'
 import { buyCardUrl } from '../api/buy'
-import { useAddWarning } from './useAddWarning'
 import { ArtImage, PillChip, SearchPill, toArtCrop } from './kit'
 import { SearchFiltersPanel } from './SearchFiltersPanel'
 import { buildScryfallQuery, DEFAULT_SORT, NO_FILTERS, type SearchFilters, type SearchSort } from '../search/filters'
-import { kindDetail, kindsToChoose, type TargetKind } from '../collection/addTargets'
+import { canBeFoil, onlyFoil } from '../collection/addTo'
 import { appendPage } from '../search/pages'
 
 interface Props {
-  /** Inside a deck or binder: adding goes straight there. Omitted on the Search tab, where the
-   * action sheet lists every deck and binder to add into. */
+  /** Inside a deck or binder: adding goes straight there (the page shows the Undo bar). Omitted on
+   * the Search tab, where the "Add to…" sheet offers every deck and binder. */
   onAdd?: (card: ScryfallCard) => void
   placeholder?: string
   /** Example queries shown before anything is typed. */
@@ -36,7 +34,7 @@ interface Props {
 
 export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. c:g t:creature', examples, autoFocus, initialQuery = '', wide, filterable }: Props) {
   const money = useMoney()
-  const { decks, collections, addCardToDeck, addEntryToCollection } = useSync()
+  const addCardTo = useAddCardTo()
   const [query, setQuery] = useState(initialQuery)
   const [cards, setCards] = useState<ScryfallCard[]>([])
   const [loading, setLoading] = useState(false)
@@ -51,10 +49,6 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
   const searchId = useRef(0)
   const [zoomCard, setZoomCard] = useState<ScryfallCard | null>(null)
   const [sheetCard, setSheetCard] = useState<ScryfallCard | null>(null)
-  // Binders or decks, once picked on the sheet's first step; null shows that first step.
-  const [sheetKind, setSheetKind] = useState<TargetKind | null>(null)
-  const [addWarning, setAddWarning] = useAddWarning()
-  const [added, setAdded] = useState<string | null>(null)
   const [filters, setFilters] = useState<SearchFilters>(NO_FILTERS)
   const [sort, setSort] = useState<SearchSort>(DEFAULT_SORT)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -120,50 +114,9 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
       })
   }
 
-  useEffect(() => {
-    if (!added) return
-    const t = setTimeout(() => setAdded(null), 2500)
-    return () => clearTimeout(t)
-  }, [added])
-
+  /** Inside a deck or binder: straight there, and the page says so. */
   function add(card: ScryfallCard) {
     onAdd?.(card)
-    setAdded(`Added ${card.name}`)
-  }
-
-  function actionsFor(card: ScryfallCard): SheetAction[] {
-    const view: SheetAction = { label: 'View card', icon: 'visibility', onClick: () => setZoomCard(card) }
-    if (onAdd) return [{ label: 'Add', icon: 'add', tone: 'gold', onClick: () => add(card) }, view]
-    const toDecks = decks.map((d): SheetAction => ({
-      label: `Add to ${d.name}`, icon: 'style', detail: 'Deck',
-      onClick: () => { setAddWarning(addCardToDeck(d.id, card)); setAdded(`Added to ${d.name}`) },
-    }))
-    const toBinders = collections.map((c): SheetAction => ({
-      label: `Add to ${c.name}`,
-      icon: isUnsorted(c) ? 'inbox' : c.type === 'WISHLIST' ? 'star' : 'collections',
-      detail: isUnsorted(c) ? 'Not in a binder' : c.type === 'WISHLIST' ? 'Wishlist' : 'Binder',
-      onClick: () => { addEntryToCollection(c.id, card); setAdded(`Added to ${c.name}`) },
-    }))
-    const kinds = kindsToChoose(toBinders.length, toDecks.length)
-    if (!kinds) return [view, ...toDecks, ...toBinders]
-    // The sheet closes before an action runs, so a step within it opens it again.
-    const step = (kind: TargetKind | null) => () => { setSheetCard(card); setSheetKind(kind) }
-    if (sheetKind) {
-      return [
-        { label: 'Back', icon: 'arrow_back', detail: 'Binder or deck', onClick: step(null) },
-        ...(sheetKind === 'deck' ? toDecks : toBinders),
-      ]
-    }
-    return [
-      view,
-      ...kinds.map((kind): SheetAction => ({
-        label: kind === 'deck' ? 'Add to a deck' : 'Add to a binder',
-        icon: kind === 'deck' ? 'style' : 'collections',
-        tone: 'gold',
-        detail: kindDetail(kind, kind === 'deck' ? toDecks.length : toBinders.length),
-        onClick: step(kind),
-      })),
-    ]
   }
 
   return (
@@ -182,8 +135,6 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
       {filterable && effective.trim() && effective.trim() !== query.trim() && (
         <div className="sf-query" title="The Scryfall query these filters make">{effective}</div>
       )}
-      {addWarning && <div className="add-warning" style={{ marginTop: 10 }}>{addWarning}</div>}
-      {added && !addWarning && <div className="notice" style={{ marginTop: 10 }}><Icon name="check_circle" style={{ color: 'var(--ok)', fontSize: 18, marginRight: 6 }} />{added}</div>}
 
       {!effective.trim() && examples && (
         <div className="chips">
@@ -208,13 +159,28 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
         </div>
       )}
 
-      {sheetCard && (
+      {sheetCard && onAdd && (
         <ActionSheet
           title={sheetCard.name}
           subtitle={[sheetCard.type_line, money.formatPrice(sheetCard.prices?.usd)].filter(Boolean).join(' · ')}
           imageUrl={displayImageUrl(sheetCard)}
-          actions={actionsFor(sheetCard)}
-          onClose={() => { setSheetCard(null); setSheetKind(null) }}
+          actions={[
+            { label: 'Add', icon: 'add', tone: 'gold', onClick: () => add(sheetCard) },
+            { label: 'View card', icon: 'visibility', onClick: () => setZoomCard(sheetCard) },
+          ]}
+          onClose={() => setSheetCard(null)}
+        />
+      )}
+      {sheetCard && !onAdd && (
+        <AddToSheet
+          verb="add"
+          what={sheetCard.name}
+          subtitle={[sheetCard.type_line, money.formatPrice(sheetCard.prices?.usd)].filter(Boolean).join(' · ')}
+          imageUrl={displayImageUrl(sheetCard)}
+          create
+          foil={canBeFoil(sheetCard) ? { on: onlyFoil(sheetCard) } : null}
+          onPick={(target) => addCardTo(sheetCard, target)}
+          onClose={() => setSheetCard(null)}
         />
       )}
 
@@ -241,7 +207,7 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
             </button>
           ) : (
             <button type="button" className="btn gold block" onClick={() => { setSheetCard(zoomCard); setZoomCard(null) }}>
-              <Icon name="add" />Add to a deck or binder
+              <Icon name="add" />Add to…
             </button>
           )}
         </CardZoomModal>

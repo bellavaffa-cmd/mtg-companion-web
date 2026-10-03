@@ -25,6 +25,8 @@ import { withDeckPrinting, withEntryPrinting } from '../collection/printings'
 import { WISHLIST_ID, withWantedCards, withWishlist, withWishlistCardWantedAgain, withoutWishlistCard, type WantedCard } from '../collection/wishlist'
 import { gatherInto, removeEverywhere } from '../collection/allCards'
 import { withSwapIn } from '../decks/proxies'
+import { takeCopies } from '../collection/addTo'
+import { changeBetween, isNoChange, undoChange } from './undo'
 
 /** What a user-requested sync ended with. */
 export type RefreshResult =
@@ -210,8 +212,16 @@ interface SyncContextValue {
   setEntryPriceAlert: (collectionId: string, scryfallId: string, usd: number | null) => void
   /** Adds a whole imported list to a binder in one change (to UNSORTED_COLLECTION_ID: the Unsorted pile, made if needed). */
   importIntoCollection: (collectionId: string, cards: { card: ScryfallCard; quantity: number; foilQuantity: number }[]) => void
-  /** Moves every copy of some cards from one binder into another, in one change. */
-  moveEntries: (fromId: string, scryfallIds: string[], toId: string) => void
+  /**
+   * Moves every copy of some cards from one binder into another, in one change — or [count] copies
+   * of each (regular ones first; see takeCopies). With [copy], the first binder keeps its copies.
+   */
+  moveEntries: (fromId: string, scryfallIds: string[], toId: string, options?: { copy?: boolean; count?: number }) => void
+  /**
+   * Runs [change] (one or more of the changes here, made straight away) and answers what takes back
+   * exactly the copies it added, moved or took — for the Undo bar (see undo.ts). Null if nothing changed.
+   */
+  recordUndo: (change: () => void) => (() => void) | null
   /** All cards: gathers every copy of some cards from all the other binders into one. */
   gatherIntoBinder: (scryfallIds: string[], toId: string) => void
   /** All cards: removes some cards from every binder (the Unsorted pile too); decks and the Wishlist keep theirs. */
@@ -1146,15 +1156,28 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   )
 
   const moveEntries = useCallback(
-    (fromId: string, scryfallIds: string[], toId: string) => {
+    (fromId: string, scryfallIds: string[], toId: string, { copy = false, count }: { copy?: boolean; count?: number } = {}) => {
       updateLibrary((lib) => {
         const ids = new Set(scryfallIds)
-        const moving = lib.collections.find((c) => c.id === fromId)?.entries.filter((e) => ids.has(e.scryfallId)) ?? []
+        const moving = (lib.collections.find((c) => c.id === fromId)?.entries.filter((e) => ids.has(e.scryfallId)) ?? [])
+          .map((e) => (count === undefined ? e : { ...e, ...takeCopies(e, count) }))
+          .filter((e) => e.quantity + e.foilQuantity > 0)
         if (moving.length === 0 || fromId === toId) return lib
+        const taken = new Map(moving.map((e) => [e.scryfallId, e]))
         return {
           ...lib,
           collections: lib.collections.map((c) => {
-            if (c.id === fromId) return { ...c, entries: c.entries.filter((e) => !ids.has(e.scryfallId)) }
+            if (c.id === fromId) {
+              if (copy) return c
+              // What's left of each card once its copies are taken; a card with none left goes.
+              const entries = c.entries.flatMap((e) => {
+                const t = taken.get(e.scryfallId)
+                if (!t) return [e]
+                const left = { ...e, quantity: e.quantity - t.quantity, foilQuantity: e.foilQuantity - t.foilQuantity }
+                return left.quantity + left.foilQuantity > 0 ? [left] : []
+              })
+              return { ...c, entries }
+            }
             if (c.id !== toId) return c
             let entries = c.entries
             for (const entry of moving) {
@@ -1169,6 +1192,17 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       })
     },
     [updateLibrary],
+  )
+
+  const recordUndo = useCallback(
+    (change: () => void): (() => void) | null => {
+      adoptStoredLibrary()
+      const before = libraryRef.current
+      change()
+      const done = changeBetween(before, libraryRef.current)
+      return isNoChange(done) ? null : () => updateLibrary((lib) => undoChange(lib, done))
+    },
+    [adoptStoredLibrary, updateLibrary],
   )
 
   const removeEntriesFromCollection = useCallback(
@@ -1280,6 +1314,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       changeCollections,
       importIntoCollection,
       moveEntries,
+      recordUndo,
       gatherIntoBinder,
       removeFromCollection,
       notInterested,
@@ -1293,7 +1328,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       signInWithToken, syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setReplaceable, setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, setCardTags, addGameResult,
       addCardsToDeck, stopConsidering, considerIntoDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
-      setEntryQuantities, setEntryPriceAlert, changeCollections, importIntoCollection, moveEntries, removeEntriesFromCollection,
+      setEntryQuantities, setEntryPriceAlert, changeCollections, importIntoCollection, moveEntries, recordUndo, removeEntriesFromCollection,
     ],
   )
 

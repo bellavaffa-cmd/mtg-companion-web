@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getByExactName, getByFuzzyName, getBySetAndNumber, getCardsByIds, getPrintings, OfflineError } from '../api/scryfall'
-import { kindDetail, kindsToChoose, type TargetKind } from '../collection/addTargets'
-import { ActionSheet, type SheetAction } from '../components/ActionSheet'
+import { canBeFoil, doneMessage } from '../collection/addTo'
+import { AddToSheet, type AddTarget } from '../components/AddToSheet'
+import { useUndoBar } from '../components/useUndoBar'
 import { Icon } from '../components/Icon'
 import { ArtImage, PillChip, toArtCrop, useBack } from '../components/kit'
 import { Dialog } from '../components/Dialog'
@@ -22,7 +23,7 @@ import { confirmRead, parseSetAndNumber, parseSetCode, sameCardName, SCAN_MODES,
 import { appLinkPath, qrReader } from '../scan/qr'
 import { copyNumber, grouped, onlyRepeats, repeatedCards, saveNewest, scannedTwiceOver, type ScanRow } from '../scan/scanLog'
 import { useSync } from '../sync/SyncContext'
-import { isUnsorted, UNSORTED_COLLECTION_ID } from '../types/models'
+import { UNSORTED_COLLECTION_ID } from '../types/models'
 import { displayImageUrl, type ScryfallCard } from '../types/scryfall'
 
 /** A card's shape: the guide box matches it. */
@@ -94,9 +95,6 @@ function savePile(rows: ScanRow[]): number {
   })
 }
 
-/** Whether this printing comes in foil (Scryfall lists its finishes; unknown means maybe). */
-const canBeFoil = (card: ScryfallCard) => !card.finishes || card.finishes.includes('foil')
-
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /**
@@ -107,7 +105,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 export function ScanPage() {
   const back = useBack('/search')
   const navigate = useNavigate()
-  const { decks, collections, addCardToDeck, addEntryToCollection, importIntoCollection } = useSync()
+  const { addCardToDeck, addCardsToDeck, addEntryToCollection, importIntoCollection, recordUndo } = useSync()
+  const showUndo = useUndoBar()
   const videoRef = useRef<HTMLVideoElement>(null)
   const guideRef = useRef<HTMLDivElement>(null)
   const scanNow = useRef(false)
@@ -139,11 +138,8 @@ export function ScanPage() {
   const [typed, setTyped] = useState('')
   const [lookingUp, setLookingUp] = useState(false)
   const [picking, setPicking] = useState(false)
-  // Binders or decks, once picked on the add sheet's first step; null shows that first step.
-  const [pickingKind, setPickingKind] = useState<TargetKind | null>(null)
   // The row whose art is being chosen, when the printing was guessed from the name.
   const [pickingArt, setPickingArt] = useState<ScanRow | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
 
   /** Every scan is its own row, newest first, so a card read twice shows twice. */
   const addScanned = (card: ScryfallCard, exact = false): number => {
@@ -532,57 +528,38 @@ export function ScanPage() {
   // on would leave an empty list and no way back.
   const filtered = repeatsOnly && repeats.size > 0
   const shownScans = filtered ? onlyRepeats(scanned) : scanned
-  const addAllTo = (target: { kind: 'deck' | 'binder' | 'unsorted'; id: string; name: string }) => {
+  const addAllTo = (target: AddTarget) => {
     const warnings: string[] = []
-    // Copies are added together only here: the list itself stays one row per scan.
-    for (const s of grouped(scanned)) {
-      // A deck doesn't track foils; a binder counts them separately.
-      if (target.kind === 'deck') {
-        // Scanned cards are new copies in hand, not the loose ones in the Unsorted pile.
-        const warning = addCardToDeck(target.id, s.card, s.quantity, false)
-        if (warning) warnings.push(warning)
-      } else if (target.kind === 'unsorted') {
-        // The pile straight into the collection, making the Unsorted pile if there isn't one.
-        importIntoCollection(UNSORTED_COLLECTION_ID, [{ card: s.card, quantity: s.foil ? 0 : s.quantity, foilQuantity: s.foil ? s.quantity : 0 }])
-      } else addEntryToCollection(target.id, s.card, s.foil ? 0 : s.quantity, s.foil ? s.quantity : 0)
-    }
-    setNotice([`Added ${total} ${total === 1 ? 'card' : 'cards'} to ${target.name}.`, ...warnings].join(' '))
+    const pile = scanned
+    const undo = recordUndo(() => {
+      // Copies are added together only here: the list itself stays one row per scan.
+      for (const s of grouped(pile)) {
+        // A deck doesn't track foils; a binder counts them separately.
+        if (target.kind === 'deck') {
+          if (target.considering) {
+            addCardsToDeck(target.id, [s.card], true)
+            continue
+          }
+          // Scanned cards are new copies in hand, not the loose ones in the Unsorted pile.
+          const warning = addCardToDeck(target.id, s.card, s.quantity, false)
+          if (warning) warnings.push(warning)
+        } else if (target.id === UNSORTED_COLLECTION_ID) {
+          // The pile straight into the collection, making the Unsorted pile if there isn't one.
+          importIntoCollection(UNSORTED_COLLECTION_ID, [{ card: s.card, quantity: s.foil ? 0 : s.quantity, foilQuantity: s.foil ? s.quantity : 0 }])
+        } else addEntryToCollection(target.id, s.card, s.foil ? 0 : s.quantity, s.foil ? s.quantity : 0)
+      }
+    })
+    const place = target.kind === 'deck' && target.considering ? `${target.name} · Considering` : target.name
+    showUndo({
+      message: doneMessage('add', `${total} ${total === 1 ? 'card' : 'cards'}`, place),
+      warning: warnings.join(' ') || null,
+      undo,
+      // Undo puts the scans back too, ready to go somewhere else.
+      onUndone: () => setScanned(pile),
+    })
     setScanned([])
     setPicking(false)
   }
-  const unsorted = collections.find(isUnsorted)
-  const toDecks = decks.map((d): SheetAction => ({ label: d.name, icon: 'style', detail: 'Deck', onClick: () => addAllTo({ kind: 'deck', id: d.id, name: d.name }) }))
-  const toBinders = collections.filter((c) => c.id !== unsorted?.id).map((c): SheetAction => ({
-    label: c.name, icon: c.type === 'WISHLIST' ? 'star' : 'collections', detail: c.type === 'WISHLIST' ? 'Wishlist' : 'Binder',
-    onClick: () => addAllTo({ kind: 'binder', id: c.id, name: c.name }),
-  }))
-  const kinds = kindsToChoose(toBinders.length, toDecks.length)
-  // The sheet closes before an action runs, so a step within it opens it again.
-  const step = (kind: TargetKind | null) => () => { setPicking(true); setPickingKind(kind) }
-  const targets: SheetAction[] = kinds && pickingKind
-    ? [
-        { label: 'Back', icon: 'arrow_back', detail: 'Unsorted, a binder or a deck', onClick: step(null) },
-        ...(pickingKind === 'deck' ? toDecks : toBinders),
-      ]
-    : [
-        // Cards you own but haven't sorted yet: the pile goes in as it is, to be sorted later.
-        {
-          label: 'Unsorted',
-          icon: 'inbox',
-          tone: 'gold',
-          detail: 'Into your collection, to sort into binders later',
-          onClick: () => addAllTo({ kind: 'unsorted', id: UNSORTED_COLLECTION_ID, name: 'Unsorted' }),
-        },
-        // With binders and decks both on offer, ask which first rather than mixing the two.
-        ...(kinds
-          ? kinds.map((kind): SheetAction => ({
-              label: kind === 'deck' ? 'A deck' : 'A binder',
-              icon: kind === 'deck' ? 'style' : 'collections',
-              detail: kindDetail(kind, kind === 'deck' ? toDecks.length : toBinders.length),
-              onClick: step(kind),
-            }))
-          : [...toDecks, ...toBinders]),
-      ]
 
   return (
     <>
@@ -643,8 +620,6 @@ export function ScanPage() {
           <button type="submit" className="btn gold" disabled={!typed.trim() || lookingUp}>Add</button>
         </form>
 
-        {notice && <div className="notice" style={{ marginTop: 12 }}><Icon name="check_circle" style={{ color: 'var(--ok)', fontSize: 18, marginRight: 6 }} />{notice}</div>}
-
         {pileKept < scanned.length && (
           <div className="notice warn" style={{ marginTop: 12 }}>
             This browser is out of room to keep the whole pile. If the page reloads, only the newest {pileKept} of
@@ -660,7 +635,7 @@ export function ScanPage() {
                 {repeats.size > 0 && ` · ${repeats.size} ${repeats.size === 1 ? 'card' : 'cards'} scanned more than once`}
               </span>
               <button type="button" className="btn gold" onClick={() => setPicking(true)}>
-                <Icon name="add" aria-hidden />Add to a deck or binder
+                <Icon name="add" aria-hidden />Add to…
               </button>
             </div>
             {repeats.size > 0 && (
@@ -740,10 +715,15 @@ export function ScanPage() {
       )}
 
       {picking && (
-        <ActionSheet
-          title={`Add ${total} ${total === 1 ? 'card' : 'cards'} to…`}
-          actions={targets.length > 0 ? targets : [{ label: 'No decks or binders yet — make one first', icon: 'info', onClick: () => setPicking(false) }]}
-          onClose={() => { setPicking(false); setPickingKind(null) }}
+        <AddToSheet
+          verb="add"
+          what={`${total} ${total === 1 ? 'card' : 'cards'}`}
+          unsorted
+          create
+          // Each scan is a copy and says whether it's foil, so there's nothing to count or switch here.
+          quantity={null}
+          onPick={addAllTo}
+          onClose={() => setPicking(false)}
         />
       )}
     </>

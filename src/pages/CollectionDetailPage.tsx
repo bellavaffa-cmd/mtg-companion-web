@@ -7,6 +7,12 @@ import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
 import { CardZoomModal, zoomSteps } from '../components/CardZoomModal'
 import { ActionSheet } from '../components/ActionSheet'
+import { AddToSheet, type AddTarget } from '../components/AddToSheet'
+import { useAddCardTo } from '../components/useAddCardTo'
+import { useUndoBar } from '../components/useUndoBar'
+import { deckPlace, doneMessage, takeCopies } from '../collection/addTo'
+import { getCardsByIds } from '../api/scryfall'
+import type { ScryfallCard } from '../types/scryfall'
 import { useLongPress } from '../components/useLongPress'
 import { CardSearchResults } from '../components/CardSearchResults'
 import { ShareDialog } from '../social/ShareDialog'
@@ -23,7 +29,12 @@ import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '..
 export function CollectionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const back = useBack('/collections?tab=binders')
-  const { collections, decks, setEntryQuantities, setEntryPriceAlert, removeEntryFromCollection, removeEntriesFromCollection, addEntryToCollection, moveEntries, createCollection, notInterested, wantAgain, changeEntryPrinting, setCardTags } = useSync()
+  const {
+    collections, decks, setEntryQuantities, setEntryPriceAlert, removeEntryFromCollection, removeEntriesFromCollection, moveEntries,
+    notInterested, wantAgain, changeEntryPrinting, setCardTags, addCardToDeck, addCardsToDeck, recordUndo,
+  } = useSync()
+  const addCardTo = useAddCardTo()
+  const showUndo = useUndoBar()
   // Tags the user has written on their own copies, offered again on the next card.
   const knownTags = useMemo(() => allUserTags(decks, collections), [decks, collections])
   const collection = collections.find((c) => c.id === id)
@@ -43,11 +54,10 @@ export function CollectionDetailPage() {
   const [filter, setFilter] = useState('')
   const [sharing, setSharing] = useState(false)
   const [listDialog, setListDialog] = useState<'import' | 'export' | null>(null)
-  // The cards whose "move to binder" picker is open, and the ones being moved into a new binder.
-  const [moving, setMoving] = useState<CollectionEntry[] | null>(null)
+  // The cards whose "Move to…" or "Copy to…" sheet is open.
+  const [moving, setMoving] = useState<{ cards: CollectionEntry[]; verb: 'move' | 'copy' } | null>(null)
   // A card whose printing is being changed: another art, another set.
   const [changing, setChanging] = useState<CollectionEntry | null>(null)
-  const [naming, setNaming] = useState<CollectionEntry[] | null>(null)
   // Cards picked by pressing and holding (scryfall ids), and whether their remove / export is open.
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulk, setBulk] = useState<'remove' | 'export' | null>(null)
@@ -59,7 +69,6 @@ export function CollectionDetailPage() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [selected.size])
-  const [newName, setNewName] = useState('')
   // The Wishlist: cards said no to, shown on request so they can be asked for again.
   const [showNotWanted, setShowNotWanted] = useState(false)
   // The big title scrolls away; the bar's title fades in to replace it.
@@ -117,14 +126,47 @@ export function CollectionDetailPage() {
   }
   const label = (cards: CollectionEntry[]) => (cards.length === 1 ? cards[0].name : `${cards.length} cards`)
   const copies = (cards: CollectionEntry[]) => cards.reduce((n, e) => n + e.quantity + e.foilQuantity, 0)
-  const moveTo = (cards: CollectionEntry[], toId: string) => {
-    moveEntries(collection.id, cards.map((e) => e.scryfallId), toId)
+  /**
+   * Moves or copies cards where the sheet said: into another binder, or into a deck (a move takes the
+   * copies out of this binder; Considering never does — the card isn't in the deck yet). One card goes
+   * as many copies as the stepper says; several go with all their copies.
+   */
+  const moveTo = async (cards: CollectionEntry[], verb: 'move' | 'copy', target: AddTarget) => {
     setSelected(new Set())
-  }
-  const moveToNew = () => {
-    if (!naming || !newName.trim()) return
-    moveTo(naming, createCollection(newName.trim(), 'OWNED').id)
-    setNaming(null)
+    const ids = cards.map((e) => e.scryfallId)
+    const count = cards.length === 1 ? target.quantity : undefined
+    if (target.kind === 'binder') {
+      const undo = recordUndo(() => moveEntries(collection.id, ids, target.id, { copy: verb === 'copy', count }))
+      showUndo({ message: doneMessage(verb, label(cards), target.name), undo })
+      return
+    }
+    let full: ScryfallCard[]
+    try {
+      // A deck entry needs the full card (type, commander-ness…), which a binder entry doesn't keep.
+      full = await getCardsByIds(ids, true)
+    } catch (e) {
+      showUndo({ message: e instanceof Error ? e.message : "Couldn't reach Scryfall — try again when you're online." })
+      return
+    }
+    const warnings: string[] = []
+    const undo = recordUndo(() => {
+      if (target.considering) {
+        addCardsToDeck(target.id, full, true)
+        return
+      }
+      for (const card of full) {
+        const entry = cards.find((e) => e.scryfallId === card.id)
+        if (!entry) continue
+        const taken = count === undefined ? entry : { ...entry, ...takeCopies(entry, count) }
+        // These copies come from this binder, not the Unsorted pile.
+        const warning = addCardToDeck(target.id, card, taken.quantity + taken.foilQuantity, false)
+        if (warning) warnings.push(warning)
+        if (verb === 'move') setEntryQuantities(collection.id, entry.scryfallId, entry.quantity - taken.quantity, entry.foilQuantity - taken.foilQuantity)
+      }
+    })
+    showUndo(undo
+      ? { message: doneMessage(verb, label(cards), deckPlace(target.name, target.considering)), warning: warnings.join(' ') || null, undo }
+      : { message: `${target.name} already has ${cards.length === 1 ? 'it' : 'them'}` })
   }
   const entryList = collection.entries.length === 0 ? (
     unsorted
@@ -134,7 +176,7 @@ export function CollectionDetailPage() {
     <>
       {unsorted && (
         <p className="muted rise" style={{ ...rise(2), margin: '14px 0 0' }}>
-          Cards you own that aren't in a binder yet. Use <Icon name="more_vert" style={{ fontSize: 16, verticalAlign: -3 }} /> → <b>Move to binder</b> on a card to sort it — into a binder you have, or a new one.
+          Cards you own that aren't in a binder yet. Use <Icon name="more_vert" style={{ fontSize: 16, verticalAlign: -3 }} /> → <b>Move to…</b> on a card to sort it — into a binder or deck you have, or a new one.
         </p>
       )}
       {(collection.entries.length > 8 || filter) && (
@@ -170,7 +212,8 @@ export function CollectionDetailPage() {
     </>
   )
 
-  const addCards = <CardSearchResults onAdd={(card) => addEntryToCollection(collection.id, card)} placeholder="Search Scryfall to add cards" />
+  const addHere = (card: ScryfallCard) => addCardTo(card, { kind: 'binder', id: collection.id, name: collection.name, quantity: 1, foil: false })
+  const addCards = <CardSearchResults onAdd={addHere} placeholder="Search Scryfall to add cards" />
 
   return (
     <>
@@ -180,8 +223,8 @@ export function CollectionDetailPage() {
         progress={titleProgress}
         actions={
           <>
-            <IconButton icon="playlist_add" label="Import cards from another app" variant={titleProgress < 0.6 ? 'glass' : ''} onClick={() => setListDialog('import')} />
-            <IconButton icon="ios_share" label="Export as text" variant={titleProgress < 0.6 ? 'glass' : ''} onClick={() => setListDialog('export')} />
+            <IconButton icon="playlist_add" label="Import list" variant={titleProgress < 0.6 ? 'glass' : ''} onClick={() => setListDialog('import')} />
+            <IconButton icon="ios_share" label="Export list" variant={titleProgress < 0.6 ? 'glass' : ''} onClick={() => setListDialog('export')} />
             {isWishlist(collection) && collection.entries.length > 0 && (
               <IconButton
                 icon="shopping_cart"
@@ -270,9 +313,10 @@ export function CollectionDetailPage() {
             ...(sheet.foilQuantity > 0
               ? [{ label: 'Remove a foil copy', icon: 'remove_circle_outline', onClick: () => setQty(sheet, sheet.quantity, sheet.foilQuantity - 1) }]
               : []),
-            { label: 'Move to binder', icon: 'drive_file_move', detail: 'Every copy, into another binder', onClick: () => setMoving([sheet]) },
+            { label: 'Move to…', icon: 'drive_file_move', detail: 'Out of this binder, into another or a deck', onClick: () => setMoving({ cards: [sheet], verb: 'move' }) },
+            { label: 'Copy to…', icon: 'content_copy', detail: 'Stays here, and goes there too', onClick: () => setMoving({ cards: [sheet], verb: 'copy' }) },
             { label: 'Change printing', icon: 'swap_horiz', detail: 'Another art or set — the copies stay', onClick: () => setChanging(sheet) },
-            { label: 'Select', icon: 'check_circle', detail: 'Pick several cards to move, export or remove', onClick: () => toggle(sheet) },
+            { label: 'Select', icon: 'check_circle', detail: 'Pick several cards to move, copy, export or remove', onClick: () => toggle(sheet) },
             sheet.auto && isWishlist(collection)
               ? { label: 'Not interested', icon: 'delete', tone: 'danger' as const, detail: "It won't come back while a deck considers it", onClick: () => takeOff([sheet]) }
               : { label: 'Remove from binder', icon: 'delete', tone: 'danger' as const, onClick: () => setRemoving(sheet) },
@@ -301,7 +345,8 @@ export function CollectionDetailPage() {
             </button>
           )}
           <span style={{ flex: 1 }} />
-          <button type="button" className="btn line sm" onClick={() => setMoving(picked)}><Icon name="drive_file_move" aria-hidden />Move</button>
+          <button type="button" className="btn line sm" onClick={() => setMoving({ cards: picked, verb: 'move' })}><Icon name="drive_file_move" aria-hidden />Move to…</button>
+          <button type="button" className="btn line sm" onClick={() => setMoving({ cards: picked, verb: 'copy' })}><Icon name="content_copy" aria-hidden />Copy to…</button>
           <button type="button" className="btn line sm" onClick={() => setBulk('export')}><Icon name="ios_share" aria-hidden />Export</button>
           <button type="button" className="btn line sm danger-text" onClick={() => setBulk('remove')}><Icon name="delete" aria-hidden />Remove</button>
         </div>
@@ -353,39 +398,18 @@ export function CollectionDetailPage() {
       )}
 
       {moving && (
-        <ActionSheet
-          title={`Move ${label(moving)}`}
-          subtitle={`${copies(moving)} ${copies(moving) === 1 ? 'copy' : 'copies'}`}
-          imageUrl={moving[0]?.imageUrl}
-          actions={[
-            { label: 'New binder…', icon: 'add', tone: 'gold' as const, onClick: () => { setNewName(''); setNaming(moving) } },
-            ...collections
-              .filter((c) => c.id !== collection.id)
-              .map((c) => ({
-                label: c.name,
-                icon: isUnsorted(c) ? 'inbox' : c.type === 'WISHLIST' ? 'star' : 'collections',
-                detail: isUnsorted(c) ? 'Not in a binder' : c.type === 'WISHLIST' ? 'Wishlist' : 'Binder',
-                onClick: () => moveTo(moving, c.id),
-              })),
-          ]}
+        <AddToSheet
+          verb={moving.verb}
+          what={label(moving.cards)}
+          subtitle={`${copies(moving.cards)} ${copies(moving.cards) === 1 ? 'copy' : 'copies'} in ${collection.name}`}
+          imageUrl={moving.cards[0]?.imageUrl}
+          binders={(c) => c.id !== collection.id}
+          create
+          // One card: as many of its copies as wanted. Several: all of each.
+          quantity={moving.cards.length === 1 ? { initial: copies(moving.cards), max: copies(moving.cards) } : null}
+          onPick={(target) => { void moveTo(moving.cards, moving.verb, target) }}
           onClose={() => setMoving(null)}
         />
-      )}
-
-      {naming && (
-        <Dialog
-          title={`Move ${label(naming)} to a new binder`}
-          onDismiss={() => setNaming(null)}
-          actions={
-            <>
-              <button type="button" className="btn line" onClick={() => setNaming(null)}>Cancel</button>
-              <button type="button" className="btn gold" disabled={!newName.trim()} onClick={moveToNew}>Create &amp; move</button>
-            </>
-          }
-        >
-          <label className="field-label" htmlFor="move-new-name" style={{ marginTop: 0 }}>Binder name</label>
-          <input id="move-new-name" className="input" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && moveToNew()} autoFocus />
-        </Dialog>
       )}
 
       {alerting && (
@@ -448,7 +472,7 @@ export function CollectionDetailPage() {
           onUserTags={(next) => setCardTags(zoomEntry.scryfallId, next)}
           buyUrl={buyCardUrl(null, zoomEntry.name)}
           onTagClick={(label) => { setZoomId(null); setFilter(label) }}
-          onSelectSimilar={(similar) => addEntryToCollection(collection.id, similar)}
+          onSelectSimilar={addHere}
           similarActionLabel="Tap a card to add it to this binder"
           onClose={() => setZoomId(null)}
           {...zoomSteps(shown, zoomEntry, (card) => setZoomId(card.scryfallId))}

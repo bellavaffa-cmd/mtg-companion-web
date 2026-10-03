@@ -3977,3 +3977,110 @@ button.tag-chip {
   font-size: 11px;
   font-weight: 700;
 }
+
+/* ---- The Undo bar: one confirmation for adding, moving and copying cards (components/UndoBar.tsx) ---- */
+
+.undo-bar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  /* Over the sheets (51) and dialogs (60) it can be shown above, and the hover preview (65). */
+  z-index: 80;
+  width: min(calc(var(--frame) - 24px), calc(100% - 24px));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 14px;
+  border-radius: 18px;
+  background: var(--g3);
+  color: var(--t0);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55);
+  transform: translateX(-50%);
+  animation: undo-in 0.3s var(--spring) both;
+}
+.undo-bar.raised {
+  bottom: calc(94px + env(safe-area-inset-bottom));
+}
+@keyframes undo-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 16px);
+  }
+}
+.undo-ic {
+  color: var(--ok);
+  font-size: 20px;
+}
+.undo-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.undo-warn {
+  margin-top: 2px;
+  color: var(--warn);
+  font-size: 12.5px;
+}
+.undo-btn {
+  flex: none;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--gold);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+.undo-btn:hover {
+  background: var(--gold-soft);
+}
+@media (prefers-reduced-motion: reduce) {
+  .undo-bar {
+    animation: none;
+  }
+}
+
+/* ---- The "Add to…" sheet (components/AddToSheet.tsx) ---- */
+
+.addto-opts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 0 6px 10px;
+}
+.addto-opts .seg-choice {
+  flex: 1 1 100%;
+}
+.addto-qty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--t1);
+}
+.addto-qty .stepper-big button {
+  width: 36px;
+  height: 36px;
+  font-size: 20px;
+}
+.addto-qty .stepper-big .qn {
+  min-width: 28px;
+  font-size: 18px;
+  text-align: center;
+}
+.addto-new {
+  display: grid;
+  gap: 10px;
+  padding: 4px 6px 6px;
+}
+.addto-empty {
+  padding: 6px 10px 10px;
+  color: var(--t1);
+  font-size: 13px;
+}

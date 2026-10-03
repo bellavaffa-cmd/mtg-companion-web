@@ -4,6 +4,7 @@ import { SyncProvider } from './sync/SyncContext'
 import { AccountDialogs } from './components/AccountDialogs'
 import { CardHoverPreview } from './components/CardHoverPreview'
 import { Layout } from './components/Layout'
+import { UndoProvider } from './components/UndoBar'
 import { HomePage } from './pages/HomePage'
 import { CollectionsPage } from './pages/CollectionsPage'
 import { CollectionDetailPage } from './pages/CollectionDetailPage'
@@ -40,6 +41,8 @@ export default function App() {
     <SyncProvider>
       <SocialProvider>
       <BrowserRouter basename={import.meta.env.BASE_URL}>
+        {/* The Undo bar after a card goes into a deck or binder, on every screen. */}
+        <UndoProvider>
         <Suspense fallback={null}>
         <Routes>
           <Route element={<Layout />}>
@@ -74,6 +77,7 @@ export default function App() {
           <Route path="/remote/:matchId/:seat" element={<RemotePage />} />
         </Routes>
         </Suspense>
+        </UndoProvider>
       </BrowserRouter>
       </SocialProvider>
       <AccountDialogs />
