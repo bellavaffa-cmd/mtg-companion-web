@@ -8,6 +8,8 @@ import { biggerImageUrl } from '../types/scryfall'
 import { PrintingPicker, printingName } from '../components/PrintingPicker'
 import { useEffect, useMemo, useState } from 'react'
 import { knownCards, useCardData } from './cardData'
+import { BreakdownPanel } from './BreakdownPanel'
+import { collectionBreakdown } from './breakdown'
 import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { Icon } from '../components/Icon'
@@ -48,6 +50,26 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
   const cardsById = useCardData(cards.map((c) => c.scryfallId))
   const dashboard = useMemo(() => (cardsById ? dashboardOf(cards, cardsById) : null), [cards, cardsById])
   const { tags: roleTags, loading: tagging } = useRoleTags(cards.map((c) => c.name))
+  // Null until the cards' details have loaded.
+  const breakdown = useMemo(() => {
+    if (!cardsById || !dashboard || cards.length === 0) return null
+    return collectionBreakdown(cards.map((c) => {
+      const card = cardsById.get(c.scryfallId)
+      return {
+        id: c.scryfallId,
+        name: c.name,
+        imageUrl: c.imageUrl,
+        // Proxies are print-outs: held, but worth nothing.
+        copies: c.total - c.proxies,
+        usd: dashboard.prices.get(c.scryfallId) ?? null,
+        setCode: card?.set?.toLowerCase() ?? '',
+        setName: card?.set_name ?? '',
+        colors: new Set((card?.color_identity ?? card?.colors ?? []).map((x) => x.charAt(0).toUpperCase())),
+        rarity: card?.rarity ?? '',
+        typeLine: card?.type_line ?? card?.card_faces?.[0]?.type_line ?? '',
+      }
+    }))
+  }, [cards, cardsById, dashboard])
 
   const [query, setQuery] = useState('')
   // Color, type and rarity, as in Search — narrowing the same list the search field does.
@@ -165,6 +187,8 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
       )}
 
       <DashboardPanel dashboard={dashboard} loading={cardsById === undefined} />
+      {/* Where the value sits — by set, colour, rarity, type — and the dearest cards. */}
+      <BreakdownPanel breakdown={breakdown} onViewCard={(c) => navigate(`/card/${encodeURIComponent(c.name)}?id=${c.id}`)} />
 
       <div className="row rise" style={{ ...rise(3), gap: 8, marginTop: 14, maxWidth: size === 'phone' ? undefined : 560 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
