@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMoney } from '../money/currency'
 import { searchCards } from '../api/scryfall'
 import type { ScryfallCard } from '../types/scryfall'
@@ -16,6 +16,7 @@ import { ArtImage, PillChip, SearchPill, toArtCrop } from './kit'
 import { SearchFiltersPanel } from './SearchFiltersPanel'
 import { buildScryfallQuery, DEFAULT_SORT, NO_FILTERS, type SearchFilters, type SearchSort } from '../search/filters'
 import { kindDetail, kindsToChoose, type TargetKind } from '../collection/addTargets'
+import { appendPage } from '../search/pages'
 
 interface Props {
   /** Inside a deck or binder: adding goes straight there. Omitted on the Search tab, where the
@@ -40,6 +41,14 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
   const [cards, setCards] = useState<ScryfallCard[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Paging: the last page showing, whether Scryfall has another, and that next page's request.
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [moreError, setMoreError] = useState<string | null>(null)
+  // Counts searches, so a page that answers after the query or filters changed is dropped rather
+  // than landing in the new results.
+  const searchId = useRef(0)
   const [zoomCard, setZoomCard] = useState<ScryfallCard | null>(null)
   const [sheetCard, setSheetCard] = useState<ScryfallCard | null>(null)
   // Binders or decks, once picked on the sheet's first step; null shows that first step.
@@ -54,6 +63,11 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
 
   useEffect(() => {
     const trimmed = effective.trim()
+    const id = ++searchId.current
+    setPage(1)
+    setHasMore(false)
+    setLoadingMore(false)
+    setMoreError(null)
     if (!trimmed) {
       setCards([])
       setError(null)
@@ -64,13 +78,14 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
     setLoading(true)
     const timer = setTimeout(() => {
       searchCards(trimmed, 1, sort.order ?? undefined, sort.dir)
-        .then((page) => {
-          if (cancelled) return
-          setCards(page.cards)
+        .then((first) => {
+          if (cancelled || id !== searchId.current) return
+          setCards(first.cards)
+          setHasMore(first.hasMore)
           setError(null)
         })
         .catch((e) => {
-          if (cancelled) return
+          if (cancelled || id !== searchId.current) return
           setError(e instanceof Error ? e.message : 'Search failed')
           setCards([])
         })
@@ -83,6 +98,27 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
       clearTimeout(timer)
     }
   }, [effective, sort])
+
+  const loadMore = () => {
+    const id = searchId.current
+    const next = page + 1
+    setLoadingMore(true)
+    setMoreError(null)
+    searchCards(effective.trim(), next, sort.order ?? undefined, sort.dir)
+      .then((more) => {
+        if (id !== searchId.current) return
+        setCards((shown) => appendPage(shown, more.cards))
+        setPage(next)
+        setHasMore(more.hasMore)
+      })
+      .catch((e) => {
+        if (id !== searchId.current) return
+        setMoreError(e instanceof Error ? e.message : 'Search failed')
+      })
+      .finally(() => {
+        if (id === searchId.current) setLoadingMore(false)
+      })
+  }
 
   useEffect(() => {
     if (!added) return
@@ -163,6 +199,14 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
           <ResultRow key={card.id} card={card} onZoom={() => setZoomCard(card)} onMore={() => setSheetCard(card)} onAdd={onAdd ? () => add(card) : undefined} />
         ))}
       </div>
+      {!loading && !error && hasMore && (
+        <div style={{ marginTop: 12, textAlign: 'center' }}>
+          {moreError && <div className="muted" style={{ color: 'var(--error)', marginBottom: 8 }}>{moreError}</div>}
+          <button type="button" className="btn line" onClick={loadMore} disabled={loadingMore}>
+            {loadingMore ? 'Loading…' : moreError ? 'Try again' : `Load more (showing ${cards.length})`}
+          </button>
+        </div>
+      )}
 
       {sheetCard && (
         <ActionSheet
