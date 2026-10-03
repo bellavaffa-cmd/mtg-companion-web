@@ -701,7 +701,7 @@ export function DeckDetailPage() {
                 }]
               : []),
             { label: 'Import list', icon: 'upload_file', detail: 'Paste a decklist or choose a file', onClick: () => setImporting(true) },
-            { label: 'Export list', icon: 'ios_share', detail: 'Copy it for Moxfield, Archidekt or Arena', onClick: () => setShowExport(true) },
+            { label: 'Export list', icon: 'ios_share', detail: 'Simple, exact printing, Arena or MTGO', onClick: () => setShowExport(true) },
             { label: 'Deck details', icon: 'tune', detail: 'Format, ownership, commander and tags', onClick: () => setTabName('Details') },
             { label: 'Delete deck', icon: 'delete', tone: 'danger', onClick: () => setConfirmDelete(true) },
           ]}

@@ -2,52 +2,33 @@ import { useEffect, useState } from 'react'
 import { Dialog } from './Dialog'
 import { PillChip } from './kit'
 import { getCardsByIds } from '../api/scryfall'
-import type { ScryfallCard } from '../types/scryfall'
-import type { Deck, DeckCardEntry } from '../types/models'
+import { DECK_EXPORT_FORMATS, DECK_EXPORT_HINTS, DECK_EXPORT_LABELS, deckExportText, needsPrintings, type DeckExportFormat } from '../decks/deckExport'
+import type { Deck } from '../types/models'
 
 /**
- * "Simple" is "qty name" per line — the most broadly compatible format (Moxfield, Archidekt,
- * TappedOut, MTG Arena, MTGO all read it). "Exact printing" appends "(SET) collector-number",
- * the same "(SLD) 1962" shape decklist importers (including this app's own Android importer)
- * already parse — preserving which specific art/printing each card was on round-trip import.
+ * Export list: the deck as text in one of four shapes (decks/deckExport.ts) — Simple ("1 Sol Ring",
+ * what nearly everything reads), Exact printing (with "(SET) number", so the art survives), Arena and
+ * MTGO. The printings are looked up the first time a format needs them. The Android app's ExportDialog.
  */
-function buildDecklistText(deck: Deck, cardsById: Map<string, ScryfallCard> | null, exact: boolean): string {
-  const lines: string[] = []
-  const line = (entry: DeckCardEntry) => {
-    if (exact && cardsById) {
-      const card = cardsById.get(entry.scryfallId)
-      if (card?.set && card.collector_number) {
-        lines.push(`${entry.quantity} ${entry.name} (${card.set.toUpperCase()}) ${card.collector_number}`)
-        return
-      }
-    }
-    lines.push(`${entry.quantity} ${entry.name}`)
-  }
-  if (deck.commander) line(deck.commander)
-  if (deck.partnerCommander) line(deck.partnerCommander)
-  const commanderIds = new Set([deck.commander?.scryfallId, deck.partnerCommander?.scryfallId].filter(Boolean))
-  deck.cards
-    .filter((c) => !commanderIds.has(c.scryfallId))
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .forEach(line)
-  return lines.join('\n')
-}
-
 export function ExportDeckDialog({ deck, onDismiss }: { deck: Deck; onDismiss: () => void }) {
-  const [exact, setExact] = useState(false)
-  const [cardsById, setCardsById] = useState<Map<string, ScryfallCard> | null>(null)
+  const [format, setFormat] = useState<DeckExportFormat>('SIMPLE')
+  const [printings, setPrintings] = useState<Map<string, [string, string]> | null>(null)
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
+  const wantsPrintings = needsPrintings(format)
 
   useEffect(() => {
-    if (!exact || cardsById) return
+    if (!wantsPrintings || printings) return
     setLoading(true)
-    getCardsByIds(deck.cards.map((c) => c.scryfallId))
-      .then((cards) => setCardsById(new Map(cards.map((c) => [c.id, c]))))
+    const ids = [...new Set([deck.commander, deck.partnerCommander, ...deck.cards, ...(deck.sideboard ?? [])].flatMap((e) => (e ? [e.scryfallId] : [])))]
+    getCardsByIds(ids)
+      .then((cards) => setPrintings(new Map(cards.flatMap((c) => (c.set && c.collector_number ? [[c.id, [c.set, c.collector_number] as [string, string]]] : [])))))
+      .catch(() => setPrintings(new Map()))
       .finally(() => setLoading(false))
-  }, [exact, cardsById, deck.cards])
+  }, [wantsPrintings, printings, deck])
 
-  const decklist = buildDecklistText(deck, cardsById, exact)
+  const busy = wantsPrintings && loading
+  const decklist = deckExportText(deck, format, wantsPrintings ? printings ?? new Map() : new Map())
 
   return (
     <Dialog
@@ -59,7 +40,7 @@ export function ExportDeckDialog({ deck, onDismiss }: { deck: Deck; onDismiss: (
           <button
             type="button"
             className="btn gold"
-            disabled={!decklist || (exact && loading)}
+            disabled={!decklist || busy}
             onClick={() => {
               navigator.clipboard.writeText(decklist)
               setCopied(true)
@@ -70,12 +51,13 @@ export function ExportDeckDialog({ deck, onDismiss }: { deck: Deck; onDismiss: (
         </>
       }
     >
-      <p className="muted" style={{ marginTop: 0 }}>Paste it into Moxfield, Archidekt, Arena or the Android app's importer.</p>
+      <p className="muted" style={{ marginTop: 0 }}>{DECK_EXPORT_HINTS[format]}</p>
       <div className="chips wrap" style={{ marginBottom: 12 }}>
-        <PillChip label="Simple" selected={!exact} onClick={() => { setExact(false); setCopied(false) }} className="on-g2" />
-        <PillChip label="Exact printing" selected={exact} onClick={() => { setExact(true); setCopied(false) }} className="on-g2" />
+        {DECK_EXPORT_FORMATS.map((f) => (
+          <PillChip key={f} label={DECK_EXPORT_LABELS[f]} selected={format === f} onClick={() => { setFormat(f); setCopied(false) }} className="on-g2" />
+        ))}
       </div>
-      <div className="decklist">{exact && loading ? 'Loading printings…' : decklist || 'This deck has no cards yet.'}</div>
+      <div className="decklist">{busy ? 'Loading printings…' : decklist || 'This deck has no cards yet.'}</div>
     </Dialog>
   )
 }
