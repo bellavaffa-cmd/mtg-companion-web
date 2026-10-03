@@ -406,7 +406,7 @@ function Remote({
 
   const lifeButtons = (
     <div className="rm-pm">
-      <button type="button" className="rm-circle" aria-label={`Lose life (hold for ${state.longPress})`} {...minus}>−</button>
+      <button type="button" className="rm-circle" aria-label={`Lose 1 life (hold for ${state.longPress})`} {...minus}>−</button>
       {!big && (
         <button type="button" className="rm-circle sm" onClick={() => send({ type: 'undo' })} disabled={!mine.canUndo} aria-label="Undo my last change">
           <span className="material-symbols-rounded" aria-hidden>undo</span>
@@ -419,7 +419,7 @@ function Remote({
           <span className="material-symbols-rounded" aria-hidden>check</span>
         </button>
       )}
-      <button type="button" className="rm-circle" aria-label={`Gain life (hold for ${state.longPress})`} {...plus}>+</button>
+      <button type="button" className="rm-circle" aria-label={`Gain 1 life (hold for ${state.longPress})`} {...plus}>+</button>
     </div>
   )
 

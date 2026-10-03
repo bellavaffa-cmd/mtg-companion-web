@@ -50,6 +50,8 @@ export function Face({ facing, className = '', children }: { facing: SeatFacing;
 /**
  * Tap for ±1, hold for ±[longPressAmount] (repeating while held). A hold stops when [active] turns
  * false — the buttons go away (a high roll starting, say) without ever seeing the finger lift.
+ * Enter, Space and a screen reader's activate give one ±1 too: they fire a click with no pointer
+ * behind it (detail 0), while a real tap's click is skipped since its pointer events already counted.
  */
 export function useStepper(onStep: (amount: number) => void, longPressAmount: number, active: boolean) {
   const timer = useRef<number | null>(null)
@@ -77,6 +79,9 @@ export function useStepper(onStep: (amount: number) => void, longPressAmount: nu
       const pending = timer.current !== null
       stop()
       if (!wasHeld && pending) onStep(1)
+    },
+    onClick: (e: React.MouseEvent) => {
+      if (e.detail === 0) onStep(1)
     },
     onPointerLeave: stop,
     onPointerCancel: stop,
@@ -251,10 +256,10 @@ export function PlayerTile({
 
         {!highRoll && (
           <>
-            <button type="button" className="lc-tap minus" aria-label={`Lose life (hold for ${settings.longPressAmount})`} {...minus}>
+            <button type="button" className="lc-tap minus" aria-label={`Lose 1 life, ${displayName(player)} (hold for ${settings.longPressAmount})`} {...minus}>
               <span className={minusLabel.active ? 'on' : ''}>{minusLabel.text}</span>
             </button>
-            <button type="button" className="lc-tap plus" aria-label={`Gain life (hold for ${settings.longPressAmount})`} {...plus}>
+            <button type="button" className="lc-tap plus" aria-label={`Gain 1 life, ${displayName(player)} (hold for ${settings.longPressAmount})`} {...plus}>
               <span className={plusLabel.active ? 'on' : ''}>{plusLabel.text}</span>
             </button>
           </>
