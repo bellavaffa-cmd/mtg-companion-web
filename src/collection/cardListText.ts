@@ -7,8 +7,11 @@
 //   1 Sol Ring [CMR] 472 *F*        (foil; *E* etched, "(foil)"/"[foil]" work too)
 //
 // and the CSV collection exports those apps make (a header row naming Count/Quantity and Name, and
-// optionally the set code, collector number, foil and Scryfall ID). Writes the plain text form,
-// which all of them read back. Mirrors the Android app's CardListText.kt.
+// optionally the set code, collector number, foil, condition, language and Scryfall ID). Writes the
+// plain text form, which all of them read back, and a CSV that keeps condition and language too.
+// Mirrors the Android app's CardListText.kt.
+
+import { conditionCode, conditionName, languageCode, languageName } from './copyDetails'
 
 /** One line of a list: how many, which card (by id, printing or name), and whether foil. */
 export interface ListLine {
@@ -24,6 +27,10 @@ export interface ListLine {
    * import puts sideboard and maybeboard cards in Considering, not in the deck.
    */
   section?: ListSection
+  /** From a CSV's Condition column, as a code (see copyDetails.ts); left out when it hasn't one. */
+  condition?: string | null
+  /** From a CSV's Language column, as a Scryfall code; left out when it hasn't one. */
+  language?: string | null
 }
 
 export type ListSection = 'main' | 'sideboard' | 'maybeboard'
@@ -111,6 +118,10 @@ const COLUMNS = {
   number: ['collector number', 'card number', 'collector_number', 'number', 'cn'],
   foil: ['foil', 'finish', 'printing'],
   id: ['scryfall id', 'scryfall_id', 'scryfallid'],
+  // Moxfield, Deckbox and TCGplayer write words ("Near Mint", "English"); ManaBox writes
+  // near_mint and en. Read the same way whichever it is (see conditionCode / languageCode).
+  condition: ['condition'],
+  language: ['language', 'lang'],
 }
 
 function column(header: string[], names: string[]): number {
@@ -122,6 +133,8 @@ function column(header: string[], names: string[]): number {
 }
 
 const isFoilValue = (v: string) => /foil|etched|^(true|yes|1)$/i.test(v) && !/non|normal|^(false|no|0)$/i.test(v)
+/** TCGplayer puts the finish in the condition: "Near Mint Foil". */
+const FOIL_CONDITION = /\s(foil|etched)$/i
 
 function parseCsv(rows: string[]): ParsedList {
   const header = csvCells(rows[0]).map((h) => h.toLowerCase())
@@ -132,6 +145,8 @@ function parseCsv(rows: string[]): ParsedList {
     number: column(header, COLUMNS.number),
     foil: column(header, COLUMNS.foil),
     id: column(header, COLUMNS.id),
+    condition: column(header, COLUMNS.condition),
+    language: column(header, COLUMNS.language),
   }
   const lines: ListLine[] = []
   const skipped: string[] = []
@@ -145,7 +160,14 @@ function parseCsv(rows: string[]): ParsedList {
     // Some apps put the set's full name in "Edition" — only a short code is usable.
     const set = /^[A-Za-z0-9]{2,6}$/.test(get(at.set)) ? get(at.set).toLowerCase() : null
     const quantity = Math.min(Math.max(Number(get(at.quantity)) || 1, 1), MAX_COPIES)
-    lines.push({ quantity, name, set, number: get(at.number) || null, scryfallId: id, foil: isFoilValue(get(at.foil)) })
+    const condition = conditionCode(get(at.condition))
+    const language = languageCode(get(at.language))
+    lines.push({
+      quantity, name, set, number: get(at.number) || null, scryfallId: id,
+      foil: isFoilValue(get(at.foil)) || FOIL_CONDITION.test(get(at.condition)),
+      ...(condition ? { condition } : {}),
+      ...(language ? { language } : {}),
+    })
   }
   return { lines, skipped }
 }
@@ -182,6 +204,8 @@ export interface ListEntry {
   name: string
   quantity: number
   foilQuantity: number
+  condition?: string | null
+  language?: string | null
 }
 
 /**
@@ -198,4 +222,41 @@ export function buildCardListText(entries: ListEntry[], printings?: Map<string, 
     if (e.foilQuantity > 0) out.push(`${e.foilQuantity} ${card} *F*`)
   }
   return out.join('\n')
+}
+
+/** A CSV cell, quoted when it has to be. */
+const csvCell = (value: string) => (/[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value)
+
+/** The header buildCardListCsv writes — Moxfield's own column names, which the others read too. */
+export const CARD_LIST_CSV_HEADER = 'Count,Name,Edition,Collector Number,Foil,Condition,Language,Scryfall ID'
+
+/**
+ * The entries as a CSV collection file: one row per card and finish (foils on their own row, "foil"
+ * in the Foil column), with the copies' condition and language in words ("Near Mint", "Japanese")
+ * when they've been set. [printings] (scryfallId → set code and collector number) fills Edition and
+ * Collector Number. Reads back in with parseCardList, here and in other apps.
+ */
+export function buildCardListCsv(entries: ListEntry[], printings?: Map<string, { set: string; number: string }>): string {
+  const rows: string[] = [CARD_LIST_CSV_HEADER]
+  const byName = [...entries].sort((a, b) => {
+    const x = a.name.toLowerCase()
+    const y = b.name.toLowerCase()
+    return x < y ? -1 : x > y ? 1 : 0
+  })
+  for (const e of byName) {
+    const p = printings?.get(e.scryfallId)
+    const row = (count: number, foil: boolean) => [
+      String(count),
+      e.name,
+      p?.set.toLowerCase() ?? '',
+      p?.number ?? '',
+      foil ? 'foil' : '',
+      e.condition ? conditionName(e.condition) : '',
+      e.language ? languageName(e.language) : '',
+      e.scryfallId,
+    ].map(csvCell).join(',')
+    if (e.quantity > 0) rows.push(row(e.quantity, false))
+    if (e.foilQuantity > 0) rows.push(row(e.foilQuantity, true))
+  }
+  return rows.join('\n')
 }

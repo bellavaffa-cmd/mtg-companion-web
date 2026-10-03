@@ -23,7 +23,7 @@ import { buyCardUrl } from '../api/buy'
 import type { ScryfallCard } from '../types/scryfall'
 import { isUnsorted, type Collection } from '../types/models'
 import { isWishlist } from './wishlist'
-import { allCardsOf, copiesInBinders, dashboardOf, exportEntries, type AllCard, type CollectionDashboard } from './allCards'
+import { allCardsOf, copiesInBinders, csvExportEntries, dashboardOf, exportEntries, type AllCard, type CollectionDashboard } from './allCards'
 import { spares } from './spares'
 import { TradeOfferSheet } from '../social/TradeOffer'
 import { ExportCollectionDialog } from './CardListDialogs'
@@ -285,6 +285,7 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
       {bulk === 'export' && selecting && (
         <ExportCollectionDialog
           collection={{ id: 'all-cards', name: 'All cards', createdAt: 0, type: 'OWNED', entries: exportEntries(collections, cards, pickedIds) }}
+          csvEntries={csvExportEntries(collections, cards, pickedIds)}
           title={`Export ${pickedLabel}`}
           onDismiss={() => setBulk(null)}
         />

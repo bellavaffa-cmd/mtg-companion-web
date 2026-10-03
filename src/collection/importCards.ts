@@ -9,6 +9,9 @@ export interface ImportedCard {
   card: ScryfallCard
   quantity: number
   foilQuantity: number
+  /** The copies' condition and language, when the list said (a CSV's columns); the first line's wins. */
+  condition?: string | null
+  language?: string | null
 }
 
 export interface ImportResult {
@@ -87,8 +90,13 @@ export async function resolveCardList(lines: ListLine[], onProgress: (done: numb
   }
 
   const byCard = new Map<string, ImportedCard>()
-  for (const [line, card] of found) {
+  // In the list's own order, so "the first line's" is the first in the list, not the first found.
+  const order = new Map(lines.map((l, i) => [l, i]))
+  for (const [line, card] of [...found].sort(([a], [b]) => order.get(a)! - order.get(b)!)) {
     const item = byCard.get(card.id) ?? { card, quantity: 0, foilQuantity: 0 }
+    // One entry describes all its copies, so lines of the same card share the first one's say.
+    item.condition = item.condition ?? line.condition ?? null
+    item.language = item.language ?? line.language ?? null
     if (line.foil) item.foilQuantity += line.quantity
     else item.quantity += line.quantity
     byCard.set(card.id, item)

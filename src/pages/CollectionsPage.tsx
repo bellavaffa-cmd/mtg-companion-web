@@ -126,7 +126,7 @@ export function CollectionsPage() {
           actions={[
             { label: 'Open binder', icon: 'folder_open', onClick: () => navigate(`/collections/${sheet.id}`) },
             { label: 'Import list', icon: 'playlist_add', detail: 'A list from Moxfield, ManaBox, Archidekt…', onClick: () => setImporting(sheet) },
-            { label: 'Export list', icon: 'ios_share', detail: 'For other apps, or a .txt file', onClick: () => setExporting(sheet) },
+            { label: 'Export list', icon: 'ios_share', detail: 'For other apps, or a .txt or .csv file', onClick: () => setExporting(sheet) },
             // The Wishlist is always there.
             ...(isWishlist(sheet) ? [] : [{ label: 'Delete binder', icon: 'delete', tone: 'danger' as const, onClick: () => setConfirmDelete(sheet) }]),
           ]}

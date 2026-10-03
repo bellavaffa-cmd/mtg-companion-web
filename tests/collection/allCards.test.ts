@@ -80,3 +80,14 @@ test('a proxy deck is cards you hold, but they are worth nothing', () => {
   assert.equal(d.pricedCount, 2)
   assert.equal(d.cards, 2)
 })
+
+test("the CSV export keeps each binder's copies apart, with their condition and language", async () => {
+  const { csvExportEntries } = await import('../../src/collection/allCards.ts')
+  const cols: Collection[] = [
+    { id: 'a', name: 'A', createdAt: 0, type: 'OWNED', entries: [{ scryfallId: 's', name: 'Sol Ring', imageUrl: null, quantity: 1, foilQuantity: 0, condition: 'LP' }] },
+    { id: 'b', name: 'B', createdAt: 0, type: 'OWNED', entries: [{ scryfallId: 's', name: 'Sol Ring', imageUrl: null, quantity: 2, foilQuantity: 0, language: 'ja' }] },
+    { id: 'w', name: 'W', createdAt: 0, type: 'WISHLIST', entries: [{ scryfallId: 's', name: 'Sol Ring', imageUrl: null, quantity: 9, foilQuantity: 0 }] },
+  ]
+  const rows = csvExportEntries(cols, [{ scryfallId: 'd', name: 'Deck card', imageUrl: null, total: 3, proxies: 1, sources: [] }], new Set(['s', 'd']))
+  assert.deepEqual(rows.map((e) => [e.scryfallId, e.quantity, e.condition ?? null, e.language ?? null]), [['s', 1, 'LP', null], ['s', 2, null, 'ja'], ['d', 2, null, null]])
+})

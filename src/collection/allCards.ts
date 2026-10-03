@@ -72,7 +72,7 @@ export function gatherInto(collections: Collection[], toId: string, ids: Set<str
       let entries = c.entries
       for (const m of moving) {
         entries = entries.some((e) => e.scryfallId === m.scryfallId)
-          ? entries.map((e) => (e.scryfallId === m.scryfallId ? { ...e, quantity: e.quantity + m.quantity, foilQuantity: e.foilQuantity + m.foilQuantity } : e))
+          ? entries.map((e) => (e.scryfallId === m.scryfallId ? withCopiesOf(e, m) : e))
           : [...entries, { ...m }]
       }
       return { ...c, entries }
@@ -105,6 +105,18 @@ export function exportEntries(collections: Collection[], cards: AllCard[], ids: 
   const deckOnly = cards.filter((c) => ids.has(c.scryfallId) && !byCard.has(c.scryfallId))
     .map((c): CollectionEntry => ({ scryfallId: c.scryfallId, name: c.name, imageUrl: c.imageUrl, quantity: c.total, foilQuantity: 0, backImageUrl: c.backImageUrl }))
   return [...byCard.values(), ...deckOnly]
+}
+
+/**
+ * The picked cards [ids] as CSV rows: each binder's copies a row of their own, so their condition and
+ * language go too; a card only in decks as one row of its (real) copies there.
+ */
+export function csvExportEntries(collections: Collection[], cards: AllCard[], ids: Set<string>): CollectionEntry[] {
+  const owned = collections.filter(owns).flatMap((c) => c.entries).filter((e) => ids.has(e.scryfallId))
+  const deckOnly = cards.filter((c) => ids.has(c.scryfallId) && !owned.some((e) => e.scryfallId === c.scryfallId))
+    .map((c): CollectionEntry => ({ scryfallId: c.scryfallId, name: c.name, imageUrl: c.imageUrl, quantity: c.total - c.proxies, foilQuantity: 0 }))
+    .filter((e) => e.quantity > 0)
+  return [...owned, ...deckOnly]
 }
 
 export interface CollectionDashboard {

@@ -4,34 +4,49 @@ import { Icon } from '../components/Icon'
 import { PillChip } from '../components/kit'
 import { getCardsByIds } from '../api/scryfall'
 import { useSync } from '../sync/SyncContext'
-import { UNSORTED_COLLECTION_ID, type Collection } from '../types/models'
-import { buildCardListText, parseCardList } from './cardListText'
+import { UNSORTED_COLLECTION_ID, type Collection, type CollectionEntry } from '../types/models'
+import { buildCardListCsv, buildCardListText, parseCardList } from './cardListText'
 import { resolveCardList, type ImportResult } from './importCards'
 
-const fileName = (name: string) => `${name.trim().replace(/[^\w\- ]+/g, '').replace(/\s+/g, '-') || 'binder'}.txt`
+const fileName = (name: string, ext = 'txt') => `${name.trim().replace(/[^\w\- ]+/g, '').replace(/\s+/g, '-') || 'binder'}.${ext}`
 
 /**
  * A binder as text for other apps: "Simple" is "4 Lightning Bolt" (everything reads it); "Exact
- * printing" adds "(CMR) 472" so the same art comes back. Foil copies get their own "*F*" line.
+ * printing" adds "(CMR) 472" so the same art comes back. Foil copies get their own "*F*" line. "CSV"
+ * is a collection file that keeps each card's printing, condition and language too — [csvEntries]
+ * when the rows differ from the text's (All cards: each binder's copies a row of their own).
  */
-export function ExportCollectionDialog({ collection, onDismiss, title = 'Export list' }: { collection: Collection; onDismiss: () => void; title?: string }) {
-  const [exact, setExact] = useState(false)
+export function ExportCollectionDialog({ collection, onDismiss, title = 'Export list', csvEntries }: {
+  collection: Collection
+  onDismiss: () => void
+  title?: string
+  csvEntries?: CollectionEntry[]
+}) {
+  const [format, setFormat] = useState<'simple' | 'exact' | 'csv'>('simple')
   const [printings, setPrintings] = useState<Map<string, { set: string; number: string }> | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const csv = format === 'csv'
+  const rows = csv ? csvEntries ?? collection.entries : collection.entries
+  const needsPrintings = format !== 'simple'
 
   useEffect(() => {
-    if (!exact || printings) return
+    if (!needsPrintings || printings) return
     setLoading(true)
-    getCardsByIds(collection.entries.map((e) => e.scryfallId), true)
+    getCardsByIds([...collection.entries, ...(csvEntries ?? [])].map((e) => e.scryfallId), true)
       .then((cards) => setPrintings(new Map(cards.filter((c) => c.set && c.collector_number).map((c) => [c.id, { set: c.set!, number: c.collector_number! }]))))
-      .catch((e: unknown) => { setError(e instanceof Error ? e.message : 'Something went wrong.'); setExact(false) })
+      .catch((e: unknown) => { setError(e instanceof Error ? e.message : 'Something went wrong.'); setFormat('simple') })
       .finally(() => setLoading(false))
-  }, [exact, printings, collection.entries])
+  }, [needsPrintings, printings, collection.entries, csvEntries])
 
-  const text = buildCardListText(collection.entries, exact ? printings ?? undefined : undefined)
-  const ready = !!text && !(exact && loading)
+  const text = rows.length === 0
+    ? ''
+    : csv
+      ? buildCardListCsv(rows, printings ?? undefined)
+      : buildCardListText(rows, format === 'exact' ? printings ?? undefined : undefined)
+  const ready = !!text && !(needsPrintings && loading)
+  const pick = (next: typeof format) => { setFormat(next); setCopied(false) }
 
   return (
     <Dialog
@@ -45,15 +60,15 @@ export function ExportCollectionDialog({ collection, onDismiss, title = 'Export 
             className="btn line"
             disabled={!ready}
             onClick={() => {
-              const url = URL.createObjectURL(new Blob([text + '\n'], { type: 'text/plain' }))
+              const url = URL.createObjectURL(new Blob([text + '\n'], { type: csv ? 'text/csv' : 'text/plain' }))
               const a = document.createElement('a')
               a.href = url
-              a.download = fileName(collection.name)
+              a.download = fileName(collection.name, csv ? 'csv' : 'txt')
               a.click()
               URL.revokeObjectURL(url)
             }}
           >
-            <Icon name="download" aria-hidden />Save .txt
+            <Icon name="download" aria-hidden />{csv ? 'Save .csv' : 'Save .txt'}
           </button>
           <button
             type="button"
@@ -66,13 +81,18 @@ export function ExportCollectionDialog({ collection, onDismiss, title = 'Export 
         </>
       }
     >
-      <p className="muted" style={{ marginTop: 0 }}>Paste it into Moxfield, Archidekt, ManaBox, TCGplayer — or this app on another device.</p>
+      <p className="muted" style={{ marginTop: 0 }}>
+        {csv
+          ? "A collection file for Moxfield, ManaBox, Deckbox — with each card's printing, condition and language."
+          : 'Paste it into Moxfield, Archidekt, ManaBox, TCGplayer — or this app on another device.'}
+      </p>
       <div className="chips wrap" style={{ marginBottom: 12 }}>
-        <PillChip label="Simple" selected={!exact} onClick={() => { setExact(false); setCopied(false) }} className="on-g2" />
-        <PillChip label="Exact printing" selected={exact} onClick={() => { setExact(true); setCopied(false) }} className="on-g2" />
+        <PillChip label="Simple" selected={format === 'simple'} onClick={() => pick('simple')} className="on-g2" />
+        <PillChip label="Exact printing" selected={format === 'exact'} onClick={() => pick('exact')} className="on-g2" />
+        <PillChip label="CSV" selected={csv} onClick={() => pick('csv')} className="on-g2" />
       </div>
       {error && <div className="notice warn" style={{ marginBottom: 10 }}>{error}</div>}
-      <div className="decklist">{exact && loading ? 'Loading printings…' : text || 'This binder has no cards yet.'}</div>
+      <div className="decklist">{needsPrintings && loading ? 'Loading printings…' : text || 'This binder has no cards yet.'}</div>
     </Dialog>
   )
 }
