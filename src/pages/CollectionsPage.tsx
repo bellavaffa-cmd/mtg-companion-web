@@ -126,11 +126,11 @@ export function CollectionsPage() {
           subtitle={`${isWishlist(sheet) ? 'Wishlist' : 'Binder'} · ${sheet.entries.length} unique cards`}
           imageUrl={sheet.entries[0]?.imageUrl ?? null}
           actions={[
-            { label: 'Open binder', icon: 'folder_open', onClick: () => navigate(`/collections/${sheet.id}`) },
+            { label: 'Open binder', icon: 'folder_open', detail: "Its cards and what they're worth", onClick: () => navigate(`/collections/${sheet.id}`) },
             { label: 'Import list', icon: 'playlist_add', detail: 'A list from Moxfield, ManaBox, Archidekt…', onClick: () => setImporting(sheet) },
             { label: 'Export list', icon: 'ios_share', detail: 'For other apps, or a .txt or .csv file', onClick: () => setExporting(sheet) },
             // The Wishlist is always there.
-            ...(isWishlist(sheet) ? [] : [{ label: 'Delete binder', icon: 'delete', tone: 'danger' as const, onClick: () => setConfirmDelete(sheet) }]),
+            ...(isWishlist(sheet) ? [] : [{ label: 'Delete binder', icon: 'delete', tone: 'danger' as const, detail: 'Asks first — its cards leave your collection', onClick: () => setConfirmDelete(sheet) }]),
           ]}
           onClose={() => setSheet(null)}
         />
