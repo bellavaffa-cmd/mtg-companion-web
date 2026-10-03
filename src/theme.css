@@ -4108,6 +4108,38 @@ button.tag-chip {
 .addto-opts .seg-choice {
   flex: 1 1 100%;
 }
+.addto-hint {
+  flex: 1 1 100%;
+  color: var(--t2);
+  font-size: 12.5px;
+  padding: 0 2px;
+}
+.addto-printing {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: calc(100% - 12px);
+  margin: 0 6px 10px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--g2);
+  color: var(--t0);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.addto-printing span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.addto-printing b {
+  color: var(--gold);
+  font-size: 13px;
+}
 .addto-qty {
   display: flex;
   align-items: center;
@@ -4360,4 +4392,12 @@ button.tag-chip {
   width: 100%;
   margin: 14px 0 8px;
   accent-color: var(--gold);
+}
+
+/* A deck's sideboard, after the main deck's groups on the Cards tab. */
+.sideboard-group {
+  margin-top: 14px;
+}
+.sideboard-group > .dim {
+  margin: 4px 2px 8px;
 }

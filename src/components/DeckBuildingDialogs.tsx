@@ -5,6 +5,7 @@ import { ArtImage, toArtCrop } from './kit'
 import type { ComboVariant } from '../api/relay'
 import type { DeckCardEntry } from '../types/models'
 import { breakText, swapOptions } from '../decks/considering'
+import { hasSideboard } from '../decks/sideboard'
 import { parseCardList } from '../collection/cardListText'
 import { resolveCardList } from '../collection/importCards'
 import { importSummary, splitBySection } from '../decks/deckImport'
@@ -71,12 +72,15 @@ type Stage = { kind: 'edit' } | { kind: 'working'; done: number; total: number }
 
 /**
  * "Import list" into a deck that already exists — pasted, or a .txt/.csv file. Cards are matched on
- * Scryfall; sideboard and maybeboard lines go to Considering. The Android app's ImportDialog, plus
- * the file picker the web's binder import has.
+ * Scryfall; sideboard lines go into the sideboard for a format with one (onto Considering for
+ * Commander and Brawl), maybeboard lines onto Considering. The Android app's ImportDialog, plus the
+ * file picker the web's binder import has.
  */
-export function DeckImportDialog({ onImport, onDismiss }: {
+export function DeckImportDialog({ mode, onImport, onDismiss }: {
+  /** The deck's format, which says whether it has a sideboard. */
+  mode: string
   /** Puts what was found into the deck; returns nothing — the summary is worked out here. */
-  onImport: (cards: { card: ScryfallCard; quantity: number }[], considering: ScryfallCard[]) => void
+  onImport: (cards: { card: ScryfallCard; quantity: number }[], considering: ScryfallCard[], sideboard: { card: ScryfallCard; quantity: number }[]) => void
   onDismiss: () => void
 }) {
   const [text, setText] = useState('')
@@ -84,26 +88,32 @@ export function DeckImportDialog({ onImport, onDismiss }: {
   const [error, setError] = useState<string | null>(null)
   const file = useRef<HTMLInputElement>(null)
   const parsed = parseCardList(text)
-  const { main, considering } = splitBySection(parsed.lines)
-  const lineCount = main.length + considering.length
+  const { main, sideboard, considering } = splitBySection(parsed.lines, mode)
+  const lineCount = main.length + sideboard.length + considering.length
 
   const run = async () => {
     setError(null)
     const total = lineCount
     setStage({ kind: 'working', done: 0, total })
     try {
-      // The deck's lines and Considering's are looked up apart, so each card lands where its line said.
+      // The deck's lines, the sideboard's and Considering's are looked up apart, so each card lands
+      // where its line said.
       const mainResult = await resolveCardList(main, (done) => setStage({ kind: 'working', done, total }))
-      const sideResult = await resolveCardList(considering, (done) => setStage({ kind: 'working', done: main.length + done, total }))
-      const cards = mainResult.cards.map((c) => ({ card: c.card, quantity: c.quantity + c.foilQuantity }))
+      const boardResult = await resolveCardList(sideboard, (done) => setStage({ kind: 'working', done: main.length + done, total }))
+      const sideResult = await resolveCardList(considering, (done) => setStage({ kind: 'working', done: main.length + sideboard.length + done, total }))
+      const copies = (r: typeof mainResult) => r.cards.map((c) => ({ card: c.card, quantity: c.quantity + c.foilQuantity }))
+      const cards = copies(mainResult)
+      const board = copies(boardResult)
       const side = sideResult.cards.map((c) => c.card)
-      if (cards.length > 0 || side.length > 0) onImport(cards, side)
+      if (cards.length > 0 || side.length > 0 || board.length > 0) onImport(cards, side, board)
+      const count = (list: { quantity: number }[]) => list.reduce((n, c) => n + c.quantity, 0)
       setStage({
         kind: 'done',
         summary: importSummary(
-          cards.reduce((n, c) => n + c.quantity, 0),
+          count(cards),
           sideResult.cards.reduce((n, c) => n + c.quantity + c.foilQuantity, 0),
-          [...mainResult.missing, ...sideResult.missing],
+          count(board),
+          [...mainResult.missing, ...boardResult.missing, ...sideResult.missing],
         ),
       })
     } catch (e) {
@@ -137,7 +147,7 @@ export function DeckImportDialog({ onImport, onDismiss }: {
       }
     >
       <p className="muted" style={{ marginTop: 0 }}>
-        Paste a decklist — one card per line, e.g. <code>1 Sol Ring</code> — or choose a .txt or .csv file. Cards are matched on Scryfall and added to this deck; sideboard and maybeboard cards go to Considering.
+        Paste a decklist — one card per line, e.g. <code>1 Sol Ring</code> — or choose a .txt or .csv file. Cards are matched on Scryfall and added to this deck; {hasSideboard(mode) ? 'sideboard cards go to its sideboard, maybeboard cards to Considering.' : 'sideboard and maybeboard cards go to Considering.'}
       </p>
       <label className="field-label" htmlFor="deck-import-text">Cards</label>
       <textarea
@@ -149,7 +159,7 @@ export function DeckImportDialog({ onImport, onDismiss }: {
           <Icon name="upload_file" aria-hidden />Choose a file
         </button>
         <span className="dim" style={{ fontSize: 12.5 }}>
-          {lineCount > 0 ? `${main.length} for the deck${considering.length > 0 ? ` · ${considering.length} for Considering` : ''}` : ''}
+          {lineCount > 0 ? `${main.length} for the deck${sideboard.length > 0 ? ` · ${sideboard.length} for the sideboard` : ''}${considering.length > 0 ? ` · ${considering.length} for Considering` : ''}` : ''}
           {parsed.skipped.length > 0 ? ` · ${parsed.skipped.length} unreadable` : ''}
         </span>
       </div>

@@ -34,7 +34,7 @@ export const MAX_TAG_LENGTH = 30
 
 type AnyEntry = DeckCardEntry | CollectionEntry
 
-const entriesOf = (deck: Deck): AnyEntry[] => [...deck.cards, ...(deck.considering ?? []),
+const entriesOf = (deck: Deck): AnyEntry[] => [...deck.cards, ...(deck.considering ?? []), ...(deck.sideboard ?? []),
   ...(deck.commander ? [deck.commander] : []), ...(deck.partnerCommander ? [deck.partnerCommander] : [])]
 
 /** Every tag on this printing, wherever it's held. */
@@ -85,10 +85,12 @@ export function deckWithTags(deck: Deck, scryfallId: string, tags: string[]): De
   const partner = deck.partnerCommander ? one(deck.partnerCommander) : deck.partnerCommander
   const cards = deck.cards.map(one)
   const considering = deck.considering?.map(one)
+  const sideboard = deck.sideboard?.map(one)
   if (commander === deck.commander && partner === deck.partnerCommander
     && cards.every((c, i) => c === deck.cards[i])
-    && (!considering || considering.every((c, i) => c === deck.considering![i]))) return deck
-  return { ...deck, commander, partnerCommander: partner, cards, ...(considering ? { considering } : {}) }
+    && (!considering || considering.every((c, i) => c === deck.considering![i]))
+    && (!sideboard || sideboard.every((c, i) => c === deck.sideboard![i]))) return deck
+  return { ...deck, commander, partnerCommander: partner, cards, ...(considering ? { considering } : {}), ...(sideboard ? { sideboard } : {}) }
 }
 
 /** [collection] with every copy of [scryfallId] in it carrying [tags]. */

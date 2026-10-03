@@ -184,6 +184,8 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
           imageUrl={displayImageUrl(sheetCard)}
           create
           foil={canBeFoil(sheetCard) ? { on: onlyFoil(sheetCard) } : null}
+          sideboard
+          printing={sheetCard}
           onPick={(target) => addCardTo(sheetCard, target)}
           onClose={() => setSheetCard(null)}
         />

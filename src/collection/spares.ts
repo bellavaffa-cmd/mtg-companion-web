@@ -9,11 +9,11 @@ import type { Collection, CollectionEntry, Deck } from '../types/models'
 
 const key = (name: string) => name.trim().toLowerCase()
 
-/** Every card name your decks play, are short of, or are considering — the ones to hold on to. */
+/** Every card name your decks play (sideboards too), are short of, or are considering — the ones to hold on to. */
 export function namesDecksUse(decks: Deck[]): Set<string> {
   const used = new Set<string>()
   for (const deck of decks) {
-    for (const entry of [deck.commander, deck.partnerCommander, ...deck.cards, ...(deck.considering ?? [])]) {
+    for (const entry of [deck.commander, deck.partnerCommander, ...deck.cards, ...(deck.sideboard ?? []), ...(deck.considering ?? [])]) {
       if (entry) used.add(key(entry.name))
     }
   }

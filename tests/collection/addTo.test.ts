@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { canBeFoil, cardsLabel, deckPlace, doneMessage, kindDetail, kindsToChoose, onlyFoil, sheetTitle, takeCopies } from '../../src/collection/addTo.ts'
+import { canBeFoil, cardsLabel, deckPlace, printingLine, doneMessage, kindDetail, kindsToChoose, onlyFoil, sheetTitle, takeCopies } from '../../src/collection/addTo.ts'
 
 // Whether the "add to…" sheet asks binder or deck first, before listing either. The Android app's
 // MoveTargetKindsTest checks the same.
@@ -49,4 +49,10 @@ test('moving some of a binder card takes the regular copies first, never more th
   assert.deepEqual(takeCopies({ quantity: 2, foilQuantity: 1 }, 3), { quantity: 2, foilQuantity: 1 })
   assert.deepEqual(takeCopies({ quantity: 0, foilQuantity: 2 }, 1), { quantity: 0, foilQuantity: 1 })
   assert.deepEqual(takeCopies({ quantity: 1, foilQuantity: 0 }, 5), { quantity: 1, foilQuantity: 0 })
+})
+
+test('a sideboard is a place in a deck, and a new card says which printing it goes in as', () => {
+  assert.equal(doneMessage('move', 'Duress', deckPlace('Burn', false, true)), 'Moved Duress to Burn · Sideboard')
+  assert.equal(printingLine({ set: 'ltc', collector_number: '285' }), 'Printing: LTC #285')
+  assert.equal(printingLine({}), 'Printing: this one')
 })

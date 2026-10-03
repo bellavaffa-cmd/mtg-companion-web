@@ -39,9 +39,15 @@ export function doneMessage(verb: AddVerb, what: string, place: string): string 
   return `${VERB[verb][1]} ${what} to ${place}`
 }
 
-/** A deck as a place: the deck itself, or its Considering list. */
-export function deckPlace(deckName: string, considering: boolean): string {
-  return considering ? `${deckName} · Considering` : deckName
+/** A deck as a place: the deck itself, its Considering list, or its sideboard. */
+export function deckPlace(deckName: string, considering: boolean, sideboard = false): string {
+  return considering ? `${deckName} · Considering` : sideboard ? `${deckName} · Sideboard` : deckName
+}
+
+/** "Printing: SET #number" — the printing a card being added goes in as. */
+export function printingLine(card: { set?: string; collector_number?: string }): string {
+  const parts = [card.set?.toUpperCase(), card.collector_number ? `#${card.collector_number}` : undefined].filter(Boolean)
+  return `Printing: ${parts.length > 0 ? parts.join(' ') : 'this one'}`
 }
 
 /** Whether a printing comes in foil (cards Scryfall says nothing about might). */

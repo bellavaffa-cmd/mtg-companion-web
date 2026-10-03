@@ -58,7 +58,8 @@ export type DeckCardData = Map<string, ScryfallCard> | null | undefined
  */
 export function useDeckCardData(deck: Deck | undefined): DeckCardData {
   const [cardsById, setCardsById] = useState<DeckCardData>(undefined)
-  const ids = deck ? [...new Set([deck.commander, deck.partnerCommander, ...deck.cards].filter((e) => e !== null).map((e) => e.scryfallId))] : []
+  // The sideboard's cards too, for the legality check — nothing else here looks at them.
+  const ids = deck ? [...new Set([deck.commander, deck.partnerCommander, ...deck.cards, ...(deck.sideboard ?? [])].filter((e) => e !== null).map((e) => e.scryfallId))] : []
   const idKey = ids.join(',')
 
   useEffect(() => {

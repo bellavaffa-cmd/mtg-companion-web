@@ -14,6 +14,7 @@ import { AddToDeckSection, DeckCardRow, DeckCardTile } from '../components/DeckC
 import { useAddSearch, useComboPieces, useDeckCombos } from '../components/useDeckCardSearch'
 import { ComboPieceWarningDialog, DeckImportDialog, SwapPickerDialog } from '../components/DeckBuildingDialogs'
 import { combosWithCard } from '../decks/considering'
+import { hasSideboard, MAX_SIDEBOARD, sideboardCount } from '../decks/sideboard'
 import { deckPlace } from '../collection/addTo'
 import { addableCards } from '../decks/addSearch'
 import { CARD_FILTERS, CARD_FILTER_LABELS, filterCounts, noMatchMessage, passesFilter, type CardFilter } from '../decks/comboPieces'
@@ -60,7 +61,7 @@ export function DeckDetailPage() {
   const {
     decks, collections, setCardQuantity, removeCardFromDeck, setCommander, setPartnerCommander, deleteDeck, addToWishlist,
     setDeckOwnership, swapInProxy, changeDeckPrinting, stopConsidering, considerIntoDeck, setCardTags, setReplaceable, recordUndo,
-    moveToConsidering, swapConsidered, importIntoDeck,
+    moveToConsidering, swapConsidered, importIntoDeck, setSideboardQuantity, moveToSideboard, moveToMain,
   } = useSync()
   const addCardTo = useAddCardTo()
   const showUndo = useUndoBar()
@@ -70,7 +71,7 @@ export function DeckDetailPage() {
   const deckColors = useDeckColors(deck ? [deck] : [])
   const cardData = useDeckCardData(deck)
   // What each card does (mana ramp, removal…): searched with the name, shown in the zoom and Stats.
-  const { tags: roleTags, loading: tagging } = useRoleTags(deck ? [...deck.cards, ...(deck.considering ?? [])].map((c) => c.name) : [])
+  const { tags: roleTags, loading: tagging } = useRoleTags(deck ? [...deck.cards, ...(deck.sideboard ?? []), ...(deck.considering ?? [])].map((c) => c.name) : [])
   // A deck just made from scratch opens where its next step is (see landingTab in decks/newDeck.ts).
   const opening = (useLocation().state as { tab?: 'Cards' | 'Suggestions' } | null)?.tab
   const [tabName, setTabName] = useState<'Cards' | 'Considering' | 'Stats' | 'Suggestions' | 'Details'>(opening ?? 'Cards')
@@ -100,6 +101,11 @@ export function DeckDetailPage() {
   // A suggestion opened to read: it belongs to neither list, so it zooms on its own.
   const [zoomSuggestion, setZoomSuggestion] = useState<ScryfallCard | null>(null)
   const [cardSheet, setCardSheet] = useState<DeckCardEntry | null>(null)
+  // The sideboard has its own card sheet and zoom: the same printing can be in both lists.
+  const [sideSheet, setSideSheet] = useState<DeckCardEntry | null>(null)
+  const [sideZoomId, setSideZoomId] = useState<string | null>(null)
+  // A sideboard card whose remove-confirmation is up.
+  const [removingSide, setRemovingSide] = useState<DeckCardEntry | null>(null)
   const [deckSheet, setDeckSheet] = useState(false)
   const [showExport, setShowExport] = useState(false)
   const [sharing, setSharing] = useState(false)
@@ -160,6 +166,9 @@ export function DeckDetailPage() {
   const commanderIds = new Set([deck.commander?.scryfallId, deck.partnerCommander?.scryfallId].filter(Boolean))
   const totalCards = deck.cards.reduce((s, c) => s + c.quantity, 0)
   const considering = deck.considering ?? []
+  const side = deck.sideboard ?? []
+  // Shown for a format with a sideboard, and for any deck that still has cards there (one switched to Commander).
+  const showSideboard = hasSideboard(deck.gameMode) || side.length > 0
   const zoomEntry = deck.cards.find((c) => c.scryfallId === zoomId) ?? considering.find((c) => c.scryfallId === zoomId) ?? null
   // A card that's only being thought about: the zoom offers to add it rather than counting copies.
   const zoomConsidered = !!zoomEntry && !deck.cards.some((c) => c.scryfallId === zoomEntry.scryfallId)
@@ -185,6 +194,10 @@ export function DeckDetailPage() {
   const shownCommanders = commanders.filter(matches)
   // The cards as the list shows them, which the zoom swipes along.
   const listed = [...shownCommanders, ...groups.flatMap((g) => g.cards)]
+  // The sideboard's cards, after the main deck's groups. The chips are about the main deck, so only
+  // "All" shows them.
+  const sideShown = side.filter((c) => cardFilter === 'ALL' && matches(c)).sort((a, b) => a.name.localeCompare(b.name))
+  const sideZoomEntry = side.find((c) => c.scryfallId === sideZoomId) ?? null
 
   // The second commander this card could be next to the main one (decks/pairing.ts): a partner, a
   // Background, a Doctor… Null when the two can't lead together.
@@ -207,6 +220,9 @@ export function DeckDetailPage() {
         actions.push({ label: 'Swap with a considered card', icon: 'swap_horiz', onClick: () => setSwapOut(entry) })
       }
       actions.push({ label: 'Move to Considering', icon: 'drive_file_move', detail: 'Out of the deck, still on your list', onClick: () => toConsidering(entry) })
+      if (hasSideboard(deck!.gameMode)) {
+        actions.push({ label: 'Move to sideboard', icon: 'drive_file_move', onClick: () => toSideboard(entry) })
+      }
     }
     if (usesCommander && !isCommander && entryCanBeCommander(entry, deck!.gameMode)) {
       actions.push({ label: 'Set as commander', icon: 'star', tone: 'gold', detail: deck!.commander ? `Replaces ${deck!.commander.name}` : undefined, onClick: () => setCommander(deck!.id, entry) })
@@ -241,6 +257,26 @@ export function DeckDetailPage() {
   const toConsidering = (entry: DeckCardEntry) => {
     const undo = recordUndo(() => moveToConsidering(deck.id, entry.scryfallId))
     showUndo({ message: doneMessage('move', entry.name, deckPlace(deck.name, true)), undo })
+  }
+  const copiesOf = (entry: DeckCardEntry) => (entry.quantity > 1 ? `${entry.quantity} × ${entry.name}` : entry.name)
+  const toSideboard = (entry: DeckCardEntry) => {
+    const undo = recordUndo(() => moveToSideboard(deck.id, entry.scryfallId))
+    showUndo({ message: doneMessage('move', copiesOf(entry), deckPlace(deck.name, false, true)), undo })
+  }
+  const toMain = (entry: DeckCardEntry) => {
+    const undo = recordUndo(() => moveToMain(deck.id, entry.scryfallId))
+    showUndo({ message: doneMessage('move', copiesOf(entry), deck.name), undo })
+  }
+  /** What a sideboard card's ⋮ offers: back into the main deck, off the sideboard, a look at it. */
+  const sideActions = (entry: DeckCardEntry): SheetAction[] => [
+    { label: 'View card', icon: 'visibility', onClick: () => setSideZoomId(entry.scryfallId) },
+    { label: 'Move to main deck', icon: 'drive_file_move', onClick: () => toMain(entry) },
+    { label: 'Remove from sideboard', icon: 'close', tone: 'danger', onClick: () => setRemovingSide(entry) },
+  ]
+  /** One sideboard copy fewer; the last copy is asked about first, as in the main deck. */
+  const sideFewer = (entry: DeckCardEntry) => {
+    if (entry.quantity > 1) setSideboardQuantity(deck.id, entry.scryfallId, entry.quantity - 1)
+    else setRemovingSide(entry)
   }
   const swap = (outgoing: DeckCardEntry, incoming: DeckCardEntry) => {
     const undo = recordUndo(() => swapConsidered(deck.id, outgoing.scryfallId, incoming.scryfallId))
@@ -296,25 +332,43 @@ export function DeckDetailPage() {
     </div>
   )
 
-  const cardViews = (entries: DeckCardEntry[], commander?: boolean) => view === 'grid' ? (
-    <div className="card-grid">
-      {entries.map((entry) => (
-        <DeckCardTile
-          key={entry.scryfallId} entry={entry} combo={combo} commander={commander}
-          onZoom={() => setZoomId(entry.scryfallId)} onMore={() => setCardSheet(entry)}
-        />
-      ))}
-    </div>
-  ) : (
-    <div className="list">
-      {entries.map((entry) => (
-        <DeckCardRow
-          key={entry.scryfallId} entry={entry} combo={combo} commander={commander}
-          onZoom={() => setZoomId(entry.scryfallId)} onMore={() => setCardSheet(entry)}
-          onIncrement={commander ? undefined : () => setCardQuantity(deck.id, entry.scryfallId, entry.quantity + 1)}
-          onDecrement={commander ? undefined : () => fewer(entry)}
-        />
-      ))}
+  const cardViews = (entries: DeckCardEntry[], commander?: boolean, sideboard?: boolean) => {
+    const zoom = (entry: DeckCardEntry) => (sideboard ? setSideZoomId(entry.scryfallId) : setZoomId(entry.scryfallId))
+    const more = (entry: DeckCardEntry) => (sideboard ? setSideSheet(entry) : setCardSheet(entry))
+    return view === 'grid' ? (
+      <div className="card-grid">
+        {entries.map((entry) => (
+          <DeckCardTile
+            key={entry.scryfallId} entry={entry} combo={combo} commander={commander}
+            onZoom={() => zoom(entry)} onMore={() => more(entry)}
+          />
+        ))}
+      </div>
+    ) : (
+      <div className="list">
+        {entries.map((entry) => (
+          <DeckCardRow
+            key={entry.scryfallId} entry={entry} combo={combo} commander={commander}
+            onZoom={() => zoom(entry)} onMore={() => more(entry)}
+            onIncrement={commander ? undefined : () => (sideboard
+              ? setSideboardQuantity(deck.id, entry.scryfallId, entry.quantity + 1)
+              : setCardQuantity(deck.id, entry.scryfallId, entry.quantity + 1))}
+            onDecrement={commander ? undefined : () => (sideboard ? sideFewer(entry) : fewer(entry))}
+          />
+        ))}
+      </div>
+    )
+  }
+
+  const sideboardGroup = showSideboard && (sideShown.length > 0 || (!q && cardFilter === 'ALL')) && (
+    <div className="sideboard-group">
+      <div className="grp">
+        Sideboard ({sideboardCount(deck)})
+        {hasSideboard(deck.gameMode) && <span>up to {MAX_SIDEBOARD}</span>}
+      </div>
+      {sideShown.length === 0
+        ? <div className="dim">No sideboard cards yet. Open a card's ⋮ menu and choose Move to sideboard, or pick Sideboard when adding one.</div>
+        : cardViews(sideShown, false, true)}
     </div>
   )
 
@@ -325,7 +379,7 @@ export function DeckDetailPage() {
       {deck.cards.length === 0 ? (
         <div className="empty-state"><Icon name="playing_cards" />No cards yet. Type a card's name above to add it.</div>
       ) : groups.length === 0 && shownCommanders.length === 0 ? (
-        <div className="empty-state">{noMatchMessage(filter.trim(), cardFilter)}</div>
+        sideShown.length === 0 && <div className="empty-state">{noMatchMessage(filter.trim(), cardFilter)}</div>
       ) : (
         <div className={size === 'phone' || view === 'grid' ? '' : 'card-groups'}>
           {shownCommanders.length > 0 && (
@@ -342,6 +396,7 @@ export function DeckDetailPage() {
           ))}
         </div>
       )}
+      {sideboardGroup}
       <AddToDeckSection cards={addable} onAdd={addFromSearch} onZoom={setZoomSuggestion} />
     </>
   )
@@ -508,6 +563,16 @@ export function DeckDetailPage() {
           imageUrl={cardSheet.imageUrl}
           actions={cardActions(cardSheet)}
           onClose={() => setCardSheet(null)}
+        />
+      )}
+
+      {sideSheet && (
+        <ActionSheet
+          title={sideSheet.name}
+          subtitle={[sideSheet.typeLine, `${sideSheet.quantity} in sideboard`].filter(Boolean).join(' · ')}
+          imageUrl={sideSheet.imageUrl}
+          actions={sideActions(sideSheet)}
+          onClose={() => setSideSheet(null)}
         />
       )}
 
@@ -713,6 +778,23 @@ export function DeckDetailPage() {
         </Dialog>
       )}
 
+      {removingSide && (
+        <Dialog
+          title="Remove from sideboard?"
+          onDismiss={() => setRemovingSide(null)}
+          actions={
+            <>
+              <button type="button" className="btn line" onClick={() => setRemovingSide(null)}>Cancel</button>
+              <button type="button" className="btn danger" onClick={() => { setSideboardQuantity(deck.id, removingSide.scryfallId, 0); setRemovingSide(null) }}>Remove from sideboard</button>
+            </>
+          }
+        >
+          <p className="muted" style={{ margin: 0 }}>
+            Take {removingSide.name} ({removingSide.quantity} {removingSide.quantity === 1 ? 'copy' : 'copies'}) out of this deck's sideboard?
+          </p>
+        </Dialog>
+      )}
+
       {swapOut && (considering.length === 0 ? (
         <SwapPickerDialog
           title="Nothing to swap in yet"
@@ -747,8 +829,9 @@ export function DeckDetailPage() {
       )}
       {importing && (
         <DeckImportDialog
-          onImport={(cards, side) => {
-            const undo = recordUndo(() => importIntoDeck(deck.id, cards, side))
+          mode={deck.gameMode}
+          onImport={(cards, toConsider, board) => {
+            const undo = recordUndo(() => importIntoDeck(deck.id, cards, toConsider, board))
             const copies = cards.reduce((n, c) => n + c.quantity, 0)
             showUndo({ message: `Imported ${copies} ${copies === 1 ? 'card' : 'cards'} into ${deck.name}`, undo })
           }}
@@ -791,6 +874,41 @@ export function DeckDetailPage() {
             >
               <Icon name="add" />Consider it
             </button>
+          </div>
+        </CardZoomModal>
+      )}
+
+      {sideZoomEntry && (
+        <CardZoomModal
+          imageUrl={sideZoomEntry.imageUrl}
+          name={sideZoomEntry.name}
+          typeLine={sideZoomEntry.typeLine}
+          buyUrl={buyCardUrl(cardData?.get(sideZoomEntry.scryfallId), sideZoomEntry.name)}
+          priceUsd={cardData?.get(sideZoomEntry.scryfallId)?.prices?.usd}
+          priceUsdFoil={cardData?.get(sideZoomEntry.scryfallId)?.prices?.usd_foil}
+          oracleText={cardData?.get(sideZoomEntry.scryfallId)?.oracle_text}
+          manaCost={cardData?.get(sideZoomEntry.scryfallId)?.mana_cost}
+          scryfallId={sideZoomEntry.scryfallId}
+          currentDeckId={deck.id}
+          backImageUrl={sideZoomEntry.backImageUrl}
+          tags={tagsOf(roleTags, sideZoomEntry.name).map(tagLabel)}
+          userTags={userTagsOf(decks, collections, sideZoomEntry.scryfallId)}
+          knownUserTags={knownTags}
+          onUserTags={(next) => setCardTags(sideZoomEntry.scryfallId, next)}
+          onTagClick={(label) => { setSideZoomId(null); setTabName('Cards'); setFilter(label) }}
+          onClose={() => setSideZoomId(null)}
+          {...zoomSteps(sideShown.length > 0 ? sideShown : side, sideZoomEntry, (card) => setSideZoomId(card.scryfallId))}
+        >
+          <div className="row-between panel" style={{ padding: '14px 16px' }}>
+            <div>
+              <div className="p-h" style={{ margin: 0 }}><h3>In the sideboard</h3></div>
+              <div className="dim">Beside the main deck, up to {MAX_SIDEBOARD} cards</div>
+            </div>
+            <div className="stepper-big">
+              <button type="button" onClick={() => setSideboardQuantity(deck.id, sideZoomEntry.scryfallId, Math.max(1, sideZoomEntry.quantity - 1))} aria-label="One fewer">−</button>
+              <span className="qn">{sideZoomEntry.quantity}</span>
+              <button type="button" onClick={() => setSideboardQuantity(deck.id, sideZoomEntry.scryfallId, sideZoomEntry.quantity + 1)} aria-label="One more">+</button>
+            </div>
           </div>
         </CardZoomModal>
       )}

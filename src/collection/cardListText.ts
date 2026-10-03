@@ -163,14 +163,26 @@ export function parseCardList(text: string): ParsedList {
   if (looksLikeCsv(first)) return parseCsv(rows.slice(rows.indexOf(first)))
   const lines: ListLine[] = []
   const skipped: string[] = []
+  // Arena exports start with "Deck" and put the sideboard after a blank line, with no header of its
+  // own. Only lists that start that way get the blank-line rule, so a plain list with gaps in it stays
+  // all one deck. The Android app's parseCardList does the same.
+  const arena = first.trim().toLowerCase().replace(/:$/, '').trim() === 'deck'
   let section: ListSection = 'main'
+  let cardsInSection = false
   for (const row of rows) {
     const trimmed = row.trim()
-    if (isHeader(trimmed)) { section = headerSection(trimmed); continue }
+    if (!trimmed) {
+      if (arena && section === 'main' && cardsInSection) { section = 'sideboard'; cardsInSection = false }
+      continue
+    }
+    if (isHeader(trimmed)) { section = headerSection(trimmed); cardsInSection = false; continue }
     const line = parseTextLine(row)
     const lineSection = SB_PREFIX.test(trimmed) ? 'sideboard' : section
     if (line === 'skip') skipped.push(trimmed)
-    else if (line) lines.push(lineSection === 'main' ? line : { ...line, section: lineSection })
+    else if (line) {
+      lines.push(lineSection === 'main' ? line : { ...line, section: lineSection })
+      cardsInSection = true
+    }
   }
   return { lines, skipped }
 }

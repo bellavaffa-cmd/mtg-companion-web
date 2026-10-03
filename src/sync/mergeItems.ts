@@ -150,6 +150,7 @@ export function mergeDeck(base: Deck, mine: Deck, theirs: Deck, minePreferred: b
     asPhone(base).considering ?? [], asPhone(mine).considering ?? [], asPhone(theirs).considering ?? [],
     DECK_COUNTS, minePreferred,
   )
+  const sideboard = mergeEntries(base.sideboard ?? [], mine.sideboard ?? [], theirs.sideboard ?? [], DECK_COUNTS, minePreferred)
   const versions = [...(asPhone(theirs).versions ?? []), ...(asPhone(mine).versions ?? [])]
     .filter((v, i, all) => all.findIndex((x) => x.id === v.id) === i)
     .sort((a, b) => a.savedAt - b.savedAt)
@@ -157,6 +158,7 @@ export function mergeDeck(base: Deck, mine: Deck, theirs: Deck, minePreferred: b
   return {
     ...theirs,
     ...(considering.length > 0 || asPhone(theirs).considering ? { considering } : {}),
+    ...(sideboard.length > 0 || theirs.sideboard ? { sideboard } : {}),
     ...(versions.length > 0 ? { versions } : {}),
     name: pick(base.name, mine.name, theirs.name, minePreferred),
     gameMode: pick(base.gameMode, mine.gameMode, theirs.gameMode, minePreferred),

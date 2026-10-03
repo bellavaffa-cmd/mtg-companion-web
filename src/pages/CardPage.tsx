@@ -345,6 +345,8 @@ export function CardPage() {
           decks={adding.kind !== 'binder'}
           create
           foil={canBeFoil(adding.card) ? { on: onlyFoil(adding.card) } : null}
+          sideboard
+          printing={adding.card}
           onPick={(target) => addCardTo(adding.card, target)}
           onClose={() => setAdding(null)}
         />

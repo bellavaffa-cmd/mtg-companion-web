@@ -6,17 +6,20 @@ import type { AddTarget } from './AddToSheet'
 import { useUndoBar } from './useUndoBar'
 
 /**
- * Puts one card where the sheet said — the copies picked, foil or not, into a binder, or into a deck
- * or its Considering list — and says so on the Undo bar, with any copy-rule warning under it.
+ * Puts one card where the sheet said — the copies picked, foil or not, into a binder, or into a deck,
+ * its sideboard or its Considering list, as the printing chosen in the sheet if another was — and
+ * says so on the Undo bar, with any copy-rule warning under it.
  */
 export function useAddCardTo() {
-  const { addCardToDeck, addCardsToDeck, addEntryToCollection, importIntoCollection, recordUndo } = useSync()
+  const { addCardToDeck, addCardsToDeck, addCardToSideboard, addEntryToCollection, importIntoCollection, recordUndo } = useSync()
   const showUndo = useUndoBar()
-  return (card: ScryfallCard, target: AddTarget) => {
+  return (given: ScryfallCard, target: AddTarget) => {
+    const card = target.printing ?? given
     let warning = null as string | null
     const undo = recordUndo(() => {
       if (target.kind === 'deck') {
         if (target.considering) addCardsToDeck(target.id, [card], true)
+        else if (target.sideboard) warning = addCardToSideboard(target.id, card, target.quantity)
         else warning = addCardToDeck(target.id, card, target.quantity)
       } else {
         const counts: [number, number] = target.foil ? [0, target.quantity] : [target.quantity, 0]
@@ -25,7 +28,7 @@ export function useAddCardTo() {
         else addEntryToCollection(target.id, card, ...counts)
       }
     })
-    const place = target.kind === 'deck' ? deckPlace(target.name, target.considering) : target.name
+    const place = target.kind === 'deck' ? deckPlace(target.name, target.considering, target.sideboard) : target.name
     showUndo(undo
       ? { message: doneMessage('add', card.name, place), warning, undo }
       : { message: `${card.name} is already in ${target.kind === 'deck' ? target.name : place}` })

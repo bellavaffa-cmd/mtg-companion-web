@@ -1,14 +1,23 @@
 import { useEffect, useState } from 'react'
 import { Icon } from './Icon'
 import { ArtImage, PillChip, toArtCrop } from './kit'
+import { PrintingPicker } from './PrintingPicker'
 import { useSync } from '../sync/SyncContext'
-import { kindDetail, sheetTitle, type AddVerb, type TargetKind } from '../collection/addTo'
+import { kindDetail, printingLine, sheetTitle, type AddVerb, type TargetKind } from '../collection/addTo'
+import { hasSideboard } from '../decks/sideboard'
 import { GAME_MODES, GAME_MODE_LABELS, isUnsorted, UNSORTED_COLLECTION_ID, type Collection, type GameMode } from '../types/models'
+import type { ScryfallCard } from '../types/scryfall'
 
-/** Where the user chose to put the cards, and how. */
+/**
+ * Where the user chose to put the cards, and how. [printing] is another printing chosen in the sheet
+ * for a card being added; absent, the card goes in as it came.
+ */
 export type AddTarget =
-  | { kind: 'binder'; id: string; name: string; quantity: number; foil: boolean }
-  | { kind: 'deck'; id: string; name: string; quantity: number; considering: boolean }
+  | { kind: 'binder'; id: string; name: string; quantity: number; foil: boolean; printing?: ScryfallCard }
+  | { kind: 'deck'; id: string; name: string; quantity: number; considering: boolean; sideboard?: boolean; printing?: ScryfallCard }
+
+/** Where in a deck: 0 into the deck, 1 its sideboard, 2 its Considering list — the phone's order. */
+type DeckPart = 'deck' | 'sideboard' | 'considering'
 
 interface Props {
   verb: AddVerb
@@ -29,6 +38,16 @@ interface Props {
   unsorted?: boolean
   /** Where the deck list's toggle starts: into the deck, or its Considering list (suggestions). */
   considering?: boolean
+  /**
+   * Offer a deck's sideboard too: the toggle becomes "Into the deck / Sideboard / Considering" when a
+   * deck on offer has one. Only for flows whose change reads AddTarget.sideboard (useAddCardTo does).
+   */
+  sideboard?: boolean
+  /**
+   * The card being added: a "Printing: SET #number" row opens the printing picker, and the one chosen
+   * comes back as AddTarget.printing. Only for adding a new card, never for moving or copying copies.
+   */
+  printing?: ScryfallCard
   /** The copies stepper: where it starts and how high it goes. Null hides it (the scanned pile has its own counts). */
   quantity?: { initial: number; max?: number } | null
   /** Shows the Foil switch for a binder, and whether it starts on (a printing that only comes in foil). */
@@ -49,7 +68,7 @@ type Step = 'kinds' | TargetKind | 'new-binder' | 'new-deck'
  */
 export function AddToSheet({
   verb, what, imageUrl, subtitle, binders = true, decks: decksOffered = true, onlyDeckId, create = false, unsorted = false,
-  considering: consideringAtFirst = false, quantity = { initial: 1 }, foil = null, onPick, onClose,
+  considering: consideringAtFirst = false, sideboard: offerSideboard = false, printing, quantity = { initial: 1 }, foil = null, onPick, onClose,
 }: Props) {
   const { collections, decks, createCollection, createDeck } = useSync()
   const binderList = binders === false ? [] : collections.filter((c) => (unsorted ? !isUnsorted(c) : true) && (binders === true || binders(c)))
@@ -58,24 +77,37 @@ export function AddToSheet({
   const offersDecks = decksOffered && (deckList.length > 0 || create)
   const asksFirst = unsorted || (offersBinders && offersDecks)
   const [step, setStep] = useState<Step>(asksFirst ? 'kinds' : offersDecks ? 'deck' : 'binder')
-  const [considering, setConsidering] = useState(consideringAtFirst)
+  const [part, setPart] = useState<DeckPart>(consideringAtFirst ? 'considering' : 'deck')
+  // The printing to add, when the card being added was given: the one it came as until another is chosen.
+  const [chosenPrinting, setChosenPrinting] = useState<ScryfallCard | undefined>(printing)
+  const [choosingPrinting, setChoosingPrinting] = useState(false)
+  // Sideboard is a third choice only where a deck on offer has one.
+  const sideboardOffered = offerSideboard && deckList.some((d) => hasSideboard(d.gameMode))
+  const intoSideboard = sideboardOffered && part === 'sideboard'
+  const considering = part === 'considering'
+  // Into the sideboard, only the decks that have one are listed, and no new deck is offered.
+  const decksShown = intoSideboard ? deckList.filter((d) => hasSideboard(d.gameMode)) : deckList
+  const otherPrinting = chosenPrinting && printing && chosenPrinting.id !== printing.id ? { printing: chosenPrinting } : {}
   const [copies, setCopies] = useState(quantity?.initial ?? 1)
   const [isFoil, setIsFoil] = useState(foil?.on ?? false)
   const [newName, setNewName] = useState('')
   const [format, setFormat] = useState<GameMode>('COMMANDER')
 
   useEffect(() => {
+    // The printing picker over the sheet closes first.
+    if (choosingPrinting) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, choosingPrinting])
 
   const pick = (target: AddTarget) => {
     onClose()
     onPick(target)
   }
-  const toBinder = (c: { id: string; name: string }) => pick({ kind: 'binder', id: c.id, name: c.name, quantity: copies, foil: isFoil })
-  const toDeck = (d: { id: string; name: string }) => pick({ kind: 'deck', id: d.id, name: d.name, quantity: copies, considering })
+  const toBinder = (c: { id: string; name: string }) => pick({ kind: 'binder', id: c.id, name: c.name, quantity: copies, foil: isFoil, ...otherPrinting })
+  const toDeck = (d: { id: string; name: string; gameMode: string }) =>
+    pick({ kind: 'deck', id: d.id, name: d.name, quantity: copies, considering, ...(intoSideboard && hasSideboard(d.gameMode) ? { sideboard: true } : {}), ...otherPrinting })
   const makeBinder = () => {
     if (newName.trim()) toBinder(createCollection(newName.trim(), 'OWNED'))
   }
@@ -105,10 +137,15 @@ export function AddToSheet({
         {(step === 'binder' || step === 'deck') && (quantity || step === 'deck' || (foil && step === 'binder')) && (
           <div className="addto-opts">
             {step === 'deck' && (
-              <div className="seg-choice" role="radiogroup" aria-label="Where in the deck">
-                <button type="button" role="radio" aria-checked={!considering} className={!considering ? 'on' : ''} onClick={() => setConsidering(false)}>Into the deck</button>
-                <button type="button" role="radio" aria-checked={considering} className={considering ? 'on' : ''} onClick={() => setConsidering(true)}>Considering</button>
+              <div className="seg-choice" role="radiogroup" aria-label="Where in the deck" style={sideboardOffered ? { gridTemplateColumns: '1fr 1fr 1fr' } : undefined}>
+                {([['deck', 'Into the deck'], ...(sideboardOffered ? [['sideboard', 'Sideboard']] : []), ['considering', 'Considering']] as [DeckPart, string][]).map(([value, label]) => {
+                  const on = value === 'sideboard' ? intoSideboard : value === 'deck' ? part === 'deck' || (part === 'sideboard' && !sideboardOffered) : considering
+                  return <button key={value} type="button" role="radio" aria-checked={on} className={on ? 'on' : ''} onClick={() => setPart(value)}>{label}</button>
+                })}
               </div>
+            )}
+            {step === 'deck' && intoSideboard && (
+              <div className="addto-hint">Beside the main deck, up to 15 cards. Only decks whose format has a sideboard are listed.</div>
             )}
             {quantity && !(step === 'deck' && considering) && (
               <div className="addto-qty">
@@ -124,6 +161,14 @@ export function AddToSheet({
               <PillChip label="Foil" icon="auto_awesome" selected={isFoil} onClick={() => setIsFoil((f) => !f)} />
             )}
           </div>
+        )}
+
+        {(step === 'binder' || step === 'deck') && chosenPrinting && (
+          // Which printing goes in: the printing picker, as "Change printing" uses.
+          <button type="button" className="addto-printing" onClick={() => setChoosingPrinting(true)}>
+            <span>{printingLine(chosenPrinting)}</span>
+            <b>Change</b>
+          </button>
         )}
 
         <div className="sheet-actions">
@@ -161,8 +206,8 @@ export function AddToSheet({
           {step === 'deck' && (
             <>
               {asksFirst && back('kinds', unsorted ? 'Unsorted, a binder or a deck' : 'A binder or a deck')}
-              {create && <Row icon="add" tone="gold" label="New deck…" onClick={() => startNew('new-deck')} />}
-              {deckList.map((d) => (
+              {create && !intoSideboard && <Row icon="add" tone="gold" label="New deck…" onClick={() => startNew('new-deck')} />}
+              {decksShown.map((d) => (
                 <Row
                   key={d.id}
                   icon="style"
@@ -198,6 +243,15 @@ export function AddToSheet({
           </form>
         )}
       </div>
+      {choosingPrinting && chosenPrinting && (
+        <PrintingPicker
+          name={chosenPrinting.name}
+          currentId={chosenPrinting.id}
+          prompt="Pick the printing to add."
+          onPick={(card) => { setChosenPrinting(card); setChoosingPrinting(false) }}
+          onClose={() => setChoosingPrinting(false)}
+        />
+      )}
     </>
   )
 }

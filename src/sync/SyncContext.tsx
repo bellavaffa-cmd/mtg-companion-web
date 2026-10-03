@@ -29,6 +29,7 @@ import { withSwapIn } from '../decks/proxies'
 import { canPair } from '../decks/pairing'
 import { moveToConsidering as movedToConsidering, swapConsidered as swappedConsidered } from '../decks/considering'
 import { entryFromCard } from '../decks/newDeck'
+import { movedToMain, movedToSideboard, withSideboardCopies, withSideboardQuantity } from '../decks/sideboard'
 import { takeCopies } from '../collection/addTo'
 import { changeBetween, isNoChange, undoChange } from './undo'
 
@@ -190,8 +191,22 @@ interface SyncContextValue {
   moveToConsidering: (deckId: string, scryfallId: string) => void
   /** [outId] out of the deck onto Considering, [inId] off Considering into the deck — one step. */
   swapConsidered: (deckId: string, outId: string, inId: string) => void
-  /** A decklist's cards into the deck (copies added) and its sideboard/maybeboard onto Considering. */
-  importIntoDeck: (deckId: string, cards: { card: ScryfallCard; quantity: number }[], considering: ScryfallCard[]) => void
+  /**
+   * A decklist's cards into the deck (copies added), its sideboard into the deck's sideboard (for a
+   * format with one) and the rest of its sideboard/maybeboard onto Considering.
+   */
+  importIntoDeck: (deckId: string, cards: { card: ScryfallCard; quantity: number }[], considering: ScryfallCard[], sideboard?: { card: ScryfallCard; quantity: number }[]) => void
+  /**
+   * Copies of a card onto a deck's sideboard (decks/sideboard.ts). Answers the copy-rule warning, if
+   * any. The sideboard isn't what the deck holds, so the Unsorted pile is left alone, as on the phone.
+   */
+  addCardToSideboard: (deckId: string, card: ScryfallCard, quantity?: number) => string | null
+  /** The sideboard's copies of a card; zero takes it off the sideboard. */
+  setSideboardQuantity: (deckId: string, scryfallId: string, quantity: number) => void
+  /** Every main-deck copy of a card onto the sideboard. The Unsorted pile is left alone. */
+  moveToSideboard: (deckId: string, scryfallId: string) => void
+  /** Every sideboard copy of a card into the main deck. The Unsorted pile is left alone. */
+  moveToMain: (deckId: string, scryfallId: string) => void
   removeGameResult: (deckId: string, resultId: string) => void
 
   createCollection: (name: string, type: CollectionType) => Collection
@@ -905,9 +920,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   )
 
   const importIntoDeck = useCallback(
-    (deckId: string, cards: { card: ScryfallCard; quantity: number }[], considering: ScryfallCard[]) => {
-      // One write for the whole list, as on the phone (DeckRepository.addEntries/addConsideringEntries).
-      updateLibrary((lib) => mapDeck(lib, deckId, (d) => {
+    (deckId: string, cards: { card: ScryfallCard; quantity: number }[], considering: ScryfallCard[], sideboard: { card: ScryfallCard; quantity: number }[] = []) => {
+      // One write for the whole list, as on the phone (DeckRepository.addEntries/addConsideringEntries/addSideboardEntries).
+      updateLibrary((lib) => mapDeck(lib, deckId, (before) => {
+        const d = sideboard.reduce((deck, { card, quantity }) => withSideboardCopies(deck, entryFromCard(card, quantity)), before)
         let deckCards = d.cards
         for (const { card, quantity } of cards) {
           deckCards = deckCards.some((c) => c.scryfallId === card.id)
@@ -918,6 +934,39 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         for (const card of considering) if (!list.some((c) => c.scryfallId === card.id)) list = [...list, entryFromCard(card, 1)]
         return { ...d, cards: deckCards, ...(considering.length > 0 ? { considering: list } : {}) }
       }))
+    },
+    [updateLibrary, mapDeck],
+  )
+
+  const addCardToSideboard = useCallback(
+    (deckId: string, card: ScryfallCard, quantity = 1): string | null => {
+      const deck = library.decks.find((d) => d.id === deckId)
+      const warning = deck ? duplicateWarning(deck, card, quantity) : null
+      updateLibrary((lib) => mapDeck(lib, deckId, (d) => withSideboardCopies(d, entryFromCard(card, quantity))))
+      return warning
+    },
+    [library, updateLibrary, mapDeck],
+  )
+
+  const setSideboardQuantity = useCallback(
+    (deckId: string, scryfallId: string, quantity: number) => {
+      updateLibrary((lib) => mapDeck(lib, deckId, (d) => withSideboardQuantity(d, scryfallId, quantity)))
+    },
+    [updateLibrary, mapDeck],
+  )
+
+  // Moving between the main deck and the sideboard leaves the Unsorted pile alone: the copies stay
+  // with the deck either way (the phone's DeckDetailViewModel does the same).
+  const moveToSideboard = useCallback(
+    (deckId: string, scryfallId: string) => {
+      updateLibrary((lib) => mapDeck(lib, deckId, (d) => movedToSideboard(d, scryfallId)))
+    },
+    [updateLibrary, mapDeck],
+  )
+
+  const moveToMain = useCallback(
+    (deckId: string, scryfallId: string) => {
+      updateLibrary((lib) => mapDeck(lib, deckId, (d) => movedToMain(d, scryfallId)))
     },
     [updateLibrary, mapDeck],
   )
@@ -1350,6 +1399,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       moveToConsidering,
       swapConsidered,
       importIntoDeck,
+      addCardToSideboard,
+      setSideboardQuantity,
+      moveToSideboard,
+      moveToMain,
       removeGameResult,
       createCollection,
       deleteCollection,
@@ -1376,7 +1429,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       library, account, cloud, mergePrompt, resolveMerge, libraryBackup, restoreLibraryBackup, discardLibraryBackup, passwordRecovery, linkNotice, storageFullNotice, signIn, signUp, signOut,
       signInWithToken, syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setReplaceable, setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, setCardTags, addGameResult,
-      addCardsToDeck, stopConsidering, considerIntoDeck, moveToConsidering, swapConsidered, importIntoDeck, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
+      addCardsToDeck, stopConsidering, considerIntoDeck, moveToConsidering, swapConsidered, importIntoDeck, addCardToSideboard, setSideboardQuantity, moveToSideboard, moveToMain, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
       setEntryQuantities, setEntryPriceAlert, changeCollections, importIntoCollection, moveEntries, recordUndo, removeEntriesFromCollection,
     ],
   )

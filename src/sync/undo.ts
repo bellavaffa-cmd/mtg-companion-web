@@ -1,7 +1,7 @@
-// What the Undo bar takes back: the copies a change added to or took from each deck, Considering list
-// and binder, worked out by comparing the library before and after. Undo applies the opposite counts
-// to the library as it is by then — not the old library over it — so an edit made in between (another
-// card added, a sync from the phone) survives. The Android app's undo does the same.
+// What the Undo bar takes back: the copies a change added to or took from each deck, Considering list,
+// sideboard and binder, worked out by comparing the library before and after. Undo applies the
+// opposite counts to the library as it is by then — not the old library over it — so an edit made in
+// between (another card added, a sync from the phone) survives. The Android app's undo does the same.
 
 import type { Library } from './cloudSync'
 import type { CollectionEntry, DeckCardEntry } from '../types/models'
@@ -15,7 +15,7 @@ interface CardChange<E> {
 }
 
 export interface LibraryChange {
-  decks: { id: string; cards: CardChange<DeckCardEntry>[]; considering: CardChange<DeckCardEntry>[] }[]
+  decks: { id: string; cards: CardChange<DeckCardEntry>[]; considering: CardChange<DeckCardEntry>[]; sideboard: CardChange<DeckCardEntry>[] }[]
   collections: { id: string; entries: CardChange<CollectionEntry>[] }[]
 }
 
@@ -46,7 +46,8 @@ export function changeBetween(before: Library, after: Library): LibraryChange {
       if (old === d) return []
       const cards = changesIn(old?.cards, d.cards)
       const considering = changesIn(old?.considering, d.considering)
-      return cards.length || considering.length ? [{ id: d.id, cards, considering }] : []
+      const sideboard = changesIn(old?.sideboard, d.sideboard)
+      return cards.length || considering.length || sideboard.length ? [{ id: d.id, cards, considering, sideboard }] : []
     }),
     collections: after.collections.flatMap((c) => {
       const old = collectionsBefore.get(c.id)
@@ -91,7 +92,12 @@ export function undoChange(lib: Library, change: LibraryChange): Library {
     decks: lib.decks.map((d) => {
       const ch = decks.get(d.id)
       if (!ch) return d
-      return { ...d, cards: reverted(d.cards, ch.cards), ...(d.considering || ch.considering.length ? { considering: reverted(d.considering ?? [], ch.considering) } : {}) }
+      return {
+        ...d,
+        cards: reverted(d.cards, ch.cards),
+        ...(d.considering || ch.considering.length ? { considering: reverted(d.considering ?? [], ch.considering) } : {}),
+        ...(d.sideboard || ch.sideboard.length ? { sideboard: reverted(d.sideboard ?? [], ch.sideboard) } : {}),
+      }
     }),
     collections: lib.collections.map((c) => {
       const ch = collections.get(c.id)

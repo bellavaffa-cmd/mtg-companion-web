@@ -121,6 +121,13 @@ export interface Deck {
   considering?: DeckCardEntry[]
   /** Saved versions of the list, oldest first, capped (decks/versions.ts). */
   versions?: DeckVersion[]
+  /**
+   * The sideboard, for formats that have one (decks/sideboard.ts). Like [considering] it's kept out of
+   * [cards], so it never counts toward size, curve, price or combos — only the legality check looks at
+   * it (at most 15 cards; copy limits count main deck and sideboard together). JSON key "sideboard",
+   * as on the phone; data saved before it existed reads as empty. Synced and merged like [considering].
+   */
+  sideboard?: DeckCardEntry[]
 }
 
 /** Commander/Brawl allow only 1 copy of any non-basic-land card; other formats allow up to
@@ -148,7 +155,8 @@ export function duplicateWarning(deck: Deck, card: ScryfallCard, addingQuantity 
   if (isBasicLand(card)) return null
   const mode = deck.gameMode as GameMode
   const modeLabel = GAME_MODE_LABELS[mode] ?? deck.gameMode
-  const existingQuantity = deck.cards.find((c) => c.scryfallId === card.id)?.quantity ?? 0
+  // The sideboard's copies count toward the same limit.
+  const existingQuantity = [...deck.cards, ...(deck.sideboard ?? [])].filter((c) => c.scryfallId === card.id).reduce((n, c) => n + c.quantity, 0)
   const newQuantity = existingQuantity + addingQuantity
   if (SINGLETON_GAME_MODES.has(mode) && newQuantity > 1) {
     return `${modeLabel} is singleton — you'll have ${newQuantity} copies of "${card.name}".`

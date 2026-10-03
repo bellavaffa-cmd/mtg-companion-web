@@ -201,6 +201,8 @@ export function DeckSwaps({ deck, cardsById, roleTags, onExpand, onMarkCut }: {
           binders={false}
           onlyDeckId={deck.id}
           considering
+          sideboard
+          printing={adding.card ?? undefined}
           quantity={null}
           onPick={(target) => {
             if (adding.card) addCardTo(adding.card, target)

@@ -393,7 +393,7 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
       const base = baseJson !== undefined
         ? JSON.parse(baseJson)
         : row.kind === 'deck'
-          ? { ...mine, cards: [], considering: [], tags: [], gameResults: [], versions: [] }
+          ? { ...mine, cards: [], considering: [], sideboard: [], tags: [], gameResults: [], versions: [] }
           : { ...mine, entries: [] }
       const merged = row.kind === 'deck'
         ? mergeDeck(base as Deck, mine as Deck, JSON.parse(theirJson) as Deck, (localEdit ?? 0) > row.edited_ms)
@@ -617,7 +617,7 @@ export function applyRescue(library: Library, rescue: Rescue): Library {
         const base = kept.base !== undefined
           ? JSON.parse(kept.base)
           : isDeck
-            ? { ...mine, cards: [], considering: [], tags: [], gameResults: [], versions: [] }
+            ? { ...mine, cards: [], considering: [], sideboard: [], tags: [], gameResults: [], versions: [] }
             : { ...mine, entries: [] }
         next = isDeck
           ? mergeDeck(base as Deck, mine as Deck, current as Deck, true)
