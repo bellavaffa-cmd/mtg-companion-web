@@ -51,7 +51,7 @@ export function ExportDeckDialog({ deck, onDismiss }: { deck: Deck; onDismiss: (
 
   return (
     <Dialog
-      title="Export decklist"
+      title="Export list"
       onDismiss={onDismiss}
       actions={
         <>

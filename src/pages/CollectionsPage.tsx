@@ -50,14 +50,14 @@ export function CollectionsPage() {
           ? (
             <>
               <button type="button" className="btn line" onClick={() => setSharingAll(true)}><Icon name="group_add" />Share</button>
-              <button type="button" className="btn line" onClick={() => setImporting('new')}><Icon name="playlist_add" />Import cards</button>
+              <button type="button" className="btn line" onClick={() => setImporting('new')}><Icon name="playlist_add" />Import list</button>
               <button type="button" className="btn gold" onClick={() => setShowCreate(true)}><Icon name="add" />New binder</button>
             </>
           )
           : (
             <>
               <IconButton icon="group_add" label="Share my collection" onClick={() => setSharingAll(true)} />
-              <IconButton icon="playlist_add" label="Import cards from another app" onClick={() => setImporting('new')} />
+              <IconButton icon="playlist_add" label="Import list" onClick={() => setImporting('new')} />
               <IconButton icon="add" label="New binder" variant="gold" onClick={() => setShowCreate(true)} />
             </>
           )}
@@ -125,8 +125,8 @@ export function CollectionsPage() {
           imageUrl={sheet.entries[0]?.imageUrl ?? null}
           actions={[
             { label: 'Open binder', icon: 'folder_open', onClick: () => navigate(`/collections/${sheet.id}`) },
-            { label: 'Import cards', icon: 'playlist_add', detail: 'A list from Moxfield, ManaBox, Archidekt…', onClick: () => setImporting(sheet) },
-            { label: 'Export as text', icon: 'ios_share', detail: 'For other apps, or a .txt file', onClick: () => setExporting(sheet) },
+            { label: 'Import list', icon: 'playlist_add', detail: 'A list from Moxfield, ManaBox, Archidekt…', onClick: () => setImporting(sheet) },
+            { label: 'Export list', icon: 'ios_share', detail: 'For other apps, or a .txt file', onClick: () => setExporting(sheet) },
             // The Wishlist is always there.
             ...(isWishlist(sheet) ? [] : [{ label: 'Delete binder', icon: 'delete', tone: 'danger' as const, onClick: () => setConfirmDelete(sheet) }]),
           ]}
