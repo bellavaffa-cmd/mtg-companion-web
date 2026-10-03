@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   COUNTER_INFO, COUNTER_KINDS, counterOf, damageFrom, defeatMessageFor, displayName, inDanger, lossReason, lowLife, PLAYER_PALETTE, seatColor,
   startingLifeFor, tileCounters, victoryMessageFor,
@@ -175,6 +175,7 @@ export function PlayerTile({
   }, [panelOpen])
   const [changeCount, setChangeCount] = useState(0)
   const [shake, setShake] = useState(0)
+  const turnLabelOut = useTurnLabelClear(activeTurn)
 
   useEffect(() => {
     if (pending === 0) return
@@ -282,7 +283,7 @@ export function PlayerTile({
         {/* The corners of the tile whose turn it is: out of the way of the life total in the middle. */}
         {activeTurn && !loss && !highRoll && (
           <>
-            <span className="lc-turn-label">Turn {turnNumber}{turnTimer && <TurnTimerLabel timer={turnTimer} />}</span>
+            <span className={`lc-turn-label${turnLabelOut.flip ? ' flip' : ''}`} ref={turnLabelOut.ref}>Turn {turnNumber}{turnTimer && <TurnTimerLabel timer={turnTimer} />}</span>
             <button type="button" className="lc-end-turn" onClick={onEndTurn} aria-label="End turn" title="End turn">
               <span className="material-symbols-rounded" aria-hidden>check</span>
             </button>
@@ -351,6 +352,42 @@ export function PlayerTile({
 }
 
 /** The turn's time left, ticking; red and counting up once it has run over. */
+/**
+ * Keeps the whose-turn label (with its turn timer) clear of the table's centre menu button. The
+ * label sits in its tile's top-left corner; on a sideways tile that corner can land at the middle of
+ * the table — a 4-player phone layout, say — under the button. Then it moves to the top-right
+ * corner, which is the tile's other end. Measured as the tile grows and the device turns.
+ */
+function useTurnLabelClear(active: boolean) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const [flip, setFlip] = useState(false)
+  useLayoutEffect(() => {
+    const label = ref.current
+    if (!active || !label) return
+    const measure = () => {
+      const menu = document.querySelector('.lc-menu-btn')
+      if (!menu) return setFlip(false)
+      // Where the label sits in its usual corner, whichever corner it shows in now.
+      const flipped = label.classList.contains('flip')
+      label.classList.remove('flip')
+      const a = label.getBoundingClientRect()
+      if (flipped) label.classList.add('flip')
+      const m = menu.getBoundingClientRect()
+      setFlip(a.left < m.right && a.right > m.left && a.top < m.bottom && a.bottom > m.top)
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(label)
+    if (label.parentElement) observer.observe(label.parentElement)
+    window.addEventListener('resize', measure)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [active])
+  return { ref, flip }
+}
+
 function TurnTimerLabel({ timer }: { timer: TileTurnTimer }) {
   const now = useNow(500, timer.clock.pausedAt === null)
   const left = turnTimeLeft(timer.minutes, timer.turnStartElapsed, clockElapsed(timer.clock, now))

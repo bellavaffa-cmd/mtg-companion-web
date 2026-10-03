@@ -1102,6 +1102,11 @@
   font-size: min(9cqh, 22px);
   pointer-events: none;
 }
+/* Where the top-left corner falls under the centre menu button (PlayerTile's useTurnLabelClear). */
+.lc-turn-label.flip {
+  left: auto;
+  right: 18px;
+}
 .lc-end-turn {
   position: absolute;
   right: 14px;
