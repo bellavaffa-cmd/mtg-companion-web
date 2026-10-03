@@ -2810,6 +2810,9 @@ select.input.sf-sort {
   margin-top: 10px;
   grid-template-columns: 1fr;
 }
+.collection-filter .chip:not([aria-pressed='true']) {
+  background: var(--g2);
+}
 .sf-row .field-label {
   margin-bottom: 6px;
 }
