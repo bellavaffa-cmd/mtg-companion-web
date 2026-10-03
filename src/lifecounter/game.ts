@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { DEFAULT_LAYOUT_ID, layoutById, playerCount } from './tableLayouts'
 import { avatarUrl } from '../social/api'
+import {
+  changedTokenCounts, clockElapsed, newClock, pauseClock, resumeClock, tokenLabel, TURN_TIMER_CHOICES,
+  type GameClock, type SeatDeckInfo,
+} from './tableExtras'
 
 /** A seat colour: Display P3 where the screen supports it, with an sRGB stand-in, and its text ink. */
 export interface SeatColor { p3: string; srgb: string; whiteText?: boolean }
@@ -81,6 +85,10 @@ export interface Player {
   defeatMessage?: string | null
   /** Poison has been counted for them this game, so "Keep zero counters" keeps it on the tile at 0. */
   poisonUsed?: boolean
+  /** The tokens and start-of-turn cards of the deck played here — from the player's remote, or the table owner's own deck. */
+  deckInfo?: SeatDeckInfo | null
+  /** How many of each of [deckInfo]'s tokens are out, by token id. */
+  tokenCounts?: Record<string, number>
 }
 
 /** Damage [p] has taken from [from]'s commander (slot 0) or partner (slot 1). */
@@ -135,6 +143,10 @@ export interface LifeSettings {
   multiplayerStartingLife: number
   twoPlayerStartingLife: number
   turnTracker: boolean
+  /** Minutes a turn may take before the device buzzes (see TURN_TIMER_CHOICES); 0 is off. Needs the turn tracker. */
+  turnTimerMinutes: number
+  /** At the start of a player's turn, their deck's "at the beginning of your …" cards show on their tile. */
+  triggerReminders: boolean
   /** Every new game opens with a high roll for who goes first. */
   highRollAtStart: boolean
   autoKill: boolean
@@ -186,6 +198,8 @@ export const DEFAULT_SETTINGS: LifeSettings = {
   multiplayerStartingLife: 40,
   twoPlayerStartingLife: 20,
   turnTracker: false,
+  turnTimerMinutes: 0,
+  triggerReminders: true,
   highRollAtStart: false,
   autoKill: true,
   commanderDamageCostsLife: true,
@@ -230,6 +244,7 @@ export function normalizeSettings(raw: unknown): LifeSettings {
     ...s,
     tapAmount: clampAmount(s.tapAmount, DEFAULT_SETTINGS.tapAmount),
     longPressAmount: clampAmount(s.longPressAmount, DEFAULT_SETTINGS.longPressAmount),
+    turnTimerMinutes: TURN_TIMER_CHOICES.includes(s.turnTimerMinutes) ? s.turnTimerMinutes : 0,
     pinnedCounters: Array.isArray(s.pinnedCounters)
       ? PINNABLE_COUNTERS.filter((k) => (s.pinnedCounters as unknown[]).includes(k))
       : [],
@@ -349,6 +364,10 @@ export interface Game {
   hold?: number | null
   /** The latest one-off thing to show everyone for a moment: a roll, an emote, a player pointed at. */
   announce?: Announce | null
+  /** How long the game has been going (pausable). Its length goes into the table's games and the players' records. */
+  clock?: GameClock
+  /** Where the game clock stood when the current turn began, for the turn timer. */
+  turnStartElapsed?: number
 }
 
 export interface ShownCard { name: string; imageUrl: string; seat: number }
@@ -462,8 +481,16 @@ export function newGame(settings: LifeSettings, random: () => number = Math.rand
     shownCard: null,
     hold: null,
     announce: null,
+    clock: newClock(Date.now()),
+    turnStartElapsed: 0,
   }
 }
+
+/** The game's clock — made up from when it started for a game saved before the clock. */
+export const gameClockOf = (game: Game): GameClock => game.clock ?? newClock(game.startedAt ?? Date.now())
+
+/** The game clock now, for the turn timer to start a turn from. */
+const elapsedNow = (game: Game) => clockElapsed(gameClockOf(game), Date.now())
 
 /**
  * Whose turn it is next, and whether that completes a round.
@@ -552,6 +579,14 @@ export type GameAction = { by?: number } & (
   | { type: 'dayNight'; value: DayNight | null }
   | { type: 'clearHistory' }
   | { type: 'link'; id: number; player: LinkedPlayer | null }
+  /** What the deck played at seat [id] brings (from their remote); null takes it off. */
+  | { type: 'deckInfo'; id: number; info: SeatDeckInfo | null }
+  /** One of seat [id]'s deck tokens up or down. */
+  | { type: 'token'; id: number; tokenId: string; delta: number }
+  /** The table owner's deck on their seat [seat] — and off any other seat nobody joined from a phone. */
+  | { type: 'meDeck'; seat: number | null; info: SeatDeckInfo | null }
+  /** Pauses or restarts the game clock. */
+  | { type: 'clock'; paused: boolean }
   | { type: 'match'; match: { id: string; code: string } | null }
 )
 
@@ -564,6 +599,7 @@ function undoKey(action: GameAction): string | null {
     case 'counter': return `counter:${action.id}:${action.counter}`
     case 'kill': case 'concede': case 'revive': return `out:${action.id}`
     case 'commanderCast': return `cast:${action.id}:${action.slot ?? 0}`
+    case 'token': return `token:${action.id}:${action.tokenId}`
     case 'nextTurn': return 'turn'
     default: return null
   }
@@ -575,7 +611,8 @@ const samePlayState = (a: Player, b: Player) =>
   (a.commanderCasts ?? 0) === (b.commanderCasts ?? 0) && (a.partnerCasts ?? 0) === (b.partnerCasts ?? 0) &&
   JSON.stringify(a.commanderDamage) === JSON.stringify(b.commanderDamage) &&
   JSON.stringify(a.partnerDamage ?? {}) === JSON.stringify(b.partnerDamage ?? {}) &&
-  JSON.stringify(a.counters ?? {}) === JSON.stringify(b.counters ?? {})
+  JSON.stringify(a.counters ?? {}) === JSON.stringify(b.counters ?? {}) &&
+  JSON.stringify(a.tokenCounts ?? {}) === JSON.stringify(b.tokenCounts ?? {})
 
 /** Plays [action], remembering how to take it back when it's an undoable change. */
 export function gameReducer(game: Game, action: GameAction): Game {
@@ -627,7 +664,7 @@ function undo(game: Game, by: number | null): Game {
     return was
       ? {
           ...p, life: was.life, poison: was.poison, killed: was.killed, commanderDamage: was.commanderDamage, counters: was.counters,
-          commanderCasts: was.commanderCasts, partnerDamage: was.partnerDamage, partnerCasts: was.partnerCasts,
+          commanderCasts: was.commanderCasts, partnerDamage: was.partnerDamage, partnerCasts: was.partnerCasts, tokenCounts: was.tokenCounts,
         }
       : p
   }
@@ -636,7 +673,7 @@ function undo(game: Game, by: number | null): Game {
     ...game,
     touched: true,
     players: game.players.map(restore),
-    ...(entry.turn ?? {}),
+    ...(entry.turn ? { ...entry.turn, turnStartElapsed: elapsedNow(game) } : {}),
     history: game.history.filter((h) => !dropped.has(h.id)),
     undo: stack.filter((_, i) => i !== index),
   }
@@ -666,6 +703,13 @@ function setPartner(game: Game, id: number, on: boolean): Game {
   }
 }
 
+/** [p] playing a deck that brings [info]: counts kept only for the tokens it still makes. */
+function withDeckInfo(p: Player, info: SeatDeckInfo | null): Player {
+  if (!info) return { ...p, deckInfo: null, tokenCounts: {} }
+  const counts = Object.fromEntries(Object.entries(p.tokenCounts ?? {}).filter(([id]) => info.tokens.some((t) => t.id === id)))
+  return { ...p, deckInfo: info, tokenCounts: counts }
+}
+
 function updatePlayer(game: Game, id: number, fn: (p: Player) => Player): Game {
   return { ...game, touched: true, players: game.players.map((p) => (p.id === id ? fn(p) : p)) }
 }
@@ -686,11 +730,17 @@ function applyAction(game: Game, action: GameAction): Game {
       // A restart at the same table keeps who's sitting where (and the tile pictures and decks
       // they chose); a different number of seats is a new table.
       const fresh = newGame(action.settings)
-      if (!game.match || fresh.players.length !== game.players.length) return fresh
+      if (fresh.players.length !== game.players.length) return fresh
+      // The same decks' tokens, all back in the box.
+      const decks = fresh.players.map((p) => {
+        const info = game.players.find((o) => o.id === p.id)?.deckInfo
+        return info ? { ...p, deckInfo: info } : p
+      })
+      if (!game.match) return { ...fresh, players: decks }
       return {
         ...fresh,
         match: game.match,
-        players: fresh.players.map((p) => {
+        players: decks.map((p) => {
           const old = game.players.find((o) => o.id === p.id)
           return old?.linked
             ? { ...p, linked: old.linked, background: old.background ?? null, deck: old.deck ?? null, commander: old.commander ?? null, hasPartner: old.hasPartner }
@@ -839,13 +889,13 @@ function applyAction(game: Game, action: GameAction): Game {
       const players = game.players.map((p) => (p.counters?.storm ? { ...p, counters: { ...p.counters, storm: 0 } } : p))
       // A "hold on" was about the turn that just ended.
       return note(
-        { ...game, touched: true, players, turnPlayerId: moved.turnPlayerId, turnNumber, hold: null },
+        { ...game, touched: true, players, turnPlayerId: moved.turnPlayerId, turnNumber, hold: null, turnStartElapsed: elapsedNow(game) },
         moved.turnPlayerId,
         `Turn ${turnNumber}`,
       )
     }
     case 'firstPlayer':
-      return note({ ...game, turnPlayerId: action.id, firstPlayerId: action.id, turnNumber: 1 }, action.id, 'Goes first')
+      return note({ ...game, turnPlayerId: action.id, firstPlayerId: action.id, turnNumber: 1, turnStartElapsed: elapsedNow(game) }, action.id, 'Goes first')
     case 'monarch':
       if (game.monarchId === action.id) return game
       return note({ ...game, touched: true, monarchId: action.id }, action.id,
@@ -860,6 +910,33 @@ function applyAction(game: Game, action: GameAction): Game {
         action.value === null ? 'Stopped tracking day and night' : action.value === 'DAY' ? 'It became day' : 'It became night')
     case 'clearHistory':
       return { ...game, history: [] }
+    case 'deckInfo':
+      return { ...game, players: game.players.map((p) => (p.id === action.id ? withDeckInfo(p, action.info) : p)) }
+    case 'meDeck': {
+      const players = game.players.map((p) => {
+        // A seat someone joined gets its deck from their remote instead.
+        if (p.linked) return p
+        const info = p.id === action.seat ? action.info : null
+        return JSON.stringify(info ?? null) === JSON.stringify(p.deckInfo ?? null) ? p : withDeckInfo(p, info)
+      })
+      return players.every((p, i) => p === game.players[i]) ? game : { ...game, players }
+    }
+    case 'token': {
+      const p = game.players.find((x) => x.id === action.id)
+      const tokens = p?.deckInfo?.tokens
+      if (!p || !tokens) return game
+      const current = p.tokenCounts?.[action.tokenId] ?? 0
+      const counts = changedTokenCounts(p.tokenCounts ?? {}, tokens, action.tokenId, action.delta)
+      const updated = counts[action.tokenId] ?? 0
+      if (updated === current) return game
+      const token = tokens.find((t) => t.id === action.tokenId)!
+      return note(updatePlayer(game, action.id, (x) => ({ ...x, tokenCounts: counts })), action.id, `${tokenLabel(token)} tokens: ${updated}`)
+    }
+    case 'clock': {
+      const clock = gameClockOf(game)
+      const next = action.paused ? pauseClock(clock, Date.now()) : resumeClock(clock, Date.now())
+      return next === clock && game.clock ? game : { ...game, clock: next }
+    }
     case 'link': {
       const current = game.players.find((p) => p.id === action.id)?.linked ?? null
       if (JSON.stringify(current) === JSON.stringify(action.player)) return game
@@ -875,7 +952,7 @@ function applyAction(game: Game, action: GameAction): Game {
             // Same person, new profile picture: the tile follows it, unless they chose something else.
             return { ...p, linked: action.player, background: (p.background ?? null) === oldAvatar ? newAvatar : p.background }
           }
-          return { ...p, linked: action.player, background: newAvatar, deck: null, commander: null }
+          return { ...p, linked: action.player, background: newAvatar, deck: null, commander: null, deckInfo: null, tokenCounts: {} }
         }),
       }
     }
@@ -883,7 +960,7 @@ function applyAction(game: Game, action: GameAction): Game {
       return {
         ...game,
         match: action.match,
-        players: action.match ? game.players : game.players.map((p) => (p.linked ? { ...p, linked: null, background: null, deck: null, commander: null } : p)),
+        players: action.match ? game.players : game.players.map((p) => (p.linked ? { ...p, linked: null, background: null, deck: null, commander: null, deckInfo: null, tokenCounts: {} } : p)),
         shownCard: action.match ? game.shownCard : null,
       }
   }
@@ -932,7 +1009,7 @@ export function useLifeCounter() {
     if (!saved || saved.layoutId !== s.layoutId || !Array.isArray(saved.players)) return newGame(s)
     // A game saved by an older version is missing whatever has been added since (history, the
     // monarch…), so fill those in from a fresh game rather than rendering with holes.
-    return { ...newGame(s), ...saved, players: saved.players, history: saved.history ?? [] }
+    return { ...newGame(s), ...saved, players: saved.players, history: saved.history ?? [], clock: gameClockOf(saved), turnStartElapsed: saved.turnStartElapsed ?? 0 }
   })
 
   useEffect(() => save(SETTINGS_KEY, settings), [settings])

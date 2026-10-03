@@ -4,7 +4,8 @@
 
 import { useEffect, useState } from 'react'
 import type { GameResult } from '../types/models'
-import { displayName, lossReason, type Game, type LifeSettings } from './game'
+import { displayName, gameClockOf, lossReason, type Game, type LifeSettings } from './game'
+import { clockElapsed, gameMinutes } from './tableExtras'
 
 /** One seat in a finished game. [out]: why they lost (LIFE, POISON…), null for the winner. [me]: the table owner's seat. */
 export interface TableGamePlayer { seat: number; name: string; commander: string | null; out: string | null; me: boolean }
@@ -38,7 +39,8 @@ export function tableGameOf(game: Game, settings: LifeSettings, winnerSeat: numb
     id: game.gameId ?? String(game.startedAt ?? now),
     endedAt: now,
     turns: game.turnNumber,
-    minutes: Math.max(1, Math.round((lastAt - (game.startedAt ?? lastAt)) / 60_000)),
+    // From the game clock, up to the last thing that happened: time paused doesn't count.
+    minutes: gameMinutes(clockElapsed(gameClockOf(game), lastAt)),
     winnerSeat,
     players: game.players.map((p) => ({
       seat: p.id,
