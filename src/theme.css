@@ -3845,9 +3845,12 @@ button.tag-chip {
 
 .card-grid {
   display: grid;
-  /* Settings → Card Display → Grid tile size: as many columns across a phone's width, more on a
-     wider screen (the Android app's gridColumnsFor). */
-  grid-template-columns: repeat(auto-fill, minmax(calc(380px / var(--grid-columns, 3) - 8px), 1fr));
+  /* Settings → Card Display → Grid tile size: at least that many columns, tiles a phone's width
+     divided by it, so a wider screen fits more (the Android app's gridColumnsFor). */
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(calc(380px / var(--grid-columns, 3) - 8px), calc((100% - (var(--grid-columns, 3) - 1) * 10px) / var(--grid-columns, 3))), 1fr)
+  );
   gap: 14px 10px;
 }
 
