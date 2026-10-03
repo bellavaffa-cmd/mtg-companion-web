@@ -11,9 +11,12 @@ import { useSocial } from '../social/SocialContext'
 
 // Matches the Android app's bottomNavRoutes — on a phone the bar hides on pushed detail screens
 // (their own back button takes over). Tablet and desktop keep their rail/sidebar everywhere.
-export const TAB_ROUTES = new Set(['/', '/collections', '/decks', '/search'])
+export const TAB_ROUTES = new Set(['/', '/collections', '/decks', '/search', '/play'])
 
 export const LAST_DECK_KEY = 'mtgweb_last_deck'
+
+/** The sidebar's and rail's top links: the bottom bar's, but Play, which comes after Scan. */
+const MAIN_TABS = NAV_TABS.filter((tab) => tab.to !== '/play')
 
 export function Layout() {
   const location = useLocation()
@@ -103,7 +106,7 @@ function Sidebar() {
         <span className="mark">M</span>
         <span>Manabind</span>
       </NavLink>
-      {NAV_TABS.map((tab) => (
+      {MAIN_TABS.map((tab) => (
         <NavLink key={tab.to} to={tab.to} end={tab.end} className={({ isActive }) => `side-nav${isActive ? ' active' : ''}`}>
           <Icon name={tab.icon} />
           {tab.label}
@@ -113,9 +116,9 @@ function Sidebar() {
         <Icon name="photo_camera" />
         Scan cards
       </NavLink>
-      <NavLink to="/life" className="side-nav">
+      <NavLink to="/play" className={({ isActive }) => `side-nav${isActive ? ' active' : ''}`}>
         <Icon name="favorite" />
-        Life counter
+        Play
       </NavLink>
       <NavLink to="/rules" className={({ isActive }) => `side-nav${isActive ? ' active' : ''}`}>
         <Icon name="gavel" />
@@ -162,7 +165,7 @@ function NavRail() {
   return (
     <nav className="navrail" aria-label="Main">
       <NavLink to="/" className="mark" aria-label="Home">M</NavLink>
-      {NAV_TABS.map((tab) => (
+      {MAIN_TABS.map((tab) => (
         <NavLink key={tab.to} to={tab.to} end={tab.end} className={({ isActive }) => `nav-tab${isActive ? ' active' : ''}`}>
           <span className="pill"><Icon name={tab.icon} /></span>
           <span>{tab.label}</span>
@@ -172,9 +175,9 @@ function NavRail() {
         <span className="pill"><Icon name="photo_camera" /></span>
         <span>Scan</span>
       </NavLink>
-      <NavLink to="/life" className="nav-tab">
+      <NavLink to="/play" className={({ isActive }) => `nav-tab${isActive ? ' active' : ''}`}>
         <span className="pill"><Icon name="favorite" /></span>
-        <span>Life</span>
+        <span>Play</span>
       </NavLink>
       <NavLink to="/rules" className={({ isActive }) => `nav-tab${isActive ? ' active' : ''}`}>
         <span className="pill"><Icon name="gavel" /></span>

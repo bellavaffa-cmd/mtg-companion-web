@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
-  announceText, canUndo, clampAmount, displayName, gameNumberOf, gameOver, highRoll, lossReason, PINNABLE_COUNTERS, pinnableLabel,
+  announceText, canUndo, clampAmount, displayName, gameClockOf, gameNumberOf, gameOver, highRoll, lossReason, PINNABLE_COUNTERS, pinnableLabel,
   resetSettings, useAnnouncement, useLifeCounter, wantsHighRoll,
   type Game, type GameAction, type LifeSettings, type ShownCard,
 } from './game'
@@ -18,6 +18,9 @@ import { useWakeLock } from './wakeLock'
 import { useSync } from '../sync/SyncContext'
 import { clearTableGames, deleteTableGame, meResultOf, recordTableGame, tableGameOf, useTableGames } from './tableGames'
 import { CommanderSheet, MeSheet, TableGamesSheet } from './TableSheets'
+import { loadSeatDeckInfo } from './seatDeck'
+import { clockElapsed, formatClock, reminderLines, TURN_TIMER_CHOICES, turnTimeLeft, type GameClock } from './tableExtras'
+import { useNow } from './useNow'
 import './lifecounter.css'
 
 type Overlay = null | 'seating' | 'settings' | 'restart' | 'dice' | 'history' | 'table' | 'mode' | 'archenemy' | 'games'
@@ -47,6 +50,7 @@ function useTableOrientation() {
 
 export function LifeCounterPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const lc = useLifeCounter()
   const { settings, game, dispatch } = lc
   const layout = layoutById(game.layoutId)
@@ -80,6 +84,23 @@ export function LifeCounterPage() {
   const tableGames = useTableGames()
   const [commanderFor, setCommanderFor] = useState<number | null>(null)
   const [meFor, setMeFor] = useState<number | null>(null)
+
+  // The owner's deck on their seat (looked up once per deck: its cards' oracle text and its tokens),
+  // and off any other seat nobody joined from a phone. A seat someone joined gets its deck from
+  // their remote instead ("deckInfo").
+  const meDeck = decks.find((d) => d.id === settings.meDeckId) ?? null
+  const meDeckKey = meDeck ? `${meDeck.id}:${meDeck.cards.length}` : null
+  const meSeatLinked = !!game.players.find((p) => p.id === settings.meSeat)?.linked
+  const meDeckRef = useRef(meDeck)
+  meDeckRef.current = meDeck
+  useEffect(() => {
+    const seat = settings.meSeat ?? null
+    const deck = meDeckRef.current
+    if (!deck || seat === null) { dispatch({ type: 'meDeck', seat, info: null }); return }
+    let cancelled = false
+    void loadSeatDeckInfo(deck).then((info) => { if (!cancelled) dispatch({ type: 'meDeck', seat, info }) })
+    return () => { cancelled = true }
+  }, [settings.meSeat, meDeckKey, meSeatLinked, game.gameId, dispatch])
 
   /**
    * Losing on your own turn used to leave the turn there: a player who is out has no End turn
@@ -167,6 +188,28 @@ export function LifeCounterPage() {
   // Whose turn it is — their tile grows — unless the tracker's off or a high roll is showing.
   const activeSeat = settings.turnTracker && !roll && game.players.length > 1 ? game.turnPlayerId : null
 
+  // The turn timer runs for whoever's turn it is, on the game clock (pausing the game pauses it).
+  const clock = gameClockOf(game)
+  const turnStart = game.turnStartElapsed ?? 0
+  const tileTimer = activeSeat !== null && settings.turnTimerMinutes > 0 && !over
+    ? { clock, turnStartElapsed: turnStart, minutes: settings.turnTimerMinutes }
+    : null
+  // Time's up: one long buzz, once a turn — where the device can.
+  const timerKey = tileTimer ? `${game.gameId}:${game.turnNumber}:${game.turnPlayerId}:${turnStart}:${clock.pausedAt}:${clock.pausedMs}:${tileTimer.minutes}` : null
+  useEffect(() => {
+    if (!tileTimer || tileTimer.clock.pausedAt !== null) return
+    const left = turnTimeLeft(tileTimer.minutes, tileTimer.turnStartElapsed, clockElapsed(tileTimer.clock, Date.now()))
+    if (left === null || left <= 0) return
+    const t = window.setTimeout(() => navigator.vibrate?.([450, 150, 450]), left)
+    return () => window.clearTimeout(t)
+    // timerKey says everything the buzz depends on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timerKey])
+
+  // A turn's trigger reminders show until they're tapped away (or the turn passes).
+  const turnKey = `${game.gameId}:${game.turnNumber}:${game.turnPlayerId}`
+  const [remindersDismissed, setRemindersDismissed] = useState<string | null>(null)
+
   const closeAll = () => { setMenuOpen(false); setOverlay(null) }
   const open = (o: Overlay) => { setMenuOpen(false); setOverlay(o) }
 
@@ -183,6 +226,9 @@ export function LifeCounterPage() {
           activeTurn={player.id === activeSeat}
           turnNumber={game.turnNumber}
           onEndTurn={() => dispatch({ type: 'nextTurn', autoKill: settings.autoKill })}
+          turnTimer={player.id === activeSeat ? tileTimer : null}
+          reminders={player.id === activeSeat && settings.triggerReminders && remindersDismissed !== turnKey ? reminderLines(player.deckInfo?.triggers ?? []) : []}
+          onDismissReminders={() => setRemindersDismissed(turnKey)}
           isMonarch={game.monarchId === player.id}
           hasInitiative={game.initiativeId === player.id}
           holding={game.hold === player.id}
@@ -217,30 +263,6 @@ export function LifeCounterPage() {
         label={roll ? 'Close the high roll and start' : undefined}
         onClick={() => (roll ? closeRoll() : overlay ? closeAll() : setMenuOpen((m) => !m))}
       />
-      {menuOpen && (
-        <RadialMenu
-          onRestart={() => open('restart')}
-          onHighRoll={() => { setMenuOpen(false); setRoll(highRoll(game.players.map((p) => p.id))) }}
-          onSeating={() => open('seating')}
-          onSettings={() => open('settings')}
-          onDice={() => open('dice')}
-          onTable={() => open('table')}
-          onHistory={() => open('history')}
-          onGames={() => open('games')}
-          canUndo={canUndo(game)}
-          onUndo={() => dispatch({ type: 'undo' })}
-          onPlanechase={() => {
-            if (gameMode?.mode !== 'PLANECHASE') void startGameMode('PLANECHASE')
-            open('mode')
-          }}
-          onArchenemy={() => open(gameMode?.mode === 'ARCHENEMY' ? 'mode' : 'archenemy')}
-          onBounty={() => {
-            if (gameMode?.mode !== 'BOUNTY') void startGameMode('BOUNTY')
-            open('mode')
-          }}
-          onExit={() => navigate('/')}
-        />
-      )}
     </CentreBar>
   )
 
@@ -248,6 +270,44 @@ export function LifeCounterPage() {
     <div className={`lc-root${panelsOpen > 0 ? ' lc-panel-open' : ''}`}>
       <TableSurface layout={layout} landscape={landscape} clockwise={clockwise} seat={seat} bar={bar} activeSeat={activeSeat} />
       {menuOpen && <button type="button" className="lc-scrim" aria-label="Close menu" onClick={() => setMenuOpen(false)} />}
+      {menuOpen && (
+        <GameMenu
+          clock={clock}
+          turnNumber={settings.turnTracker ? game.turnNumber : null}
+          onPause={(paused) => dispatch({ type: 'clock', paused })}
+          onPicked={() => setMenuOpen(false)}
+          sections={[
+            ['Game', [
+              ['Restart', 'restart_alt', () => open('restart')],
+              // Back where the table was opened from (the Play tab), or there when it was opened directly.
+              ['Exit', 'logout', () => (location.key === 'default' ? navigate('/play') : navigate(-1))],
+              ['High roll', 'casino', () => setRoll(highRoll(game.players.map((p) => p.id)))],
+              ['Seating', 'event_seat', () => open('seating')],
+              ['Games', 'emoji_events', () => open('games')],
+            ]],
+            ['Table', [
+              ['Monarch', 'crown', () => open('table')],
+              ['Initiative', 'swords', () => open('table')],
+              ['Day/Night', 'wb_sunny', () => (game.dayNight ? open('table') : dispatch({ type: 'dayNight', value: 'DAY' }))],
+              ['Planechase', 'public', () => {
+                if (gameMode?.mode !== 'PLANECHASE') void startGameMode('PLANECHASE')
+                open('mode')
+              }],
+              ['Archenemy', 'shield', () => open(gameMode?.mode === 'ARCHENEMY' ? 'mode' : 'archenemy')],
+              ['Bounty', 'flag', () => {
+                if (gameMode?.mode !== 'BOUNTY') void startGameMode('BOUNTY')
+                open('mode')
+              }],
+            ]],
+            ['Tools', [
+              ['Undo', 'undo', () => dispatch({ type: 'undo' }), !canUndo(game)],
+              ['Dice', 'casino', () => open('dice')],
+              ['History', 'history', () => open('history')],
+              ['Settings', 'settings', () => open('settings')],
+            ]],
+          ]}
+        />
+      )}
 
       {overlay === 'restart' && (
         <Confirm text="Start a new game?" confirm="New game" onConfirm={() => { lc.restart(); closeAll() }} onCancel={closeAll} />
@@ -283,15 +343,16 @@ export function LifeCounterPage() {
       {links.showing !== null && <SeatCodeSheet game={game} seat={links.showing} links={links} onClose={links.close} Sheet={Sheet} />}
       {game.shownCard && <ShownCardOverlay card={game.shownCard} game={game} onClose={() => dispatch({ type: 'hideCard' })} />}
       {holder && (
-        <button type="button" className="lc-hold-banner" onClick={() => dispatch({ type: 'hold', id: null })} aria-label={`${displayName(holder)} says hold on — tap when they're done`}>
-          <span className="material-symbols-rounded" aria-hidden>pan_tool</span>
-          <b>{displayName(holder)} says hold on</b>
-          <span className="lc-hold-hint">Tap when they’re done</span>
+        <button type="button" className="lc-hold-banner" onClick={() => dispatch({ type: 'hold', id: null })} aria-label={`${displayName(holder)}: hold on — OK, go on`}>
+          <span aria-hidden>✋</span>
+          <b>{displayName(holder)}: hold on</b>
+          <span className="lc-hold-ok">OK, go on</span>
         </button>
       )}
-      {announce && announce.kind !== 'target' && (
+      {announce && (
         <div className={`lc-announce ${announce.kind}`} key={announce.id} role="status" aria-live="polite">
-          {announceText(announce, nameOfSeat)}
+          {/* Their tile lights up too; this says who to look at from anywhere at the table. */}
+          {announce.kind === 'target' && announce.to !== undefined ? `${nameOfSeat(announce.seat)} → ${nameOfSeat(announce.to)}` : announceText(announce, nameOfSeat)}
         </div>
       )}
       {gameMode && overlay !== 'mode' && <ModeBanner state={gameMode} onOpen={() => open('mode')} />}
@@ -426,50 +487,52 @@ function MenuButton({ open, hidden, onClick, label }: { open: boolean; hidden: b
   )
 }
 
-function RadialMenu(props: {
-  onRestart: () => void; onHighRoll: () => void; onSeating: () => void; onSettings: () => void
-  onDice: () => void; onTable: () => void; onHistory: () => void; onGames: () => void; onPlanechase: () => void; onExit: () => void
-  onArchenemy: () => void; onBounty: () => void
-  canUndo: boolean; onUndo: () => void
+type MenuItem = [label: string, icon: string, onClick: () => void, disabled?: boolean]
+
+/**
+ * The centre menu, along the bottom while it's open: the game clock, then everything grouped as
+ * Game (this game and the next), Table (what sits on the table: monarch, day/night, game modes)
+ * and Tools.
+ */
+function GameMenu({ clock, turnNumber, onPause, sections, onPicked }: {
+  clock: GameClock
+  turnNumber: number | null
+  onPause: (paused: boolean) => void
+  sections: [title: string, items: MenuItem[]][]
+  onPicked: () => void
 }) {
-  const items: [string, string, () => void][] = [
-    ['Exit', 'exit', props.onExit],
-    ['Restart', 'restart', props.onRestart],
-    ['High roll', 'highroll', props.onHighRoll],
-    ['Seating', 'seating', props.onSeating],
-    ['Settings', 'settings', props.onSettings],
-    ['Dice', 'dice', props.onDice],
-  ]
+  const paused = clock.pausedAt !== null
+  const now = useNow(1_000, !paused)
+  let n = 0
   return (
-    <div className="lc-radial" role="menu">
-      {items.map(([label, cls, onClick], i) => (
-        <button key={cls} type="button" role="menuitem" className={`lc-pill ${cls}`} style={{ ['--i' as string]: i }} onClick={onClick}>
-          {label}
-        </button>
-      ))}
-      <div className="lc-menu-row">
-        <button type="button" role="menuitem" className="lc-menu-chip" onClick={props.onUndo} disabled={!props.canUndo} aria-label="Undo the last change">
-          <span className="material-symbols-rounded" aria-hidden>undo</span>Undo
-        </button>
-        <button type="button" role="menuitem" className="lc-menu-chip" onClick={props.onTable}>
-          <span className="material-symbols-rounded" aria-hidden>crown</span>Table
-        </button>
-        <button type="button" role="menuitem" className="lc-menu-chip" onClick={props.onHistory}>
-          <span className="material-symbols-rounded" aria-hidden>history</span>History
-        </button>
-        <button type="button" role="menuitem" className="lc-menu-chip" onClick={props.onGames}>
-          <span className="material-symbols-rounded" aria-hidden>emoji_events</span>Games
-        </button>
-        <button type="button" role="menuitem" className="lc-menu-chip" onClick={props.onPlanechase}>
-          <span className="material-symbols-rounded" aria-hidden>public</span>Planechase
-        </button>
-        <button type="button" role="menuitem" className="lc-menu-chip" onClick={props.onArchenemy}>
-          <span className="material-symbols-rounded" aria-hidden>shield</span>Archenemy
-        </button>
-        <button type="button" role="menuitem" className="lc-menu-chip" onClick={props.onBounty}>
-          <span className="material-symbols-rounded" aria-hidden>flag</span>Bounty
+    <div className="lc-game-menu" role="menu" aria-label="Game menu">
+      <div className="lc-game-menu-clock">
+        <span className="lc-game-clock">Game {formatClock(clockElapsed(clock, now))}{paused ? ' · paused' : ''}</span>
+        {turnNumber !== null && <span className="lc-game-menu-turn">Turn {turnNumber}</span>}
+        <button type="button" className="lc-clock-btn" onClick={() => onPause(!paused)} aria-label={paused ? 'Start the game clock' : 'Pause the game clock'}>
+          <span className="material-symbols-rounded" aria-hidden>{paused ? 'play_arrow' : 'pause'}</span>
         </button>
       </div>
+      {sections.map(([title, items]) => (
+        <section key={title} className="lc-game-menu-section" aria-label={title}>
+          <h3>{title}</h3>
+          <div className="lc-game-menu-row">
+            {items.map(([label, icon, onClick, disabled]) => (
+              <button
+                key={label}
+                type="button"
+                role="menuitem"
+                className="lc-menu-chip"
+                style={{ ['--i' as string]: Math.min(10, n++) }}
+                disabled={disabled}
+                onClick={() => { onPicked(); onClick() }}
+              >
+                <span className="material-symbols-rounded" aria-hidden>{icon}</span>{label}
+              </button>
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   )
 }
@@ -676,6 +739,17 @@ function SettingsOverlay({ lc, onClose }: { lc: ReturnType<typeof useLifeCounter
         <section>
           <h3>Gameplay</h3>
           <Toggle label="Turn tracker" detail="Whose turn it is gets a bigger tile and an End turn button" on={settings.turnTracker} onChange={set('turnTracker')} />
+          <div className="lc-toggle static">
+            <span className="txt"><b>Turn timer</b><span>{settings.turnTracker ? 'The active player’s tile counts down and the device buzzes at 0' : 'Needs the turn tracker'}</span></span>
+          </div>
+          <div className="lc-choices wrap" role="group" aria-label="Turn timer">
+            {TURN_TIMER_CHOICES.map((m) => (
+              <button key={m} type="button" aria-pressed={settings.turnTimerMinutes === m} onClick={() => updateSettings({ turnTimerMinutes: m })}>
+                {m === 0 ? 'Off' : `${m} min`}
+              </button>
+            ))}
+          </div>
+          <Toggle label="Trigger reminders" detail="At the start of a turn, the deck’s “at the beginning of your upkeep” (and draw, combat, end step) cards show on the tile" on={settings.triggerReminders} onChange={set('triggerReminders')} />
           <Toggle label="High roll at game start" on={settings.highRollAtStart} onChange={set('highRollAtStart')} />
           <Toggle label="Auto-kill" detail="Kill players from life, poison or commander damage" on={settings.autoKill} onChange={set('autoKill')} />
           <Toggle label="Commander damage" detail="Commander damage causes players to lose life" on={settings.commanderDamageCostsLife} onChange={set('commanderDamageCostsLife')} />

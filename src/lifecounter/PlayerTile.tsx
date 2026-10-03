@@ -6,6 +6,11 @@ import {
 } from './game'
 import type { SeatFacing } from './tableLayouts'
 import { avatarUrl } from '../social/api'
+import { clockElapsed, tokenChipText, tokenLabel, turnTimeLeft, turnTimerText, type GameClock } from './tableExtras'
+import { useNow } from './useNow'
+
+/** The turn timer on the active player's tile: it counts itself down on [clock]. */
+export interface TileTurnTimer { clock: GameClock; turnStartElapsed: number; minutes: number }
 
 /** How long a "+3"/"−3" tally stays up after the last tap before it clears. */
 const FEEDBACK_HOLD_MS = 1500
@@ -113,6 +118,9 @@ export function PlayerTile({
   winner = false,
   gameNumber = 0,
   messageTick = 0,
+  turnTimer = null,
+  reminders = [],
+  onDismissReminders,
 }: {
   player: Player
   opponents: Player[]
@@ -134,6 +142,11 @@ export function PlayerTile({
   highRoll: { value: number; winner: boolean } | null
   /** Shown on the tile whose turn it is, with the button that ends it. */
   turnNumber: number
+  /** On the player whose turn it is, with the turn timer on. */
+  turnTimer?: TileTurnTimer | null
+  /** At the start of their turn: their deck's "at the beginning of your …" cards, one line per step. */
+  reminders?: string[]
+  onDismissReminders?: () => void
   onEndTurn: () => void
   dispatch: (a: GameAction) => void
   /** The page dims the menu button while a panel covers a tile. */
@@ -269,7 +282,7 @@ export function PlayerTile({
         {/* The corners of the tile whose turn it is: out of the way of the life total in the middle. */}
         {activeTurn && !loss && !highRoll && (
           <>
-            <span className="lc-turn-label">Turn {turnNumber}</span>
+            <span className="lc-turn-label">Turn {turnNumber}{turnTimer && <TurnTimerLabel timer={turnTimer} />}</span>
             <button type="button" className="lc-end-turn" onClick={onEndTurn} aria-label="End turn" title="End turn">
               <span className="material-symbols-rounded" aria-hidden>check</span>
             </button>
@@ -285,6 +298,35 @@ export function PlayerTile({
               <span className={plusLabel.active ? 'on' : ''}>{plusLabel.text}</span>
             </button>
           </>
+        )}
+
+        {!loss && !highRoll && reminders.length > 0 && (
+          <button
+            type="button"
+            className="lc-reminder"
+            onClick={onDismissReminders}
+            aria-label={`Trigger reminder: ${reminders.join('. ')}. Tap to dismiss.`}
+          >
+            <span className="lc-reminder-lines">{reminders.slice(0, 4).map((line) => <span key={line}>{line}</span>)}</span>
+            <span className="lc-reminder-x" aria-hidden>✕</span>
+          </button>
+        )}
+        {!loss && !highRoll && (player.deckInfo?.tokens.length ?? 0) > 0 && (
+          <div className={`lc-deck-tokens${activeTurn ? ' beside-end-turn' : ''}`}>
+            {player.deckInfo!.tokens.map((t) => {
+              const count = player.tokenCounts?.[t.id] ?? 0
+              return (
+                <span key={t.id} className={`lc-deck-token${count > 0 ? ' out' : ''}`}>
+                  {count > 0 && (
+                    <button type="button" className="lc-deck-token-minus" onClick={() => dispatch({ type: 'token', id: player.id, tokenId: t.id, delta: -1 })} aria-label={`One fewer ${tokenLabel(t)}`}>−</button>
+                  )}
+                  <button type="button" className="lc-deck-token-plus" onClick={() => dispatch({ type: 'token', id: player.id, tokenId: t.id, delta: 1 })} aria-label={`One more ${tokenLabel(t)}, ${count} out`}>
+                    {tokenChipText(t, count)}
+                  </button>
+                </span>
+              )
+            })}
+          </div>
         )}
 
         {highRoll && <RollFace value={highRoll.value} winner={highRoll.winner} />}
@@ -306,6 +348,14 @@ export function PlayerTile({
       </div>
     </Face>
   )
+}
+
+/** The turn's time left, ticking; red and counting up once it has run over. */
+function TurnTimerLabel({ timer }: { timer: TileTurnTimer }) {
+  const now = useNow(500, timer.clock.pausedAt === null)
+  const left = turnTimeLeft(timer.minutes, timer.turnStartElapsed, clockElapsed(timer.clock, now))
+  if (left === null) return null
+  return <span className={`lc-turn-timer${left <= 0 ? ' over' : ''}`}>{left <= 0 ? `Time! ${turnTimerText(left)}` : turnTimerText(left)}</span>
 }
 
 const STAR_COLORS = ['#ff005f', '#ffc600', '#4352ff', '#2bd98f', '#fff', '#c79bff']
@@ -445,6 +495,14 @@ function PlayerPanel({
           />
         )}
         <Counter label="Poison" value={player.poison} onChange={(delta) => dispatch({ type: 'poison', id: player.id, delta })} />
+        {!!player.deckInfo?.tokens.length && (
+          <>
+            <div className="lc-panel-label">{player.deckInfo.deck ? `Tokens · ${player.deckInfo.deck}` : 'Deck tokens'}</div>
+            {player.deckInfo.tokens.map((t) => (
+              <Counter key={t.id} label={tokenLabel(t)} value={player.tokenCounts?.[t.id] ?? 0} onChange={(delta) => dispatch({ type: 'token', id: player.id, tokenId: t.id, delta })} />
+            ))}
+          </>
+        )}
         <div className="lc-panel-label">Counters</div>
         {COUNTER_KINDS.map((k) => (
           <Counter key={k} label={COUNTER_INFO[k].label} value={counterOf(player, k)} onChange={(delta) => dispatch({ type: 'counter', id: player.id, counter: k, delta })} />

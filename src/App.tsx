@@ -18,6 +18,7 @@ import { AccountPage } from './pages/AccountPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { LifeCounterPage } from './lifecounter/LifeCounterPage'
 import { RemotePage } from './lifecounter/RemotePage'
+import { PlayPage } from './lifecounter/PlayPage'
 import { GetAppPage } from './pages/GetAppPage'
 import { ValueHistoryPage } from './pages/ValueHistoryPage'
 import { TagBinderPage } from './collection/TagBinders'
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="/decks/:id" element={<DeckDetailPage />} />
             <Route path="/precons" element={<PreconsPage />} />
             <Route path="/rules" element={<RulesPage />} />
+            <Route path="/play" element={<PlayPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/card/:name" element={<CardPage />} />
             <Route path="/scan" element={<ScanPage />} />
