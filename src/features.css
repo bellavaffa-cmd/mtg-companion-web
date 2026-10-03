@@ -3,7 +3,7 @@
 
 .btn.cut {
   background: var(--cut);
-  color: #1e0d02;
+  color: var(--cut-ink);
 }
 
 /* ---- Swap picker and the combo-piece warning ---- */

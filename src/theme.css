@@ -20,10 +20,14 @@
   /* The accent on a dark scrim over card art, bright in either theme. */
   --gold-art: #e6b45e;
   --cut: #ff8a4c;
+  /* Text on the cut colour. */
+  --cut-ink: #1e0d02;
   --ok: #5bcb8f;
   --warn: #f3b64a;
   --error: #f07565;
   --line: rgba(255, 255, 255, 0.06);
+  /* A switch's knob, on the accent or the off track alike. */
+  --knob: #fff;
 
   /* Older names still used by inline styles. */
   --bg: var(--g0);
@@ -453,7 +457,7 @@ img {
 
 .btn.danger,
 .btn-danger {
-  background: rgba(240, 117, 101, 0.12);
+  background: color-mix(in srgb, var(--error) 12%, transparent);
   color: var(--error);
 }
 
@@ -649,17 +653,17 @@ select.input {
 
 /* A card the camera caught twice within seconds. */
 .badge.warn {
-  background: rgba(243, 182, 74, 0.18);
+  background: color-mix(in srgb, var(--warn) 18%, transparent);
   color: var(--warn);
 }
 
 .scan-row.scan-double {
-  box-shadow: inset 0 0 0 1px rgba(243, 182, 74, 0.5);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 50%, transparent);
 }
 
 .badge.cut {
   background: var(--cut);
-  color: #1e0d02;
+  color: var(--cut-ink);
 }
 
 /* One card away from a combo: the combo badge's colour, outlined rather than filled. */
@@ -971,7 +975,7 @@ select.input {
 
 .notice.warn,
 .add-warning {
-  background: rgba(243, 182, 74, 0.14);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
   color: var(--warn);
   padding: 10px 14px;
   border-radius: 14px;
@@ -2012,7 +2016,7 @@ select.input {
 }
 
 .sa-ic.danger {
-  background: rgba(240, 117, 101, 0.14);
+  background: color-mix(in srgb, var(--error) 14%, transparent);
   color: var(--error);
 }
 
@@ -3237,7 +3241,7 @@ select.input.sf-sort {
   color: var(--gold);
 }
 .value-change.down {
-  color: #d3402f;
+  color: var(--error);
 }
 .value-page .chip {
   margin-right: 8px;
@@ -3322,7 +3326,7 @@ select.input.sf-sort {
   color: var(--gold);
 }
 .mover-change.down {
-  color: #d3402f;
+  color: var(--error);
 }
 
 /* ---- Opening-hand odds ---- */
@@ -3629,7 +3633,7 @@ select.input.sf-sort {
   background: var(--gold);
 }
 .form-chip.loss {
-  background: #d3402f;
+  background: var(--error);
 }
 .form-chip.draw {
   color: var(--t1);
@@ -3673,7 +3677,7 @@ select.input.sf-sort {
   color: var(--gold);
 }
 .matchup b.down {
-  color: #d3402f;
+  color: var(--error);
 }
 .match-games {
   display: grid;
@@ -3695,7 +3699,7 @@ select.input.sf-sort {
   color: var(--gold);
 }
 .match-result.loss {
-  color: #d3402f;
+  color: var(--error);
 }
 .match-detail {
   flex: 1;
