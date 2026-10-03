@@ -19,6 +19,7 @@ export function MatchRecordPanel({ deck }: { deck: Deck }) {
   const stats = useMemo(() => gameStats(deck.gameResults), [deck.gameResults])
   const [logging, setLogging] = useState(false)
   const [showAll, setShowAll] = useState(false)
+  const [removing, setRemoving] = useState<GameResult | null>(null)
   const newest = useMemo(() => [...deck.gameResults].sort((a, b) => b.playedAt - a.playedAt), [deck.gameResults])
   const length = [stats.averageMinutes != null ? `${stats.averageMinutes} min` : null, stats.averageTurns != null ? `${stats.averageTurns} turns` : null].filter(Boolean)
 
@@ -51,7 +52,7 @@ export function MatchRecordPanel({ deck }: { deck: Deck }) {
                 <span className="dim match-detail">
                   {[g.opponent ? `vs ${g.opponent}` : null, g.commanders?.length ? g.commanders.join(', ') : null, g.turns ? `${g.turns} turns` : null].filter(Boolean).join(' · ') || '—'}
                 </span>
-                <button type="button" className="match-remove" aria-label="Remove this result" onClick={() => removeGameResult(deck.id, g.id)}>
+                <button type="button" className="match-remove" aria-label="Remove this result" onClick={() => setRemoving(g)}>
                   <Icon name="close" />
                 </button>
               </div>
@@ -61,6 +62,22 @@ export function MatchRecordPanel({ deck }: { deck: Deck }) {
             <button type="button" className="link" onClick={() => setShowAll((v) => !v)}>{showAll ? 'Show fewer' : `Show all ${newest.length}`}</button>
           )}
         </>
+      )}
+      {removing && (
+        <Dialog
+          title="Delete this game?"
+          onDismiss={() => setRemoving(null)}
+          actions={
+            <>
+              <button type="button" className="btn line" onClick={() => setRemoving(null)}>Cancel</button>
+              <button type="button" className="btn danger" onClick={() => { removeGameResult(deck.id, removing.id); setRemoving(null) }}>Delete</button>
+            </>
+          }
+        >
+          <p className="muted" style={{ margin: 0 }}>
+            The {removing.result.toLowerCase()}{removing.opponent ? ` against ${removing.opponent}` : ''} on {new Date(removing.playedAt).toLocaleDateString()} comes out of this deck's record.
+          </p>
+        </Dialog>
       )}
       {logging && (
         <LogResultDialog

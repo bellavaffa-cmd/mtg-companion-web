@@ -51,6 +51,8 @@ export function CollectionDetailPage() {
   // Cards picked by pressing and holding (scryfall ids), and whether their remove / export is open.
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulk, setBulk] = useState<'remove' | 'export' | null>(null)
+  // One card's "Remove from binder", asked first like removing several.
+  const [removing, setRemoving] = useState<CollectionEntry | null>(null)
   useEffect(() => {
     if (selected.size === 0) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelected(new Set()) }
@@ -273,7 +275,7 @@ export function CollectionDetailPage() {
             { label: 'Select', icon: 'check_circle', detail: 'Pick several cards to move, export or remove', onClick: () => toggle(sheet) },
             sheet.auto && isWishlist(collection)
               ? { label: 'Not interested', icon: 'delete', tone: 'danger' as const, detail: "It won't come back while a deck considers it", onClick: () => takeOff([sheet]) }
-              : { label: 'Remove from binder', icon: 'delete', tone: 'danger' as const, onClick: () => removeEntryFromCollection(collection.id, sheet.scryfallId) },
+              : { label: 'Remove from binder', icon: 'delete', tone: 'danger' as const, onClick: () => setRemoving(sheet) },
           ]}
           onClose={() => setSheet(null)}
         />
@@ -325,6 +327,24 @@ export function CollectionDetailPage() {
           <p className="muted" style={{ margin: 0 }}>
             Remove {label(picked)} ({copies(picked)} {copies(picked) === 1 ? 'copy' : 'copies'}) from this binder?
             {isWishlist(collection) && picked.some((e) => e.auto) && " Ones your decks are considering won't come back."}
+          </p>
+        </Dialog>
+      )}
+      {removing && (
+        <Dialog
+          title="Remove card?"
+          onDismiss={() => setRemoving(null)}
+          actions={
+            <>
+              <button type="button" className="btn line" onClick={() => setRemoving(null)}>Cancel</button>
+              <button type="button" className="btn danger" onClick={() => { removeEntryFromCollection(collection.id, removing.scryfallId); setRemoving(null) }}>
+                Remove
+              </button>
+            </>
+          }
+        >
+          <p className="muted" style={{ margin: 0 }}>
+            Remove {removing.name} ({copies([removing])} {copies([removing]) === 1 ? 'copy' : 'copies'}) from this binder?
           </p>
         </Dialog>
       )}

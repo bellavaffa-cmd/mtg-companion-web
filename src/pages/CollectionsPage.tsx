@@ -134,7 +134,10 @@ export function CollectionsPage() {
         />
       )}
 
-      {confirmDelete && (
+      {confirmDelete && (() => {
+        // Copies, not different cards: "its 40 cards" for a binder of 4 × 10 cards.
+        const copies = confirmDelete.entries.reduce((n, e) => n + e.quantity + e.foilQuantity, 0)
+        return (
         <Dialog
           title="Delete this binder?"
           onDismiss={() => setConfirmDelete(null)}
@@ -145,9 +148,10 @@ export function CollectionsPage() {
             </>
           }
         >
-          <p className="muted" style={{ margin: 0 }}>“{confirmDelete.name}” and its {confirmDelete.entries.length} cards will be removed here and on your other devices.</p>
+          <p className="muted" style={{ margin: 0 }}>“{confirmDelete.name}” and its {copies} {copies === 1 ? 'card' : 'cards'} will be removed here and on your other devices.</p>
         </Dialog>
-      )}
+        )
+      })()}
 
       {importing && (
         <ImportCardsDialog

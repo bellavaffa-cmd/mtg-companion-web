@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { DOUBLE_MS, copyNumber, grouped, onlyRepeats, repeatedCards, scannedTwiceOver, type ScanRow } from '../../src/scan/scanLog.ts'
+import { DOUBLE_MS, copyNumber, grouped, onlyRepeats, repeatedCards, saveNewest, scannedTwiceOver, type ScanRow } from '../../src/scan/scanLog.ts'
 import type { ScryfallCard } from '../../src/types/scryfall.ts'
 
 // The scanning list: one row per scan, newest first. The Android app has the same checks — see
@@ -36,4 +36,26 @@ test('the pile is added together only when it goes into a binder', () => {
   // A foil is its own stack, even of a card already scanned.
   const withFoil: ScanRow[] = [{ id: 4, card: card('sol'), foil: true, at: t0 + 12000 }, ...list]
   assert.deepEqual(grouped(withFoil).map((g) => [g.card.id, g.foil, g.quantity]), [['sol', false, 2], ['cult', false, 1], ['sol', true, 1]])
+})
+
+test('the whole pile is kept for a reload when there is room', () => {
+  const list = rows(['a', 3], ['b', 2], ['c', 1])
+  let stored: ScanRow[] = []
+  assert.equal(saveNewest(list, (keep) => { stored = keep; return true }), 3)
+  assert.equal(stored.length, 3)
+})
+
+test('short of room, the newest scans that fit are kept', () => {
+  const list = rows(...Array.from({ length: 1000 }, (_, i): [string, number] => [`c${i}`, 1000 - i]))
+  let stored: ScanRow[] = []
+  const kept = saveNewest(list, (keep) => { if (keep.length > 600) return false; stored = keep; return true })
+  assert.ok(kept <= 600 && kept >= 480, `kept ${kept}`)
+  assert.equal(stored.length, kept)
+  assert.equal(stored[0], list[0])
+})
+
+test('with no room at all, nothing older comes back after a reload', () => {
+  let stored: ScanRow[] | null = null
+  assert.equal(saveNewest(rows(['a', 1]), (keep) => { if (keep.length > 0) return false; stored = keep; return true }), 0)
+  assert.deepEqual(stored, [])
 })

@@ -66,3 +66,17 @@ export function grouped(rows: ScanRow[]): { card: ScryfallCard; foil: boolean; q
 
 /** How many cards are in the pile, however many rows they take. */
 export const totalScanned = (rows: ScanRow[]) => rows.length
+
+/**
+ * Keeps the pile for a reload: all of [rows] when [save] takes them, otherwise as many of the newest
+ * as it will — a fifth fewer each try — so a browser short of room still keeps most of it. Answers
+ * how many were kept (0: not even one).
+ */
+export function saveNewest(rows: ScanRow[], save: (rows: ScanRow[]) => boolean): number {
+  for (let n = rows.length; n > 0; n = Math.floor(n * 0.8)) {
+    if (save(rows.slice(0, n))) return n
+  }
+  // Nothing fits (or nothing to keep): an empty pile, rather than an older one coming back.
+  save([])
+  return 0
+}

@@ -20,7 +20,7 @@ import { cardBySight, choosePrinting, looksLikeAnotherCard, smallPrintAgrees } f
 import { regularInSet } from '../collection/printings'
 import { confirmRead, parseSetAndNumber, parseSetCode, sameCardName, SCAN_MODES, scanModeOf, ScanTracker, type ScanMode } from '../scan/scanLogic'
 import { appLinkPath, qrReader } from '../scan/qr'
-import { copyNumber, grouped, onlyRepeats, repeatedCards, scannedTwiceOver, type ScanRow } from '../scan/scanLog'
+import { copyNumber, grouped, onlyRepeats, repeatedCards, saveNewest, scannedTwiceOver, type ScanRow } from '../scan/scanLog'
 import { useSync } from '../sync/SyncContext'
 import { isUnsorted, UNSORTED_COLLECTION_ID } from '../types/models'
 import { displayImageUrl, type ScryfallCard } from '../types/scryfall'
@@ -67,7 +67,6 @@ const PILE_KEY = 'mtgweb_scan_pile'
 
 /** Fast or Accurate, kept on this device for next time. */
 const MODE_KEY = 'mtgweb_scan_mode'
-const PILE_KEEP = 300
 
 function loadPile(): ScanRow[] {
   try {
@@ -80,12 +79,19 @@ function loadPile(): ScanRow[] {
   }
 }
 
-function savePile(rows: ScanRow[]) {
-  try {
-    sessionStorage.setItem(PILE_KEY, JSON.stringify(rows.slice(0, PILE_KEEP)))
-  } catch {
-    // A tab that won't store it still has the pile on screen.
-  }
+/**
+ * Every scan is kept. A tab with too little room keeps the newest that fit, and answers how many,
+ * so the page can say the rest won't survive a reload (they're still on screen until then).
+ */
+function savePile(rows: ScanRow[]): number {
+  return saveNewest(rows, (keep) => {
+    try {
+      sessionStorage.setItem(PILE_KEY, JSON.stringify(keep))
+      return true
+    } catch {
+      return false
+    }
+  })
 }
 
 /** Whether this printing comes in foil (Scryfall lists its finishes; unknown means maybe). */
@@ -124,7 +130,9 @@ export function ScanPage() {
   const [repeatsOnly, setRepeatsOnly] = useState(false)
   // Leaving with cards still in the list would throw them away, so it asks first.
   const [leaving, setLeaving] = useState<(() => void) | null>(null)
-  useEffect(() => { savePile(scanned) }, [scanned])
+  // How many scans a reload would bring back: fewer than the pile when this tab ran out of room.
+  const [pileKept, setPileKept] = useState(Infinity)
+  useEffect(() => { setPileKept(savePile(scanned)) }, [scanned])
   // Scanning a pile is minutes of not touching the screen: don't let it dim and lock.
   useKeepAwake(camera === 'on')
   const [flash, setFlash] = useState(0)
@@ -636,6 +644,13 @@ export function ScanPage() {
         </form>
 
         {notice && <div className="notice" style={{ marginTop: 12 }}><Icon name="check_circle" style={{ color: 'var(--ok)', fontSize: 18, marginRight: 6 }} />{notice}</div>}
+
+        {pileKept < scanned.length && (
+          <div className="notice warn" style={{ marginTop: 12 }}>
+            This browser is out of room to keep the whole pile. If the page reloads, only the newest {pileKept} of
+            your {scanned.length} scans come back — add them to a deck or binder soon.
+          </div>
+        )}
 
         {scanned.length > 0 && (
           <>
