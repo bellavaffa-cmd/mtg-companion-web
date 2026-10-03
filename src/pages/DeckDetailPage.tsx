@@ -32,6 +32,8 @@ import { useUndoBar } from '../components/useUndoBar'
 import { doneMessage } from '../collection/addTo'
 import { backImageUrl, cardTags, displayImageUrl, displayManaCost, displayOracleText, entryCanBeCommander, type ScryfallCard } from '../types/scryfall'
 import { DeckSuggestions } from '../components/DeckSuggestions'
+import { ShareSwitch } from '../social/ShareDialog'
+import { ownedNameKeys } from '../collection/owned'
 import { DeckSwaps } from '../components/DeckSwaps'
 import { DeckStats, deckFigures, useDeckCardData } from '../components/DeckStats'
 import { MatchRecordPanel } from '../components/MatchRecordPanel'
@@ -121,6 +123,10 @@ export function DeckDetailPage() {
   // "Who has it?", buying, and the Wishlist. Copies in another deck of yours count.
   const missing = useMemo(() => (deck ? missingCards(deck, collections, decks) : []), [deck, collections, decks])
   const [notice, setNotice] = useState<string | null>(null)
+  // "Only cards I own" on the Suggestions tab: suggestions and budget swaps limited to cards in the
+  // user's binders (the Unsorted pile too, not the Wishlist, and not copies in decks).
+  const [ownedOnly, setOwnedOnly] = useState(false)
+  const ownedKeys = useMemo(() => ownedNameKeys(collections), [collections])
   // A card whose printing is being changed: another art, another set.
   const [changingPrinting, setChangingPrinting] = useState<DeckCardEntry | null>(null)
   // A deck built with proxies: how many are left, and which you already own a real copy of.
@@ -456,11 +462,13 @@ export function DeckDetailPage() {
 
   /** A suggestion the user likes goes into Considering, not into the deck. */
   const consider = (card: ScryfallCard) => addToDeck(card, true)
+  const owned = ownedOnly ? ownedKeys : null
   const suggestions = (
     <>
-      <DeckSwaps deck={deck} cardsById={cardData} roleTags={roleTags} onExpand={setZoomSuggestion} onMarkCut={markCut} />
+      <ShareSwitch label="Only cards I own" detail="Suggestions and budget swaps you have in your binders" on={ownedOnly} onChange={setOwnedOnly} />
+      <DeckSwaps deck={deck} cardsById={cardData} roleTags={roleTags} owned={owned} onExpand={setZoomSuggestion} onMarkCut={markCut} />
       <div className="p-h" style={{ marginTop: 18 }}><h3>EDHREC suggestions</h3></div>
-      <DeckSuggestions deck={deck} onExpand={setZoomSuggestion} onConsider={consider} />
+      <DeckSuggestions deck={deck} owned={owned} onExpand={setZoomSuggestion} onConsider={consider} />
     </>
   )
   const details = <DeckDetails deck={deck} onDelete={() => setConfirmDelete(true)} />

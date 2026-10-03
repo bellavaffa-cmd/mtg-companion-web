@@ -3,6 +3,7 @@
 
 import type { Collection, Deck, DeckCardEntry } from '../types/models'
 import { cachedIdentity, cachedTags } from '../tags/roleTags'
+import { cardNameKeys } from '../decks/comboPieces'
 
 /** One card the user owns, however many binders its copies are spread over. */
 export interface OwnedCard {
@@ -35,6 +36,20 @@ export function ownedCards(collections: Collection[]): OwnedCard[] {
   }
   return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name))
 }
+
+/**
+ * Name keys (cardNameKeys) of every card with a copy in the user's own binders, the Unsorted pile
+ * included, wishlists not — for "Only cards I own" on a deck's suggestions. The Android app's
+ * ownedNameKeys.
+ */
+export function ownedNameKeys(collections: Collection[]): Set<string> {
+  return new Set(collections
+    .filter((c) => c.type !== 'WISHLIST')
+    .flatMap((c) => c.entries.filter((e) => e.quantity + e.foilQuantity > 0).flatMap((e) => cardNameKeys(e.name))))
+}
+
+/** Whether a card called [name] is among [ownedKeys] (see ownedNameKeys). */
+export const isOwnedName = (name: string, ownedKeys: Set<string>): boolean => cardNameKeys(name).some((k) => ownedKeys.has(k))
 
 /**
  * Cards the user owns that do [tagId]'s job and aren't in [deck] yet — for a deck short of ramp,

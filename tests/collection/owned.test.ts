@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { ownedCards, ownedForTag } from '../../src/collection/owned.ts'
+import { isOwnedName, ownedCards, ownedForTag, ownedNameKeys } from '../../src/collection/owned.ts'
 import { cardsTheyWant, hitsAsTrade } from '../../src/social/tradeLogic.ts'
 import type { Collection, Deck, DeckCardEntry } from '../../src/types/models.ts'
 
@@ -53,4 +53,16 @@ test("wishlist hits become one copy of each card", () => {
   assert.deepEqual(hitsAsTrade([hit('b1', 0, 2), hit('b2', 3, 0)]), [
     { scryfallId: 'id-b1', name: 'Rhystic Study', imageUrl: null, foil: true, quantity: 1, collectionId: 'b1' },
   ])
+})
+
+// "Only cards I own" on a deck's suggestions — the Android app's OwnedNamesTest.
+test("binder copies count, wishlists and empty rows don't, and a double-faced card matches by its front", () => {
+  const keys = ownedNameKeys([
+    binder('b', 'Main', [entry('s', 'Sol Ring'), entry('d', 'Delver of Secrets // Insectile Aberration', 0, 1), entry('e', 'Empty', 0, 0)]),
+    binder('w', 'Wishlist', [entry('r', 'Rhystic Study')], 'WISHLIST'),
+  ])
+  assert.ok(isOwnedName('sol ring', keys))
+  assert.ok(isOwnedName('Delver of Secrets', keys))
+  assert.ok(!isOwnedName('Rhystic Study', keys))
+  assert.ok(!isOwnedName('Empty', keys))
 })

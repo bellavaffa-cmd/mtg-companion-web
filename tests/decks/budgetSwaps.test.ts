@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { budgetCandidates, budgetRoleOf, budgetSwapQuery, freshAlternatives, swapIdentity } from '../../src/decks/budgetSwaps.ts'
+import { budgetCandidates, budgetRoleOf, budgetSwapQuery, freshAlternatives, shownAlternatives, swapIdentity } from '../../src/decks/budgetSwaps.ts'
 import type { DeckCardEntry } from '../../src/types/models.ts'
 
 // Budget swaps, searched the way the phone searches them (DeckDetailViewModel.findBudgetSwaps).
@@ -35,5 +35,9 @@ test('the colours searched within, and the alternatives offered', () => {
   assert.equal(swapIdentity([], [['G'], ['R']]), 'rg')
   assert.equal(swapIdentity([], []), 'c')
   const found = ['Arcane Signet', 'Fellwar Stone', 'Mind Stone', 'Thought Vessel', 'Talisman of Dominance', 'Wayfarer’s Bauble'].map((name) => ({ name }))
-  assert.deepEqual(freshAlternatives(found, ['Mind Stone']).map((c) => c.name), ['Arcane Signet', 'Fellwar Stone', 'Thought Vessel', 'Talisman of Dominance'])
+  const kept = freshAlternatives(found, ['Mind Stone'])
+  assert.deepEqual(kept.map((c) => c.name), ['Arcane Signet', 'Fellwar Stone', 'Thought Vessel', 'Talisman of Dominance', 'Wayfarer’s Bauble'])
+  assert.deepEqual(shownAlternatives(kept, null).map((c) => c.name), ['Arcane Signet', 'Fellwar Stone', 'Thought Vessel', 'Talisman of Dominance'])
+  // Only cards I own: the owned ones, wherever they came in the list.
+  assert.deepEqual(shownAlternatives(kept, new Set(['wayfarer’s bauble', 'fellwar stone'])).map((c) => c.name), ['Fellwar Stone', 'Wayfarer’s Bauble'])
 })

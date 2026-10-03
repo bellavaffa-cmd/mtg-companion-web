@@ -11,6 +11,8 @@ export const BUDGET_THRESHOLDS = [2, 5, 10, 20]
 /** The priciest cards looked at. */
 export const MAX_BUDGET_SWAPS = 8
 export const ALTERNATIVES_PER_SWAP = 4
+/** How many are kept, so filtering to owned cards still has some to show. */
+export const ALTERNATIVES_KEPT = 24
 /** Alternatives must cost under this fraction of the original — a swap has to actually save money. */
 export const BUDGET_PRICE_FRACTION = 0.4
 
@@ -79,5 +81,13 @@ export function swapIdentity(commanderColors: string[][], candidateColors: strin
 /** [found] without cards the deck or its Considering list already has, the first few. */
 export function freshAlternatives<T extends { name: string }>(found: T[], alreadyHave: string[]): T[] {
   const have = new Set(alreadyHave.flatMap(cardNameKeys))
-  return found.filter((c) => !cardNameKeys(c.name).some((k) => have.has(k))).slice(0, ALTERNATIVES_PER_SWAP)
+  return found.filter((c) => !cardNameKeys(c.name).some((k) => have.has(k))).slice(0, ALTERNATIVES_KEPT)
+}
+
+/**
+ * The alternatives a swap shows: the first ALTERNATIVES_PER_SWAP of those kept, or with [owned] (name
+ * keys, collection/owned.ts's ownedNameKeys) only the ones the user has in a binder.
+ */
+export function shownAlternatives<T extends { name: string }>(kept: T[], owned: Set<string> | null): T[] {
+  return (owned ? kept.filter((c) => cardNameKeys(c.name).some((k) => owned.has(k))) : kept).slice(0, ALTERNATIVES_PER_SWAP)
 }

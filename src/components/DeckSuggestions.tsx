@@ -6,14 +6,20 @@ import type { Deck } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 import { Icon } from './Icon'
 import { rise } from './kit'
+import { isOwnedName } from '../collection/owned'
+
+/** How many suggestions are shown. */
+const SHOWN = 12
 
 /**
  * Cards other people play with this deck's commander that it doesn't have yet, from EDHREC —
  * the Android app's Suggestions tab. Tapping one opens it, to read before deciding; the + puts it
  * in Considering, since a suggestion is a thought about the deck rather than a change to it.
  */
-export function DeckSuggestions({ deck, onExpand, onConsider, index = 0 }: {
+export function DeckSuggestions({ deck, owned = null, onExpand, onConsider, index = 0 }: {
   deck: Deck
+  /** "Only cards I own": the name keys of the user's binder cards (ownedNameKeys); null shows every suggestion. */
+  owned?: Set<string> | null
   /** Look at the card — it's only a suggestion until the user says otherwise. */
   onExpand: (card: ScryfallCard) => void
   onConsider: (card: ScryfallCard) => void
@@ -23,9 +29,10 @@ export function DeckSuggestions({ deck, onExpand, onConsider, index = 0 }: {
   // With two commanders, EDHREC's page for the pair (see commanderSuggestions).
   const partner = deck.commander ? deck.partnerCommander?.name ?? null : null
   const shownName = [commander, partner].filter(Boolean).join(' & ')
-  const have = [...deck.cards.map((c) => c.name), ...[deck.commander, deck.partnerCommander].flatMap((c) => (c ? [c.name] : []))]
+  const have = [...deck.cards.map((c) => c.name), ...(deck.sideboard ?? []).map((c) => c.name), ...[deck.commander, deck.partnerCommander].flatMap((c) => (c ? [c.name] : []))]
   const key = `${commander}&${partner}#${[...have].sort().join('|')}`
-  const [cards, setCards] = useState<EdhrecCard[] | null | undefined>(undefined)
+  // Every suggestion the deck doesn't have yet, best first — the top of it is shown.
+  const [pool, setPool] = useState<EdhrecCard[] | null | undefined>(undefined)
   // Set when EDHREC couldn't be reached at all — a different thing from having no page for the commander.
   const [unreachable, setUnreachable] = useState<string | null>(null)
   // The name being looked up on Scryfall, and what it's for: EDHREC gives us a name, nothing more.
@@ -39,18 +46,18 @@ export function DeckSuggestions({ deck, onExpand, onConsider, index = 0 }: {
     if (!commander) return
     let cancelled = false
     if (shownFor.current !== shownName) {
-      setCards(undefined)
+      setPool(undefined)
       setUnreachable(null)
     }
     shownFor.current = shownName
     // edhrec.ts keeps each commander's page, so this is quick after the first time.
-    commanderSuggestions(commander, have, 12, partner)
-      .then((result) => { if (!cancelled) setCards(result) })
+    commanderSuggestions(commander, have, Infinity, partner)
+      .then((result) => { if (!cancelled) setPool(result) })
       .catch((e) => {
         if (cancelled) return
         shownFor.current = null
         setUnreachable(e instanceof OfflineError ? e.message : "Couldn't reach EDHREC. Try again in a moment.")
-        setCards(null)
+        setPool(null)
       })
     return () => { cancelled = true }
     // key covers the commander and every card already in the deck.
@@ -69,6 +76,8 @@ export function DeckSuggestions({ deck, onExpand, onConsider, index = 0 }: {
     }
   }
 
+  const cards = pool && (owned ? pool.filter((c) => isOwnedName(c.name, owned)) : pool).slice(0, SHOWN)
+
   if (!commander) {
     return (
       <div className="empty-state">
@@ -80,7 +89,13 @@ export function DeckSuggestions({ deck, onExpand, onConsider, index = 0 }: {
   if (cards === undefined) return <div className="empty-state">Asking EDHREC what pairs well with {shownName}…</div>
   if (unreachable) return <div className="empty-state"><Icon name="cloud_off" />{unreachable}</div>
   if (cards === null) return <div className="empty-state">EDHREC has no page for {shownName} yet.</div>
-  if (cards.length === 0) return <div className="empty-state">This deck already runs EDHREC's picks for {shownName}.</div>
+  if (cards.length === 0) {
+    return (
+      <div className="empty-state">
+        {owned ? "None of this commander's suggestions are in your binders." : `This deck already runs EDHREC's picks for ${shownName}.`}
+      </div>
+    )
+  }
 
   return (
     <div className="rise" style={rise(index)}>

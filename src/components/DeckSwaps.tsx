@@ -7,7 +7,7 @@ import { displayImageUrl, largeImageUrl, type ScryfallCard } from '../types/scry
 import { tagsOf } from '../tags/roleTags'
 import { nearMisses } from '../decks/considering'
 import {
-  BUDGET_THRESHOLDS, budgetCandidates, budgetRoleOf, budgetSwapQuery, freshAlternatives, swapIdentity, type BudgetRole,
+  BUDGET_THRESHOLDS, budgetCandidates, budgetRoleOf, budgetSwapQuery, freshAlternatives, shownAlternatives, swapIdentity, type BudgetRole,
 } from '../decks/budgetSwaps'
 import { AddToSheet } from './AddToSheet'
 import { useAddCardTo } from './useAddCardTo'
@@ -36,8 +36,10 @@ type SwapState =
  * cheaper cards for its priciest ones. Either goes onto Considering through the "Add to…" sheet, as
  * on the phone (nearMissSection and budgetSwapsSection in ui/decks/DeckBuildingUi.kt).
  */
-export function DeckSwaps({ deck, cardsById, roleTags, onExpand, onMarkCut }: {
+export function DeckSwaps({ deck, cardsById, roleTags, owned = null, onExpand, onMarkCut }: {
   deck: Deck
+  /** "Only cards I own": the name keys of the user's binder cards (ownedNameKeys); null shows every alternative. */
+  owned?: Set<string> | null
   cardsById: DeckCardData
   roleTags: Map<string, string[]>
   /** Look at a card up close. */
@@ -70,7 +72,7 @@ export function DeckSwaps({ deck, cardsById, roleTags, onExpand, onMarkCut }: {
         commanders.map((c) => cardsById.get(c.scryfallId)?.color_identity ?? []),
         candidates.map((c) => cardsById.get(c.entry.scryfallId)?.color_identity ?? []),
       )
-      const have = [...deck.cards, ...(deck.considering ?? [])].map((c) => c.name)
+      const have = [...deck.cards, ...(deck.sideboard ?? []), ...(deck.considering ?? [])].map((c) => c.name)
       const swaps: Swap[] = []
       for (const { entry, price } of candidates) {
         const card = cardsById.get(entry.scryfallId)
@@ -158,6 +160,7 @@ export function DeckSwaps({ deck, cardsById, roleTags, onExpand, onMarkCut }: {
         {state.kind === 'done' && state.swaps.length > 0 && (
           <div style={{ marginTop: 12 }}>
             {state.swaps.map((swap) => {
+              const alternatives = shownAlternatives(swap.alternatives, owned)
               const flagged = deck.cards.find((c) => c.scryfallId === swap.entry.scryfallId)?.replaceable
               return (
                 <div key={swap.entry.scryfallId} className="budget-swap">
@@ -170,11 +173,11 @@ export function DeckSwaps({ deck, cardsById, roleTags, onExpand, onMarkCut }: {
                       ? <span className="badge cut">CUT</span>
                       : <button type="button" className="link-btn cut-link" onClick={() => onMarkCut(swap.entry)}>Mark cut</button>}
                   </div>
-                  {swap.alternatives.length === 0 ? (
+                  {alternatives.length === 0 ? (
                     <div className="dim" style={{ marginTop: 6 }}>No cheaper alternatives found.</div>
                   ) : (
                     <div className="budget-alts">
-                      {swap.alternatives.map((alt) => (
+                      {alternatives.map((alt) => (
                         <div key={alt.id} className="budget-alt">
                           <img
                             src={displayImageUrl(alt) ?? undefined} alt={alt.name} loading="lazy"
