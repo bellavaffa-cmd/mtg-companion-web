@@ -5,16 +5,55 @@
 //
 // Server side: publish_match_state / send_match_action in
 // MtgCompanionApp/supabase/migrations/20260922000000_match_remote.sql.
+//
+// ---- Added with the gameplay update (all optional, so old and new clients keep working) ----
+//
+// The same notes as at the top of the Android app's LifeCounterRemote.kt, which is the reference.
+// Every addition is backwards compatible: a table ignores an action "type" it doesn't know, a remote
+// ignores a state key it doesn't know, and each side reads a missing key as "not supported" (null).
+//
+// Remote -> table (actions, for the sender's own seat):
+//   {"type":"deckInfo","deck":"Krenko Goblins"|null,
+//    "tokens":[{"id":"<scryfall id>","name":"Goblin","pt":"1/1"|null}, …],
+//    "triggers":[{"name":"Phyrexian Arena","step":"upkeep"|"draw"|"combat"|"end"}, …]}
+//       The tokens the seat's deck makes and its "at the beginning of your …" cards. Sent when the
+//       player picks a deck, and again whenever the table's state shows no "tokens" for the seat.
+//       The table keeps at most 40 of each, names cut to 80 characters. Unknown steps are dropped.
+//   {"type":"token","id":"<token id from deckInfo>","delta":1|-1|…}
+//       One of the seat's deck tokens up or down (|delta| <= 100; never below 0). An older remote
+//       still moves the plain Tokens counter with {"type":"counter","counter":"tokens",…}.
+//   {"type":"holdOk"}
+//       "OK, go on": any seat other than the one holding clears a "hold on" ("hold" in the state).
+//       The holder itself still lets go with {"type":"hold","on":false}.
+//
+// Table -> remotes (keys of the published state):
+//   players[i].tokens: [{"id":"…","name":"Goblin","pt":"1/1"|null,"count":3}, …]
+//       Present (possibly []) once the table knows the seat's deck tokens; absent/null otherwise —
+//       a remote then keeps its own counts, as before.
+//   clock: {"elapsedMs":754000,"paused":false}
+//       The game clock when this state was sent (time paused doesn't count). Count on from the
+//       moment it arrived, unless paused. Absent from older tables: use startedAt.
+//   turnTimer: {"seconds":120,"leftMs":87000} | null
+//       The per-turn timer of the player whose turn it is ("turn"): leftMs left of it when this
+//       state was sent, below 0 once the turn has run over. null/absent: no turn timer.
+//
+// Already in the protocol and used for the remote extras: "hold" (hold on), "target" (pointing,
+// shown as an announce), "concede", "planar" (with "plane" in the state), and showCard's lookup for
+// rulings (done on the phone; nothing goes to the table unless the card is shown).
 
 import { useEffect, useRef, useState } from 'react'
 import { accessToken } from '../sync/supabaseAuth'
 import { watchMatch } from '../sync/realtime'
 import * as api from '../social/api'
 import {
-  COUNTER_KINDS, EMOTES, canUndo, displayName, gameOver, lossReason, seatColor,
+  COUNTER_KINDS, EMOTES, canUndo, displayName, gameClockOf, gameOver, lossReason, seatColor,
   type Announce, type CounterKind, type DayNight, type EmoteId, type Game, type GameAction, type LifeSettings,
 } from './game'
 import type { PlanarFace } from './gameModes'
+import {
+  clockElapsed, gameMinutes, holdAfterOk, parseDeckInfo, parseRemoteClock, parseRemoteTokens, parseTurnTimer, turnTimeLeft,
+  type RemoteClock, type RemoteToken, type RemoteTurnTimer,
+} from './tableExtras'
 
 export const REMOTE_VERSION = 1
 
@@ -49,6 +88,8 @@ export interface RemoteSeat {
   commanderCasts?: number
   /** The same for their partner, when [partner]. */
   partnerCasts?: number
+  /** The seat's deck tokens and how many of each are out; absent/null from a table that doesn't track them. */
+  tokens?: RemoteToken[] | null
 }
 
 /** The plane in play, when the table is playing Planechase. */
@@ -76,6 +117,10 @@ export interface RemoteState {
   plane?: RemotePlane | null
   /** The latest roll, emote or pointing, shown for a moment — a new [Announce.id] is a new one. */
   announce?: Announce | null
+  /** The game clock as sent; absent from an older table. */
+  clock?: RemoteClock | null
+  /** The turn timer, while the table runs one. */
+  turnTimer?: RemoteTurnTimer | null
 }
 
 export type RemoteAction =
@@ -106,6 +151,12 @@ export type RemoteAction =
   | { type: 'emote'; emote: EmoteId }
   | { type: 'target'; to: number }
   | { type: 'concede' }
+  /** The seat's deck tokens and trigger cards (see the notes at the top). */
+  | { type: 'deckInfo'; deck: string | null; tokens: { id: string; name: string; pt: string | null }[]; triggers: { name: string; step: string }[] }
+  /** One of the seat's deck tokens up or down. */
+  | { type: 'token'; id: string; delta: number }
+  /** "OK, go on": clears someone else's hold on. */
+  | { type: 'holdOk' }
 
 /** Dice a remote can ask the table to roll; 2 is a coin. */
 export const REMOTE_DICE = [4, 6, 8, 10, 12, 20, 2]
@@ -123,11 +174,17 @@ export function allowedImage(url: unknown): url is string {
   }
 }
 
-/** [plane]: the table's Planechase plane, which lives beside the game rather than in it. */
-export function buildRemoteState(game: Game, settings: LifeSettings, plane: RemotePlane | null = null): RemoteState {
+/**
+ * [plane]: the table's Planechase plane, which lives beside the game rather than in it. [now]: when
+ * it's sent — the clock and the turn timer are measured then.
+ */
+export function buildRemoteState(game: Game, settings: LifeSettings, plane: RemotePlane | null = null, now = Date.now()): RemoteState {
   const over = gameOver(game, settings.autoKill)
-  const startedAt = game.startedAt ?? Date.now()
+  const startedAt = game.startedAt ?? now
   const lastAt = game.history[0]?.at ?? startedAt
+  const clock = gameClockOf(game)
+  const turnTracked = settings.turnTracker && game.players.length > 1
+  const left = turnTracked && !over ? turnTimeLeft(settings.turnTimerMinutes, game.turnStartElapsed ?? 0, clockElapsed(clock, now)) : null
   return {
     v: REMOTE_VERSION,
     gameId: game.gameId ?? 'game',
@@ -159,16 +216,41 @@ export function buildRemoteState(game: Game, settings: LifeSettings, plane: Remo
         partner: !!p.hasPartner,
         commanderCasts: p.commanderCasts ?? 0,
         partnerCasts: p.partnerCasts ?? 0,
+        ...(p.deckInfo ? { tokens: p.deckInfo.tokens.map((t) => ({ id: t.id, name: t.name, pt: t.pt ?? null, count: p.tokenCounts?.[t.id] ?? 0 })) } : {}),
       }
     }),
     shownCard: game.shownCard ?? null,
-    over: over ? { winner: over.winnerId, turns: game.turnNumber, minutes: Math.max(1, Math.round((lastAt - startedAt) / 60_000)) } : null,
+    over: over ? { winner: over.winnerId, turns: game.turnNumber, minutes: gameMinutes(clockElapsed(clock, lastAt)) } : null,
     monarch: game.monarchId,
     initiative: game.initiativeId,
     dayNight: game.dayNight,
     hold: game.hold ?? null,
     plane,
     announce: game.announce ?? null,
+    clock: { elapsedMs: clockElapsed(clock, now), paused: clock.pausedAt !== null },
+    turnTimer: left === null ? null : { seconds: settings.turnTimerMinutes * 60, leftMs: left },
+  }
+}
+
+/**
+ * A published state as a remote reads it: null for anything that isn't a game this version
+ * understands; the gameplay additions (seat tokens, clock, turn timer) read as absent when they're
+ * missing or malformed, as from an older table.
+ */
+export function parseRemoteState(raw: unknown): RemoteState | null {
+  if (!raw || typeof raw !== 'object') return null
+  const o = raw as Record<string, unknown>
+  if (o.v !== REMOTE_VERSION || !Array.isArray(o.players)) return null
+  if (!o.players.every((p) => p && typeof p === 'object' && typeof (p as RemoteSeat).seat === 'number')) return null
+  return {
+    ...(o as unknown as RemoteState),
+    players: (o.players as RemoteSeat[]).map((p) => {
+      const { tokens, ...rest } = p
+      const parsed = parseRemoteTokens(tokens)
+      return parsed ? { ...rest, tokens: parsed } : rest
+    }),
+    clock: parseRemoteClock(o.clock),
+    turnTimer: parseTurnTimer(o.turnTimer),
   }
 }
 
@@ -275,6 +357,18 @@ export function remoteToGameAction(game: Game, settings: LifeSettings, seat: num
         : null
     case 'concede':
       return lossReason(game.players.find((p) => p.id === seat)!, settings.autoKill) ? null : { type: 'concede', id: seat, by: seat }
+    case 'deckInfo': {
+      const info = parseDeckInfo(a)
+      return info ? { type: 'deckInfo', id: seat, info, by: seat } : null
+    }
+    case 'token': {
+      const delta = int(a.delta, 100)
+      const p = game.players.find((x) => x.id === seat)
+      if (delta === null || typeof a.id !== 'string' || !p?.deckInfo?.tokens.some((t) => t.id === a.id)) return null
+      return { type: 'token', id: seat, tokenId: a.id, delta, by: seat }
+    }
+    case 'holdOk':
+      return game.hold != null && holdAfterOk(game.hold, seat) === null ? { type: 'hold', id: null, by: seat } : null
     default:
       // 'planar' is played by the table's Planechase, not the game — see useRemoteHost.
       return null
