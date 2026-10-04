@@ -63,11 +63,12 @@ test('copies count the main deck and sideboard together, by name, and earlier ca
   const bolt = known(card('bolt-c', { name: 'Bolt' }))
   assert.deepEqual(addProblems(modern, [{ scryfallId: 'bolt-c', name: 'Bolt', quantity: 1 }], bolt), [[]])
   assert.deepEqual(addProblems(modern, [{ scryfallId: 'bolt-c', name: 'Bolt', quantity: 2 }], bolt), [['Over the copy limit (4 max)']])
-  assert.deepEqual(addProblems(deck('COMMANDER', { cards: [entry('sol')] }), adding('sol'), known()), [['Over the copy limit (1 max)']])
+  assert.deepEqual(addProblems(deck('COMMANDER', { cards: [entry('sol')] }), adding('sol'), known()), [['Singleton: only 1 copy allowed in Commander']])
   assert.deepEqual(
     addProblems(deck('COMMANDER'), [{ scryfallId: 'a', name: 'Sol', quantity: 1 }, { scryfallId: 'b', name: 'Sol', quantity: 1 }], known()),
-    [[], ['Over the copy limit (1 max)']],
+    [[], ['Singleton: only 1 copy allowed in Commander']],
   )
+  assert.deepEqual(addProblems(deck('BRAWL', { cards: [entry('sol')] }), adding('sol'), known()), [['Singleton: only 1 copy allowed in Brawl']])
 })
 
 test('basics and "any number" cards have no copy limit', () => {
@@ -83,7 +84,7 @@ test("missing card data skips legality and colours but still counts copies", () 
   const edh = deck('COMMANDER', { commander: entry('atraxa', 1, 'Atraxa'), cards: [entry('bolt')] })
   // Neither the card nor the commander is known (offline).
   assert.deepEqual(addProblems(edh, adding('mystery'), known()), [[]])
-  assert.deepEqual(addProblems(edh, adding('bolt'), known()), [['Over the copy limit (1 max)']])
+  assert.deepEqual(addProblems(edh, adding('bolt'), known()), [['Singleton: only 1 copy allowed in Commander']])
   // The card is known but the commander isn't: no colour check.
   assert.deepEqual(addProblems(edh, adding('red'), known(card('red', { color_identity: ['R'] }))), [[]])
 })
@@ -91,7 +92,19 @@ test("missing card data skips legality and colours but still counts copies", () 
 test('several problems on one card, in order', () => {
   const edh = deck('COMMANDER', { commander: entry('g', 1, 'Omnath'), cards: [entry('x')] })
   const cards = known(card('g', { color_identity: ['G'] }), card('x', { color_identity: ['R'], legalities: { commander: 'banned' } }))
-  assert.deepEqual(addProblems(edh, adding('x'), cards), [['Banned in Commander', "Outside Omnath's colours", 'Over the copy limit (1 max)']])
+  assert.deepEqual(addProblems(edh, adding('x'), cards), [['Banned in Commander', "Outside Omnath's colours", 'Singleton: only 1 copy allowed in Commander']])
+})
+
+test('one more copy (a "+") checks only the copy limit', () => {
+  const edh = deck('COMMANDER', { commander: entry('g', 1, 'Omnath'), cards: [entry('x'), entry('m', 1, 'Mountain')] })
+  const cards = known(card('g', { color_identity: ['G'] }), card('x', { color_identity: ['R'], legalities: { commander: 'banned' } }))
+  assert.deepEqual(addProblems(edh, adding('x'), cards, true), [['Singleton: only 1 copy allowed in Commander']])
+  assert.deepEqual(addProblems(edh, [{ scryfallId: 'm', name: 'Mountain', quantity: 1 }], cards, true), [[]])
+  const modern = deck('MODERN', { cards: [entry('bolt', 3, 'Bolt')] })
+  const banned = known(card('bolt', { name: 'Bolt', legalities: { modern: 'banned' } }))
+  assert.deepEqual(addProblems(modern, [{ scryfallId: 'bolt', name: 'Bolt', quantity: 1 }], banned, true), [[]])
+  const full = deck('MODERN', { cards: [entry('bolt', 4, 'Bolt')] })
+  assert.deepEqual(addProblems(full, [{ scryfallId: 'bolt', name: 'Bolt', quantity: 1 }], banned, true), [['Over the copy limit (4 max)']])
 })
 
 test("the dialog's words, for one card and for several", () => {

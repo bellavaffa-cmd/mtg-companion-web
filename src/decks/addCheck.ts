@@ -17,9 +17,11 @@ export interface Adding {
  * What's wrong with each of [adding] going into [deck], in the same order (an empty list: nothing).
  * [cardsById] holds what's known of the cards being added and of the deck's commanders; a card or
  * commander missing from it isn't checked for legality or colours, only for copies. Copies count the
- * main deck and sideboard together by name, plus those added earlier in the same list.
+ * main deck and sideboard together by name, plus those added earlier in the same list. With
+ * [copiesOnly] (one more copy of a card already in, from a "+": its format and colours were accepted
+ * when it went in) only the copy limit is checked.
  */
-export function addProblems(deck: Deck, adding: Adding[], cardsById: Map<string, ScryfallCard>): string[][] {
+export function addProblems(deck: Deck, adding: Adding[], cardsById: Map<string, ScryfallCard>, copiesOnly = false): string[][] {
   const rules = formatRules(deck.gameMode)
   const label = rules.label
 
@@ -40,10 +42,12 @@ export function addProblems(deck: Deck, adding: Adding[], cardsById: Map<string,
     const card = cardsById.get(item.scryfallId)
     const problems: string[] = []
     const legality = card?.legalities?.[rules.scryfall]
-    if (legality === 'banned') problems.push(`Banned in ${label}`)
+    if (copiesOnly) {
+      // Only the copy limit, below.
+    } else if (legality === 'banned') problems.push(`Banned in ${label}`)
     else if (legality && legality !== 'legal' && legality !== 'restricted') problems.push(`Not legal in ${label}`)
 
-    if (identity && card?.color_identity && !commanderIds.has(item.scryfallId) && card.color_identity.some((c) => !identity.has(c))) {
+    if (!copiesOnly && identity && card?.color_identity && !commanderIds.has(item.scryfallId) && card.color_identity.some((c) => !identity.has(c))) {
       problems.push(`Outside ${commanderNames}'s colours`)
     }
 
@@ -54,7 +58,7 @@ export function addProblems(deck: Deck, adding: Adding[], cardsById: Map<string,
         if (total > 1) problems.push(`Restricted in ${label}`)
       } else {
         const limit = rules.singleton ? 1 : rules.maxCopies
-        if (total > limit) problems.push(`Over the copy limit (${limit} max)`)
+        if (total > limit) problems.push(rules.singleton ? `Singleton: only 1 copy allowed in ${label}` : `Over the copy limit (${limit} max)`)
       }
     }
     return problems

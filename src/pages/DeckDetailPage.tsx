@@ -308,6 +308,18 @@ export function DeckDetailPage() {
   }
   const cutCount = deck.cards.filter((c) => c.replaceable).length
 
+  /**
+   * One copy more, in the main deck or the sideboard. Only the copy limit is checked (the card's
+   * format and colours were when it went in); past it — a second copy in a singleton deck — the
+   * user is asked first, and Cancel leaves the quantity as it was.
+   */
+  const oneMore = async (entry: DeckCardEntry, sideboard: boolean) => {
+    const ok = await confirmAdd(deck, [entry], (e) => ({ scryfallId: e.scryfallId, name: e.name, quantity: 1 }), { copiesOnly: true })
+    if (!ok) return
+    if (sideboard) setSideboardQuantity(deck.id, entry.scryfallId, entry.quantity + 1)
+    else setCardQuantity(deck.id, entry.scryfallId, entry.quantity + 1)
+  }
+
   /** One copy fewer; the last copy is asked about first (a commander, with the commander's question). */
   const fewer = (entry: DeckCardEntry) => {
     if (entry.quantity > 1) setCardQuantity(deck.id, entry.scryfallId, entry.quantity - 1)
@@ -375,9 +387,7 @@ export function DeckDetailPage() {
           <DeckCardRow
             key={entry.scryfallId} entry={entry} combo={combo} commander={commander}
             onZoom={() => zoom(entry)} onMore={() => more(entry)}
-            onIncrement={commander ? undefined : () => (sideboard
-              ? setSideboardQuantity(deck.id, entry.scryfallId, entry.quantity + 1)
-              : setCardQuantity(deck.id, entry.scryfallId, entry.quantity + 1))}
+            onIncrement={commander ? undefined : () => { void oneMore(entry, !!sideboard) }}
             onDecrement={commander ? undefined : () => (sideboard ? sideFewer(entry) : fewer(entry))}
           />
         ))}
@@ -946,7 +956,7 @@ export function DeckDetailPage() {
             <div className="stepper-big">
               <button type="button" onClick={() => setSideboardQuantity(deck.id, sideZoomEntry.scryfallId, Math.max(1, sideZoomEntry.quantity - 1))} aria-label="One fewer">−</button>
               <span className="qn">{sideZoomEntry.quantity}</span>
-              <button type="button" onClick={() => setSideboardQuantity(deck.id, sideZoomEntry.scryfallId, sideZoomEntry.quantity + 1)} aria-label="One more">+</button>
+              <button type="button" onClick={() => { void oneMore(sideZoomEntry, true) }} aria-label="One more">+</button>
             </div>
           </div>
         </CardZoomModal>
@@ -1007,7 +1017,7 @@ export function DeckDetailPage() {
               <div className="stepper-big">
                 <button type="button" onClick={() => fewer(zoomEntry)} aria-label="One fewer">−</button>
                 <span className="qn">{zoomEntry.quantity}</span>
-                <button type="button" onClick={() => setCardQuantity(deck.id, zoomEntry.scryfallId, zoomEntry.quantity + 1)} aria-label="One more">+</button>
+                <button type="button" onClick={() => { void oneMore(zoomEntry, false) }} aria-label="One more">+</button>
               </div>
             </div>
           )}

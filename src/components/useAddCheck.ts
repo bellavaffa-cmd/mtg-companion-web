@@ -19,9 +19,12 @@ export interface AddCheckCard {
 /**
  * Checks [items] against the deck's rules before they go in (decks/addCheck.ts) and, if any breaks
  * one, asks first. Resolves with the items to add — all of them, or only the allowed ones — or null
- * when the user cancelled.
+ * when the user cancelled. With [options.copiesOnly] only the copy limit is checked — for one more
+ * copy of a card already in (a "+"), whose format and colours were accepted when it went in.
  */
-export type ConfirmAdd = <T>(deck: AddCheckDeck, items: T[], describe: (item: T) => AddCheckCard) => Promise<T[] | null>
+export type ConfirmAdd = <T>(
+  deck: AddCheckDeck, items: T[], describe: (item: T) => AddCheckCard, options?: { copiesOnly?: boolean },
+) => Promise<T[] | null>
 
 export const AddCheckContext = createContext<ConfirmAdd>(async (_deck, items) => items)
 

@@ -42,12 +42,18 @@ export function AddCheckProvider({ children }: { children: ReactNode }) {
   useEffect(() => { latest.current = decks }, [decks])
   const [asking, setAsking] = useState<Asking | null>(null)
 
-  const confirm = useCallback<ConfirmAdd>(async <T,>(target: AddCheckDeck, items: T[], describe: (item: T) => AddCheckCard) => {
+  const confirm = useCallback<ConfirmAdd>(async <T,>(target: AddCheckDeck, items: T[], describe: (item: T) => AddCheckCard, options?: { copiesOnly?: boolean }) => {
     const deck = latest.current.find((d) => d.id === target.id)
       ?? (target.gameMode ? normalizeDeck({ id: target.id, name: target.name, gameMode: target.gameMode }) : null)
     if (!deck || items.length === 0) return items
     const cards = items.map(describe)
-    const problems = addProblems(deck, cards, await cardsFor(deck, cards))
+    // One more copy in a singleton deck that's within the limit by name alone needs no lookup: what
+    // the lookup could add (a restricted card) allows one copy too, so the "+" isn't kept waiting.
+    if (options?.copiesOnly && formatRules(deck.gameMode).singleton) {
+      const quick = addProblems(deck, cards, new Map(cards.flatMap((c) => (c.card ? [[c.scryfallId, c.card] as const] : []))), true)
+      if (quick.every((p) => p.length === 0)) return items
+    }
+    const problems = addProblems(deck, cards, await cardsFor(deck, cards), options?.copiesOnly)
     if (problems.every((p) => p.length === 0)) return items
     const choice = await new Promise<'all' | 'allowed' | null>((resolve) => {
       setAsking({ deckName: deck.name, cards: cards.map((c, i) => ({ name: c.name, problems: problems[i] })), answer: resolve })
