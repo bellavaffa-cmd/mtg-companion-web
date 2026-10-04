@@ -281,7 +281,10 @@ export function DeckDetailPage() {
     showUndo({ message: doneMessage('move', entry.name, deckPlace(deck.name, true)), undo })
   }
   const copiesOf = (entry: DeckCardEntry) => (entry.quantity > 1 ? `${entry.quantity} × ${entry.name}` : entry.name)
-  const toSideboard = (entry: DeckCardEntry) => {
+  const toSideboard = async (entry: DeckCardEntry) => {
+    // Asked first when the sideboard would go past its 15 cards.
+    const ok = await confirmAdd(deck, [entry], (e) => ({ scryfallId: e.scryfallId, name: e.name, quantity: e.quantity, toSideboard: true }), { moving: true })
+    if (!ok) return
     const undo = recordUndo(() => moveToSideboard(deck.id, entry.scryfallId))
     showUndo({ message: doneMessage('move', copiesOf(entry), deckPlace(deck.name, false, true)), undo })
   }
@@ -314,7 +317,7 @@ export function DeckDetailPage() {
    * user is asked first, and Cancel leaves the quantity as it was.
    */
   const oneMore = async (entry: DeckCardEntry, sideboard: boolean) => {
-    const ok = await confirmAdd(deck, [entry], (e) => ({ scryfallId: e.scryfallId, name: e.name, quantity: 1 }), { copiesOnly: true })
+    const ok = await confirmAdd(deck, [entry], (e) => ({ scryfallId: e.scryfallId, name: e.name, quantity: 1, toSideboard: sideboard }), { copiesOnly: true })
     if (!ok) return
     if (sideboard) setSideboardQuantity(deck.id, entry.scryfallId, entry.quantity + 1)
     else setCardQuantity(deck.id, entry.scryfallId, entry.quantity + 1)
@@ -867,7 +870,7 @@ export function DeckDetailPage() {
           onImport={async (allCards, toConsider, allBoard) => {
             // Asked first when cards break the deck's rules; "Add only allowed" leaves those out of the deck and sideboard.
             const lines = [...allCards.map((c) => ({ ...c, side: false })), ...allBoard.map((c) => ({ ...c, side: true }))]
-            const ok = await confirmAdd(deck, lines, (l) => ({ scryfallId: l.card.id, name: l.card.name, quantity: l.quantity, card: l.card }))
+            const ok = await confirmAdd(deck, lines, (l) => ({ scryfallId: l.card.id, name: l.card.name, quantity: l.quantity, card: l.card, toSideboard: l.side }))
             if (!ok) return null
             const cards = ok.filter((l) => !l.side)
             const board = ok.filter((l) => l.side)

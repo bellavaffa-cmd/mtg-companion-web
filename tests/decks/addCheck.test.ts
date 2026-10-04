@@ -117,3 +117,20 @@ test("the dialog's words, for one card and for several", () => {
   assert.equal(text.lines[8], 'and 1 more')
   assert.equal(text.single, false)
 })
+
+test('the sideboard holds 15: adding or moving past it is asked about', () => {
+  const full = deck('MODERN', { sideboard: [entry('a', 4), entry('b', 4), entry('c', 4), entry('d', 2)] })
+  const into = (id: string, quantity = 1) => [{ scryfallId: id, name: id, quantity, toSideboard: true }]
+  assert.deepEqual(addProblems(full, into('e'), known()), [[]])
+  assert.deepEqual(addProblems(full, into('e', 2), known()), [['Sideboard is full (15 max)']])
+  // Several at once: the one that tips it over is the one flagged.
+  assert.deepEqual(addProblems(full, [...into('e'), ...into('f')], known()), [[], ['Sideboard is full (15 max)']])
+  // Into the main deck the sideboard's size doesn't matter.
+  assert.deepEqual(addProblems(full, adding('e', 2), known()), [[]])
+  // A move from the main deck checks only the size, not copies already counted.
+  const moving = deck('MODERN', { cards: [entry('bolt', 4)], sideboard: [entry('a', 4), entry('b', 4), entry('c', 4)] })
+  assert.deepEqual(addProblems(moving, into('bolt', 4), known(), false, true), [['Sideboard is full (15 max)']])
+  assert.deepEqual(addProblems(moving, into('bolt', 3), known(), false, true), [[]])
+  // Commander decks have no sideboard, so no limit to speak of.
+  assert.deepEqual(addProblems(deck('COMMANDER', { sideboard: [entry('a', 15)] }), into('e'), known()), [[]])
+})

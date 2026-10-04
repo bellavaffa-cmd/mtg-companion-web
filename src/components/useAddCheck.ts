@@ -14,6 +14,8 @@ export interface AddCheckCard {
   name: string
   quantity: number
   card?: ScryfallCard | null
+  /** Going into the sideboard rather than the main deck. */
+  toSideboard?: boolean
 }
 
 /**
@@ -21,9 +23,10 @@ export interface AddCheckCard {
  * one, asks first. Resolves with the items to add — all of them, or only the allowed ones — or null
  * when the user cancelled. With [options.copiesOnly] only the copy limit is checked — for one more
  * copy of a card already in (a "+"), whose format and colours were accepted when it went in.
+ * With [options.moving] (main deck to sideboard) only the sideboard's size is checked.
  */
 export type ConfirmAdd = <T>(
-  deck: AddCheckDeck, items: T[], describe: (item: T) => AddCheckCard, options?: { copiesOnly?: boolean },
+  deck: AddCheckDeck, items: T[], describe: (item: T) => AddCheckCard, options?: { copiesOnly?: boolean; moving?: boolean },
 ) => Promise<T[] | null>
 
 export const AddCheckContext = createContext<ConfirmAdd>(async (_deck, items) => items)

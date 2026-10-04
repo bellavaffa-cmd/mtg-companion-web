@@ -3,6 +3,7 @@
 // rules as deckLegality.ts. Pure, so it can be tested; the Android app's AddCheck.kt says the same words.
 
 import { copyLimitExempt, formatRules } from './deckLegality'
+import { hasSideboard, MAX_SIDEBOARD } from './sideboard'
 import type { Deck } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 
@@ -11,6 +12,8 @@ export interface Adding {
   scryfallId: string
   name: string
   quantity: number
+  /** Going into the sideboard, which holds at most MAX_SIDEBOARD cards. */
+  toSideboard?: boolean
 }
 
 /**
@@ -19,9 +22,10 @@ export interface Adding {
  * commander missing from it isn't checked for legality or colours, only for copies. Copies count the
  * main deck and sideboard together by name, plus those added earlier in the same list. With
  * [copiesOnly] (one more copy of a card already in, from a "+": its format and colours were accepted
- * when it went in) only the copy limit is checked.
+ * when it went in) only the copy limit is checked. With [moving] (from the main deck to the
+ * sideboard: the same cards, so nothing about them changes) only the sideboard's size is.
  */
-export function addProblems(deck: Deck, adding: Adding[], cardsById: Map<string, ScryfallCard>, copiesOnly = false): string[][] {
+export function addProblems(deck: Deck, adding: Adding[], cardsById: Map<string, ScryfallCard>, copiesOnly = false, moving = false): string[][] {
   const rules = formatRules(deck.gameMode)
   const label = rules.label
 
@@ -38,9 +42,17 @@ export function addProblems(deck: Deck, adding: Adding[], cardsById: Map<string,
   const counts = new Map<string, number>()
   for (const e of [...deck.cards, ...(deck.sideboard ?? [])]) counts.set(key(e.name), (counts.get(key(e.name)) ?? 0) + e.quantity)
 
+  let sideboardCount = (deck.sideboard ?? []).reduce((n, e) => n + e.quantity, 0)
+  const sideboardKept = hasSideboard(deck.gameMode)
+
   return adding.map((item) => {
     const card = cardsById.get(item.scryfallId)
     const problems: string[] = []
+    if (item.toSideboard && sideboardKept) {
+      sideboardCount += item.quantity
+      if (sideboardCount > MAX_SIDEBOARD) problems.push(`Sideboard is full (${MAX_SIDEBOARD} max)`)
+    }
+    if (moving) return problems
     const legality = card?.legalities?.[rules.scryfall]
     if (copiesOnly) {
       // Only the copy limit, below.

@@ -19,7 +19,7 @@ export function useAddCardTo() {
   return async (given: ScryfallCard, target: AddTarget) => {
     const card = target.printing ?? given
     if (target.kind === 'deck' && !target.considering) {
-      const ok = await confirmAdd(target, [card], (c) => ({ scryfallId: c.id, name: c.name, quantity: target.quantity, card: c }))
+      const ok = await confirmAdd(target, [card], (c) => ({ scryfallId: c.id, name: c.name, quantity: target.quantity, card: c, toSideboard: !!target.sideboard }))
       if (!ok || ok.length === 0) return
     }
     const undo = recordUndo(() => {
