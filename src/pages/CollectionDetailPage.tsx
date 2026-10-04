@@ -9,6 +9,7 @@ import { CardZoomModal, zoomSteps } from '../components/CardZoomModal'
 import { ActionSheet } from '../components/ActionSheet'
 import { AddToSheet, type AddTarget } from '../components/AddToSheet'
 import { useAddCardTo } from '../components/useAddCardTo'
+import { useAddCheck } from '../components/useAddCheck'
 import { useUndoBar } from '../components/useUndoBar'
 import { deckPlace, doneMessage, takeCopies } from '../collection/addTo'
 import { getCardsByIds } from '../api/scryfall'
@@ -39,6 +40,7 @@ export function CollectionDetailPage() {
     notInterested, wantAgain, changeEntryPrinting, setCardTags, addCardToDeck, addCardsToDeck, recordUndo,
   } = useSync()
   const addCardTo = useAddCardTo()
+  const confirmAdd = useAddCheck()
   const showUndo = useUndoBar()
   // Tags the user has written on their own copies, offered again on the next card.
   const knownTags = useMemo(() => allUserTags(decks, collections), [decks, collections])
@@ -155,7 +157,18 @@ export function CollectionDetailPage() {
       showUndo({ message: e instanceof Error ? e.message : "Couldn't reach Scryfall — try again when you're online." })
       return
     }
-    const warnings: string[] = []
+    const takenOf = (entry: CollectionEntry) => (count === undefined ? entry : { ...entry, ...takeCopies(entry, count) })
+    if (!target.considering) {
+      // Asked first when a card breaks the deck's rules: all of them, only the allowed ones, or none.
+      const ok = await confirmAdd(target, full, (card) => {
+        const entry = cards.find((e) => e.scryfallId === card.id)
+        const taken = entry ? takenOf(entry) : null
+        return { scryfallId: card.id, name: card.name, quantity: taken ? taken.quantity + taken.foilQuantity : 1, card }
+      })
+      if (!ok || ok.length === 0) return
+      full = ok
+    }
+    const going = cards.filter((e) => full.some((c) => c.id === e.scryfallId))
     const undo = recordUndo(() => {
       if (target.considering) {
         addCardsToDeck(target.id, full, true)
@@ -164,15 +177,14 @@ export function CollectionDetailPage() {
       for (const card of full) {
         const entry = cards.find((e) => e.scryfallId === card.id)
         if (!entry) continue
-        const taken = count === undefined ? entry : { ...entry, ...takeCopies(entry, count) }
+        const taken = takenOf(entry)
         // These copies come from this binder, not the Unsorted pile.
-        const warning = addCardToDeck(target.id, card, taken.quantity + taken.foilQuantity, false)
-        if (warning) warnings.push(warning)
+        addCardToDeck(target.id, card, taken.quantity + taken.foilQuantity, false)
         if (verb === 'move') setEntryQuantities(collection.id, entry.scryfallId, entry.quantity - taken.quantity, entry.foilQuantity - taken.foilQuantity)
       }
     })
     showUndo(undo
-      ? { message: doneMessage(verb, label(cards), deckPlace(target.name, target.considering)), warning: warnings.join(' ') || null, undo }
+      ? { message: doneMessage(verb, label(going.length > 0 ? going : cards), deckPlace(target.name, target.considering)), undo }
       : { message: `${target.name} already has ${cards.length === 1 ? 'it' : 'them'}` })
   }
   const entryList = collection.entries.length === 0 ? (

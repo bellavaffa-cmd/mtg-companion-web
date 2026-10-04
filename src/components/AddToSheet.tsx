@@ -14,7 +14,7 @@ import type { ScryfallCard } from '../types/scryfall'
  */
 export type AddTarget =
   | { kind: 'binder'; id: string; name: string; quantity: number; foil: boolean; printing?: ScryfallCard }
-  | { kind: 'deck'; id: string; name: string; quantity: number; considering: boolean; sideboard?: boolean; printing?: ScryfallCard }
+  | { kind: 'deck'; id: string; name: string; quantity: number; considering: boolean; sideboard?: boolean; printing?: ScryfallCard; gameMode?: string }
 
 /** Where in a deck: 0 into the deck, 1 its sideboard, 2 its Considering list — the phone's order. */
 type DeckPart = 'deck' | 'sideboard' | 'considering'
@@ -107,7 +107,7 @@ export function AddToSheet({
   }
   const toBinder = (c: { id: string; name: string }) => pick({ kind: 'binder', id: c.id, name: c.name, quantity: copies, foil: isFoil, ...otherPrinting })
   const toDeck = (d: { id: string; name: string; gameMode: string }) =>
-    pick({ kind: 'deck', id: d.id, name: d.name, quantity: copies, considering, ...(intoSideboard && hasSideboard(d.gameMode) ? { sideboard: true } : {}), ...otherPrinting })
+    pick({ kind: 'deck', id: d.id, name: d.name, gameMode: d.gameMode, quantity: copies, considering, ...(intoSideboard && hasSideboard(d.gameMode) ? { sideboard: true } : {}), ...otherPrinting })
   const makeBinder = () => {
     if (newName.trim()) toBinder(createCollection(newName.trim(), 'OWNED'))
   }

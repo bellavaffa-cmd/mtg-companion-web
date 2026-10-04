@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AddToSheet } from '../components/AddToSheet'
+import { useAddCheck } from '../components/useAddCheck'
 import { useUndoBar } from '../components/useUndoBar'
 import { cardsLabel, deckPlace, doneMessage } from './addTo'
 import { useSync } from '../sync/SyncContext'
@@ -270,15 +271,28 @@ function OwnedRow({ card, selecting, selected, onToggle, onOpen }: {
  * list, and says so on the Undo bar. A deck entry needs the full card (type, commander-ness…), which
  * a binder entry doesn't keep, so they're fetched first.
  */
+const inDeckCount = (cards: { name: string }[], inDeck: Set<string>) => cards.filter((c) => inDeck.has(c.name.toLowerCase())).length
+
 function useAddOwnedToDeck() {
-  const { addCardsToDeck, recordUndo } = useSync()
+  const { addCardsToDeck, recordUndo, decks } = useSync()
   const showUndo = useUndoBar()
-  return async (cards: OwnedCard[], deck: { id: string; name: string; considering: boolean }) => {
+  const confirmAdd = useAddCheck()
+  return async (cards: OwnedCard[], deck: { id: string; name: string; considering: boolean; gameMode?: string }) => {
     try {
-      const full = await getCardsByIds(cards.map((c) => c.scryfallId), true)
+      let full = await getCardsByIds(cards.map((c) => c.scryfallId), true)
+      // Left out at the add check ("Add only allowed"), so not "already there".
+      let refused = 0
+      if (!deck.considering) {
+        // Asked first when a card breaks the deck's rules. Cards the deck has already are skipped anyway.
+        const inDeck = new Set((decks.find((d) => d.id === deck.id)?.cards ?? []).map((c) => c.name.toLowerCase()))
+        const ok = await confirmAdd(deck, full.filter((c) => !inDeck.has(c.name.toLowerCase())), (c) => ({ scryfallId: c.id, name: c.name, quantity: 1, card: c }))
+        if (!ok) return
+        refused = full.length - inDeckCount(full, inDeck) - ok.length
+        full = ok
+      }
       let added = 0
       const undo = recordUndo(() => { added = addCardsToDeck(deck.id, full, deck.considering) })
-      const skipped = cards.length - added
+      const skipped = cards.length - added - refused
       showUndo({
         message: added === 0
           ? `${deck.name} already has ${cards.length === 1 ? 'it' : 'them'}`

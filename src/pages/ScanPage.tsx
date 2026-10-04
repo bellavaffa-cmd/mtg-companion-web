@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getByExactName, getByFuzzyName, getBySetAndNumber, getCardsByIds, getPrintings, OfflineError } from '../api/scryfall'
 import { canBeFoil, doneMessage } from '../collection/addTo'
 import { AddToSheet, type AddTarget } from '../components/AddToSheet'
+import { useAddCheck } from '../components/useAddCheck'
 import { useUndoBar } from '../components/useUndoBar'
 import { Icon } from '../components/Icon'
 import { ArtImage, IconButton, PillChip, toArtCrop, useBack } from '../components/kit'
@@ -107,6 +108,7 @@ export function ScanPage() {
   const back = useBack('/search')
   const navigate = useNavigate()
   const { addCardToDeck, addCardsToDeck, addEntryToCollection, importIntoCollection, recordUndo } = useSync()
+  const confirmAdd = useAddCheck()
   const showUndo = useUndoBar()
   const videoRef = useRef<HTMLVideoElement>(null)
   const guideRef = useRef<HTMLDivElement>(null)
@@ -535,12 +537,23 @@ export function ScanPage() {
   // on would leave an empty list and no way back.
   const filtered = repeatsOnly && repeats.size > 0
   const shownScans = filtered ? onlyRepeats(scanned) : scanned
-  const addAllTo = (target: AddTarget) => {
-    const warnings: string[] = []
-    const pile = scanned
+  const addAllTo = async (target: AddTarget) => {
+    let groups = grouped(scanned)
+    let pile = scanned
+    let left: typeof scanned = []
+    if (target.kind === 'deck' && !target.considering) {
+      // Asked first when a card breaks the deck's rules; cards left out stay on the pile.
+      const ok = await confirmAdd(target, groups, (g) => ({ scryfallId: g.card.id, name: g.card.name, quantity: g.quantity, card: g.card }))
+      if (!ok || ok.length === 0) return
+      const going = new Set(ok.map((g) => `${g.card.id}:${g.foil}`))
+      groups = ok
+      pile = scanned.filter((s) => going.has(`${s.card.id}:${s.foil}`))
+      left = scanned.filter((s) => !going.has(`${s.card.id}:${s.foil}`))
+    }
+    const count = pile.length
     const undo = recordUndo(() => {
       // Copies are added together only here: the list itself stays one row per scan.
-      for (const s of grouped(pile)) {
+      for (const s of groups) {
         // A deck doesn't track foils; a binder counts them separately.
         if (target.kind === 'deck') {
           if (target.considering) {
@@ -548,8 +561,7 @@ export function ScanPage() {
             continue
           }
           // Scanned cards are new copies in hand, not the loose ones in the Unsorted pile.
-          const warning = addCardToDeck(target.id, s.card, s.quantity, false)
-          if (warning) warnings.push(warning)
+          addCardToDeck(target.id, s.card, s.quantity, false)
         } else if (target.id === UNSORTED_COLLECTION_ID) {
           // The pile straight into the collection, making the Unsorted pile if there isn't one.
           importIntoCollection(UNSORTED_COLLECTION_ID, [{ card: s.card, quantity: s.foil ? 0 : s.quantity, foilQuantity: s.foil ? s.quantity : 0 }])
@@ -557,14 +569,14 @@ export function ScanPage() {
       }
     })
     const place = target.kind === 'deck' && target.considering ? `${target.name} · Considering` : target.name
+    const before = scanned
     showUndo({
-      message: doneMessage('add', `${total} ${total === 1 ? 'card' : 'cards'}`, place),
-      warning: warnings.join(' ') || null,
+      message: doneMessage('add', `${count} ${count === 1 ? 'card' : 'cards'}`, place),
       undo,
       // Undo puts the scans back too, ready to go somewhere else.
-      onUndone: () => setScanned(pile),
+      onUndone: () => setScanned(before),
     })
-    setScanned([])
+    setScanned(left)
     setPicking(false)
   }
 

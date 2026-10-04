@@ -40,6 +40,22 @@ const isBasicLand = (name: string, card?: ScryfallCard) =>
   BASIC_LAND_NAMES.has(name) || (card?.type_line ?? '').toLowerCase().includes('basic')
 
 /**
+ * Cards with no copy limit: basic lands, and cards whose own text says "A deck can have any number of
+ * cards named …" (Relentless Rats, Persistent Petitioners).
+ */
+export function copyLimitExempt(name: string, card?: ScryfallCard): boolean {
+  if (isBasicLand(name, card)) return true
+  const text = [card?.oracle_text, ...(card?.card_faces ?? []).map((f) => f.oracle_text)].filter(Boolean).join('\n').toLowerCase()
+  return text.includes('a deck can have any number of cards named')
+}
+
+/** A format's rules as the legality check reads them (Commander's for one we don't know). */
+export function formatRules(gameMode: string) {
+  const mode = gameMode as GameMode
+  return { ...(FORMATS[mode] ?? FORMATS.COMMANDER), label: GAME_MODE_LABELS[mode] ?? gameMode }
+}
+
+/**
  * A commander as pairing sees it, its ability read from the card itself where we have it: an entry
  * saved by an older version may have stored a Friends forever card as plain "Partner".
  */
@@ -156,7 +172,7 @@ function copyLimitIssues(deck: Deck, cardsById: Map<string, ScryfallCard>): Issu
     const all = [...mainRows, ...sideRows]
     const first = mainRows[0] ?? sideRows[0]
     const card = all.map((e) => cardsById.get(e.scryfallId)).find((c) => c !== undefined)
-    if (isBasicLand(first.name, card)) continue
+    if (copyLimitExempt(first.name, card)) continue
     const restricted = all.some((e) => cardsById.get(e.scryfallId)?.legalities?.[format.scryfall] === 'restricted')
     const limit = restricted || format.singleton ? 1 : format.maxCopies
     const inMain = mainRows.reduce((n, e) => n + e.quantity, 0)

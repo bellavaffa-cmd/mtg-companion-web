@@ -15,6 +15,7 @@ import { useSync } from '../sync/SyncContext'
 import { Icon } from '../components/Icon'
 import { AddToSheet, type AddTarget } from '../components/AddToSheet'
 import { useUndoBar } from '../components/useUndoBar'
+import { useAddCheck } from '../components/useAddCheck'
 import { cardsLabel, deckPlace, doneMessage } from './addTo'
 import { CardZoomModal, zoomSteps } from '../components/CardZoomModal'
 import { Dialog } from '../components/Dialog'
@@ -42,6 +43,7 @@ const known = knownCards
 export function AllCardsTab({ onImport }: { onImport: () => void }) {
   const { collections, decks, gatherIntoBinder, removeFromCollection, addCardsToDeck, changePrintingEverywhere, setCardTags, recordUndo } = useSync()
   const showUndo = useUndoBar()
+  const confirmAdd = useAddCheck()
   // A card whose printing is being changed, in every binder and deck that holds it.
   const [changing, setChanging] = useState<{ scryfallId: string; name: string } | null>(null)
   const navigate = useNavigate()
@@ -147,8 +149,16 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
     const have = ids.flatMap((id) => (known.has(id) ? [known.get(id)!] : []))
     const fetched = have.length < ids.length ? await getCardsByIds(ids.filter((id) => !known.has(id))) : []
     for (const c of fetched) known.set(c.id, c)
+    let going = [...have, ...fetched]
+    if (!target.considering) {
+      // Asked first when a card breaks the deck's rules. Cards the deck has already are skipped anyway.
+      const inDeck = new Set((decks.find((d) => d.id === target.id)?.cards ?? []).map((c) => c.name.toLowerCase()))
+      const ok = await confirmAdd(target, going.filter((c) => !inDeck.has(c.name.toLowerCase())), (c) => ({ scryfallId: c.id, name: c.name, quantity: 1, card: c }))
+      if (!ok) return
+      going = ok
+    }
     let added = 0
-    const undo = recordUndo(() => { added = addCardsToDeck(target.id, [...have, ...fetched], target.considering) })
+    const undo = recordUndo(() => { added = addCardsToDeck(target.id, going, target.considering) })
     showUndo(added === 0
       ? { message: `${target.name} already has ${ids.length === 1 ? 'it' : 'them'}` }
       : { message: doneMessage('add', added === ids.length ? label : `${added} ${added === 1 ? 'card' : 'cards'}`, deckPlace(target.name, target.considering)), undo })

@@ -4714,3 +4714,13 @@ button.tag-chip {
 .sideboard-group > .dim {
   margin: 4px 2px 8px;
 }
+
+/* The add check's list of what's wrong with each card (AddCheckDialog). */
+.addcheck-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--text-muted);
+}

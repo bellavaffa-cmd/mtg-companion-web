@@ -81,7 +81,12 @@ export function DeckImportDialog({ mode, onImport, onDismiss }: {
   /** The deck's format, which says whether it has a sideboard. */
   mode: string
   /** Puts what was found into the deck; returns nothing — the summary is worked out here. */
-  onImport: (cards: { card: ScryfallCard; quantity: number }[], considering: ScryfallCard[], sideboard: { card: ScryfallCard; quantity: number }[]) => void
+  /**
+   * Puts the lines in. Answers what actually went into the deck and sideboard (the add check may
+   * leave cards out), or null when the user cancelled at the add check.
+   */
+  onImport: (cards: { card: ScryfallCard; quantity: number }[], considering: ScryfallCard[], sideboard: { card: ScryfallCard; quantity: number }[]) =>
+    Promise<{ cards: { card: ScryfallCard; quantity: number }[]; sideboard: { card: ScryfallCard; quantity: number }[] } | null>
   onDismiss: () => void
 }) {
   const [text, setText] = useState('')
@@ -103,10 +108,16 @@ export function DeckImportDialog({ mode, onImport, onDismiss }: {
       const boardResult = await resolveCardList(sideboard, (done) => setStage({ kind: 'working', done: main.length + done, total }))
       const sideResult = await resolveCardList(considering, (done) => setStage({ kind: 'working', done: main.length + sideboard.length + done, total }))
       const copies = (r: typeof mainResult) => r.cards.map((c) => ({ card: c.card, quantity: c.quantity + c.foilQuantity }))
-      const cards = copies(mainResult)
-      const board = copies(boardResult)
+      let cards = copies(mainResult)
+      let board = copies(boardResult)
       const side = sideResult.cards.map((c) => c.card)
-      if (cards.length > 0 || side.length > 0 || board.length > 0) onImport(cards, side, board)
+      if (cards.length > 0 || side.length > 0 || board.length > 0) {
+        const went = await onImport(cards, side, board)
+        // Cancelled at the add check: nothing went in, and the list is still there to change.
+        if (!went) { setStage({ kind: 'edit' }); return }
+        cards = went.cards
+        board = went.sideboard
+      }
       const count = (list: { quantity: number }[]) => list.reduce((n, c) => n + c.quantity, 0)
       setStage({
         kind: 'done',

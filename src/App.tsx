@@ -5,6 +5,7 @@ import { AccountDialogs } from './components/AccountDialogs'
 import { CardHoverPreview } from './components/CardHoverPreview'
 import { Layout } from './components/Layout'
 import { UndoProvider } from './components/UndoBar'
+import { AddCheckProvider } from './components/AddCheckDialog'
 import { HomePage } from './pages/HomePage'
 import { CollectionsPage } from './pages/CollectionsPage'
 import { CollectionDetailPage } from './pages/CollectionDetailPage'
@@ -48,6 +49,8 @@ export default function App() {
       <BrowserRouter basename={import.meta.env.BASE_URL}>
         {/* The Undo bar after a card goes into a deck or binder, on every screen. */}
         <UndoProvider>
+        {/* The check before a card goes into a deck, asked wherever it's added from. */}
+        <AddCheckProvider>
         <Suspense fallback={null}>
         <Routes>
           <Route element={<Layout />}>
@@ -88,6 +91,7 @@ export default function App() {
           <Route path="/remote/:matchId/:seat" element={<RemotePage />} />
         </Routes>
         </Suspense>
+        </AddCheckProvider>
         </UndoProvider>
       </BrowserRouter>
       </SocialProvider>

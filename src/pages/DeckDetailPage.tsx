@@ -27,6 +27,7 @@ import { deckProxyCopies, proxiesHeldElsewhere, proxySwaps } from '../decks/prox
 import { realCopiesOf } from '../collection/unsorted'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
 import { useAddCardTo } from '../components/useAddCardTo'
+import { useAddCheck } from '../components/useAddCheck'
 import { useUndoBar } from '../components/useUndoBar'
 import { doneMessage } from '../collection/addTo'
 import { backImageUrl, cardTags, displayImageUrl, displayManaCost, displayOracleText, entryCanBeCommander, type ScryfallCard } from '../types/scryfall'
@@ -65,6 +66,7 @@ export function DeckDetailPage() {
     moveToConsidering, swapConsidered, importIntoDeck, setSideboardQuantity, moveToSideboard, moveToMain,
   } = useSync()
   const addCardTo = useAddCardTo()
+  const confirmAdd = useAddCheck()
   const showUndo = useUndoBar()
   // Tags the user has written on their own copies: shown in the zoom, and searchable with the rest.
   const knownTags = useMemo(() => allUserTags(decks, collections), [decks, collections])
@@ -298,7 +300,9 @@ export function DeckDetailPage() {
     if (entry.quantity > 1) setSideboardQuantity(deck.id, entry.scryfallId, entry.quantity - 1)
     else setRemovingSide(entry)
   }
-  const swap = (outgoing: DeckCardEntry, incoming: DeckCardEntry) => {
+  const swap = async (outgoing: DeckCardEntry, incoming: DeckCardEntry) => {
+    // Asked first when the card coming in breaks the deck's rules, as any add is.
+    if (!await confirmAdd(deck, [incoming], (e) => ({ scryfallId: e.scryfallId, name: e.name, quantity: 1 }))) return
     const undo = recordUndo(() => swapConsidered(deck.id, outgoing.scryfallId, incoming.scryfallId))
     showUndo({ message: `Swapped in ${incoming.name} for ${outgoing.name}.`, undo })
   }
@@ -316,7 +320,8 @@ export function DeckDetailPage() {
     addCardTo(card, { kind: 'deck', id: deck.id, name: deck.name, quantity: 1, considering })
   const addFromSearch = (card: ScryfallCard) => addToDeck(card)
   /** A card on Considering, into the deck after all. */
-  const intoDeck = (entry: DeckCardEntry) => {
+  const intoDeck = async (entry: DeckCardEntry) => {
+    if (!await confirmAdd(deck, [entry], (e) => ({ scryfallId: e.scryfallId, name: e.name, quantity: 1 }))) return
     const undo = recordUndo(() => considerIntoDeck(deck.id, entry.scryfallId))
     showUndo({ message: doneMessage('add', entry.name, deck.name), undo })
   }
@@ -849,10 +854,17 @@ export function DeckDetailPage() {
       {importing && (
         <DeckImportDialog
           mode={deck.gameMode}
-          onImport={(cards, toConsider, board) => {
+          onImport={async (allCards, toConsider, allBoard) => {
+            // Asked first when cards break the deck's rules; "Add only allowed" leaves those out of the deck and sideboard.
+            const lines = [...allCards.map((c) => ({ ...c, side: false })), ...allBoard.map((c) => ({ ...c, side: true }))]
+            const ok = await confirmAdd(deck, lines, (l) => ({ scryfallId: l.card.id, name: l.card.name, quantity: l.quantity, card: l.card }))
+            if (!ok) return null
+            const cards = ok.filter((l) => !l.side)
+            const board = ok.filter((l) => l.side)
             const undo = recordUndo(() => importIntoDeck(deck.id, cards, toConsider, board))
             const copies = cards.reduce((n, c) => n + c.quantity, 0)
             showUndo({ message: `Imported ${copies} ${copies === 1 ? 'card' : 'cards'} into ${deck.name}`, undo })
+            return { cards, sideboard: board }
           }}
           onDismiss={() => setImporting(false)}
         />
