@@ -66,6 +66,7 @@ export function storagePlace(p: StoragePlace): StoragePlace {
     ...(p.pocketsPerPage && p.pocketsPerPage > 0 ? { pocketsPerPage: p.pocketsPerPage } : {}),
     ...(p.sortRule && SORT_RULES.includes(p.sortRule) ? { sortRule: p.sortRule } : {}),
     createdAt: p.createdAt,
+    ...(p.lastChecked && p.lastChecked > 0 ? { lastChecked: p.lastChecked } : {}),
   }
 }
 
@@ -616,6 +617,8 @@ export function ruleSection(rule: SortRule, f: CardFacts, sections: string[] = [
 /** Where a card should go in [place], and that as words: "Red › around “L”", "Page 3, slot 6". */
 export function suggestSpot(place: StoragePlace, f: CardFacts | null, collections: Collection[]): { spot: Spot; hint: string | null } {
   if (place.kind === 'BINDER') {
+    // A binder in order: the card waits beside it, to be fitted in with Add cards in order (binderPages.ts).
+    if (place.sortRule) return { spot: { placeId: place.id }, hint: null }
     const { page, slot } = nextPocket(place, collections)
     return { spot: { placeId: place.id, page, slot }, hint: pocketLabel(page, slot) }
   }
@@ -873,9 +876,25 @@ export function mergePlaceLists(base: StoragePlace[] | undefined, mine: StorageP
       pocketsPerPage: pick(bp.pocketsPerPage, mp!.pocketsPerPage, tp!.pocketsPerPage, minePreferred),
       sortRule: pick(bp.sortRule, mp!.sortRule, tp!.sortRule, minePreferred),
       createdAt: Math.min(mp!.createdAt, tp!.createdAt),
+      // Only ever moves on, so the later check wins — and a side that dropped it didn't clear it.
+      lastChecked: Math.max(bp.lastChecked ?? 0, mp!.lastChecked ?? 0, tp!.lastChecked ?? 0) || undefined,
     }))
   }
   return out
+}
+
+/**
+ * [theirs] with each place's "lastChecked" no older than [source]'s — a place saved by an app that
+ * doesn't know about checks comes without it. The same object when nothing changes.
+ */
+export function keepLastChecked(source: Collection, theirs: Collection): Collection {
+  if (!theirs.storagePlaces || !source.storagePlaces) return theirs
+  const mine = new Map(source.storagePlaces.map((p) => [p.id, p.lastChecked ?? 0]))
+  if (!theirs.storagePlaces.some((p) => (mine.get(p.id) ?? 0) > (p.lastChecked ?? 0))) return theirs
+  return {
+    ...theirs,
+    storagePlaces: theirs.storagePlaces.map((p) => ((mine.get(p.id) ?? 0) > (p.lastChecked ?? 0) ? { ...p, lastChecked: mine.get(p.id)! } : p)),
+  }
 }
 
 // ---- The Advanced filters' "Place" ----

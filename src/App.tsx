@@ -11,6 +11,8 @@ import { CollectionsPage } from './pages/CollectionsPage'
 import { CollectionDetailPage } from './pages/CollectionDetailPage'
 import { SetCardsPage } from './pages/SetCardsPage'
 import { PlacePage } from './pages/PlacePage'
+import { BinderFitPage } from './pages/BinderFitPage'
+import { CheckResultsPage } from './pages/CheckResultsPage'
 import { PlaceLabelPage, PlaceLinkPage } from './pages/PlaceLabelPage'
 import { PullListPage } from './pages/PullListPage'
 import { PutBackPage } from './pages/PutBackPage'
@@ -71,6 +73,8 @@ export default function App() {
             <Route path="/collections/set/:code" element={<SetCardsPage />} />
             <Route path="/collections/place/:id" element={<PlacePage />} />
             <Route path="/collections/place/:id/label" element={<PlaceLabelPage />} />
+            <Route path="/collections/place/:id/fit" element={<BinderFitPage />} />
+            <Route path="/collections/place/:id/check" element={<CheckResultsPage />} />
             <Route path="/collections/labels" element={<PlaceLabelPage />} />
             <Route path="/place/:id" element={<PlaceLinkPage />} />
             <Route path="/collections/thin" element={<SpreadThinPage />} />

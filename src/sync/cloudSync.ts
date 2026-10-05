@@ -11,7 +11,7 @@ import { normalizeDeck } from '../types/models'
 import { apiHeaders, OfflineError, restUrl } from './supabaseAuth'
 import { canonicalJson } from './canonicalJson'
 import { saveToStorage } from './storage'
-import { keepPlacesFromOlderApp } from '../collection/storagePlaces'
+import { keepLastChecked, keepPlacesFromOlderApp } from '../collection/storagePlaces'
 import { keepCameFromFromOlderApp } from '../collection/pullList'
 
 const STATE_KEY = 'mtgweb_cloud_state'
@@ -416,11 +416,12 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
     }
     // A binder saved by an app that doesn't know about storage places comes without them: this
     // device's are kept and pushed back, rather than the older app's save clearing them everywhere.
-    // The same for a deck saved without where its copies came from (Deck.cameFrom).
+    // The same for a deck saved without where its copies came from (Deck.cameFrom), and for a place
+    // saved without when it was last checked (StoragePlace.lastChecked, collection/placeCheck.ts).
     const healed = mineJson === undefined
       ? theirs
       : row.kind === 'collection'
-        ? keepPlacesFromOlderApp(JSON.parse(mineJson) as Collection, theirs as Collection)
+        ? keepLastChecked(JSON.parse(mineJson) as Collection, keepPlacesFromOlderApp(JSON.parse(mineJson) as Collection, theirs as Collection))
         : keepCameFromFromOlderApp(JSON.parse(mineJson) as Deck, theirs as Deck)
     if (healed !== theirs) {
       const healedJson = canonicalJson(healed)

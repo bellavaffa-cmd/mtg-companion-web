@@ -293,9 +293,15 @@ export interface StoragePlace {
   sections?: string[]
   /** A binder's pockets per page (9 when left out). */
   pocketsPerPage?: number
-  /** A box's sorting rule. */
+  /** A box's sorting rule, or a binder's order (see collection/binderPages.ts). */
   sortRule?: SortRule
   createdAt: number
+  /**
+   * When the place was last checked by scanning everything in it (collection/placeCheck.ts), in
+   * milliseconds; left out until then. It only moves on: two devices' checks merge to the later one,
+   * and a place saved by an app that doesn't know it keeps it.
+   */
+  lastChecked?: number
 }
 
 export interface Collection {

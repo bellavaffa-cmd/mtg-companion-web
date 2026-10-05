@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getByExactName, getByFuzzyName, getBySetAndNumber, getCardsByIds, getPrintings, OfflineError } from '../api/scryfall'
 import { canBeFoil, deckPlace, doneMessage } from '../collection/addTo'
@@ -34,6 +34,10 @@ import { placeIdFromLabel } from '../collection/placeLabel'
 import { PlaceLabelSheet } from '../collection/PlaceLabelSheet'
 import { pullList, putBackList, rowToTick } from '../collection/pullList'
 import { loadPullProgress, loadPutBackProgress, tickRow } from '../collection/pullProgress'
+import { reconcile, type CheckScan } from '../collection/placeCheck'
+import { loadCheck, saveCheck, type CheckSession } from '../collection/checkSession'
+import { looseCopies } from '../collection/binderPages'
+import { cardsIn, placePath } from '../collection/storagePlaces'
 import '../collection/storage.css'
 
 /** A card's shape: the guide box matches it. */
@@ -160,10 +164,39 @@ export function ScanPage() {
       setStatus(`${card.name} — ${row.label}`)
     }
     : null
+  // Check mode (?check=<place>): each card scanned is matched against what's listed in that place (or
+  // one section of it), live — "belongs here", "should be in Blue", "listed in Krenko deck" — and
+  // Finish check opens the results (collection/placeCheck.ts, CheckResultsPage.tsx). The scans are
+  // kept in the tab (checkSession.ts), so the results page and a reload see them.
+  const checkPlace = placesOf(collections).find((p) => p.id === params.get('check')) ?? null
+  const [check, setCheck] = useState<CheckSession | null>(() => {
+    const id = params.get('check')
+    return id ? loadCheck(id) ?? { placeId: id, section: null, scans: [] } : null
+  })
+  const checkResult = useMemo(
+    () => (check && checkPlace ? reconcile(collections, decks, { placeId: check.placeId, section: check.section }, check.scans) : null),
+    [check, checkPlace, collections, decks],
+  )
+  // The check as it stands, for the camera loop: two cards read close together both count.
+  const checkNow = useRef(check)
+  const changeCheck = (next: CheckSession) => { checkNow.current = next; saveCheck(next); setCheck(next) }
+  const checkCard = useRef<((card: ScryfallCard, exact: boolean) => void) | null>(null)
+  checkCard.current = check && checkPlace && !target
+    ? (card, exact) => {
+      const now = checkNow.current
+      if (!now) return
+      // The scanner can't see foil, so a scan matches plain or foil copies.
+      const scan: CheckScan = { scryfallId: card.id, name: card.name, imageUrl: displayImageUrl(card), foil: null, exact }
+      const next = { ...now, scans: [...now.scans, scan] }
+      changeCheck(next)
+      const line = reconcile(collections, decks, { placeId: next.placeId, section: next.section }, next.scans).lines.at(-1)
+      setStatus(`${card.name} — ${line?.label ?? 'scanned'}`)
+    }
+    : null
   // Scan-to-tick mode (?pull=<deck> or ?putBack=<deck>): each card scanned ticks its row on that deck's
   // pull list or put-back list (collection/pullList.ts), kept where the list keeps its ticks.
   const tickDeck = decks.find((d) => d.id === (params.get('pull') ?? params.get('putBack'))) ?? null
-  const tickKind: 'pull' | 'putBack' | null = !tickDeck || target ? null : params.get('pull') ? 'pull' : 'putBack'
+  const tickKind: 'pull' | 'putBack' | null = !tickDeck || target || checkPlace ? null : params.get('pull') ? 'pull' : 'putBack'
   const [tickCount, setTickCount] = useState<{ done: number; of: number } | null>(null)
   const tickCard = useRef<((card: ScryfallCard) => void) | null>(null)
   tickCard.current = tickDeck && tickKind
@@ -267,6 +300,12 @@ export function ScanPage() {
     }
     if (putAwayCard.current) {
       putAwayCard.current(card, id)
+      setFlash((n) => n + 1)
+      navigator.vibrate?.(30)
+      return id
+    }
+    if (checkCard.current) {
+      checkCard.current(card, exact)
       setFlash((n) => n + 1)
       navigator.vibrate?.(30)
       return id
@@ -574,7 +613,7 @@ export function ScanPage() {
             devLog(`added ${added.name} ${added.set} #${added.collector_number} (${printing ? 'small print' : bySight ? (bySight.certain ? 'by sight, certain' : 'by sight, best guess') : 'usual printing'})`)
             const id = addScanned(added, !!printing || bySight?.certain === true)
             // Put away already: the printing is matched on the card's name, so it's left as it is.
-            if (look && !putAwayCard.current) void matchArt(id, card, look, setCode)
+            if (look && !putAwayCard.current && !checkCard.current) void matchArt(id, card, look, setCode)
           } catch (e) {
             if (stopped) break
             tracker.failed()
@@ -730,8 +769,8 @@ export function ScanPage() {
   return (
     <>
       <TopBar
-        title={target ? 'Put away' : tickKind ? 'Scan to tick' : 'Scan'}
-        onBack={() => (scanned.length > 0 && !target && !tickKind ? setLeaving(() => back) : back())}
+        title={target ? 'Put away' : tickKind ? 'Scan to tick' : checkPlace ? 'Check' : 'Scan'}
+        onBack={() => (scanned.length > 0 && !target && !tickKind && !checkPlace ? setLeaving(() => back) : back())}
         actions={
           <>
           {torch && (
@@ -763,6 +802,16 @@ export function ScanPage() {
               Ticking off: {tickKind === 'pull' ? 'pull list' : 'put back list'} for {tickDeck.name}
               {tickCount ? ` · ${tickCount.done} of ${tickCount.of}` : ''}
             </span>
+          </div>
+        )}
+        {checkPlace && check && !target && (
+          <div className="putaway-target" role="status">
+            <span>Checking: {[placePath(placesOf(collections), checkPlace.id), check.section].filter(Boolean).join(' › ')}</span>
+            {check.section !== null && (
+              <button type="button" className="pull-chip" onClick={() => changeCheck({ ...check, section: null })}>
+                Whole {checkPlace.kind === 'BINDER' ? 'binder' : checkPlace.kind === 'BOX' ? 'box' : 'place'}
+              </button>
+            )}
           </div>
         )}
         {target && (
@@ -825,6 +874,55 @@ export function ScanPage() {
               <span className={`putaway-badge ${last.result}`}>{last.label.charAt(0).toUpperCase() + last.label.slice(1)}</span>
             </div>
           )
+        })()}
+        {checkPlace && check && checkResult && !target && (() => {
+          const last = checkResult.lines.at(-1)
+          const off = checkResult.extra.slice().reverse().slice(0, 8)
+          return (
+            <>
+              <div className="check-progress">
+                <div className="pull-progress-h">
+                  <b>{checkResult.here} of {checkResult.expected} scanned</b>
+                  <span>{checkResult.here >= checkResult.expected ? 'All found' : 'Keep going'}</span>
+                </div>
+                <div className="storage-bar"><div style={{ width: `${checkResult.expected ? Math.min(100, (checkResult.here / checkResult.expected) * 100) : 0}%` }} /></div>
+              </div>
+              {last && (
+                <div className={`check-last ${last.kind === 'HERE' ? 'here' : 'off'}`}>
+                  <span>{last.scan.name}</span><span>{last.label}</span>
+                </div>
+              )}
+              {off.length > 0 && (
+                <>
+                  <div className="check-head">Found something that doesn't belong</div>
+                  <div className="putaway-rows">
+                    {off.map((l, i) => <div key={i} className="check-off"><span>{l.scan.name}</span><span>{l.label}</span></div>)}
+                  </div>
+                </>
+              )}
+              <div className="putaway-head">
+                <span>{check.scans.length} {check.scans.length === 1 ? 'card' : 'cards'} scanned</span>
+                {check.scans.length > 0 && (
+                  <button type="button" className="link" onClick={() => { changeCheck({ ...check, scans: check.scans.slice(0, -1) }); setStatus('Last scan taken back') }}>Undo last</button>
+                )}
+              </div>
+              <button type="button" className="btn gold block" style={{ marginTop: 8 }} onClick={() => navigate(`/collections/place/${checkPlace.id}/check`)}>
+                Finish check
+              </button>
+            </>
+          )
+        })()}
+        {target && target.kind === 'BINDER' && target.sortRule && (() => {
+          const waiting = looseCopies(target, cardsIn(collections, target.id)).length
+          return waiting > 0 ? (
+            <div className="putaway-last">
+              <div className="storage-text">
+                <b>{waiting} {waiting === 1 ? 'card' : 'cards'} to fit in order</b>
+                <span>Keep them beside the binder — the steps say where each goes.</span>
+              </div>
+              <button type="button" className="btn gold" onClick={() => navigate(`/collections/place/${target.id}/fit`)}>Fit in order</button>
+            </div>
+          ) : null
         })()}
         {target && session.length > 0 && (
           <>

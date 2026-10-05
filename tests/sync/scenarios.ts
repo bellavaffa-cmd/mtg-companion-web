@@ -329,6 +329,23 @@ export function syncScenarios(cas: boolean) {
     assert.deepEqual(row.entries[0].places, [{ placeId: 'red', qty: 2 }])
   })
 
+  // When a place was last checked (StoragePlace.lastChecked, collection/placeCheck.ts) rides on the
+  // place: an app from before it drops the key when it saves the pile, and this app keeps the check.
+  test("an older app's save of a place doesn't lose when it was last checked", async () => {
+    const checked = { ...redBox, lastChecked: 1_790_000_000_000 }
+    sim.reset('A', 'B')
+    sim.setLibrary('A', { decks: [], collections: [unsorted([card('x', 2, [{ placeId: 'red', qty: 2 }])], [checked])] })
+    await sim.settle('A', 'B')
+    // B is an older app: it renames the box and saves the place without the key it doesn't know.
+    sim.setLibrary('B', { decks: [], collections: [unsorted([card('x', 2, [{ placeId: 'red', qty: 2 }])], [{ ...redBox, name: 'Red box, top' }])] })
+    await sim.pass('B')
+    await sim.settle('A')
+    const a = sim.library('A').collections[0]
+    assert.deepEqual(a.storagePlaces, [{ ...checked, name: 'Red box, top' }])
+    const row = sim.collectionRow('unsorted')!.data as { storagePlaces?: unknown }
+    assert.deepEqual(row.storagePlaces, [{ ...checked, name: 'Red box, top' }])
+  })
+
   test('copies given places on two devices at once keep both', async () => {
     sim.reset('A', 'B')
     sim.setLibrary('A', { decks: [], collections: [unsorted([card('x', 3)], [redBox])] })

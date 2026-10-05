@@ -282,3 +282,80 @@ button.where-row { cursor: pointer; }
   .label-print { position: absolute; left: 0; top: 0; width: 100%; justify-content: flex-start; gap: 4mm; padding: 0; }
   .box-label { border: 0.3mm dashed #999; border-radius: 0; }
 }
+
+/* A binder one page at a time (BinderPagesView.tsx), fitting cards in (BinderFitPage.tsx) and checking
+   a place (ScanPage.tsx's check mode, CheckResultsPage.tsx) */
+.binder-toggle { max-width: 560px; margin-top: 14px; display: flex; align-items: center; gap: 8px; }
+.binder-toggle .count { margin-left: auto; font-size: 13px; color: var(--t1); }
+.binder-view { max-width: 560px; margin-top: 8px; }
+.binder-edit-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 36px; }
+.binder-edit-row .dim { font-size: 12px; }
+.binder-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+.binder-nav .ib:disabled { opacity: 0.35; }
+.binder-title { display: flex; flex-direction: column; align-items: center; text-align: center; min-width: 0; }
+.binder-title .pg { font-family: 'Bebas Neue', var(--ui); font-size: 28px; line-height: 1; }
+.binder-title .sub { font-size: 12px; color: var(--t1); }
+.binder-sheet { margin-top: 12px; padding: 12px; border-radius: 16px; background: var(--g1); display: grid; gap: 8px; touch-action: pan-y; }
+.binder-sheet.editing { touch-action: none; }
+.binder-pocket {
+  aspect-ratio: 63 / 88;
+  border-radius: 6px;
+  background: var(--g2);
+  border: 0;
+  padding: 0;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  color: var(--t1);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.binder-pocket:disabled { cursor: default; }
+.binder-pocket img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+.binder-pocket.empty { background: none; border: 2px dashed var(--line); display: flex; align-items: center; justify-content: center; }
+.binder-pocket .empty-word { font-size: 11px; color: var(--t2); }
+.binder-pocket .slot { position: absolute; left: 4px; bottom: 3px; font-size: 10px; padding: 0 3px; border-radius: 4px; background: rgba(12, 13, 17, 0.7); color: var(--t1); }
+.binder-pocket .n { position: absolute; right: 3px; bottom: 3px; font-size: 11px; font-weight: 700; padding: 0 4px; border-radius: 6px; background: rgba(12, 13, 17, 0.8); color: var(--t0); }
+.binder-pocket.picked, .binder-pocket.over { box-shadow: 0 0 0 2px var(--gold); }
+.binder-pocket.picked .slot { color: var(--gold-light); font-weight: 700; }
+.binder-pocket.marked { box-shadow: 0 0 0 2px var(--ok); }
+.binder-chosen { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: var(--g1); display: flex; align-items: center; gap: 12px; }
+.binder-chosen .thumb { width: 36px; height: 50px; border-radius: 4px; flex: none; }
+.link-like { border: 0; background: none; padding: 0; color: var(--t0); font: inherit; text-align: left; cursor: pointer; }
+.binder-move-fields { display: flex; gap: 10px; }
+.binder-move-fields label { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+
+.fit-choice { max-width: 560px; padding: 12px 14px; border-radius: 14px; background: var(--g1); display: flex; flex-direction: column; gap: 8px; }
+.fit-choice b { font-size: 15px; }
+.fit-choice .seg2 { display: flex; gap: 6px; }
+.fit-choice .seg2 button { flex: 1; min-height: 36px; border: 0; border-radius: 10px; background: var(--g2); color: var(--t1); font: 600 13px var(--ui); cursor: pointer; }
+.fit-choice .seg2 button.on { background: var(--gold); color: var(--gold-ink); font-weight: 700; }
+.fit-steps { max-width: 560px; margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.fit-steps h2 { margin: 0; font-size: 15px; font-weight: 800; }
+.fit-step { padding: 12px 14px; border-radius: 14px; background: var(--g1); display: flex; gap: 12px; align-items: flex-start; }
+.fit-step .num { width: 26px; height: 26px; flex: none; border-radius: 13px; background: var(--g2); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; }
+.fit-step .storage-text b { white-space: normal; font-size: 14px; }
+
+.check-progress { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: var(--g1); display: flex; flex-direction: column; gap: 8px; }
+.check-progress .storage-bar > div { background: var(--ok); }
+.check-last { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--g1); display: flex; justify-content: space-between; gap: 10px; font-size: 14px; }
+.check-last.here { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 55%, transparent); }
+.check-last.here span:last-child { color: var(--ok); }
+.check-last.off, .check-off { box-shadow: inset 0 0 0 1px rgba(243, 182, 74, 0.45); }
+.check-last.off span:last-child, .check-off span:last-child { color: var(--warn); text-align: right; }
+.check-off { padding: 10px 12px; border-radius: 12px; background: var(--g0, #0c0d11); display: flex; justify-content: space-between; gap: 10px; font-size: 14px; }
+.check-head { margin: 14px 0 6px; font-size: 13px; color: var(--t1); }
+.check-stats { max-width: 560px; display: flex; gap: 8px; }
+.check-stat { flex: 1; padding: 12px; border-radius: 14px; background: var(--g1); display: flex; flex-direction: column; }
+.check-stat b { font-family: 'Bebas Neue', var(--ui); font-size: 28px; font-weight: 400; line-height: 1.1; }
+.check-stat span { font-size: 12px; color: var(--t1); }
+.check-stat.ok b { color: var(--ok); }
+.check-stat.miss b { color: #ff8a4c; }
+.check-stat.extra b { color: var(--warn); }
+.check-group { max-width: 560px; margin-top: 10px; padding: 12px 14px; border-radius: 14px; background: var(--g1); display: flex; flex-direction: column; gap: 8px; }
+.check-group h2 { margin: 0; font-size: 15px; font-weight: 800; }
+.check-row { display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 32px; }
+.check-row .nm { flex: 1; min-width: 0; }
+.check-row .where { font-size: 12px; color: var(--t1); text-align: right; }
+.check-actions { display: flex; gap: 8px; }
+.check-actions .btn { flex: 1; min-height: 40px; }

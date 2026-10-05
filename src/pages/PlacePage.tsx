@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { useMoney } from '../money/currency'
 import { Icon } from '../components/Icon'
@@ -12,12 +12,20 @@ import {
   cardsIn, childrenOf, copiesWithin, deletePlace, pagesOf, parentsOf, placeAndInside, placeSubtitle, placesOf, pocketsOf,
   sectionsOf, SORT_RULE_LABELS, storageSummary, type PlacedCard,
 } from '../collection/storagePlaces'
+import { BinderList, BinderPagesView } from '../collection/BinderPagesView'
+import { binderPockets, closeGapsMoves, fitSteps, looseCopies, relocate, undoMoves, type PocketMove } from '../collection/binderPages'
+import { lastCheckedLabel } from '../collection/placeCheck'
+import { clearCheck, loadCheck, saveCheck } from '../collection/checkSession'
+import { useUndoBar } from '../components/useUndoBar'
 import '../collection/storage.css'
 
 /**
  * One storage place, the Android app's PlaceScreen: its copies, their value and its sections — a box's
- * sections with their cards, a binder's pages of pockets — the places inside it, "Put cards away"
- * into it with the scanner, and a label to stick on it (PlaceLabelPage.tsx). At /collections/place/:id.
+ * sections with their cards, a binder one page at a time or as a list (BinderPagesView.tsx) — the
+ * places inside it, "Put cards away" into it with the scanner, Check (scan everything in it, see
+ * collection/placeCheck.ts) and when it was last checked, and a label to stick on it
+ * (PlaceLabelPage.tsx). A binder has Close the gaps and Add cards in order (BinderFitPage.tsx).
+ * At /collections/place/:id (?page=3 opens a binder at that page).
  */
 export function PlacePage() {
   const { id = '' } = useParams<{ id: string }>()
@@ -40,6 +48,13 @@ export function PlacePage() {
   const [editing, setEditing] = useState(false)
   const [adding, setAdding] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [params, setParams] = useSearchParams()
+  const [listView, setListView] = useState(false)
+  const [checking, setChecking] = useState(false)
+  const [closing, setClosing] = useState<PocketMove[] | null>(null)
+  const showUndo = useUndoBar()
+  const page = Number(params.get('page')) || 1
+  const setPage = (n: number) => setParams((ps) => { const next = new URLSearchParams(ps); next.set('page', String(n)); return next }, { replace: true })
 
   if (!place) {
     return (
@@ -68,6 +83,22 @@ export function PlacePage() {
       ? { value: sections.filter((s) => s.name !== null).length, label: 'sections' }
       : { value: inside.length, label: inside.length === 1 ? 'place inside' : 'places inside' }
   const openCard = (c: PlacedCard) => navigate(`/card/${encodeURIComponent(c.entry.name)}?id=${c.entry.scryfallId}`)
+  const pocketsInUse = binder ? binderPockets(place, cards) : []
+  const waiting = binder ? looseCopies(place, cards).length : 0
+  const sectionNames = sections.flatMap((s) => (s.name !== null ? [s.name] : []))
+  const going = loadCheck(place.id)
+  const startCheck = (section: string | null, fresh: boolean) => {
+    if (fresh) { clearCheck(); saveCheck({ placeId: place.id, section, scans: [] }) }
+    navigate(`/scan?check=${encodeURIComponent(place.id)}`)
+  }
+  const closeGaps = (moves: PocketMove[]) => {
+    changeStorage((c) => relocate(c, place, moves))
+    setClosing(null)
+    showUndo({
+      message: `Closed the gaps — ${moves.length} ${moves.length === 1 ? 'card' : 'cards'} moved`,
+      undo: () => changeStorage((c) => relocate(c, place, undoMoves(moves))),
+    })
+  }
 
   return (
     <>
@@ -87,12 +118,22 @@ export function PlacePage() {
           <button type="button" className="btn gold" onClick={() => navigate(`/scan?putAway=${encodeURIComponent(place.id)}`)}>
             <Icon name="document_scanner" aria-hidden />Put cards away
           </button>
+          <button type="button" className="btn line" onClick={() => (sectionNames.length > 0 || going ? setChecking(true) : startCheck(null, true))}>
+            <Icon name="fact_check" aria-hidden />Check
+          </button>
           <button type="button" className="btn line" onClick={() => navigate(`/collections/place/${place.id}/label`)}><Icon name="qr_code_2" aria-hidden />Label</button>
         </div>
-        {place.sortRule && (
+        {place.sortRule && place.kind !== 'BINDER' && (
           <p className="place-rule">Sorted {SORT_RULE_LABELS[place.sortRule].charAt(0).toLowerCase() + SORT_RULE_LABELS[place.sortRule].slice(1)}. New cards get a section by this rule.</p>
         )}
-        {place.kind === 'BINDER' && <p className="place-rule">{pocketsOf(place)} pockets a page. New cards go in the next free pocket.</p>}
+        {place.kind === 'BINDER' && (
+          <p className="place-rule">
+            {pocketsOf(place)} pockets a page{place.sortRule
+              ? `, in order ${SORT_RULE_LABELS[place.sortRule].charAt(0).toLowerCase() + SORT_RULE_LABELS[place.sortRule].slice(1)}. Add cards in order says where new cards go.`
+              : '. New cards go in the next free pocket.'}
+          </p>
+        )}
+        {place.lastChecked && <p className="place-rule">Last checked: {lastCheckedLabel(place.lastChecked, Date.now())}</p>}
 
         {inside.length > 0 && (
           <div className="place-sections">
@@ -107,27 +148,32 @@ export function PlacePage() {
         )}
 
         {binder ? (
-          <div className="place-pages">
-            {binder.pages.map((pg) => (
-              <div key={pg.page} className="place-page">
-                <h3>Page {pg.page}</h3>
-                <div className="pockets" style={{ gridTemplateColumns: `repeat(${Math.ceil(Math.sqrt(pg.slots.length))}, minmax(0, 1fr))` }}>
-                  {pg.slots.map((slot, i) => {
-                    const first = slot[0]
-                    const n = slot.reduce((s, c) => s + c.line.qty, 0)
-                    return first ? (
-                      <button key={i} type="button" className="pocket" title={`${first.entry.name} — page ${pg.page}, slot ${i + 1}`} onClick={() => openCard(first)}>
-                        {first.entry.imageUrl ? <img src={first.entry.imageUrl} alt={first.entry.name} loading="lazy" /> : <ArtImage src={null} seed={first.entry.name} />}
-                        {n > 1 && <span className="n">×{n}</span>}
-                      </button>
-                    ) : <div key={i} className="pocket" aria-label={`Page ${pg.page}, slot ${i + 1}: empty`} />
-                  })}
-                </div>
+          <>
+            <div className="binder-toggle">
+              <button type="button" className={`pull-chip${listView ? '' : ' on'}`} aria-pressed={!listView} onClick={() => setListView(false)}>Pages</button>
+              <button type="button" className={`pull-chip${listView ? ' on' : ''}`} aria-pressed={listView} onClick={() => setListView(true)}>List</button>
+              <span className="count">
+                {cards.reduce((n, c) => n + c.line.qty, 0)} cards · {binder.pages.length} {binder.pages.length === 1 ? 'page' : 'pages'}
+              </span>
+            </div>
+            {listView
+              ? <div className="place-pages"><BinderList place={place} cards={cards} onCard={openCard} /></div>
+              : <BinderPagesView place={place} collections={collections} data={data} page={page} onPage={setPage} />}
+            {!listView && binder.loose.length > 0 && (
+              <div className="place-pages">
+                <CardGroup title="Not in a pocket yet" cards={binder.loose} isOpen onToggle={() => {}} onCard={openCard} />
               </div>
-            ))}
-            {binder.loose.length > 0 && <CardGroup title="Not in a pocket yet" cards={binder.loose} isOpen onToggle={() => {}} onCard={openCard} />}
-            {cards.length === 0 && <div className="dim">Nothing here yet. Put cards away to fill it, pocket by pocket.</div>}
-          </div>
+            )}
+            {cards.length === 0 && <div className="dim" style={{ marginTop: 10 }}>Nothing here yet. Put cards away to fill it, pocket by pocket.</div>}
+            <div className="pull-bar" style={{ marginTop: 16 }}>
+              <button type="button" className="btn line" disabled={pocketsInUse.length === 0} onClick={() => setClosing(closeGapsMoves(pocketsInUse.map((p) => p.index)))}>
+                Close the gaps
+              </button>
+              <button type="button" className="btn gold" onClick={() => navigate(`/collections/place/${place.id}/fit`)}>
+                Add cards in order{waiting > 0 ? ` (${waiting})` : ''}
+              </button>
+            </div>
+          </>
         ) : (
           <div className="place-sections">
             {sections.map((s) => (
@@ -157,6 +203,53 @@ export function PlacePage() {
           ]}
           onClose={() => setMore(false)}
         />
+      )}
+      {checking && (
+        <ActionSheet
+          title={`Check ${place.name}`}
+          subtitle="Scan everything in it, then see what's missing and what's extra"
+          actions={[
+            ...(going ? [{
+              label: 'Carry on checking', icon: 'play_arrow',
+              detail: `${going.section ?? `Whole ${place.kind === 'BINDER' ? 'binder' : 'box'}`} · ${going.scans.length} scanned`,
+              onClick: () => startCheck(going.section, false),
+            }] : []),
+            { label: `Whole ${place.kind === 'BINDER' ? 'binder' : place.kind === 'BOX' ? 'box' : 'place'}`, icon: PLACE_ICONS[place.kind], detail: 'Every section', onClick: () => startCheck(null, true) },
+            ...sectionNames.map((name) => ({ label: name, icon: 'label', detail: 'Only this section', onClick: () => startCheck(name, true) })),
+          ]}
+          onClose={() => setChecking(false)}
+        />
+      )}
+      {closing && (
+        <Dialog
+          title="Close the gaps?"
+          onDismiss={() => setClosing(null)}
+          actions={
+            <>
+              <button type="button" className="btn line" onClick={() => setClosing(null)}>Cancel</button>
+              {closing.length > 0 && <button type="button" className="btn gold" onClick={() => closeGaps(closing)}>Close the gaps</button>}
+            </>
+          }
+        >
+          {closing.length === 0 ? (
+            <p className="muted" style={{ margin: 0 }}>There are no empty pockets between the cards.</p>
+          ) : (
+            <>
+              <p className="muted" style={{ margin: '0 0 10px' }}>
+                {closing.length} {closing.length === 1 ? 'card moves' : 'cards move'} back to fill the empty pockets, in the same order. You can undo it.
+              </p>
+              <div className="fit-steps" style={{ marginTop: 0, maxHeight: 260, overflow: 'auto' }}>
+                {fitSteps({ moves: closing, puts: [] }, pocketsOf(place), (i) => pocketsInUse.find((p) => p.index === i)?.cards[0]?.entry.name ?? 'the card', () => ({ name: '', detail: '' }))
+                  .map((st, i) => (
+                    <div key={i} className="fit-step">
+                      <span className="num">{i + 1}</span>
+                      <div className="storage-text"><b>{st.title}</b>{st.detail && <span>{st.detail}</span>}</div>
+                    </div>
+                  ))}
+              </div>
+            </>
+          )}
+        </Dialog>
       )}
       {editing && <PlaceDialog place={place} onDismiss={() => setEditing(false)} />}
       {adding && <PlaceDialog place={null} parentId={place.id} onDismiss={() => setAdding(false)} />}

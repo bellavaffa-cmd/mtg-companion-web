@@ -152,8 +152,11 @@ export function PlaceDialog({ place, parentId, onDismiss, onSaved }: {
       ...(note.trim() ? { note: note.trim() } : {}),
       ...(kind === 'BOX' && list.length > 0 ? { sections: list } : {}),
       ...(kind === 'BINDER' && Number(pockets) > 0 && Number(pockets) !== DEFAULT_POCKETS ? { pocketsPerPage: Math.round(Number(pockets)) } : {}),
-      ...(kind === 'BOX' && rule ? { sortRule: rule } : {}),
+      // A box's sorting rule, or a binder's order (collection/binderPages.ts).
+      ...((kind === 'BOX' || kind === 'BINDER') && rule ? { sortRule: rule } : {}),
       createdAt: place?.createdAt ?? Date.now(),
+      // When it was last checked (collection/placeCheck.ts) isn't changed here.
+      ...(place?.lastChecked ? { lastChecked: place.lastChecked } : {}),
     }
     changeStorage((c) => savePlace(c, next))
     onSaved?.(id)
@@ -192,6 +195,12 @@ export function PlaceDialog({ place, parentId, onDismiss, onSaved }: {
         <>
           <div className="field-label" style={{ marginTop: 12 }}>Pockets per page</div>
           <input className="input" inputMode="numeric" value={pockets} onChange={(e) => setPockets(e.target.value.replace(/\D/g, ''))} />
+          <div className="field-label" style={{ marginTop: 12 }}>In order</div>
+          <select className="input" aria-label="In order" value={rule} onChange={(e) => setRule(e.target.value as SortRule | '')}>
+            <option value="">No order — new cards go in the next free pocket</option>
+            {SORT_RULES.map((r) => <option key={r} value={r}>{SORT_RULE_LABELS[r]}</option>)}
+          </select>
+          <div className="dim" style={{ marginTop: 6 }}>With an order, Add cards in order says where new cards go and what to shift.</div>
         </>
       )}
       {kind === 'BOX' && (

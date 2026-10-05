@@ -16,7 +16,7 @@
 //  - Where a binder card's copies are kept (its "places") merges line by line like the cards do, and
 //    the storage places themselves (on the Unsorted pile) place by place — see
 //    collection/storagePlaces.ts. A binder saved by an app that doesn't know about places leaves them
-//    as they were.
+//    as they were. When a place was last checked (collection/placeCheck.ts) merges to the later check.
 //  - Where a deck's copies came from (its "cameFrom", see collection/pullList.ts) merges card by card
 //    the same way; a deck saved by an app that doesn't know about it leaves it as it was.
 // The Android app merges the same way — see data/supabase/ItemMerge.kt.
