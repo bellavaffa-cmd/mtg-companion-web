@@ -7,6 +7,7 @@ import { isUnsorted } from '../types/models'
 import * as api from './api'
 import { ShareSwitch } from './ShareDialog'
 import { useOverview } from './SocialContext'
+import { communityRules } from './communityRules'
 
 /** Whether the user shares every [kind] with [viewer] (a friend's id; null: all friends). */
 function sharesAll(overview: api.Overview, kind: api.ShareKind, viewer: string | null): boolean {
@@ -39,6 +40,8 @@ export function ShareWithFriend({ overview, friendId, friendName }: { overview: 
   const shown = (key: string, saved: boolean) => (busy === key && pending !== null ? pending : saved)
 
   const run = async (key: string, on: boolean, action: () => Promise<unknown>) => {
+    // Sharing something for the first time waits for the community rules, once.
+    if (on && !communityRules.agreed()) { communityRules.require(() => void run(key, on, action)); return }
     setBusy(key)
     setPending(on)
     setError(null)
@@ -145,6 +148,7 @@ export function ShareCollectionDialog({ onClose }: { onClose: () => void }) {
   }
 
   const set = async (viewer: string | null, on: boolean) => {
+    if (on && !communityRules.agreed()) { communityRules.require(() => void set(viewer, on)); return }
     setBusy(true)
     setPending({ viewer, on })
     setError(null)

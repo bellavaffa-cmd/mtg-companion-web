@@ -766,3 +766,13 @@
   gap: 8px;
   margin-bottom: 14px;
 }
+
+/* The community rules (social/CommunityRules.tsx): in the one-time dialog and on its page. */
+.community-rules {
+  margin: 8px 0 12px;
+  padding-left: 1.2em;
+}
+.community-rules li {
+  margin: 6px 0;
+  line-height: 1.45;
+}

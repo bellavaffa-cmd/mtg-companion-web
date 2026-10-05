@@ -92,6 +92,7 @@ export function SettingsPage() {
           ))}
           <nav className="settings-links" aria-label="About">
             <Link to="/privacy">Privacy policy</Link>
+            <Link to="/community-rules">Community rules</Link>
             <Link to="/delete-account">Delete my account</Link>
           </nav>
         </div>

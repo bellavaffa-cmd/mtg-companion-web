@@ -15,6 +15,7 @@ import { SocialGate } from './FriendsPage'
 import { TradeValue } from '../social/TradeValue'
 import * as more from '../social/more'
 import { matchSentence } from '../social/moreLogic'
+import { communityRules } from '../social/communityRules'
 
 interface TheirBinder { id: string; name: string; entries: CollectionEntry[] }
 
@@ -111,7 +112,9 @@ function Composer({ overview }: { overview: api.Overview }) {
   if (!friend || !isFriend) return <div className="empty-state"><Icon name="person_off" />You can only trade with friends.</div>
 
   const myBinders = collections.filter((c) => c.type !== 'WISHLIST')
-  const send = async () => {
+  // A first trade request (and its message) waits for the community rules, once.
+  const send = () => communityRules.require(() => void sendNow())
+  const sendNow = async () => {
     setBusy(true)
     setError(null)
     try {

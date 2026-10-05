@@ -43,7 +43,9 @@ export function PrivacyPage() {
             <li>
               <strong>If you use Friends:</strong> your username, display name and profile picture; your friends and pods; what you
               share and with whom; trades, trade messages and ratings; direct messages; games recorded for a pod; and blocks and
-              reports you make. People only see what you share with them, and your friends see your profile.
+              reports you make. People only see what you share with them, and your friends see your profile. What you post
+              there has to follow the <Link to="/community-rules">community rules</Link>; that you agreed to them is
+              noted on your account.
             </li>
             <li><strong>If you turn on notifications:</strong> a push token for your phone (Firebase Cloud Messaging) or browser, so friend and trade notifications reach you.</li>
             <li><strong>If you approve a web sign-in with a QR code:</strong> a short-lived record of that sign-in and the browser's description of itself.</li>

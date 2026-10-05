@@ -31,6 +31,7 @@ export function AccountPage() {
           </Link>
           <nav className="settings-links" aria-label="Privacy">
             <Link to="/privacy">Privacy policy</Link>
+            <Link to="/community-rules">Community rules</Link>
             <Link to="/delete-account">Delete my account</Link>
           </nav>
         </div>

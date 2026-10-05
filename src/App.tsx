@@ -41,6 +41,7 @@ import { RulesPage } from './pages/RulesPage'
 import { ScanPage } from './pages/ScanPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { PrivacyPage } from './pages/PrivacyPage'
+import { CommunityRulesHost, CommunityRulesPage } from './social/CommunityRules'
 import { DeleteAccountPage } from './pages/DeleteAccountPage'
 import { WelcomePage } from './onboarding/WelcomePage'
 import { SocialProvider } from './social/SocialContext'
@@ -72,6 +73,8 @@ export default function App() {
       <BrowserRouter basename={import.meta.env.BASE_URL}>
         {/* Anonymous counts of the screens opened (Settings › Privacy). */}
         <UsageScreens />
+        {/* The one-time community rules, asked for before a first post (profile, message, trade, share). */}
+        <CommunityRulesHost />
         {/* The Undo bar after a card goes into a deck or binder, on every screen. */}
         <UndoProvider>
         {/* The check before a card goes into a deck, asked wherever it's added from. */}
@@ -132,6 +135,7 @@ export default function App() {
             <Route path="/welcome" element={<WelcomePage />} />
             <Route path="/value" element={<ValueHistoryPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/community-rules" element={<CommunityRulesPage />} />
             <Route path="/delete-account" element={<DeleteAccountPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>

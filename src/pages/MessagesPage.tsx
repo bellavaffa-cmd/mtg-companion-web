@@ -12,6 +12,7 @@ import * as more from '../social/more'
 import { MESSAGE_MAX, mergeMessages, previewLine, timeAgo, type DirectMessage } from '../social/moreLogic'
 import { BlockReportButton, MessageText } from '../social/MoreUi'
 import { SocialGate } from './FriendsPage'
+import { communityRules } from '../social/communityRules'
 
 // Direct messages between friends: the list of conversations (/messages) and one conversation
 // (/messages/<friend id>). The Android app's twin is ui/social/MessagesScreen.kt.
@@ -157,7 +158,9 @@ function Conversation({ overview, other }: { overview: api.Overview; other: stri
     setOlder(page.length >= PAGE)
   }
 
-  const send = async () => {
+  // A first message waits for the community rules (CommunityRulesHost).
+  const send = () => { if (draft.trim()) communityRules.require(() => void sendNow()) }
+  const sendNow = async () => {
     const body = draft.trim()
     if (!body) return
     setBusy(true)

@@ -6,6 +6,7 @@ import { useSync } from '../sync/SyncContext'
 import * as api from './api'
 import { useOverview } from './SocialContext'
 import { QrCode } from './ui'
+import { communityRules } from './communityRules'
 
 /** Who can see one of the user's decks or binders: all friends, some pods, and/or anyone with a link. View only. */
 export function ShareDialog({ kind, itemId, name, onClose }: { kind: api.ShareKind; itemId: string; name: string; onClose: () => void }) {
@@ -44,7 +45,12 @@ export function ShareDialog({ kind, itemId, name, onClose }: { kind: api.ShareKi
     )
   }
 
-  const save = async () => {
+  // Sharing something for the first time waits for the community rules, once.
+  const save = () => {
+    if (friendsOn || podsOn.length > 0 || linkOn) communityRules.require(() => void saveNow())
+    else void saveNow()
+  }
+  const saveNow = async () => {
     setBusy(true)
     setError(null)
     try {

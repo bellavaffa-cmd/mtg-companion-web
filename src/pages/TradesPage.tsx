@@ -14,6 +14,7 @@ import { Avatar } from '../social/ui'
 import { SocialGate } from './FriendsPage'
 import * as more from '../social/more'
 import { BlockReportButton, RateTrade } from '../social/MoreUi'
+import { communityRules } from '../social/communityRules'
 
 type Filter = 'waiting' | 'sent' | 'done'
 
@@ -191,7 +192,13 @@ function TradeCardView({ trade, overview, more: withMore, rating, onRated }: {
           accept={answering === 'accept'}
           name={theirName}
           onCancel={() => setAnswering(null)}
-          onSend={(reply) => { setAnswering(null); void run(() => api.respondTrade(trade.id, answering, reply)) }}
+          onSend={(reply) => {
+            setAnswering(null)
+            const answer = () => void run(() => api.respondTrade(trade.id, answering, reply))
+            // A reply with a message is something they read: the community rules first, once.
+            if (reply.trim()) communityRules.require(answer)
+            else answer()
+          }}
         />
       )}
       {updating && <UpdateBindersDialog trade={trade} me={me} theirName={theirName} onClose={() => setUpdating(false)} />}

@@ -5,6 +5,7 @@ import * as api from './api'
 import { useSocial } from './SocialContext'
 import { Avatar } from './ui'
 import { GiphyPicker } from './GiphyPicker'
+import { communityRules } from './communityRules'
 
 const USERNAME = /^[a-z0-9_]{3,20}$/
 
@@ -51,7 +52,9 @@ export function ProfileEditor({ onDone }: { onDone?: () => void }) {
 
   if (!account) return null
 
-  const save = async () => {
+  // Name, username and picture are seen by others: the community rules first, once.
+  const save = () => communityRules.require(() => void saveNow())
+  const saveNow = async () => {
     setBusy(true)
     setError(null)
     try {

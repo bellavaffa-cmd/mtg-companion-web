@@ -1,6 +1,8 @@
 // Email + password accounts on Supabase Auth (GoTrue REST), the same project and accounts as the
 // Android app (see MtgCompanionApp/.../data/supabase/SupabaseAuth.kt). Plain fetch, no SDK.
 
+import { COMMUNITY_RULES_METADATA_KEY, communityRules, versionFromUser } from '../social/communityRules'
+
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, '') ?? ''
 const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? ''
 const SESSION_KEY = 'mtgweb_supabase_session'
@@ -93,11 +95,30 @@ function saveSession(json: Record<string, unknown>): Session {
     expiresAt: Date.now() + Number(json.expires_in ?? 3600) * 1000,
   }
   localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+  // The community rules agreement the account carries: agreed in the app or elsewhere counts here.
+  communityRules.setAccountVersion(versionFromUser(json.user))
   return session
 }
 
 function clearSession() {
   localStorage.removeItem(SESSION_KEY)
+  communityRules.setAccountVersion(null)
+}
+
+/**
+ * Records on the account that its owner agreed to the community rules (user_metadata; see
+ * social/communityRules.ts). Callers treat it as best effort: the browser has it either way.
+ */
+export async function saveCommunityRulesVersion(version: number): Promise<void> {
+  const token = await accessToken()
+  if (!token) return
+  const res = await fetch(restUrl('/auth/v1/user'), {
+    method: 'PUT',
+    headers: apiHeaders(token),
+    body: JSON.stringify({ data: { [COMMUNITY_RULES_METADATA_KEY]: version } }),
+  })
+  if (!res.ok) throw new AuthError(`Couldn't save the community rules agreement (HTTP ${res.status}).`, res.status)
+  communityRules.setAccountVersion(version)
 }
 
 export function currentAccount(): Account | null {
