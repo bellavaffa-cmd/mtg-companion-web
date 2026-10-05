@@ -48,14 +48,14 @@
 
 .welcome-title {
   margin: 0;
-  font-size: 28px;
+  font-size: 1.75rem;
   font-weight: 800;
   line-height: 1.15;
 }
 
 .welcome-lead {
   margin: 0 0 6px;
-  font-size: 14.5px;
+  font-size: 0.9062rem;
   line-height: 1.5;
 }
 
@@ -124,7 +124,7 @@
 
 .get-started h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 1.125rem;
   font-weight: 800;
 }
 
@@ -141,7 +141,7 @@
   color: var(--t0);
   text-align: left;
   font: inherit;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
 }
 

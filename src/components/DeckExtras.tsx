@@ -263,7 +263,7 @@ export function CompanionPanel({ deck, index = 0 }: { deck: Deck; index?: number
         <Dialog title="Choose a companion" onDismiss={() => setPicking(false)} actions={<button type="button" className="btn line" onClick={() => setPicking(false)}>Cancel</button>}>
           <div className="companion-list">
             {COMPANIONS.map((c) => (
-              <button key={c.name} type="button" className={`companion-option${current?.name === c.name ? ' on' : ''}`} onClick={() => { void choose(c.name) }}>
+              <button key={c.name} type="button" className={`companion-option${current?.name === c.name ? ' on' : ''}`} aria-pressed={current?.name === c.name} onClick={() => { void choose(c.name) }}>
                 <b>{c.name}</b>
                 <span className="dim">{c.rule}</span>
               </button>

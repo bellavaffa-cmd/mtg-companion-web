@@ -109,7 +109,7 @@ export function SetCardsPage() {
                   >
                     <div className="card-cell-img">
                       {image ? <img src={image} alt={card.name} loading="lazy" data-card-preview={biggerImageUrl(image) ?? undefined} /> : <ArtImage src={null} seed={card.name} />}
-                      {n > 0 && <span className="card-cell-count">×{n}</span>}
+                      {n > 0 && <span className="card-cell-count"><span aria-hidden="true">×</span>{n}<span className="sr-only"> copies</span></span>}
                     </div>
                     <div className="card-cell-name">{[card.collector_number ? `#${card.collector_number}` : null, card.name].filter(Boolean).join(' ')}</div>
                   </button>

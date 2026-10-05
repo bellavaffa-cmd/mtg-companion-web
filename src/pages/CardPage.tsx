@@ -173,7 +173,7 @@ export function CardPage() {
                 <div className="similar-strip print-strip">
                   {prints.map((p) => (
                     <button
-                      key={p.id} type="button" className={`similar-card press${p.id === card.id ? ' on' : ''}`}
+                      key={p.id} type="button" className={`similar-card press${p.id === card.id ? ' on' : ''}`} aria-current={p.id === card.id ? 'true' : undefined}
                       onClick={() => { setFlipped(false); setCard(p) }} title={`${p.set_name ?? p.set} #${p.collector_number}`}
                     >
                       <img src={displayImageUrl(p) ?? undefined} alt={`${p.name} (${p.set?.toUpperCase()})`} loading="lazy" />

@@ -570,11 +570,11 @@ function EntryRow({
   const money = useMoney()
   const formatUsd = (v: number) => money.format(v)
   // Press and hold picks the card; while picking, a tap adds or drops it.
-  const longPress = useLongPress({ onLongPress: onToggle, onClick: selecting ? onToggle : onZoom })
+  const longPress = useLongPress({ onLongPress: onToggle, onClick: selecting ? onToggle : onZoom, selected: selecting ? selected : undefined })
   return (
     <div className={`crow${selected ? ' picked' : ''}`}>
       <div className="thumb-wrap" onClick={selecting ? onToggle : onZoom} style={{ cursor: 'pointer' }}>
-        {selecting && <span className={`pick-mark${selected ? ' on' : ''}`} aria-label={selected ? 'Selected' : 'Not selected'}>{selected && <Icon name="check" />}</span>}
+        {selecting && <span className={`pick-mark${selected ? ' on' : ''}`} aria-hidden="true">{selected && <Icon name="check" />}</span>}
         <ArtImage className="thumb" src={toArtCrop(entry.imageUrl)} seed={entry.name} />
         {entry.backImageUrl && <span className="flip-badge"><Icon name="autorenew" /></span>}
       </div>
@@ -610,14 +610,14 @@ function EntryRow({
 function EntryTile({ entry, selecting, selected, onToggle, onZoom, onMore }: {
   entry: CollectionEntry; selecting: boolean; selected: boolean; onToggle: () => void; onZoom: () => void; onMore: () => void
 }) {
-  const longPress = useLongPress({ onLongPress: onToggle, onClick: selecting ? onToggle : onZoom })
+  const longPress = useLongPress({ onLongPress: onToggle, onClick: selecting ? onToggle : onZoom, selected: selecting ? selected : undefined })
   const total = entry.quantity + entry.foilQuantity
   return (
     <div className={`card-cell press${selected ? ' picked' : ''}`}>
       <div className="card-cell-img" {...longPress}>
         {entry.imageUrl ? <img src={entry.imageUrl} alt={entry.name} loading="lazy" data-card-preview={biggerImageUrl(entry.imageUrl) ?? undefined} /> : <ArtImage src={null} seed={entry.name} />}
-        {selecting && <span className={`pick-mark${selected ? ' on' : ''}`} aria-label={selected ? 'Selected' : 'Not selected'}>{selected && <Icon name="check" />}</span>}
-        <span className="card-cell-count">×{total}</span>
+        {selecting && <span className={`pick-mark${selected ? ' on' : ''}`} aria-hidden="true">{selected && <Icon name="check" />}</span>}
+        <span className="card-cell-count"><span aria-hidden="true">×</span>{total}<span className="sr-only"> copies</span></span>
         {entry.foilQuantity > 0 && <span className="card-cell-proxy"><Icon name="auto_awesome" style={{ fontSize: 12, verticalAlign: -2 }} />{entry.foilQuantity}</span>}
         {copyBadges(entry).length > 0 && (
           <span className="card-cell-badges">{copyBadges(entry).map((b) => <CopyBadge key={b} text={b} />)}</span>

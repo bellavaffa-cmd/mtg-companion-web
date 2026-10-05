@@ -44,13 +44,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
 }
 .warn-combos {
   margin: 0 0 6px;
   padding-left: 18px;
-  font-size: 13.5px;
+  font-size: 0.8438rem;
   line-height: 1.5;
 }
 
@@ -84,18 +84,18 @@
   gap: 1px;
 }
 .version-when {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
 }
 .version-what {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--t2);
 }
 .version-record {
   color: var(--gold-light);
 }
 .version-detail {
-  font-size: 13.5px;
+  font-size: 0.8438rem;
   line-height: 1.55;
   max-height: 420px;
   overflow-y: auto;
@@ -121,17 +121,17 @@
 }
 .bracket-num {
   font-family: var(--num);
-  font-size: 46px;
+  font-size: 2.875rem;
   line-height: 1;
 }
 .bracket-name {
   display: grid;
   padding-bottom: 4px;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--t2);
 }
 .bracket-name b {
-  font-size: 16px;
+  font-size: 1rem;
   color: var(--gold-light);
 }
 .mana-advice {
@@ -140,7 +140,7 @@
   padding: 0;
   display: grid;
   gap: 6px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.5;
 }
 .mana-advice li {
@@ -149,7 +149,7 @@
 }
 .mana-advice .icon {
   flex: none;
-  font-size: 16px;
+  font-size: 1rem;
   color: var(--cut);
   margin-top: 2px;
 }
@@ -164,7 +164,7 @@
   align-items: center;
   gap: 8px;
   margin: -2px 0 6px;
-  font-size: 12.5px;
+  font-size: 0.7812rem;
   color: var(--gold-light);
 }
 .near-miss-foot span {
@@ -200,8 +200,14 @@
   width: 96px;
   display: grid;
   gap: 2px;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--t2);
+}
+.budget-alt-open {
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 8px;
 }
 .budget-alt img {
   width: 96px;
@@ -240,7 +246,7 @@
   min-width: 44px;
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .precon-row .precon-action:disabled {
   opacity: 0.55;
@@ -249,7 +255,7 @@
 .precon-contents {
   max-height: 420px;
   overflow-y: auto;
-  font-size: 13.5px;
+  font-size: 0.8438rem;
   line-height: 1.5;
 }
 .precon-commander {
@@ -315,23 +321,23 @@
 }
 .combo-names {
   font-weight: 700;
-  font-size: 14px;
+  font-size: 0.875rem;
   color: var(--gold-light);
 }
 .combo-produces {
-  font-size: 12.5px;
+  font-size: 0.7812rem;
   color: var(--t2);
 }
 .combo-link {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--gold);
 }
 .combo-link .icon {
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 /* ---- Where you own it: search rows and the card page ---- */
@@ -340,7 +346,7 @@
   color: var(--gold);
 }
 .cmeta.held-in .icon {
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin-right: 3px;
   vertical-align: -2px;
 }
@@ -360,7 +366,7 @@
   background: transparent;
   color: var(--t0);
   font: inherit;
-  font-size: 14px;
+  font-size: 0.875rem;
   text-align: left;
   cursor: pointer;
 }
@@ -369,7 +375,7 @@
 }
 .held-row .icon {
   color: var(--gold);
-  font-size: 18px;
+  font-size: 1.125rem;
   /* The icon is a span too: it mustn't share the name's flex: 1. */
   flex: none;
 }
@@ -425,13 +431,13 @@
   display: grid;
 }
 .card-prices .lbl {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--t2);
 }
 .card-prices b {
   font-family: var(--num);
   font-weight: 400;
-  font-size: 30px;
+  font-size: 1.875rem;
   line-height: 1.05;
 }
 .legality-grid {
@@ -446,10 +452,10 @@
   padding: 6px 10px;
   border-radius: 10px;
   background: var(--g2);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .legality b {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .legality.legal b {
   color: var(--ok);

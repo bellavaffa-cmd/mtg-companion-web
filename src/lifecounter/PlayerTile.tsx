@@ -12,6 +12,8 @@ import { isMaxSpeed, ringAbilities } from './counterRules'
 import { roomOf } from './dungeons'
 import { VenturePanel } from './DungeonMap'
 import { mulliganText } from '../decks/mulligans'
+import { seatDescription, type SeatSummary } from '../a11y/descriptions'
+import { useModalFocus } from '../components/useModalFocus'
 
 /** The turn timer on the active player's tile: it counts itself down on [clock]. */
 export interface TileTurnTimer { clock: GameClock; turnStartElapsed: number; minutes: number }
@@ -49,9 +51,10 @@ function tileStyle(player: Player): CSSProperties {
  * Turns content to face the player at [facing]'s edge. The wrapper is a size container, so a
  * sideways face is laid out with the cell's width and height swapped and genuinely fills it.
  */
-export function Face({ facing, className = '', children }: { facing: SeatFacing; className?: string; children: React.ReactNode }) {
+export function Face({ facing, className = '', label, children }: { facing: SeatFacing; className?: string; label?: string; children: React.ReactNode }) {
+  // [label]: the whole seat in words, so a screen reader reads it the same whichever way it's turned.
   return (
-    <div className={`lc-face ${className}`}>
+    <div className={`lc-face ${className}`} {...(label ? { role: 'group', 'aria-label': label } : {})}>
       <div className={`lc-face-inner face-${facing.toLowerCase()}`}>{children}</div>
     </div>
   )
@@ -97,6 +100,36 @@ export function useStepper(onStep: (amount: number) => void, longPressAmount: nu
     onPointerCancel: stop,
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
   }
+}
+
+/** A seat in words for a screen reader (a11y/descriptions.ts seatDescription; Android: seatSummaryOf). */
+function seatSummaryOf(player: Player, opponents: Player[], out: boolean): SeatSummary {
+  return {
+    seat: player.id,
+    name: player.linked?.displayName ?? player.name,
+    life: player.life,
+    poison: player.poison,
+    commanderDamage: opponents.flatMap((o) => [
+      { from: o.commander?.trim() || displayName(o), amount: damageFrom(player, o.id, 0) },
+      { from: `${displayName(o)}'s partner`, amount: damageFrom(player, o.id, 1) },
+    ]),
+    out,
+  }
+}
+
+/**
+ * [text] once it has stayed the same for [ms], for a polite live region: a run of taps is read out
+ * once, when it settles, and nothing is read when the tile first shows.
+ */
+function useSettledAnnouncement(text: string, ms = 1200): string {
+  const [spoken, setSpoken] = useState('')
+  const first = useRef(true)
+  useEffect(() => {
+    if (first.current) { first.current = false; return }
+    const t = window.setTimeout(() => setSpoken(text), ms)
+    return () => window.clearTimeout(t)
+  }, [text, ms])
+  return spoken
 }
 
 export function PlayerTile({
@@ -215,10 +248,13 @@ export function PlayerTile({
   }
   const minusLabel = label(-1)
   const plusLabel = label(1)
+  const description = seatDescription(seatSummaryOf(player, opponents, !!loss))
+  const announcement = useSettledAnnouncement(description)
 
   return (
     <Face
       facing={facing}
+      label={description}
       className={`lc-tile${activeTurn ? ' active' : ''}${loss ? ' out' : ''}${!loss && (inDanger(player) || lowLife(player, settings)) ? ' danger' : ''}${targetedBy ? ' targeted' : ''}${settings.verticalTapAreas ? ' vertical-taps' : ''}`}
     >
       <div className={`lc-tile-body${player.background ? ' has-bg' : ''}`} style={tileStyle(player)}>
@@ -250,7 +286,7 @@ export function PlayerTile({
               : !player.linked && <span className="material-symbols-rounded" aria-hidden>more_horiz</span>}
           </button>
           {damageTaken.length > 0 && (
-            <button type="button" className="lc-chip" onClick={() => setPanelOpen(true)} aria-label="Commander damage received">
+            <button type="button" className="lc-chip" onClick={() => setPanelOpen(true)} aria-label={`Commander damage received: ${damageTaken.map(({ o, slot, dmg }) => `${dmg} from ${slot === 1 ? `${displayName(o)}'s partner` : o.commander?.trim() || displayName(o)}`).join(', ')}`}>
               <span className="material-symbols-rounded" aria-hidden>local_fire_department</span>
               {damageTaken.map(({ o, slot, dmg }) => (
                 <span key={`${o.id}-${slot}`} className="lc-dmg" title={slot === 1 ? `${displayName(o)}'s partner` : undefined}>
@@ -287,7 +323,9 @@ export function PlayerTile({
           )}
         </div>
 
-        <div className="lc-life" key={shake} data-shake={shake > 0 || undefined}><LifeNumber value={player.life} underline={settings.underlineSixNine} /></div>
+        <div className="lc-life" key={shake} data-shake={shake > 0 || undefined} aria-hidden="true"><LifeNumber value={player.life} underline={settings.underlineSixNine} /></div>
+        {/* Life and damage read out once a run of taps settles, not on every tap. */}
+        <span className="sr-only" aria-live="polite">{announcement}</span>
         {defeat && !highRoll && <div className="lc-outcome defeat" role="status">{defeat}</div>}
         {victory && !highRoll && <div className="lc-outcome victory" role="status">{victory}</div>}
 
@@ -462,9 +500,12 @@ function PlayerPanel({
   const [name, setName] = useState(player.name ?? '')
   const loss = lossReason(player, settings.autoKill)
   const commit = () => { if ((player.name ?? '') !== name.trim()) dispatch({ type: 'name', id: player.id, name }) }
+  // A dialog over the tile: focus moves in, Tab stays in, Escape closes it (keeping a typed name).
+  const box = useRef<HTMLDivElement>(null)
+  const keepFocusIn = useModalFocus(box, () => { if (!player.linked) commit(); onClose() })
 
   return (
-    <div className="lc-panel" onClick={(e) => e.stopPropagation()}>
+    <div ref={box} className="lc-panel" role="dialog" aria-modal="true" aria-label={displayName(player)} onKeyDown={keepFocusIn} onClick={(e) => e.stopPropagation()}>
       <div className="lc-panel-head">
         {player.linked ? (
           <div className="lc-linked">
@@ -487,7 +528,7 @@ function PlayerPanel({
           />
         )}
         <button type="button" className="lc-icon-btn" onClick={() => { if (!player.linked) commit(); onClose() }} aria-label="Close">
-          <span className="material-symbols-rounded">close</span>
+          <span className="material-symbols-rounded" aria-hidden>close</span>
         </button>
       </div>
       <div className="lc-panel-scroll">

@@ -1,6 +1,7 @@
-import { Fragment, useEffect } from 'react'
+import { Fragment, useRef } from 'react'
 import { Icon } from './Icon'
 import { ArtImage, toArtCrop } from './kit'
+import { useModalFocus } from './useModalFocus'
 
 export interface SheetAction {
   label: string
@@ -27,22 +28,19 @@ interface Props {
 
 /** Bottom action sheet — the Android app's CardActionMenu (a ModalBottomSheet), replacing popup menus. */
 export function ActionSheet({ title, subtitle, imageUrl, actions, onClose }: Props) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  const box = useRef<HTMLDivElement>(null)
+  const keepFocusIn = useModalFocus(box, onClose)
 
   return (
     <>
       <div className="scrim" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={title ?? 'Actions'}>
+      <div ref={box} className="sheet" role="dialog" aria-modal="true" aria-label={title ?? 'Actions'} onKeyDown={keepFocusIn}>
         <div className="grab" />
         {title && (
           <div className={`sheet-head${imageUrl === undefined ? ' no-art' : ''}`}>
             {imageUrl !== undefined && <ArtImage src={toArtCrop(imageUrl)} seed={title} />}
             <div style={{ minWidth: 0 }}>
-              <div className="sheet-title">{title}</div>
+              <h2 className="sheet-title">{title}</h2>
               {subtitle && <div className="sheet-sub">{subtitle}</div>}
             </div>
           </div>

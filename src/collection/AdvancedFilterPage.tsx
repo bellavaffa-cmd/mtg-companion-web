@@ -4,7 +4,7 @@
 // is pressed; Back leaves them as they were. Mirrors the Android app's AdvancedFilterScreen.kt; the
 // rules are in ./advancedFilter.
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { BackButton, IconButton } from '../components/kit'
 import { Dialog } from '../components/Dialog'
@@ -20,6 +20,7 @@ import { NO_COLLECTION_FILTER, type CollectionFilter } from './cardFilter'
 import { CARD_CONDITIONS, CARD_LANGUAGES, languageName } from './copyDetails'
 import { useSavedFilters } from './savedFilters'
 import { NO_PLACE } from './storagePlaces'
+import { useModalFocus } from '../components/useModalFocus'
 
 const COLOR_NAMES: Record<string, string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green', C: 'Colourless' }
 const toggle = <T,>(list: T[], item: T) => (list.includes(item) ? list.filter((x) => x !== item) : [...list, item])
@@ -51,13 +52,14 @@ export function AdvancedFilterPage({ basic, advanced, countFor, binders, places 
   const count = useMemo(() => countFor(b, a), [countFor, b, a])
   const set = <K extends keyof AdvancedFilter>(key: K, value: AdvancedFilter[K]) => setA((prev) => ({ ...prev, [key]: value }))
 
+  // The naming dialog is the layer on top while it is open, so Escape closes that first.
+  const box = useRef<HTMLDivElement>(null)
+  const keepFocusIn = useModalFocus(box, onClose)
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !naming) onClose() }
-    window.addEventListener('keydown', onKey)
     const overflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = overflow }
-  }, [onClose, naming])
+    return () => { document.body.style.overflow = overflow }
+  }, [])
 
   useEffect(() => {
     if (!copied) return
@@ -77,7 +79,7 @@ export function AdvancedFilterPage({ basic, advanced, countFor, binders, places 
   }
 
   return createPortal(
-    <div className="adv-page" role="dialog" aria-modal="true" aria-labelledby="adv-title">
+    <div ref={box} className="adv-page" role="dialog" aria-modal="true" aria-labelledby="adv-title" onKeyDown={keepFocusIn}>
       <header className="adv-head">
         <BackButton onClick={onClose} />
         <h1 id="adv-title">Advanced filters</h1>

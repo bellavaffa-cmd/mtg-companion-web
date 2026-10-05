@@ -78,7 +78,7 @@ export function MeSheet({ decks, currentDeckId, isMe, onPick, onNotMe, onClose, 
         {decks.map((deck) => {
           const art = deck.commander?.imageUrl?.replace('/normal/', '/art_crop/') ?? null
           return (
-            <button key={deck.id} type="button" className={`lc-pick${isMe && deck.id === currentDeckId ? ' on' : ''}`} onClick={() => onPick(deck.id)}>
+            <button key={deck.id} type="button" className={`lc-pick${isMe && deck.id === currentDeckId ? ' on' : ''}`} aria-pressed={isMe && deck.id === currentDeckId} onClick={() => onPick(deck.id)}>
               {art ? <img src={art} alt="" loading="lazy" /> : <span className="lc-pick-art" />}
               <span className="lc-pick-text"><b>{deck.name}</b><span>{deck.commander?.name ?? ''}</span></span>
             </button>
@@ -123,7 +123,7 @@ export function TableGamesSheet({ games, onDelete, onClear, onClose, Sheet }: {
                   <div className="lc-game-head">
                     <b>{winner ? `${winner.name} won` : 'No winner'}</b>
                     <button type="button" className="lc-icon-btn" aria-label="Remove this game" onClick={() => onDelete(g.id)}>
-                      <span className="material-symbols-rounded">close</span>
+                      <span className="material-symbols-rounded" aria-hidden>close</span>
                     </button>
                   </div>
                   <div className="lc-hint">

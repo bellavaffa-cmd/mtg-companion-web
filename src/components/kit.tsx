@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom'
 import { Icon } from './Icon'
 import { manaSymbolUrl } from './ManaSymbols'
 import { SyncButton } from './SyncButton'
+import { colourIdentityName } from '../a11y/descriptions'
 
 /** Magic's five colours plus colorless, tuned to glow on the dark ground (ManaColors in Color.kt). */
 export const MANA: Record<string, string> = {
@@ -106,7 +107,9 @@ export function ArtImage({
 export function IdentityStrip({ colors, className = '', style }: { colors: string[]; className?: string; style?: CSSProperties }) {
   const cs = (colors.length > 0 ? colors : ['C']).map((c) => MANA[c] ?? MANA.C)
   const background = cs.length === 1 ? cs[0] : `linear-gradient(90deg, ${cs.join(', ')})`
-  return <div className={`strip ${className}`} style={{ background, ...style }} />
+  // Colour alone says which colours: the words go to screen readers and the tooltip.
+  const name = colourIdentityName(colors)
+  return <div className={`strip ${className}`} style={{ background, ...style }} role="img" aria-label={name} title={name} />
 }
 
 /**
@@ -114,14 +117,16 @@ export function IdentityStrip({ colors, className = '', style }: { colors: strin
  * shows until the symbol has loaded, and all that shows with no connection.
  */
 export function ManaPips({ colors, size = 16 }: { colors: string[]; size?: number }) {
+  // One name for the set ("white and blue"), rather than a letter and a picture per pip.
   return (
-    <span className="pips">
+    <span className="pips" role="img" aria-label={colourIdentityName(colors)}>
       {(colors.length > 0 ? colors : ['C']).map((c) => (
         <i
           key={c}
           className={`pip${c === 'U' || c === 'B' ? ' dk' : ''}`}
           style={{ ['--c' as string]: MANA[c] ?? MANA.C, width: size, height: size, fontSize: size * 0.68 }}
           title={`{${c}}`}
+          aria-hidden="true"
         >
           {c}
           <img className="pip-symbol" src={manaSymbolUrl(c)} alt="" onError={(e) => { e.currentTarget.hidden = true }} />
@@ -227,12 +232,16 @@ export function CountUp({ value, format = (v) => Math.round(v).toLocaleString('e
 export function StatFigure({
   value, label, onClick, format, style,
 }: { value: number | null; label: string; onClick?: () => void; format?: (v: number) => string; style?: CSSProperties }) {
-  return (
-    <button type="button" className="stat press" onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default', ...style }}>
-      <span className="num">{value === null ? <span style={{ color: 'var(--t2)' }}>—</span> : <CountUp value={value} format={format} />}</span>
+  const body = (
+    <>
+      <span className="num">{value === null ? <><span style={{ color: 'var(--t2)' }} aria-hidden="true">—</span><span className="sr-only">none</span></> : <CountUp value={value} format={format} />}</span>
       <span className="lbl">{label}</span>
-    </button>
+    </>
   )
+  // Only a button when it goes somewhere: a figure that does nothing isn't a stop for Tab.
+  return onClick
+    ? <button type="button" className="stat press" onClick={onClick} style={{ cursor: 'pointer', ...style }}>{body}</button>
+    : <div className="stat" style={style}>{body}</div>
 }
 
 export function SectionHeader({ title, action, onAction, style }: { title: string; action?: string; onAction?: () => void; style?: CSSProperties }) {

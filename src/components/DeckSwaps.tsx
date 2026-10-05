@@ -179,10 +179,9 @@ export function DeckSwaps({ deck, cardsById, roleTags, owned = null, onExpand, o
                     <div className="budget-alts">
                       {alternatives.map((alt) => (
                         <div key={alt.id} className="budget-alt">
-                          <img
-                            src={displayImageUrl(alt) ?? undefined} alt={alt.name} loading="lazy"
-                            data-card-preview={largeImageUrl(alt) ?? undefined} onClick={() => onExpand(alt)}
-                          />
+                          <button type="button" className="budget-alt-open" onClick={() => onExpand(alt)} aria-label={`Look at ${alt.name}`}>
+                            <img src={displayImageUrl(alt) ?? undefined} alt="" loading="lazy" data-card-preview={largeImageUrl(alt) ?? undefined} />
+                          </button>
                           <span>{money.formatPrice(alt.prices?.usd) ?? '—'}</span>
                           <button type="button" className="link-btn" onClick={() => setAdding({ name: alt.name, card: alt })}>Add…</button>
                         </div>

@@ -4,6 +4,7 @@ import './theme.css'
 import './responsive.css'
 import './features.css'
 import './collecting.css'
+import './a11y.css'
 import App from './App.tsx'
 import { applyAppearance, watchSystemTheme } from './settings/settings'
 

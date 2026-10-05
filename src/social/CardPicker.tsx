@@ -1,10 +1,11 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import { ArtImage, SearchPill, toArtCrop } from '../components/kit'
 import type { CollectionEntry } from '../types/models'
 import type { TradeCard } from './api'
 import { CopyBadge } from '../components/CopyBadge'
 import { conditionName } from '../collection/copyDetails'
+import { useModalFocus } from '../components/useModalFocus'
 
 /** The same card, finish and binder are one line of a trade. */
 export const tradeKey = (c: Pick<TradeCard, 'scryfallId' | 'foil' | 'collectionId'>) => `${c.collectionId ?? ''}:${c.scryfallId}:${c.foil ? 'f' : 'n'}`
@@ -97,19 +98,16 @@ export function TradeCardList({ cards, empty, onRemove }: { cards: TradeCard[]; 
 
 /** A full-height sheet for picking cards, with a Done button. */
 export function PickerSheet({ title, subtitle, onClose, children }: { title: string; subtitle?: string; onClose: () => void; children: ReactNode }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  const box = useRef<HTMLDivElement>(null)
+  const keepFocusIn = useModalFocus(box, onClose)
   return (
     <>
       <div className="scrim" onClick={onClose} />
-      <div className="sheet picker-sheet" role="dialog" aria-modal="true" aria-label={title}>
+      <div ref={box} className="sheet picker-sheet" role="dialog" aria-modal="true" aria-label={title} onKeyDown={keepFocusIn}>
         <div className="grab" />
         <div className="picker-head">
           <div style={{ minWidth: 0 }}>
-            <div className="sheet-title">{title}</div>
+            <h2 className="sheet-title">{title}</h2>
             {subtitle && <div className="sheet-sub">{subtitle}</div>}
           </div>
           <button type="button" className="btn gold sm" onClick={onClose}>Done</button>

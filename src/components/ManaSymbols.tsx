@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { manaSymbolName } from '../a11y/descriptions'
 
 /**
  * Scryfall serves every mana/cost symbol as an SVG named after its contents with braces and
@@ -19,7 +20,8 @@ export function ManaSymbol({ code, size = 14 }: { code: string; size?: number })
     <img
       className="mana-symbol"
       src={manaSymbolUrl(code)}
-      alt={`{${code}}`}
+      // Read as words ("white mana"); the tooltip keeps the symbol as it's written in rules text.
+      alt={manaSymbolName(code)}
       title={`{${code}}`}
       width={size}
       height={size}

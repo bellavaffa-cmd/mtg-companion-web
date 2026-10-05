@@ -178,17 +178,18 @@ export function CollectionsPage() {
 }
 
 function BinderRow({ collection, index, onOpen, onMore }: { collection: Collection; index: number; onOpen: () => void; onMore: () => void }) {
-  const longPress = useLongPress({ onLongPress: onMore, onClick: onOpen })
+  // The row takes the pointer; its name is the keyboard button, since the row holds the actions button.
+  const { role, tabIndex, onKeyDown, ...pointer } = useLongPress({ onLongPress: onMore, onClick: onOpen })
   const total = collection.entries.reduce((s, e) => s + e.quantity + e.foilQuantity, 0)
   const cover = collection.entries[0]
   return (
-    <div className="brow press rise" style={{ ...rise(Math.min(index, 8) + 3), cursor: 'pointer' }} {...longPress}>
+    <div className="brow press rise" style={{ ...rise(Math.min(index, 8) + 3), cursor: 'pointer' }} {...pointer}>
       {cover ? (
         <ArtImage src={toArtCrop(cover.imageUrl)} seed={collection.name} />
       ) : (
         <div className="icon-tile"><Icon name={collection.type === 'WISHLIST' ? 'star' : 'collections'} /></div>
       )}
-      <div style={{ minWidth: 0 }}>
+      <div style={{ minWidth: 0 }} role={role} tabIndex={tabIndex} onKeyDown={onKeyDown}>
         <div className="brow-name">{collection.name}{collection.sample && <span className="badge soft sample" style={{ marginLeft: 8 }}>Sample</span>}</div>
         <div className="brow-meta">
           {isWishlist(collection)

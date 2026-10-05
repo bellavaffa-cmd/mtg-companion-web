@@ -355,7 +355,8 @@
 .lc-swatches {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  /* Wide enough apart that each 30px swatch's 44px target (a11y.css) misses its neighbours. */
+  gap: 14px;
 }
 .lc-swatch {
   width: 30px;

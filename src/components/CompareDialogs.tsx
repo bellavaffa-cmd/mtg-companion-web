@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
+import { useRef } from 'react'
 import { Dialog } from './Dialog'
 import { Icon } from './Icon'
 import { compareCount, deckCounts, diffDecks, identical, sameCount, versionCounts, type CompareRow } from '../decks/deckCompare'
 import { versionDate, versionSummaries } from '../decks/versions'
 import { GAME_MODE_LABELS, type Deck, type GameMode } from '../types/models'
+import { useModalFocus } from './useModalFocus'
 
 /** What a deck is compared with: another deck, or one of its own saved versions. */
 export interface CompareTarget {
@@ -69,14 +70,11 @@ export function ComparePickerDialog({ deck, decks, onPick, onDismiss }: {
 export function CompareScreen({ deck, target, onClose }: { deck: Deck; target: CompareTarget; onClose: () => void }) {
   const diff = diffDecks(deckCounts(deck), target.counts)
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  const box = useRef<HTMLDivElement>(null)
+  const keepFocusIn = useModalFocus(box, onClose)
 
   return (
-    <div className="goldfish" role="dialog" aria-modal="true" aria-label={`Compare ${deck.name} with ${target.label}`}>
+    <div ref={box} className="goldfish" role="dialog" aria-modal="true" aria-label={`Compare ${deck.name} with ${target.label}`} onKeyDown={keepFocusIn}>
       <div className="goldfish-bar">
         <button type="button" className="ib" aria-label="Close" onClick={onClose}><Icon name="close" /></button>
         <div className="goldfish-title">

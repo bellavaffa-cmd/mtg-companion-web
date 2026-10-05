@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { biggerImageUrl, displayImageUrl, type ScryfallCard } from '../types/scryfall'
 import { GAME_MODES_USING_COMMANDER, type Deck, type GameMode } from '../types/models'
 import {
@@ -12,6 +12,7 @@ import { Icon } from './Icon'
 import { PillChip } from './kit'
 import { useLongPress } from './useLongPress'
 import { useTokenArt } from './useTokenArt'
+import { useModalFocus } from './useModalFocus'
 
 /** A card's actions while its sheet is up: what it's called, and what can be done with it. */
 interface CardMenu {
@@ -44,13 +45,9 @@ export function PlaytestDialog({ deck, cardsById, onClose }: {
   const empty = start.library.length === 0
   const choosing = choosingHand(game)
 
-  // Escape closes the card's sheet or zoom first, then this.
-  useEffect(() => {
-    if (looking || menu) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [looking, menu, onClose])
+  // Escape closes the card's sheet or zoom first (the layer on top), then this.
+  const box = useRef<HTMLDivElement>(null)
+  const keepFocusIn = useModalFocus(box, onClose)
 
   const look = (card: PlayCard): SheetAction => ({ label: 'Look', icon: 'visibility', onClick: () => setLooking(card) })
   const status = [choosing ? 'Opening hand' : `Turn ${game.turn}`, `Library ${game.library.length}`, `Graveyard ${game.graveyard.length}`].join(' · ')
@@ -59,7 +56,7 @@ export function PlaytestDialog({ deck, cardsById, onClose }: {
   const others = game.battlefield.filter((p) => !p.card.typeLine?.includes('Land'))
 
   return (
-    <div className="goldfish" role="dialog" aria-modal="true" aria-label={`Playtest ${deck.name}`}>
+    <div ref={box} className="goldfish" role="dialog" aria-modal="true" aria-label={`Playtest ${deck.name}`} onKeyDown={keepFocusIn}>
       <div className="goldfish-bar">
         <button type="button" className="ib" aria-label="Close" onClick={onClose}><Icon name="close" /></button>
         <div className="goldfish-title">

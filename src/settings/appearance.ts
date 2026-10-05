@@ -80,12 +80,13 @@ interface Hues { base: string; light: string; dim: string; lightModeBase: string
 
 // One hue per accent theme, mapped to Magic's colours of mana (Color.kt accentHues).
 const HUES: Record<AccentTheme, Hues> = {
-  GOLD: { base: '#e6b45e', light: '#f2cb86', dim: '#8e6a2c', lightModeBase: '#94661c' },
+  // Gold's and Emerald's light hues are a step darker than the app's first ones, for 4.5:1 on the
+  // light theme's raised grey (--g2) too (tests/a11y/contrast.test.ts).
+  GOLD: { base: '#e6b45e', light: '#f2cb86', dim: '#8e6a2c', lightModeBase: '#8a5e18' },
   SAPPHIRE: { base: '#5b9bf0', light: '#86b8f6', dim: '#2f5c99', lightModeBase: '#2563c9' },
   AMETHYST: { base: '#a77be6', light: '#c3a2f0', dim: '#5f3e91', lightModeBase: '#7b45c4' },
   RUBY: { base: '#ee6a7c', light: '#f594a1', dim: '#8e2e3c', lightModeBase: '#c0304a' },
-  // Emerald's light hue is a step darker than the app's #1f8a55, for 4.5:1 on white.
-  EMERALD: { base: '#52c788', light: '#83dba9', dim: '#2b7a4f', lightModeBase: '#1c7f4e' },
+  EMERALD: { base: '#52c788', light: '#83dba9', dim: '#2b7a4f', lightModeBase: '#1a7348' },
 }
 
 /** The accent's base hue, whatever the brightness — for the swatches in Settings. */
@@ -115,6 +116,17 @@ export function contrast(a: string, b: string): number {
 
 const alpha = (hex: string, a: number) => `rgba(${rgb(hex).join(', ')}, ${a})`
 
+/** Dark ink for a fill. */
+export const DARK_INK = '#1c1405'
+
+/**
+ * Text on a solid accent fill: dark ink or white, whichever reads better. In the dark every accent
+ * takes dark ink — white on Sapphire was 2.8:1 — and in the light every one takes white.
+ */
+export function inkFor(fill: string): string {
+  return contrast(DARK_INK, fill) >= contrast('#ffffff', fill) ? DARK_INK : '#ffffff'
+}
+
 /**
  * The --gold family for an accent: in the dark the bright hue with dark or white ink on it; in the
  * light a darker hue, so it keeps its contrast on white, with white ink.
@@ -127,7 +139,7 @@ export function accentVars(accent: AccentTheme, dark: boolean): Record<string, s
       '--gold-light': h.light,
       '--gold-dim': h.dim,
       '--gold-soft': alpha(h.base, 0.16),
-      '--gold-ink': luminance(h.base) > 0.45 ? '#1c1405' : '#ffffff',
+      '--gold-ink': inkFor(h.base),
       '--gold-art': h.base,
     }
   }
@@ -136,7 +148,7 @@ export function accentVars(accent: AccentTheme, dark: boolean): Record<string, s
     '--gold-light': h.lightModeBase,
     '--gold-dim': h.dim,
     '--gold-soft': alpha(h.lightModeBase, 0.12),
-    '--gold-ink': '#ffffff',
+    '--gold-ink': inkFor(h.lightModeBase),
     // On a dark scrim over card art the bright hue still reads best.
     '--gold-art': h.base,
   }

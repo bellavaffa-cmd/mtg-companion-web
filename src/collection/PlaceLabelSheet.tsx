@@ -1,9 +1,10 @@
-import { useEffect, useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import { useSync } from '../sync/SyncContext'
 import { Icon } from '../components/Icon'
 import { copiesWithin, parentsOf, placesOf, storageSummary } from './storagePlaces'
 import { openPullDeck } from './pullProgress'
 import { pullGroupsIn, pullList } from './pullList'
+import { useModalFocus } from '../components/useModalFocus'
 
 /**
  * What a scanned box label offers, the Android app's PlaceLabelSheet: put cards away into the place,
@@ -62,15 +63,12 @@ export function PlaceLabelContent({ placeId, onPutAway, onOpen, onPull, onClose 
 /** The same over the scanner's camera, as a sheet. */
 export function PlaceLabelSheet(props: Parameters<typeof PlaceLabelContent>[0] & { onClose: () => void }) {
   const { onClose } = props
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  const box = useRef<HTMLDivElement>(null)
+  const keepFocusIn = useModalFocus(box, onClose)
   return (
     <>
       <div className="scrim" onClick={onClose} />
-      <div className="sheet" role="dialog" aria-modal="true" aria-label="Box label">
+      <div ref={box} className="sheet" role="dialog" aria-modal="true" aria-label="Box label" onKeyDown={keepFocusIn}>
         <div className="grab" />
         <PlaceLabelContent {...props} />
       </div>

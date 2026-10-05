@@ -251,11 +251,11 @@ function OwnedRow({ card, selecting, selected, onToggle, onOpen }: {
   onOpen: () => void
 }) {
   // Press and hold picks the card; while picking, a tap adds or drops it.
-  const longPress = useLongPress({ onLongPress: onToggle, onClick: selecting ? onToggle : onOpen })
+  const longPress = useLongPress({ onLongPress: onToggle, onClick: selecting ? onToggle : onOpen, selected: selecting ? selected : undefined })
   return (
     <div className={`crow${selected ? ' picked' : ''}`} style={{ cursor: 'pointer' }} {...longPress}>
       <div className="thumb-wrap">
-        {selecting && <span className={`pick-mark${selected ? ' on' : ''}`} aria-label={selected ? 'Selected' : 'Not selected'}>{selected && <Icon name="check" />}</span>}
+        {selecting && <span className={`pick-mark${selected ? ' on' : ''}`} aria-hidden="true">{selected && <Icon name="check" />}</span>}
         <ArtImage className="thumb" src={toArtCrop(card.imageUrl)} seed={card.name} />
       </div>
       <div className="cmain">
