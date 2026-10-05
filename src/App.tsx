@@ -32,7 +32,7 @@ import { NotFoundPage } from './pages/NotFoundPage'
 import { SocialProvider } from './social/SocialContext'
 import './social/social.css'
 
-// Friends, sharing and trades load when first opened.
+// Friends, sharing, trades and events load when first opened.
 const FriendsPage = lazy(() => import('./pages/FriendsPage').then((m) => ({ default: m.FriendsPage })))
 const FriendPage = lazy(() => import('./pages/FriendPage').then((m) => ({ default: m.FriendPage })))
 const SharedItemPage = lazy(() => import('./pages/SharedItemPage').then((m) => ({ default: m.SharedItemPage })))
@@ -41,6 +41,9 @@ const SharedCollectionPage = lazy(() => import('./pages/SharedItemPage').then((m
 const TradesPage = lazy(() => import('./pages/TradesPage').then((m) => ({ default: m.TradesPage })))
 const TradeComposerPage = lazy(() => import('./pages/TradeComposerPage').then((m) => ({ default: m.TradeComposerPage })))
 const AddFriendLinkPage = lazy(() => import('./pages/LinkPages').then((m) => ({ default: m.AddFriendLinkPage })))
+const EventsPage = lazy(() => import('./tournament/EventPages').then((m) => ({ default: m.EventsPage })))
+const NewEventPage = lazy(() => import('./tournament/EventPages').then((m) => ({ default: m.NewEventPage })))
+const EventPage = lazy(() => import('./tournament/EventPages').then((m) => ({ default: m.EventPage })))
 const JoinSeatPage = lazy(() => import('./pages/LinkPages').then((m) => ({ default: m.JoinSeatPage })))
 const ApproveLoginPage = lazy(() => import('./pages/LinkPages').then((m) => ({ default: m.ApproveLoginPage })))
 
@@ -69,6 +72,9 @@ export default function App() {
             <Route path="/rules" element={<RulesPage />} />
             <Route path="/play" element={<PlayPage />} />
             <Route path="/play/playgroup" element={<PlaygroupPage />} />
+            <Route path="/play/events" element={<EventsPage />} />
+            <Route path="/play/events/new" element={<NewEventPage />} />
+            <Route path="/play/events/:id" element={<EventPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/card/:name" element={<CardPage />} />
             <Route path="/scan" element={<ScanPage />} />
