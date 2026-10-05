@@ -107,8 +107,9 @@ function ThinRow({ card, index, cost, format, onOpenDeck }: {
         <div className="cmeta"><span>{thinLine(card)}</span></div>
         <div className="chips wrap" style={{ marginTop: 4, gap: 6 }}>
           {card.decks.map((u) => (
-            <button key={u.deckId} type="button" className="chip on-g2" style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => onOpenDeck(u.deckId)}>
-              {u.deckName}{u.copies > 1 ? ` ×${u.copies}` : ''}
+            <button key={u.deckId} type="button" className="chip on-g2" style={{ padding: '5px 10px', fontSize: 12, maxWidth: '100%', minWidth: 0 }} onClick={() => onOpenDeck(u.deckId)}>
+              {/* A long deck name ellipsizes inside the chip rather than running under the price. */}
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{u.deckName}</span>{u.copies > 1 ? ` ×${u.copies}` : ''}
             </button>
           ))}
         </div>

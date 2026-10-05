@@ -724,3 +724,11 @@ export function takeApart(deck: Deck, list: PutBackList, collections: Collection
   }
   return { collections: collectionsOut, deck: next, placed, unplaced }
 }
+
+/**
+ * A group's "Office shelf · 0 of 2" for the pull and put-back lists: each part kept whole, so a
+ * narrow screen breaks the line only after a "·", never inside "0 of 2".
+ */
+export function metaLine(parts: (string | null | undefined)[]): string {
+  return parts.filter((p): p is string => !!p).map((p) => p.replace(/ /g, ' ')).join(' · ')
+}

@@ -233,6 +233,14 @@
   align-items: center;
   gap: 5px;
 }
+/* The name pill is small to look at but opens the commander damage sheet: a clear border makes it a
+   bigger target without making it look bigger, and the negative margin keeps it where it was. */
+.lc-name {
+  border: 10px solid transparent;
+  background-clip: padding-box;
+  margin: -10px;
+  max-width: calc(100% + 20px);
+}
 .lc-chip .material-symbols-rounded {
   font-size: 1em;
 }

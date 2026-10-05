@@ -8,7 +8,7 @@ import { useCardData } from '../collection/cardData'
 import { cardFactsOf, placesOf } from '../collection/storagePlaces'
 import { putBackMove } from '../collection/copyHistory'
 import { recordMoves } from '../collection/copyHistoryStore'
-import { putBackList, takeApart, type PutBackMode, type PutBackRow, type TakeApartResult } from '../collection/pullList'
+import { metaLine, putBackList, takeApart, type PutBackMode, type PutBackRow, type TakeApartResult } from '../collection/pullList'
 import { loadPutBackProgress, savePutBackProgress } from '../collection/pullProgress'
 import type { DeckCardEntry } from '../types/models'
 import '../collection/storage.css'
@@ -111,7 +111,7 @@ export function PutBackPage() {
                   <section key={g.key} className="pull-group">
                     <div className="pull-group-h">
                       <h2>{g.title}</h2>
-                      <span>{g.kind === 'basic' ? of : [g.detail, `${got} of ${of}`].filter(Boolean).join(' · ')}</span>
+                      <span>{g.kind === 'basic' ? of : metaLine([g.detail, `${got} of ${of}`])}</span>
                     </div>
                     {g.kind === 'basic' && <div className="dim">{g.detail}</div>}
                     {g.rows.map((r) => (

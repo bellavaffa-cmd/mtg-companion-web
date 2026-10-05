@@ -272,7 +272,7 @@ export function PageHeader({ title, eyebrow, actions, onBack }: { title: string;
         {onBack && <BackButton onClick={onBack} />}
         <div>
           {eyebrow && <div className="eyebrow">{eyebrow}</div>}
-          <h1>{title}</h1>
+          <h1 title={title}>{title}</h1>
         </div>
       </div>
       {(actions || phone) && <div className="acts">{actions}{phone && <SyncButton />}</div>}

@@ -23,13 +23,15 @@ export function PreconsPage() {
   // The precon being looked at before importing it, as the phone's PreconContentsDialog.
   const [viewing, setViewing] = useState<PreconInfo | null>(null)
 
+  // Bumped by Try again, to ask MTGJSON once more.
+  const [attempt, setAttempt] = useState(0)
   useEffect(() => {
     let cancelled = false
     listCommanderPrecons()
       .then((list) => { if (!cancelled) setPrecons(list) })
       .catch(() => { if (!cancelled) setPrecons(null) })
     return () => { cancelled = true }
-  }, [])
+  }, [attempt])
 
   const shown = useMemo(() => {
     const needle = filter.trim().toLowerCase()
@@ -88,9 +90,15 @@ export function PreconsPage() {
       <div className="content-scroll with-nav">
         <SearchPill value={filter} onChange={setFilter} placeholder="Filter precons" />
         {error && <div className="notice" style={{ marginTop: 12 }}>{error}</div>}
-        {precons === undefined && <div className="empty-state">Loading the precon list…</div>}
-        {precons === null && <div className="empty-state">Couldn't reach MTGJSON. Check your connection and try again.</div>}
-        {precons && shown.length === 0 && <div className="empty-state">No precon matches “{filter}”.</div>}
+        {precons === undefined && <div className="empty-state"><Icon name="hourglass_empty" />Loading the precon list…</div>}
+        {precons === null && (
+          <div className="empty-state">
+            <Icon name="cloud_off" />
+            <div>Couldn't reach MTGJSON. Check your connection and try again.</div>
+            <button type="button" className="btn line" onClick={() => { setPrecons(undefined); setAttempt((n) => n + 1) }}>Try again</button>
+          </div>
+        )}
+        {precons && shown.length === 0 && <div className="empty-state"><Icon name="search_off" />No precon matches “{filter}”.</div>}
         <div className="precon-list">
           {shown.map((precon, i) => (
             <div key={precon.fileName} className="precon-row rise" style={rise(Math.min(i, 8))}>

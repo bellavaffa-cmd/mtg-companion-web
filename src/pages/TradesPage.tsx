@@ -143,7 +143,7 @@ function TradeCardView({ trade, overview, more: withMore, rating, onRated }: {
           <div className="person-name">{theirName}</div>
           <div className={`trade-status ${trade.status}`}>{status}</div>
         </div>
-        <span className="dim" style={{ fontSize: 12 }}>{new Date(trade.updated_at).toLocaleDateString()}</span>
+        <span className="dim" style={{ fontSize: 12 }}>{new Date(trade.updated_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>
         {withMore && overview.friends.some((f) => f.user_id === other && f.status === 'accepted') && (
           <button type="button" className="ib" aria-label={`Message ${theirName}`} title="Message" onClick={() => navigate(`/messages/${other}`)}><Icon name="chat" /></button>
         )}

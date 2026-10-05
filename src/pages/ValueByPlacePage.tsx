@@ -63,7 +63,7 @@ export function ValueByPlacePage() {
           {v.groups.map((g, i) => (
             <div key={g.key} className="value-bar rise" style={rise(Math.min(i, 6) + 2)}>
               <div className="value-bar-h">
-                <span><b>{g.label}</b>{g.detail && <span className="dim"> · {g.detail}</span>}</span>
+                <span><b>{g.label}</b>{g.detail && <span className="dim"> ·&nbsp;{g.detail}</span>}</span>
                 <b>{money.format(g.usd, true)}</b>
               </div>
               <div className="storage-bar"><div className={g.kind === 'none' ? 'grey' : ''} style={{ width: `${Math.round((g.usd / max) * 100)}%` }} /></div>

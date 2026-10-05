@@ -89,7 +89,7 @@ export function ProfileEditor({ onDone }: { onDone?: () => void }) {
             <Icon name="gif_box" aria-hidden />GIF from Giphy
           </button>
           {(picture || (me?.avatar_path && !removePicture)) && (
-            <button type="button" className="btn-link" onClick={() => { setPicture(null); setRemovePicture(true) }}>Remove picture</button>
+            <button type="button" className="btn btn-link sm" onClick={() => { setPicture(null); setRemovePicture(true) }}>Remove picture</button>
           )}
           <div className="dim" style={{ fontSize: 12 }}>A photo, or a GIF (up to 2 MB) — it plays on the life counter too.</div>
         </div>

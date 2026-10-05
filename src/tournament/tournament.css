@@ -11,10 +11,6 @@
   margin: 0;
   font-size: 12.5px;
 }
-.events-empty {
-  font-size: 12.5px;
-  margin: 0;
-}
 .event-gap {
   margin-top: 10px;
 }
@@ -271,6 +267,10 @@
 }
 .event-bracket-round {
   min-width: 0;
+  /* The matches of a round apart, like the round's tables, not touching. */
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 .event-match-player {
   display: flex;

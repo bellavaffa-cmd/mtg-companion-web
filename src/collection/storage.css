@@ -55,7 +55,8 @@
   cursor: pointer;
 }
 div.storage-row { cursor: default; }
-.storage-card.storage-row { flex-direction: row; }
+/* A row that is itself a card (Deck boxes, Lent out) keeps the card's padding and colour over .storage-row's reset. */
+.storage-card.storage-row { flex-direction: row; padding: 12px 14px; background: var(--g1); }
 .storage-sub { width: auto; padding: 10px 12px; border-radius: 12px; background: var(--g2); }
 .storage-icon { color: var(--t1); font-size: 22px; }
 .storage-icon.gold { color: var(--gold); }
@@ -69,12 +70,23 @@ div.storage-row { cursor: default; }
 .place-stats .stat { flex: 1; }
 .place-actions { display: flex; gap: 8px; max-width: 560px; margin-top: 12px; }
 .place-actions .btn.gold { flex: 1; min-height: 48px; }
+/* On a phone the three don't fit on one line without "Put cards away" wrapping: it takes a row of its own. */
+@media (max-width: 480px) {
+  .place-actions { flex-wrap: wrap; }
+  .place-actions .btn { white-space: nowrap; }
+  .place-actions .btn.gold { flex-basis: 100%; }
+  .place-actions .btn.line { flex: 1; }
+}
 .place-rule { max-width: 560px; margin: 10px 0 0; font-size: 12px; color: var(--t1); }
 .place-sections { max-width: 560px; margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .place-section { padding: 12px 14px; border-radius: 14px; background: var(--g1); }
 .place-section.open { box-shadow: inset 0 0 0 1px rgba(230, 180, 94, 0.35); }
 .place-section-h {
-  width: 100%;
+  /* The whole row is the target, not just its text line. */
+  width: calc(100% + 28px);
+  margin: -12px -14px;
+  padding: 12px 14px;
+  min-height: 48px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -82,8 +94,6 @@ div.storage-row { cursor: default; }
   background: none;
   color: var(--t0);
   font: inherit;
-  padding: 0;
-  min-height: 24px;
   cursor: pointer;
 }
 .place-section-h b { font-size: 15px; }
@@ -210,12 +220,12 @@ button.where-row { cursor: pointer; }
 .pull-group.ask { box-shadow: inset 0 0 0 1px rgba(243, 182, 74, 0.45); }
 .pull-group-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .pull-group-h h2 { margin: 0; font-size: 15px; font-weight: 800; }
-.pull-group-h span { font-size: 12px; color: var(--t1); text-align: right; }
-.pull-row { display: flex; align-items: center; gap: 10px; font-size: 14px; min-height: 32px; cursor: pointer; }
+.pull-group-h span { font-size: 12px; color: var(--t1); text-align: right; flex: none; max-width: 45%; overflow-wrap: break-word; }
+.pull-row { display: flex; align-items: center; gap: 10px; font-size: 14px; min-height: 40px; cursor: pointer; }
 .pull-row input { width: 22px; height: 22px; margin: 0; accent-color: var(--gold); flex: none; }
-.pull-row .nm { flex: 1; min-width: 0; }
-.pull-row .hint { color: var(--t1); font-size: 13px; text-align: right; }
-.pull-row .hint.ask { color: #f3b64a; }
+.pull-row .nm { flex: 1; min-width: 35%; }
+.pull-row .hint { color: var(--t1); font-size: 13px; text-align: right; max-width: 50%; }
+.pull-row .hint.ask { color: var(--warn); }
 .pull-row.done { color: var(--t2); text-decoration: line-through; }
 .pull-row.done .hint { color: var(--t2); }
 .pull-bar {
@@ -226,7 +236,7 @@ button.where-row { cursor: pointer; }
   gap: 8px;
   padding: 12px 16px calc(16px + var(--safe-bottom, 0px));
   background: var(--g0, #0c0d11);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--line);
 }
 .pull-bar .btn { min-height: 48px; }
 .pull-bar .btn.gold { flex: 1; }
@@ -252,7 +262,13 @@ button.where-row { cursor: pointer; }
 .box-label-qr svg { width: 100%; height: 100%; display: block; }
 .box-label-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.8mm; }
 .box-label-text .where { font: 700 2.6mm var(--ui); letter-spacing: 0.06em; text-transform: uppercase; color: #6a6355; }
-.box-label-text .name { font-family: 'Bebas Neue', var(--ui); font-size: 8mm; line-height: 1; overflow-wrap: anywhere; }
+.box-label-text { max-height: 100%; overflow: hidden; }
+/* A long name stops at two lines, so the place's other lines still fit on the label. */
+.box-label-text .name {
+  font-family: 'Bebas Neue', var(--ui); font-size: 8mm; line-height: 1; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; flex: none;
+}
+.box-label.size-divider .box-label-text .name { -webkit-line-clamp: 3; }
 .box-label-text .line { font-size: 2.8mm; color: #4a4538; }
 .box-label-text .brand { font-size: 2.4mm; color: #6a6355; }
 .box-label.size-small .box-label-text .name { font-size: 5.5mm; }
@@ -350,7 +366,7 @@ button.where-row { cursor: pointer; }
 .check-stat b { font-family: 'Bebas Neue', var(--ui); font-size: 28px; font-weight: 400; line-height: 1.1; }
 .check-stat span { font-size: 12px; color: var(--t1); }
 .check-stat.ok b { color: var(--ok); }
-.check-stat.miss b { color: #ff8a4c; }
+.check-stat.miss b { color: var(--cut); }
 .check-stat.extra b { color: var(--warn); }
 .check-group { max-width: 560px; margin-top: 10px; padding: 12px 14px; border-radius: 14px; background: var(--g1); display: flex; flex-direction: column; gap: 8px; }
 .check-group h2 { margin: 0; font-size: 15px; font-weight: 800; }

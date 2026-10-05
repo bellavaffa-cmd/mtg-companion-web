@@ -11,8 +11,12 @@
 .loan-sum { font-size: 14px; color: var(--t0); opacity: 0.85; }
 .loan-line { display: flex; align-items: center; gap: 10px; font-size: 14px; }
 .loan-line > span:first-child { flex: 1; min-width: 0; }
+/* Where a card goes back to can be long ("Bulk box — red, colourless and artifacts › Red"): it shares the line, not takes it. */
+.loan-line > span.dim { flex: 0 1 auto; max-width: 55%; text-align: right; }
 .loan-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.loan-actions .btn { flex: 1; min-height: 40px; }
+.loan-actions .btn { flex: 1; min-height: 44px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Remind names the person, so it gets a row of its own, as on the phone. */
+.loan-actions .btn.remind { flex-basis: 100%; }
 .loan-some { display: flex; flex-direction: column; gap: 8px; }
 .loan-some-row { display: flex; align-items: center; gap: 8px; }
 .loan-some-row .storage-text { flex: 1; min-width: 0; }

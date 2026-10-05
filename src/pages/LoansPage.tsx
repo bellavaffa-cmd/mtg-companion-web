@@ -178,6 +178,7 @@ function PersonCard({ person, collections, decks, today, onBack, onSome, onRemin
     : null
   const notes = [...new Set(person.loans.map((l) => l.note).filter(Boolean))]
   const single = person.copies === 1
+  const dates = person.loans.filter((l) => l.backBy).map((l) => `Back by ${shortDay(l.backBy!, Number(today.slice(0, 4)))}`).filter((v, i, a) => a.indexOf(v) === i).join(' · ')
   return (
     <section className={`loan-card${person.overdue > 0 ? ' overdue' : ''}`}>
       <div className="loan-h">
@@ -194,15 +195,12 @@ function PersonCard({ person, collections, decks, today, onBack, onSome, onRemin
           <span className="dim">→ {loanCardFrom(c, collections, decks)}</span>
         </div>
       )))}
-      {person.loans.some((l) => l.backBy) && person.overdue === 0 && (
-        <div className="dim" style={{ fontSize: 12 }}>
-          {person.loans.filter((l) => l.backBy).map((l) => `Back by ${shortDay(l.backBy!, Number(today.slice(0, 4)))}`).filter((v, i, a) => a.indexOf(v) === i).join(' · ')}
-        </div>
-      )}
+      {/* The dates, when there's more to say than the one already beside the name. */}
+      {dates && person.overdue === 0 && dates !== person.label && <div className="dim" style={{ fontSize: 12 }}>{dates}</div>}
       <div className="loan-actions">
         <button type="button" className="btn gold" onClick={onBack}>Got them back</button>
         {person.copies > 1 && <button type="button" className="btn soft" onClick={onSome}>Some back…</button>}
-        <button type="button" className="btn soft" onClick={onRemind}>Remind {person.name}</button>
+        <button type="button" className="btn soft remind" onClick={onRemind}>Remind {person.name}</button>
       </div>
     </section>
   )

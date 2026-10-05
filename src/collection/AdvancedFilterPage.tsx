@@ -81,7 +81,7 @@ export function AdvancedFilterPage({ basic, advanced, countFor, binders, places 
       <header className="adv-head">
         <BackButton onClick={onClose} />
         <h1 id="adv-title">Advanced filters</h1>
-        <button type="button" className="btn-link" onClick={() => { setB(NO_COLLECTION_FILTER); setA(NO_ADVANCED_FILTER) }}>Clear all</button>
+        <button type="button" className="btn btn-link sm" onClick={() => { setB(NO_COLLECTION_FILTER); setA(NO_ADVANCED_FILTER) }}>Clear all</button>
       </header>
 
       <div className="adv-body">

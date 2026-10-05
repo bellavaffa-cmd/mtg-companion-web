@@ -10,7 +10,7 @@ import { PageHeader, useBack } from '../components/kit'
 import { useCardData } from '../collection/cardData'
 import { placesOf } from '../collection/storagePlaces'
 import {
-  holdsCards, markMissingAsProxies, movePulled, pullBuyList, pulledCopies, pullGroupsIn, pullList, pullRowsAZ,
+  holdsCards, markMissingAsProxies, metaLine, movePulled, pullBuyList, pulledCopies, pullGroupsIn, pullList, pullRowsAZ,
   type MovePulledResult, type PullRow,
 } from '../collection/pullList'
 import { loadPullProgress, savePullProgress, setOpenPullDeck } from '../collection/pullProgress'
@@ -157,7 +157,7 @@ export function PullListPage() {
                   <section key={g.key} className={`pull-group${g.kind === 'deck' ? ' ask' : ''}`}>
                     <div className="pull-group-h">
                       <h2>{g.title}</h2>
-                      <span>{[g.kind === 'place' ? g.detail : '', `${got} of ${of}`].filter(Boolean).join(' · ')}</span>
+                      <span>{metaLine([g.kind === 'place' ? g.detail : '', `${got} of ${of}`])}</span>
                     </div>
                     {shown(rows).map(row)}
                   </section>

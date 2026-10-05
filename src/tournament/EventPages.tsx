@@ -42,7 +42,7 @@ export function EventsPage() {
         <button type="button" className="btn gold rise" style={rise(1)} onClick={() => navigate('/play/events/new')}>
           <Icon name="add" />New event
         </button>
-        {events.length === 0 && <p className="muted events-empty">Events you run show up here.</p>}
+        {events.length === 0 && <div className="empty-state"><Icon name="emoji_events" /><div>Events you run show up here.</div></div>}
         {events.map((e, i) => (
           <div key={e.id} className="event-row rise" style={rise(Math.min(2 + i, 10))}>
             <button type="button" className="event-row-main press" onClick={() => navigate(`/play/events/${e.id}`)}>

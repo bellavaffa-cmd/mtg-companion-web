@@ -346,6 +346,7 @@
 }
 .held-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px;
   margin: 0 -12px;
 }
@@ -369,6 +370,8 @@
 .held-row .icon {
   color: var(--gold);
   font-size: 18px;
+  /* The icon is a span too: it mustn't share the name's flex: 1. */
+  flex: none;
 }
 .held-row span {
   flex: 1;
@@ -390,6 +393,8 @@
 }
 .card-page-main {
   display: grid;
+  /* One column no wider than the page: a long binder or deck name ellipsizes instead of widening it. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   align-content: start;
   min-width: 0;

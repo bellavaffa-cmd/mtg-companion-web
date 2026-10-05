@@ -194,7 +194,7 @@ export function PlacePage() {
                 onCard={openCard}
               />
             ))}
-            {cards.length === 0 && sections.length === 0 && <div className="dim">Nothing here yet. Put cards away to fill it.</div>}
+            {cards.length === 0 && sections.length === 0 && inside.length === 0 && <div className="dim">Nothing here yet. Put cards away to fill it.</div>}
           </div>
         )}
         {recent.length > 0 && (
