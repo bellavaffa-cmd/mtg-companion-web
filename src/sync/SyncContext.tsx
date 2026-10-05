@@ -1,3 +1,4 @@
+import { countAction } from '../usage/usage'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { withVersion } from '../decks/versions'
 import { collectionWithTags, deckWithTags, keepUserTags, ledgerWith, tidyTags } from '../collection/userTags'
@@ -761,6 +762,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         gameMode, createdAt: Date.now(), tags: [], gameResults: [], ownership: DECK_OWNERSHIP_DEFAULT,
       }
       updateLibrary((lib) => ({ ...lib, decks: [...lib.decks, deck] }))
+      countAction('deck_created')
       return deck
     },
     [updateLibrary],
@@ -773,6 +775,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         gameMode, createdAt: Date.now(), tags: [], gameResults: [], ownership: DECK_OWNERSHIP_DEFAULT,
       }
       updateLibrary((lib) => ({ ...lib, decks: [...lib.decks, deck] }))
+      countAction('deck_created')
       return deck
     },
     [updateLibrary],

@@ -3,6 +3,7 @@
 // Value by place — and the dialogs to make, change and pick a place. The logic is in storagePlaces.ts. Mirrors the Android app's StorageTab.kt
 // (ui/collection/StorageTab.kt).
 
+import { countAction } from '../usage/usage'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
@@ -163,6 +164,7 @@ export function PlaceDialog({ place, parentId, onDismiss, onSaved }: {
       ...(place?.lastChecked ? { lastChecked: place.lastChecked } : {}),
     }
     changeStorage((c) => savePlace(c, next))
+    if (!place) countAction('place_created')
     onSaved?.(id)
     onDismiss()
   }

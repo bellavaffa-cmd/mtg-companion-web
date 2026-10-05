@@ -3,6 +3,8 @@ import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
 import { PricesPanel } from '../components/PricesPanel'
 import { BlockedPeople } from '../social/MoreUi'
+import { PrivacySection } from '../usage/UsageUi'
+import { useUsageEnabled } from '../usage/usage'
 import { rise, useBack } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
 import { currencyOf, useCurrencySetting } from '../money/currency'
@@ -30,6 +32,7 @@ const SECTIONS = [
   { id: 'card-display', title: 'Card Display', icon: 'grid_view', to: '/settings/card-display' },
   { id: 'prices', title: 'Prices', icon: 'sell', to: '/settings/prices' },
   { id: 'blocked', title: 'Blocked people', icon: 'block', to: '/settings/blocked' },
+  { id: 'privacy', title: 'Privacy', icon: 'shield', to: '/settings/privacy' },
 ] as const
 
 /**
@@ -41,6 +44,7 @@ export function SettingsPage() {
   const { accountsAvailable, account } = useSync()
   const { brightness, accent } = useAppearance()
   const { chosen } = useCurrencySetting()
+  const usageOn = useUsageEnabled()
 
   const summaryOf = (id: (typeof SECTIONS)[number]['id']): string => {
     switch (id) {
@@ -62,6 +66,8 @@ export function SettingsPage() {
       }
       case 'blocked':
         return account ? 'People who can’t see your things or contact you' : 'Sign in to block people'
+      case 'privacy':
+        return usageOn ? 'Sharing anonymous usage counts' : 'Not sharing usage counts'
     }
   }
 
@@ -101,6 +107,7 @@ export function SettingsSectionPage() {
           {found.id === 'card-display' && <CardDisplaySection />}
           {found.id === 'prices' && <PricesPanel heading={false} />}
           {found.id === 'blocked' && <BlockedPeople />}
+          {found.id === 'privacy' && <PrivacySection />}
         </div>
       </div>
     </>

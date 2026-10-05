@@ -1,3 +1,4 @@
+import { countAction } from '../usage/usage'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getByExactName, getByFuzzyName, getBySetAndNumber, getCardsByIds, getPrintings, OfflineError } from '../api/scryfall'
@@ -348,6 +349,7 @@ export function ScanPage() {
     const id = nextScanId++
     // While a box label's sheet is up, cards wait.
     if (labelShown.current) return id
+    countAction('card_scanned')
     if (sortCard.current) {
       sortCard.current(card, id)
       setFlash((n) => n + 1)

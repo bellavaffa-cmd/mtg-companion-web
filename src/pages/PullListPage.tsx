@@ -1,3 +1,4 @@
+import { countAction } from '../usage/usage'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
@@ -66,7 +67,7 @@ export function PullListPage() {
     )
   }
 
-  const save = (next: Set<string>) => { setTicked(next); savePullProgress(deck.id, { ticked: [...next] }) }
+  const save = (next: Set<string>) => { if (ticked.size === 0 && next.size > 0) countAction('pull_list_started'); setTicked(next); savePullProgress(deck.id, { ticked: [...next] }) }
   const toggle = (row: PullRow) => {
     if (ticked.has(row.key)) { const n = new Set(ticked); n.delete(row.key); save(n); return }
     // The owner's choice: a card only another deck has is asked about every time.

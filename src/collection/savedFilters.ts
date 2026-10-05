@@ -2,6 +2,7 @@
 // browser. The JSON is the same text the Android app keeps (SettingsRepository's "saved_filters",
 // written by AdvancedFilter.kt's savedFiltersToJson); neither app syncs it — settings aren't synced.
 
+import { countAction } from '../usage/usage'
 import { useSyncExternalStore } from 'react'
 import { savedFiltersFromJson, savedFiltersToJson, type SavedFilter } from './advancedFilter'
 
@@ -47,6 +48,7 @@ export function useSavedFilters() {
       const same = list.find((s) => s.name.toLowerCase() === n.toLowerCase())
       const item: SavedFilter = { id: same?.id ?? newId(), name: n, ...filter }
       save(same ? list.map((s) => (s.id === same.id ? item : s)) : [...list, item])
+      countAction('filter_saved')
     },
     rename: (id: string, name: string) => {
       const n = name.trim()
