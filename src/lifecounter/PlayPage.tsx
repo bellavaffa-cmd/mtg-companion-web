@@ -29,6 +29,7 @@ export function PlayPage() {
           {seat && (
             <PlayRow icon="event_seat" title={`Back to seat ${seat.seat}`} subtitle="You're still at a table — open your remote" highlight onClick={() => navigate(remotePath(seat))} />
           )}
+          <PlayRow icon="groups" title="Game night" subtitle="Who's here, fair pods by power, and each pod's game" onClick={() => navigate('/play/night')} />
           <PlayRow icon="qr_code_scanner" title="Join a table" subtitle="Scan a seat's QR code: your phone becomes your remote" onClick={() => navigate('/scan')} />
           <PlayRow icon="groups" title="Playgroup" subtitle="Your record across every deck: who you play, your nemesis, your best decks" onClick={() => navigate('/play/playgroup')} />
           <PlayRow icon="emoji_events" title="Events" subtitle="Run a Swiss or Commander pod event: pairings, round clock, standings" onClick={() => navigate('/play/events')} />

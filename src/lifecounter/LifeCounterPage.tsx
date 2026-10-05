@@ -21,6 +21,7 @@ import { CommanderSheet, MeSheet, TableGamesSheet } from './TableSheets'
 import { loadSeatDeckInfo } from './seatDeck'
 import { clockElapsed, formatClock, reminderLines, TURN_TIMER_CHOICES, turnTimeLeft, type GameClock } from './tableExtras'
 import { useNow } from './useNow'
+import { layoutIdFor, type TableSeed } from './gameNight'
 import './lifecounter.css'
 
 type Overlay = null | 'seating' | 'settings' | 'restart' | 'dice' | 'history' | 'table' | 'mode' | 'archenemy' | 'games'
@@ -76,6 +77,22 @@ export function LifeCounterPage() {
     },
   }), [plane, rollPlanarDie, planeswalk])
   useRemoteHost(game, settings, dispatch, links.signedIn, planes)
+  // A pod from game night (GameNightPage) opens the table with its players' names and commanders,
+  // and the user's seat saving to the deck they picked. Once: a reload doesn't seat them again.
+  const seededFrom = useRef<string | null>(null)
+  const { selectLayout, updateSettings } = lc
+  useEffect(() => {
+    const seed = (location.state as { tableSeed?: TableSeed } | null)?.tableSeed
+    if (!seed || seededFrom.current === location.key) return
+    seededFrom.current = location.key
+    selectLayout(layoutIdFor(seed.players.length, settings.layoutId))
+    seed.players.forEach((p, i) => {
+      dispatch({ type: 'name', id: i + 1, name: p.name })
+      if (p.commander) dispatch({ type: 'seatCommander', id: i + 1, name: p.commander, art: null })
+    })
+    updateSettings({ meSeat: seed.meSeat, meDeckId: seed.meDeckId })
+    navigate(location.pathname, { replace: true, state: null })
+  }, [location, selectLayout, updateSettings, settings.layoutId, dispatch, navigate])
   const announce = useAnnouncement(game.announce ?? null)
   const nameOfSeat = (seat: number) => { const p = game.players.find((x) => x.id === seat); return p ? displayName(p) : `Seat ${seat}` }
   const holder = game.hold ? game.players.find((p) => p.id === game.hold) : undefined

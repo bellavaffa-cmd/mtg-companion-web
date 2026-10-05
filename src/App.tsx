@@ -21,6 +21,7 @@ import { SettingsPage, SettingsSectionPage } from './pages/SettingsPage'
 import { LifeCounterPage } from './lifecounter/LifeCounterPage'
 import { RemotePage } from './lifecounter/RemotePage'
 import { PlayPage } from './lifecounter/PlayPage'
+import { GameNightPage } from './lifecounter/GameNightPage'
 import { GetAppPage } from './pages/GetAppPage'
 import { ValueHistoryPage } from './pages/ValueHistoryPage'
 import { SpreadThinPage } from './pages/SpreadThinPage'
@@ -75,6 +76,7 @@ export default function App() {
             <Route path="/play/events" element={<EventsPage />} />
             <Route path="/play/events/new" element={<NewEventPage />} />
             <Route path="/play/events/:id" element={<EventPage />} />
+            <Route path="/play/night" element={<GameNightPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/card/:name" element={<CardPage />} />
             <Route path="/scan" element={<ScanPage />} />
