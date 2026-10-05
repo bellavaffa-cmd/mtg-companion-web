@@ -86,6 +86,10 @@ export function SettingsPage() {
               <Icon name="chevron_right" className="ss-go" />
             </Link>
           ))}
+          <nav className="settings-links" aria-label="About">
+            <Link to="/privacy">Privacy policy</Link>
+            <Link to="/delete-account">Delete my account</Link>
+          </nav>
         </div>
       </div>
     </>

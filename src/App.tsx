@@ -40,6 +40,8 @@ import { TagBinderPage } from './collection/TagBinders'
 import { RulesPage } from './pages/RulesPage'
 import { ScanPage } from './pages/ScanPage'
 import { NotFoundPage } from './pages/NotFoundPage'
+import { PrivacyPage } from './pages/PrivacyPage'
+import { DeleteAccountPage } from './pages/DeleteAccountPage'
 import { SocialProvider } from './social/SocialContext'
 import './social/social.css'
 import { UsageScreens } from './usage/UsageUi'
@@ -127,6 +129,8 @@ export default function App() {
             <Route path="/join/:code/:seat" element={<JoinSeatPage />} />
             <Route path="/app" element={<GetAppPage />} />
             <Route path="/value" element={<ValueHistoryPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/delete-account" element={<DeleteAccountPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
           {/* The table runs edge to edge, without the app's navigation. */}

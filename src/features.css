@@ -461,3 +461,13 @@
 .legality.restricted b {
   color: var(--t2);
 }
+
+/* ---- Privacy policy and Delete my account (pages/PrivacyPage, pages/DeleteAccountPage) ---- */
+.prose-page { padding-bottom: 32px; line-height: 1.55; color: var(--t1); }
+.prose-page h2 { font-size: 1.05rem; margin: 22px 0 6px; color: var(--t0); }
+.prose-page p, .prose-page ul, .prose-page ol { margin: 0 0 10px; }
+.prose-page ul, .prose-page ol { padding-left: 20px; }
+.prose-page li { margin: 4px 0; }
+.prose-page a { color: var(--gold); }
+.settings-links { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 18px; font-size: 0.9rem; }
+.settings-links a { color: var(--t2); }
