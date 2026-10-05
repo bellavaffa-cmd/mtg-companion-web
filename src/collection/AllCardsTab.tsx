@@ -28,6 +28,7 @@ import { isUnsorted, type Collection } from '../types/models'
 import { isWishlist } from './wishlist'
 import { allCardsOf, copiesInBinders, csvExportEntries, dashboardOf, exportEntries, type AllCard, type CollectionDashboard } from './allCards'
 import { spares } from './spares'
+import { spreadThin } from './spreadThin'
 import { TradeOfferSheet } from '../social/TradeOffer'
 import { ExportCollectionDialog } from './CardListDialogs'
 import { useMoney } from '../money/currency'
@@ -91,6 +92,8 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
   const [sparesOnly, setSparesOnly] = useState(false)
   const spareCards = useMemo(() => spares(collections, decks), [collections, decks])
   const spareIds = useMemo(() => new Set(spareCards.map((s) => s.entry.scryfallId)), [spareCards])
+  // Spread thin: cards your decks use more copies of than you own — its own page.
+  const thinCount = useMemo(() => spreadThin(collections, decks).length, [collections, decks])
   const [offering, setOffering] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   useEffect(() => {
@@ -217,14 +220,23 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
           <CollectionFilterPanel filter={cardFilter} onChange={setCardFilter} />
         </div>
       )}
-      {spareCards.length > 0 && (
+      {(spareCards.length > 0 || decks.length > 0) && (
         <div className="chips" style={{ marginTop: 10 }}>
-          <PillChip
-            label={`Spares · ${spareCards.length}`}
-            icon="swap_horiz"
-            selected={sparesOnly}
-            onClick={() => setSparesOnly((v) => !v)}
-          />
+          {spareCards.length > 0 && (
+            <PillChip
+              label={`Spares · ${spareCards.length}`}
+              icon="swap_horiz"
+              selected={sparesOnly}
+              onClick={() => setSparesOnly((v) => !v)}
+            />
+          )}
+          {decks.length > 0 && (
+            <PillChip
+              label={thinCount > 0 ? `Spread thin · ${thinCount}` : 'Spread thin'}
+              icon="call_split"
+              onClick={() => navigate('/collections/thin')}
+            />
+          )}
           {sparesOnly && (
             <button type="button" className="btn gold sm" onClick={() => setOffering(true)}>
               <Icon name="handshake" aria-hidden />Offer in a trade

@@ -23,6 +23,8 @@ import { RemotePage } from './lifecounter/RemotePage'
 import { PlayPage } from './lifecounter/PlayPage'
 import { GetAppPage } from './pages/GetAppPage'
 import { ValueHistoryPage } from './pages/ValueHistoryPage'
+import { SpreadThinPage } from './pages/SpreadThinPage'
+import { PlaygroupPage } from './pages/PlaygroupPage'
 import { TagBinderPage } from './collection/TagBinders'
 import { RulesPage } from './pages/RulesPage'
 import { ScanPage } from './pages/ScanPage'
@@ -59,12 +61,14 @@ export default function App() {
             <Route path="/collections/:id" element={<CollectionDetailPage />} />
             <Route path="/collections/tag/:tagId" element={<TagBinderPage />} />
             <Route path="/collections/set/:code" element={<SetCardsPage />} />
+            <Route path="/collections/thin" element={<SpreadThinPage />} />
             <Route path="/decks" element={<DecksPage />} />
             <Route path="/decks/new" element={<NewDeckPage />} />
             <Route path="/decks/:id" element={<DeckDetailPage />} />
             <Route path="/precons" element={<PreconsPage />} />
             <Route path="/rules" element={<RulesPage />} />
             <Route path="/play" element={<PlayPage />} />
+            <Route path="/play/playgroup" element={<PlaygroupPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/card/:name" element={<CardPage />} />
             <Route path="/scan" element={<ScanPage />} />

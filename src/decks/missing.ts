@@ -12,7 +12,8 @@ const BASICS = new Set(['plains', 'island', 'swamp', 'mountain', 'forest', 'wast
 
 const key = (name: string) => name.trim().toLowerCase()
 
-const isBasicLand = (name: string) => BASICS.has(key(name).replace(/^snow-covered /, ''))
+/** Basic lands (snow-covered too): nobody buys those, so no list of what to buy has them. */
+export const isBasicLand = (name: string) => BASICS.has(key(name).replace(/^snow-covered /, ''))
 
 /** Copies of each card this deck really holds — proxies are print-outs, not copies you have. */
 export function copiesHeld(deck: Deck): Map<string, number> {
