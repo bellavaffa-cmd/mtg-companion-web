@@ -5,6 +5,7 @@ import { PricesPanel } from '../components/PricesPanel'
 import { BlockedPeople } from '../social/MoreUi'
 import { PrivacySection } from '../usage/UsageUi'
 import { useUsageEnabled } from '../usage/usage'
+import { GettingStartedSection } from '../onboarding/GettingStartedSection'
 import { rise, useBack } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
 import { currencyOf, useCurrencySetting } from '../money/currency'
@@ -33,6 +34,7 @@ const SECTIONS = [
   { id: 'prices', title: 'Prices', icon: 'sell', to: '/settings/prices' },
   { id: 'blocked', title: 'Blocked people', icon: 'block', to: '/settings/blocked' },
   { id: 'privacy', title: 'Privacy', icon: 'shield', to: '/settings/privacy' },
+  { id: 'getting-started', title: 'Getting started', icon: 'flag', to: '/settings/getting-started' },
 ] as const
 
 /**
@@ -68,6 +70,8 @@ export function SettingsPage() {
         return account ? 'People who can’t see your things or contact you' : 'Sign in to block people'
       case 'privacy':
         return usageOn ? 'Sharing anonymous usage counts' : 'Not sharing usage counts'
+      case 'getting-started':
+        return 'The welcome steps, and the sample deck and binder'
     }
   }
 
@@ -112,6 +116,7 @@ export function SettingsSectionPage() {
           {found.id === 'prices' && <PricesPanel heading={false} />}
           {found.id === 'blocked' && <BlockedPeople />}
           {found.id === 'privacy' && <PrivacySection />}
+          {found.id === 'getting-started' && <GettingStartedSection />}
         </div>
       </div>
     </>

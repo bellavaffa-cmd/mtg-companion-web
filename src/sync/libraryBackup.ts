@@ -6,14 +6,21 @@ import { UNSORTED_COLLECTION_ID } from '../types/models'
 import { intoPile, withUnsortedPile } from '../collection/unsorted'
 import { isWishlist, WISHLIST_ID } from '../collection/wishlist'
 import type { Library } from './cloudSync'
+import { isSample } from '../onboarding/onboarding'
 
 /** The Wishlist or the Unsorted pile with nothing in it: always there, so not something the user made. */
 export const isEmptyStandingCollection = (c: Collection): boolean =>
   (c.id === WISHLIST_ID || c.id === UNSORTED_COLLECTION_ID) && c.entries.length === 0
 
-/** How many decks and binders [lib] holds that the user made or filled — what a prompt counts. */
+/**
+ * How many decks and binders [lib] holds that the user made or filled — what a prompt counts. Samples
+ * from the welcome flow aren't the user's, and never go to the account, so they don't count.
+ */
 export function libraryCounts(lib: { decks: Deck[]; collections: Collection[] }): { decks: number; collections: number } {
-  return { decks: lib.decks.length, collections: lib.collections.filter((c) => !isEmptyStandingCollection(c)).length }
+  return {
+    decks: lib.decks.filter((d) => !isSample(d)).length,
+    collections: lib.collections.filter((c) => !isEmptyStandingCollection(c) && !isSample(c)).length,
+  }
 }
 
 /**

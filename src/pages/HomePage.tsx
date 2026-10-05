@@ -23,6 +23,10 @@ import { useCollectionValue } from '../collection/valueHistory'
 import { useMoney } from '../money/currency'
 import { proxySwaps } from '../decks/proxies'
 import { isAndroid } from './GetAppPage'
+import { GetStartedCard, SamplesBar } from '../onboarding/GetStarted'
+import { EmptyState } from '../components/EmptyState'
+import { shouldOpenWelcome, showGetStarted } from '../onboarding/onboarding'
+import { useWelcomeFacts, useWelcomeState } from '../onboarding/useWelcome'
 
 const CARD_OF_DAY_KEY = 'mtgweb_card_of_day'
 /** Set once the "Get the Android app" banner has been dismissed. */
@@ -69,6 +73,20 @@ export function HomePage() {
   // Binders only: the Wishlist and the Unsorted pile are always there, and aren't binders.
   const binderCount = collections.filter(isBinder).length
   const priceAlerts = usePriceAlertHits(collections)
+  // The welcome flow opens by itself once, on a first visit with nothing in the library; after that,
+  // Home's "Get started" card stands in for its empty widgets until there's something of the user's own.
+  const welcomeFacts = useWelcomeFacts()
+  const [welcome, setWelcome] = useWelcomeState()
+  const openWelcome = shouldOpenWelcome(welcome, welcomeFacts)
+  useEffect(() => {
+    if (!openWelcome) return
+    setWelcome({ opened: true })
+    navigate('/welcome')
+  }, [openWelcome, setWelcome, navigate])
+  const getStarted = showGetStarted(welcomeFacts)
+  // Nothing at all to show in the widgets: the card replaces them.
+  const emptyHome = getStarted && !welcomeFacts.samples
+  const samplesBar = welcomeFacts.samples && !getStarted && <SamplesBar className="rise" style={{ ...rise(1), marginBottom: 0 }} />
   // On an Android phone, point at the app once (until it's dismissed).
   const [appBannerHidden, setAppBannerHidden] = useState(() => {
     try { return localStorage.getItem(APP_BANNER_KEY) === '1' } catch { return true }
@@ -211,8 +229,10 @@ export function HomePage() {
           {alertBanner}
             {swapBanner}
           {appBanner}
+          {samplesBar}
+          {getStarted && <GetStartedCard facts={welcomeFacts} className="rise" style={rise(1)} />}
 
-          {desktop ? (
+          {emptyHome ? null : desktop ? (
             <section className="home-hero-row rise" style={rise(1)}>
               {hero ?? <EmptyDecks onNew={() => navigate('/decks/new')} />}
               <div className="stats-2x2">
@@ -255,7 +275,7 @@ export function HomePage() {
 
           <section className="home-bottom rise" style={rise(4)}>
             {cardOfDay ? <CardOfDay card={cardOfDay} onOpen={() => setZoomCard(cardOfDay)} /> : <div />}
-            <BinderSummary collections={collections} onOpen={(id) => navigate(`/collections/${id}`)} onAll={() => navigate('/collections?tab=binders')} />
+            {!emptyHome && <BinderSummary collections={collections} onOpen={(id) => navigate(`/collections/${id}`)} onAll={() => navigate('/collections?tab=binders')} />}
           </section>
 
           <NewsPanel limit={desktop ? 8 : 6} index={5} />
@@ -303,14 +323,18 @@ export function HomePage() {
         {alertBanner}
             {swapBanner}
         {appBanner}
+        {samplesBar}
+        {getStarted && <GetStartedCard facts={welcomeFacts} className="rise" style={{ ...rise(1), marginBottom: 10 }} />}
 
         {hero && <div className="rise" style={rise(1)}>{hero}</div>}
 
-        <div className="stats rise" style={{ ...rise(2), marginTop: 10 }}>
-          <StatFigure value={decks.length} label="Decks" onClick={() => navigate('/decks')} />
-          <StatFigure value={binderCount} label="Binders" onClick={() => navigate('/collections?tab=binders')} />
-          <StatFigure value={value?.usd ?? null} format={(v) => money.format(v, true)} label="Collection value" onClick={() => navigate('/value')} />
-        </div>
+        {!emptyHome && (
+          <div className="stats rise" style={{ ...rise(2), marginTop: 10 }}>
+            <StatFigure value={decks.length} label="Decks" onClick={() => navigate('/decks')} />
+            <StatFigure value={binderCount} label="Binders" onClick={() => navigate('/collections?tab=binders')} />
+            <StatFigure value={value?.usd ?? null} format={(v) => money.format(v, true)} label="Collection value" onClick={() => navigate('/value')} />
+          </div>
+        )}
 
         <button type="button" className="banner press rise" style={{ ...rise(3), marginTop: 10 }} onClick={() => navigate('/life')}>
           <Icon name="favorite" />
@@ -341,16 +365,18 @@ export function HomePage() {
           </div>
         )}
 
-        <section className="rise" style={rise(3)}>
-          <SectionHeader title="Your decks" action={decks.length > 0 ? 'See all' : undefined} onAction={() => navigate('/decks')} />
-          <div className="rail">
-            {railDecks.map((deck) => <MiniDeck key={deck.id} deck={deck} colors={deckColors[deck.id] ?? []} onOpen={() => navigate(`/decks/${deck.id}`)} />)}
-            <button type="button" className="mini add press" onClick={() => navigate('/decks/new')}>
-              <span className="ic"><Icon name="add" /></span>
-              New deck
-            </button>
-          </div>
-        </section>
+        {!emptyHome && (
+          <section className="rise" style={rise(3)}>
+            <SectionHeader title="Your decks" action={decks.length > 0 ? 'See all' : undefined} onAction={() => navigate('/decks')} />
+            <div className="rail">
+              {railDecks.map((deck) => <MiniDeck key={deck.id} deck={deck} colors={deckColors[deck.id] ?? []} onOpen={() => navigate(`/decks/${deck.id}`)} />)}
+              <button type="button" className="mini add press" onClick={() => navigate('/decks/new')}>
+                <span className="ic"><Icon name="add" /></span>
+                New deck
+              </button>
+            </div>
+          </section>
+        )}
 
         {cardOfDay && (
           <section className="rise" style={rise(4)}>
@@ -401,11 +427,13 @@ function MiniDeck({ deck, colors, onOpen }: { deck: Deck; colors: string[]; onOp
 
 function EmptyDecks({ onNew }: { onNew: () => void }) {
   return (
-    <div className="panel empty-state" style={{ minHeight: 260, alignContent: 'center' }}>
-      <Icon name="style" />
-      <div>No decks yet. Build your first one to see it here.</div>
-      <button type="button" className="btn gold" onClick={onNew}><Icon name="add" />New deck</button>
-    </div>
+    <EmptyState
+      className="panel"
+      style={{ minHeight: 260, alignContent: 'center' }}
+      icon="style"
+      text="No decks yet. Build your first one to see it here."
+      actions={[{ label: 'New deck', icon: 'add', onClick: onNew }, { label: 'Browse precons', icon: 'inventory_2', to: '/precons' }]}
+    />
   )
 }
 

@@ -1,0 +1,166 @@
+/* The welcome flow, Home's "Get started" card and the samples bar. */
+
+.welcome-page {
+  padding-top: 18px;
+}
+
+.welcome {
+  max-width: 560px;
+  margin: 0 auto;
+  display: grid;
+  gap: 10px;
+}
+
+.welcome-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 34px;
+}
+
+.welcome-dots {
+  display: flex;
+  gap: 8px;
+}
+
+.welcome-dot {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--g2, var(--t2));
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+.welcome-dot.done {
+  background: var(--ok);
+  opacity: 0.9;
+}
+
+.welcome-dot.on {
+  width: 26px;
+  border-radius: 5px;
+  background: var(--gold);
+  opacity: 1;
+}
+
+.welcome-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.welcome-lead {
+  margin: 0 0 6px;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+.welcome-option {
+  margin-bottom: 0;
+}
+
+.welcome-option .banner-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.45;
+}
+
+.welcome-option .banner-text .dim {
+  font-weight: 500;
+}
+
+.welcome-option:disabled {
+  opacity: 0.6;
+}
+
+.welcome-done {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.welcome-done .icon,
+.welcome-summary .icon.ok {
+  color: var(--ok);
+}
+
+.welcome-summary {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+}
+
+.welcome-summary-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--t0);
+  text-align: left;
+  font: inherit;
+  font-weight: 600;
+}
+
+.welcome-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* Home's "Get started" card */
+.get-started {
+  display: grid;
+  gap: 8px;
+}
+
+.get-started h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.get-started-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--g2, transparent);
+  color: var(--t0);
+  text-align: left;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.get-started-row .icon:first-child {
+  color: var(--gold);
+}
+
+.get-started-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.samples-bar .btn {
+  flex: none;
+}
+
+.badge.sample {
+  background: var(--gold-soft);
+  color: var(--gold);
+}

@@ -127,6 +127,11 @@ export interface Deck {
   tags: string[]
   gameResults: GameResult[]
   ownership: DeckOwnership
+  /**
+   * A sample from the welcome flow (onboarding/onboarding.ts): shown with a "Sample" label, never
+   * synced to the account, and gone with one "Remove samples". Left out on everything else.
+   */
+  sample?: boolean
   /** Cards being thought about for this deck (the Android app's "Considering" list). Not in the deck. */
   considering?: DeckCardEntry[]
   /** Saved versions of the list, oldest first, capped (decks/versions.ts). */
@@ -355,6 +360,8 @@ export interface Collection {
    * (see collection/wishlist.ts). Lower-cased names. Forgotten once no deck considers the card.
    */
   notWanted?: string[]
+  /** A sample binder from the welcome flow — see Deck.sample. */
+  sample?: boolean
   /**
    * The Unsorted pile only: the user's storage places (see collection/storagePlaces.ts). The pile is
    * always there and has the same id on every device, so the places ride along with it when it syncs.

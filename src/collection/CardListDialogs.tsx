@@ -175,7 +175,7 @@ export function ImportCardsDialog({ collection, onDismiss, onCreated, startInNew
       }
     >
       <p className="muted" style={{ marginTop: 0 }}>
-        Paste a list — one card per line, like <code>4 Lightning Bolt</code> or <code>1 Sol Ring (CMR) 472 *F*</code> — or choose a .txt or .csv export from Moxfield, ManaBox, Archidekt, Deckbox or TCGplayer.
+        Paste a list — one card per line, like <code>4 Lightning Bolt</code> or <code>1 Sol Ring (CMR) 472 *F*</code> — or choose a .txt or .csv export from ManaBox, Moxfield, Archidekt, Deckbox, TCGplayer or Dragon Shield.
       </p>
       {!collection && (
         <div className="chips wrap" style={{ marginBottom: 10 }}>

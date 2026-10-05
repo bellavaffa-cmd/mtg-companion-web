@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Dialog } from '../components/Dialog'
 import { Icon } from '../components/Icon'
+import { EmptyState } from '../components/EmptyState'
 import { IconButton, PillChip, SegmentedTabs, rise, useBack } from '../components/kit'
 import { TopBar } from '../components/TopBar'
 import { useKeepAwake } from '../components/useKeepAwake'
@@ -40,10 +41,14 @@ export function EventsPage() {
       <TopBar title="Events" onBack={back} />
       <div className="content-scroll events">
         <p className="dim rise" style={rise(0)}>Run a small Swiss or Commander pod event from this device: pairings, a round clock and standings.</p>
-        <button type="button" className="btn gold rise" style={rise(1)} onClick={() => navigate('/play/events/new')}>
-          <Icon name="add" />New event
-        </button>
-        {events.length === 0 && <div className="empty-state"><Icon name="emoji_events" /><div>Events you run show up here.</div></div>}
+        {events.length > 0 && (
+          <button type="button" className="btn gold rise" style={rise(1)} onClick={() => navigate('/play/events/new')}>
+            <Icon name="add" />New event
+          </button>
+        )}
+        {events.length === 0 && (
+          <EmptyState className="rise" style={rise(1)} icon="emoji_events" text="No events yet. Run one for your playgroup and it shows here." actions={[{ label: 'New event', icon: 'add', to: '/play/events/new' }]} />
+        )}
         {events.map((e, i) => (
           <div key={e.id} className="event-row rise" style={rise(Math.min(2 + i, 10))}>
             <button type="button" className="event-row-main press" onClick={() => navigate(`/play/events/${e.id}`)}>

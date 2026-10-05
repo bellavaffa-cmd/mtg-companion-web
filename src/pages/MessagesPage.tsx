@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useNavigate, useParams } from 'react-router-dom'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
+import { EmptyState } from '../components/EmptyState'
 import { useBack } from '../components/kit'
 import type * as api from '../social/api'
 import { useOverview } from '../social/SocialContext'
@@ -53,7 +54,9 @@ export function ConversationList({ overview }: { overview: api.Overview }) {
   const friends = overview.friends.filter((f) => f.status === 'accepted' && !list.some((c) => c.other.user_id === f.user_id))
   return (
     <>
-      {list.length === 0 && <div className="notice">No messages yet. Start a conversation with a friend below, or from their profile.</div>}
+      {list.length === 0 && (friends.length > 0
+        ? <EmptyState icon="chat" text="No messages yet. Pick a friend below to start a conversation." />
+        : <EmptyState icon="chat" text="No messages yet. Add a friend, then start a conversation with them here." actions={[{ label: 'Add a friend', icon: 'person_add', to: '/friends' }]} />)}
       <div className="list dm-list">
         {list.map((c) => (
           <button key={c.id} type="button" className="person-row press" onClick={() => navigate(`/messages/${c.other.user_id}`)}>

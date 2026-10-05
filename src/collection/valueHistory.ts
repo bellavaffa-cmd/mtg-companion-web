@@ -7,6 +7,7 @@ import { getCardsByIds } from '../api/scryfall'
 import type { Collection } from '../types/models'
 import { recordPrices, type PricedCard } from './priceMovers'
 import { recordCardPrices } from './priceHistoryStore'
+import { syncable } from '../onboarding/onboarding'
 
 /** [date]: "2026-09-20". [cards]: how many cards the value is of. */
 export interface ValuePoint { date: string; usd: number; cards: number }
@@ -106,7 +107,9 @@ const VALUE_FRESH_MS = 60 * 60 * 1000
  * The owned binders' value in US dollars (null while it's worked out, or with nothing to value),
  * noted in the value history once a day when Scryfall sent (nearly) every card.
  */
-export function useCollectionValue(collections: Collection[]): { usd: number; cards: number } | null {
+export function useCollectionValue(all: Collection[]): { usd: number; cards: number } | null {
+  // The welcome flow's sample binder isn't the user's: it mustn't show up in their value history.
+  const collections = syncable(all)
   const quantities = ownedQuantities(collections)
   const key = [...quantities.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([id, n]) => `${id}:${n}`).join(',')
   const cached = lastValue && lastValue.key === key && Date.now() - lastValue.at < VALUE_FRESH_MS ? lastValue : null

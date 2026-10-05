@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { useMoney } from '../money/currency'
 import { Icon } from '../components/Icon'
+import { EmptyState } from '../components/EmptyState'
 import { Dialog } from '../components/Dialog'
 import { PageHeader, SegmentedTabs, rise, useBack } from '../components/kit'
 import { useCardData } from '../collection/cardData'
@@ -126,10 +127,7 @@ export function LoansPage() {
               </div>
             )}
             {people.length === 0 && (
-              <div className="empty-state">
-                <Icon name="handshake" />
-                <div>Nothing lent out. Lend a card from its page (Where it is), or cards from a place.</div>
-              </div>
+              <EmptyState icon="handshake" text="Nothing lent out. Open a card or one of your places to lend from it." actions={[{ label: 'Your places', icon: 'shelves', to: '/collections?tab=storage' }, { label: 'Search cards', icon: 'search', to: '/search' }]} />
             )}
             {people.map((p) => (
               <PersonCard

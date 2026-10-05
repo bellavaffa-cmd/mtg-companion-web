@@ -15,6 +15,8 @@ import { TagBindersSection } from '../collection/TagBinders'
 import { AllCardsTab } from '../collection/AllCardsTab'
 import { SetsTab } from '../collection/SetsTab'
 import { StorageTab } from '../collection/StorageTab'
+import { EmptyState } from '../components/EmptyState'
+import '../onboarding/onboarding.css'
 
 export function CollectionsPage() {
   const { collections, deleteCollection, accountsAvailable } = useSync()
@@ -74,14 +76,16 @@ export function CollectionsPage() {
           />
         </div>
         {sharedTab ? <SharedFriendsView /> : tab === 'storage' ? <StorageTab /> : tab === 'sets' ? <SetsTab /> : tab === 'all' ? <AllCardsTab onImport={() => setImporting('new')} /> : binders.length === 0 && unsortedCards === 0 && !wishlist?.entries.length ? (
-          <div className="empty-state rise" style={rise(1)}>
-            <Icon name="collections" />
-            <div>No binders yet. Make one for the cards you own — or import your whole collection from another app and sort it later. Cards you want go in your Wishlist.</div>
-            <div className="row" style={{ gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button type="button" className="btn gold" onClick={() => setShowCreate(true)}><Icon name="add" />New binder</button>
-              <button type="button" className="btn line" onClick={() => setImporting('new')}><Icon name="playlist_add" />Import your collection</button>
-            </div>
-          </div>
+          <EmptyState
+            className="rise"
+            style={rise(1)}
+            icon="collections"
+            text="No binders yet. Import your collection from another app, or make a binder for the cards you own."
+            actions={[
+              { label: 'Import your collection', icon: 'playlist_add', onClick: () => setImporting('new') },
+              { label: 'New binder', icon: 'add', onClick: () => setShowCreate(true) },
+            ]}
+          />
         ) : (
           <>
             <div className="stats rise" style={{ ...rise(1), maxWidth: wide ? 720 : undefined }}>
@@ -185,7 +189,7 @@ function BinderRow({ collection, index, onOpen, onMore }: { collection: Collecti
         <div className="icon-tile"><Icon name={collection.type === 'WISHLIST' ? 'star' : 'collections'} /></div>
       )}
       <div style={{ minWidth: 0 }}>
-        <div className="brow-name">{collection.name}</div>
+        <div className="brow-name">{collection.name}{collection.sample && <span className="badge soft sample" style={{ marginLeft: 8 }}>Sample</span>}</div>
         <div className="brow-meta">
           {isWishlist(collection)
             ? <><span>Cards you want</span><span><b>{total}</b>{total === 1 ? 'card' : 'cards'}</span><span>not counted as owned</span></>

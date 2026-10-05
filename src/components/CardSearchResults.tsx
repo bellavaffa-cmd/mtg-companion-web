@@ -7,6 +7,7 @@ import { ActionSheet } from './ActionSheet'
 import { AddToSheet } from './AddToSheet'
 import { useAddCardTo } from './useAddCardTo'
 import { Icon } from './Icon'
+import { EmptyState } from './EmptyState'
 import { useLongPress } from './useLongPress'
 import { CardZoomModal, zoomSteps } from './CardZoomModal'
 import { buyCardUrl } from '../api/buy'
@@ -150,7 +151,9 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
 
       {loading && <div className="muted" style={{ padding: '12px 4px 0' }}>Searching…</div>}
       {error && <div className="muted" style={{ color: 'var(--error)', padding: '12px 4px 0' }}>{error}</div>}
-      {!loading && !error && effective.trim() && cards.length === 0 && <div className="empty-state">No cards match.</div>}
+      {!loading && !error && effective.trim() && cards.length === 0 && (
+        <EmptyState icon="search_off" text="No cards match. Check the spelling, or try fewer filters." actions={[{ label: 'Clear search', onClick: () => setQuery('') }]} />
+      )}
       <div className={`list${wide ? ' wide-list' : ''}`} style={{ marginTop: 12 }}>
         {cards.map((card) => (
           <ResultRow key={card.id} card={card} held={held.get(card.id)} onZoom={() => setZoomCard(card)} onMore={() => setSheetCard(card)} onAdd={onAdd ? () => add(card) : undefined} />

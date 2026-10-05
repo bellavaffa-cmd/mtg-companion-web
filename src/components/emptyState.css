@@ -1,0 +1,13 @@
+/* The shared empty state (EmptyState.tsx): the sentence and its buttons, under theme.css's .empty-state. */
+.empty-state .empty-text {
+  max-width: 420px;
+}
+
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+

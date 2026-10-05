@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
+import { EmptyState } from '../components/EmptyState'
 import { PillChip, rise, useBack } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
 import { useOverview } from '../social/SocialContext'
@@ -100,10 +101,13 @@ function JustMe() {
   return (
     <>
       {stats.games === 0 ? (
-        <div className="empty-state rise" style={rise(0)}>
-          <Icon name="groups" />
-          <div>No games recorded yet. Log a result on a deck's Stats, or play with your phone as a remote at a life counter table — every deck's games come together here.</div>
-        </div>
+        <EmptyState
+          className="rise"
+          style={rise(0)}
+          icon="groups"
+          text="No games yet. Play at the life counter, or log a result on a deck’s Stats, and every game shows here."
+          actions={[{ label: 'Start a game', icon: 'favorite', to: '/life' }, { label: 'Your decks', icon: 'style', to: '/decks' }]}
+        />
       ) : (
         <>
           <div className="panel match-panel rise" style={rise(0)}>

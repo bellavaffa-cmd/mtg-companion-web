@@ -59,12 +59,13 @@ const CONDITION_WORDS: [string, string[]][] = [
 /**
  * The condition code for what another app wrote: TCGplayer's and Moxfield's words ("Near Mint",
  * "Lightly Played", "Near Mint Foil"), Deckbox's ("Good (Lightly Played)", "Played"), ManaBox's
- * ("near_mint", "excellent", "light_played", "poor") and the short forms (NM, LP, EX, PL…). Null
+ * ("near_mint", "excellent", "light_played", "poor"), Dragon Shield's ("NearMint", "LightPlayed") and the short forms (NM, LP, EX, PL…). Null
  * for a blank cell or a word it can't place.
  */
 export function conditionCode(raw: string | null | undefined): string | null {
   if (!raw || !raw.trim()) return null
-  let w = words(raw)
+  // Dragon Shield runs the words together: "NearMint", "LightPlayed".
+  let w = words(raw.replace(/([a-z])([A-Z])/g, '$1 $2'))
   if (w.endsWith(' foil')) w = w.slice(0, -' foil'.length)
   if (w.endsWith(' etched')) w = w.slice(0, -' etched'.length)
   w = w.trim()

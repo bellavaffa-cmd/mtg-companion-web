@@ -1,5 +1,5 @@
 // Card lists as text, for moving a collection between this app and others (Moxfield, Archidekt,
-// ManaBox, Deckbox, TCGplayer…). Reads the usual pasted/exported shapes, one card per line:
+// ManaBox, Deckbox, TCGplayer, Dragon Shield…). Reads the usual pasted/exported shapes, one card per line:
 //
 //   4 Lightning Bolt
 //   2x Counterspell
@@ -7,7 +7,8 @@
 //   1 Sol Ring [CMR] 472 *F*        (foil; *E* etched, "(foil)"/"[foil]" work too)
 //
 // and the CSV collection exports those apps make (a header row naming Count/Quantity and Name, and
-// optionally the set code, collector number, foil, condition, language and Scryfall ID). Writes the
+// optionally the set code, collector number, foil, condition, language and Scryfall ID; a leading
+// "sep=," line, as Dragon Shield writes for Excel, sets the separator). Writes the
 // plain text form, which all of them read back, and a CSV that keeps condition and language too.
 // Mirrors the Android app's CardListText.kt.
 
@@ -92,8 +93,8 @@ function parseTextLine(raw: string): ListLine | 'skip' | null {
 
 // ---- CSV ----
 
-/** The cells of one CSV row: commas outside quotes separate, "" inside quotes is a quote. */
-export function csvCells(row: string): string[] {
+/** The cells of one CSV row: commas (or [sep]) outside quotes separate, "" inside quotes is a quote. */
+export function csvCells(row: string, sep = ','): string[] {
   const cells: string[] = []
   let cell = ''
   let quoted = false
@@ -104,16 +105,25 @@ export function csvCells(row: string): string[] {
       else if (c === '"') quoted = false
       else cell += c
     } else if (c === '"') quoted = true
-    else if (c === ',') { cells.push(cell); cell = '' }
+    else if (c === sep) { cells.push(cell); cell = '' }
     else cell += c
   }
   cells.push(cell)
   return cells.map((s) => s.trim())
 }
 
+// Which header each app uses, best first:
+//   ManaBox      Name, Set code, Collector number, Foil, Quantity, Scryfall ID, Condition, Language
+//   Moxfield     Count, Name, Edition (a code), Collector Number, Foil, Condition, Language
+//   Deckbox      Count, Name, Edition (a set name), Card Number, Condition, Language, Foil
+//   Archidekt    Quantity, Name, Finish, Condition, Language, Edition Code, Scryfall ID, Collector Number
+//   TCGplayer    Quantity, Name, Simple Name, Set, Card Number, Set Code, Printing, Condition, Language
+//                (its seller export: Product Name, Number, Condition, Total Quantity)
+//   Dragon Shield  Quantity, Card Name, Set Code, Card Number, Condition, Printing, Language
 const COLUMNS = {
-  quantity: ['count', 'quantity', 'qty', 'amount'],
-  name: ['name', 'card name', 'card'],
+  quantity: ['count', 'quantity', 'qty', 'amount', 'total quantity'],
+  // TCGplayer's Name can carry the treatment ("Sol Ring (Foil Etched)"); its Simple Name doesn't.
+  name: ['simple name', 'name', 'card name', 'card', 'product name'],
   set: ['set code', 'edition code', 'set', 'edition'],
   number: ['collector number', 'card number', 'collector_number', 'number', 'cn'],
   foil: ['foil', 'finish', 'printing'],
@@ -136,8 +146,8 @@ const isFoilValue = (v: string) => /foil|etched|^(true|yes|1)$/i.test(v) && !/no
 /** TCGplayer puts the finish in the condition: "Near Mint Foil". */
 const FOIL_CONDITION = /\s(foil|etched)$/i
 
-function parseCsv(rows: string[]): ParsedList {
-  const header = csvCells(rows[0]).map((h) => h.toLowerCase())
+function parseCsv(rows: string[], sep: string): ParsedList {
+  const header = csvCells(rows[0], sep).map((h) => h.toLowerCase())
   const at = {
     quantity: column(header, COLUMNS.quantity),
     name: column(header, COLUMNS.name),
@@ -152,7 +162,7 @@ function parseCsv(rows: string[]): ParsedList {
   const skipped: string[] = []
   for (const row of rows.slice(1)) {
     if (!row.trim()) continue
-    const cells = csvCells(row)
+    const cells = csvCells(row, sep)
     const get = (i: number) => (i >= 0 ? cells[i] ?? '' : '')
     const name = get(at.name) || null
     const id = /^[0-9a-f-]{36}$/i.test(get(at.id)) ? get(at.id).toLowerCase() : null
@@ -172,17 +182,21 @@ function parseCsv(rows: string[]): ParsedList {
   return { lines, skipped }
 }
 
-function looksLikeCsv(firstRow: string): boolean {
-  if (!firstRow.includes(',')) return false
-  const header = csvCells(firstRow).map((h) => h.toLowerCase())
+function looksLikeCsv(firstRow: string, sep: string): boolean {
+  if (!firstRow.includes(sep)) return false
+  const header = csvCells(firstRow, sep).map((h) => h.toLowerCase())
   return (column(header, COLUMNS.name) !== -1 || column(header, COLUMNS.id) !== -1) && column(header, COLUMNS.quantity) !== -1
 }
 
 /** Reads a pasted or exported card list (text or CSV). */
 export function parseCardList(text: string): ParsedList {
-  const rows = text.replace(/^﻿/, '').split(/\r?\n/)
+  let rows = text.replace(/^﻿/, '').split(/\r?\n/)
+  // "sep=," (or "sep=;") before the header is Excel's hint, which Dragon Shield writes.
+  const hint = /^\s*"?sep=(.)"?\s*$/i.exec(rows.find((r) => r.trim()) ?? '')
+  const sep = hint?.[1] ?? ','
+  if (hint) rows = rows.slice(rows.findIndex((r) => r.trim()) + 1)
   const first = rows.find((r) => r.trim()) ?? ''
-  if (looksLikeCsv(first)) return parseCsv(rows.slice(rows.indexOf(first)))
+  if (looksLikeCsv(first, sep)) return parseCsv(rows.slice(rows.indexOf(first)), sep)
   const lines: ListLine[] = []
   const skipped: string[] = []
   // Arena exports start with "Deck" and put the sideboard after a blank line, with no header of its

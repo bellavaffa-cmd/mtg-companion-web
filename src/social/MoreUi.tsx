@@ -4,6 +4,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Icon } from '../components/Icon'
+import { EmptyState } from '../components/EmptyState'
 import { Dialog } from '../components/Dialog'
 import { ArtImage, SectionHeader, toArtCrop } from '../components/kit'
 import type * as api from './api'
@@ -314,7 +315,9 @@ export function ActivityList() {
   if (available === false) return <div className="empty-state"><Icon name="dynamic_feed" />Not available yet.</div>
   if (error && !items) return <div className="empty-state"><Icon name="cloud_off" />{error}<button type="button" className="btn line" onClick={() => void load(null)}>Try again</button></div>
   if (!items) return <div className="empty-state"><Icon name="hourglass_empty" />Loading…</div>
-  if (items.length === 0) return <div className="empty-state"><Icon name="dynamic_feed" />Nothing new from friends yet. When they share a deck, record a game or put cards up for trade, it shows here.</div>
+  if (items.length === 0) {
+    return <EmptyState icon="dynamic_feed" text="Nothing from friends yet. When they share a deck, record a game or put cards up for trade, it shows here." actions={[{ label: 'Your friends', icon: 'group', to: '/friends' }]} />
+  }
 
   const open = (item: ActivityItem) => {
     if ((item.kind === 'shared' || item.kind === 'deck_updated') && item.item_id && item.item_kind) navigate(`/shared/${item.actor.user_id}/${item.item_kind}/${encodeURIComponent(item.item_id)}`)

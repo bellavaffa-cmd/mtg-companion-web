@@ -11,6 +11,8 @@ import { useDeckChange } from '../components/DeckExtras'
 import { deckSections, folderNames, renamedFolder, tidyFolder, withFolder, withoutFolder } from '../decks/deckFolders'
 import { useDeckValueSampler } from '../decks/deckValueHistory'
 import '../components/deckExtras.css'
+import { EmptyState } from '../components/EmptyState'
+import { PasteDeckDialog } from '../onboarding/PasteDeckDialog'
 
 /** Which folders are folded away on the decks list, remembered in this browser. */
 const FOLDED_KEY = 'mtgweb_deck_folders_folded'
@@ -21,6 +23,7 @@ export function DecksPage() {
   const [params] = useSearchParams()
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<DeckOwnership | 'ALL'>('ALL')
+  const [pasting, setPasting] = useState(false)
   const deckColors = useDeckColors(decks)
   const wide = useLayoutSize() !== 'phone'
   const { all: changeDecks } = useDeckChange()
@@ -51,7 +54,7 @@ export function DecksPage() {
       <button key={deck.id} type="button" className="tile press rise" style={rise(Math.min(i, 8) + 3)} onClick={() => navigate(`/decks/${deck.id}`)}>
         <ArtImage src={toArtCrop(deck.commander?.imageUrl)} seed={deck.name} colors={colors} />
         <div className="shade" />
-        {deck.ownership !== 'PHYSICAL' && <span className="flag">{DECK_OWNERSHIP_LABELS[deck.ownership]}</span>}
+        {deck.sample ? <span className="flag">Sample</span> : deck.ownership !== 'PHYSICAL' && <span className="flag">{DECK_OWNERSHIP_LABELS[deck.ownership]}</span>}
         <div className="meta">
           <div className="t-name">{deck.name}</div>
           <div className="t-cmd">
@@ -105,11 +108,16 @@ export function DecksPage() {
       />
       <div className={`content-scroll${wide ? '' : ' with-nav'}`}>
         {decks.length === 0 ? (
-          <div className="empty-state rise" style={rise(1)}>
-            <Icon name="style" />
-            <div>No decks yet. Build your first one — cards you add sync to your phone when you're signed in.</div>
-            <div className="tiles"><StartTiles index={2} /></div>
-          </div>
+          <EmptyState
+            className="rise"
+            style={rise(1)}
+            icon="style"
+            text="No decks yet. Paste a list from anywhere, or start from an official precon."
+            actions={[
+              { label: 'Paste a list', icon: 'content_paste', onClick: () => setPasting(true) },
+              { label: 'Browse precons', icon: 'inventory_2', to: '/precons' },
+            ]}
+          />
         ) : (
           <>
             <div className={wide ? 'toolbar rise' : 'rise'} style={rise(1)}>
@@ -128,7 +136,7 @@ export function DecksPage() {
             </div>
             </div>
             {shown.length === 0 ? (
-              <div className="empty-state">No decks match.</div>
+              <EmptyState icon="search_off" text="No decks match. Try another name, or show all decks." actions={[{ label: 'Show all', onClick: () => { setQuery(''); setFilter('ALL') } }]} />
             ) : !filed ? (
               <div className="tiles">
                 {shown.map(tile)}
@@ -156,6 +164,7 @@ export function DecksPage() {
         changeDecks((all) => withoutFolder(all, editingFolder))
         setEditingFolder(null)
       }} onDismiss={() => setEditingFolder(null)} />}
+      {pasting && <PasteDeckDialog onDismiss={() => setPasting(false)} />}
     </>
   )
 }

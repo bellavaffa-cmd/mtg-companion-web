@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { allUserTags, userTagsOf } from '../collection/userTags'
 import { PrintingPicker } from '../components/PrintingPicker'
 import { useParams } from 'react-router-dom'
+import { EmptyState } from '../components/EmptyState'
+import { SamplesBar } from '../onboarding/GetStarted'
 import { useSync } from '../sync/SyncContext'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
@@ -189,8 +191,10 @@ export function CollectionDetailPage() {
   }
   const entryList = collection.entries.length === 0 ? (
     unsorted
-      ? <div className="empty-state"><Icon name="inbox" />All sorted — every card is in a binder.</div>
-      : <div className="empty-state"><Icon name="playing_cards" />No cards yet — search {size === 'desktop' ? 'on the right' : 'below'} to add some.</div>
+      ? <EmptyState icon="inbox" text="All sorted — every card is in a binder." />
+      : wishlist
+        ? <EmptyState icon="star" text="Your wishlist is empty. Add cards you want from any card’s page; cards your decks are considering show up here too." actions={[{ label: 'Search cards', icon: 'search', to: '/search' }]} />
+        : <EmptyState icon="playing_cards" text={`No cards yet. Search ${size === 'desktop' ? 'on the right' : 'below'} to add some.`} actions={[{ label: 'Scan cards', icon: 'photo_camera', to: '/scan' }]} />
   ) : (
     <>
       {unsorted && (
@@ -284,6 +288,7 @@ export function CollectionDetailPage() {
           <div className="eyebrow">{unsorted ? 'Not in a binder yet' : collection.type === 'WISHLIST' ? 'Wishlist' : 'Binder'}</div>
           <h1>{collection.name}</h1>
         </div>
+        {collection.sample && <SamplesBar style={{ marginTop: 10 }} />}
         {isWishlist(collection) && (collection.notWanted ?? []).length > 0 && (
           <div className="rise" style={{ ...rise(1), margin: '10px 0 0', maxWidth: 720 }}>
             <button type="button" className="btn line sm" onClick={() => setShowNotWanted((v) => !v)}>
