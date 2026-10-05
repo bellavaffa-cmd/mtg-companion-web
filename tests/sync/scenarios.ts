@@ -381,6 +381,32 @@ export function syncScenarios(cas: boolean) {
     assert.deepEqual((sim.row('d1')!.data as { cameFrom?: unknown }).cameFrom, [line])
   })
 
+  // The primer, folder, archive flag, companion and categories (decks/deckExtras.ts) ride the same way.
+  test("an older app's save of a deck doesn't lose its primer, folder or categories", async () => {
+    const built = (name: string, extras: object = {}, categories?: string[]) =>
+      ({ id: 'd1', name, commander: null, partnerCommander: null,
+        cards: [{ scryfallId: 'a', name: 'Sol Ring', imageUrl: null, quantity: 1, canBeCommander: false, typeLine: null, partnerAbility: null, ...(categories ? { categories } : {}) }],
+        gameMode: 'COMMANDER', createdAt: 1, tags: [], gameResults: [], ownership: 'PHYSICAL', ...extras }) as unknown as cs.Library['decks'][number]
+    const extras = { description: '## Plan\n[[Sol Ring]] first', folder: 'Cube', archived: true, companion: 'Yorion, Sky Nomad', categoryTargets: { Ramp: 10 } }
+    sim.reset('A', 'B')
+    sim.setLibrary('A', { decks: [built('Krenko', extras, ['Ramp'])], collections: [] })
+    await sim.settle('A', 'B')
+    assert.equal(sim.library('B').decks[0].description, '## Plan\n[[Sol Ring]] first')
+    // B is an older app: it saves the deck without the keys it doesn't know.
+    sim.setLibrary('B', { decks: [built('Krenko goblins')], collections: [] })
+    await sim.pass('B')
+    await sim.settle('A')
+    const a = sim.library('A').decks[0]
+    assert.equal(a.name, 'Krenko goblins')
+    assert.equal(a.description, '## Plan\n[[Sol Ring]] first')
+    assert.equal(a.folder, 'Cube')
+    assert.equal(a.archived, true)
+    assert.equal(a.companion, 'Yorion, Sky Nomad')
+    assert.deepEqual(a.categoryTargets, { Ramp: 10 })
+    assert.deepEqual(a.cards[0].categories, ['Ramp'])
+    assert.equal((sim.row('d1')!.data as { folder?: unknown }).folder, 'Cube')
+  })
+
   test('whose library is it', () => {
     assert.equal(sim.cs.libraryIsAnotherAccounts(null, 'u'), false) // never synced: the browser's own
     assert.equal(sim.cs.libraryIsAnotherAccounts('u', 'u'), false)

@@ -4,6 +4,7 @@
 
 import { copyLimitExempt, formatRules } from './deckLegality'
 import { hasSideboard, sideboardLimit } from './sideboard'
+import { companionAddProblem, companionCard } from './companion'
 import type { Deck } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 
@@ -62,6 +63,11 @@ export function addProblems(deck: Deck, adding: Adding[], cardsById: Map<string,
 
     if (!copiesOnly && identity && card?.color_identity && !commanderIds.has(item.scryfallId) && card.color_identity.some((c) => !identity.has(c))) {
       problems.push(`Outside ${commanderNames}'s colours`)
+    }
+    // Into the starting deck: the companion's condition (companion.ts), when the card is known.
+    if (!copiesOnly && !item.toSideboard && card) {
+      const broken = companionAddProblem(deck, companionCard({ name: item.name, quantity: item.quantity, typeLine: card.type_line ?? null }, card))
+      if (broken) problems.push(broken)
     }
 
     const total = (counts.get(key(item.name)) ?? 0) + item.quantity

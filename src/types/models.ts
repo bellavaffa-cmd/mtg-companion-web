@@ -35,6 +35,12 @@ export interface DeckCardEntry {
    * out for something better. Synced under the same key as the phone's DeckCardEntry.replaceable.
    */
   replaceable?: boolean
+  /**
+   * The user's own groups for this card in this deck — "Ramp", "Removal", "Win cons"; a card can be in
+   * several (decks/categories.ts). Left out when it has none. Merged like [userTags]: both devices'
+   * additions kept, and one either took off stays off. The phone's DeckCardEntry.categories.
+   */
+  categories?: string[]
 }
 
 export interface GameResult {
@@ -137,7 +143,33 @@ export interface Deck {
    * written by an app that doesn't know about it. The Android app's Deck.cameFrom, line for line.
    */
   cameFrom?: CameFrom[]
+  /**
+   * The deck's primer: how it plays, what to mulligan, its key cards — light markdown, with
+   * [[Card Name]] as links (decks/primer.ts). At most MAX_DESCRIPTION characters.
+   */
+  description?: string
+  /** The folder it's filed in on the decks list (decks/deckFolders.ts); "" for none. */
+  folder?: string
+  /** Put away: kept, but out of the decks list and every deck picker (decks/deckFolders.ts). */
+  archived?: boolean
+  /** The companion's name: a card in the sideboard, outside the starting deck (decks/companion.ts); "" for none. */
+  companion?: string
+  /**
+   * How many cards the user wants in each of their categories ("Ramp": 12), by category. Also says
+   * the deck's cards' "categories" are known: it's there, as {} with no targets, once any card has
+   * had a category (see decks/deckExtras.ts).
+   */
+  categoryTargets?: Record<string, number>
 }
+
+// The deck's own words and filing, as JSON — locally, in sync and in shared decks. All left out until
+// first set, then kept even when emptied ("", false, {}), so a deck with none of these keys was saved
+// by an app that doesn't know them, and its save can't clear them on other devices (deckExtras.ts):
+//   "description": "## How it plays\nRamp into [[Craterhoof Behemoth]]…"
+//   "folder": "Modern" | ""          "archived": true | false
+//   "companion": "Lurrus of the Dream-Den" | ""
+//   "categoryTargets": { "Ramp": 12, "Draw": 10 }
+// and on each card: "categories": ["Ramp", "Draw"], left out when it has none.
 
 // The deck's "cameFrom" as JSON — locally and in sync:
 //   "cameFrom": [{ "name": "Sol Ring", "placeId": "…", "qty": 1, "section": "Colourless" }, { "name": "Purphoros, God of the Forge", "placeId": "…", "qty": 1, "page": 5, "slot": 1, "foil": true }]

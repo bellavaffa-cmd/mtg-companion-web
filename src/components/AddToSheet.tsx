@@ -7,6 +7,7 @@ import { kindDetail, printingLine, sheetTitle, type AddVerb, type TargetKind } f
 import { hasSideboard, sideboardChoice, sideboardChoiceHint } from '../decks/sideboard'
 import { GAME_MODES, GAME_MODE_LABELS, isUnsorted, UNSORTED_COLLECTION_ID, type Collection, type GameMode } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
+import { activeDecks } from '../decks/deckFolders'
 
 /**
  * Where the user chose to put the cards, and how. [printing] is another printing chosen in the sheet
@@ -72,7 +73,8 @@ export function AddToSheet({
 }: Props) {
   const { collections, decks, createCollection, createDeck } = useSync()
   const binderList = binders === false ? [] : collections.filter((c) => (unsorted ? !isUnsorted(c) : true) && (binders === true || binders(c)))
-  const deckList = !decksOffered ? [] : onlyDeckId ? decks.filter((d) => d.id === onlyDeckId) : decks
+  // Archived decks are put away: not offered (decks/deckFolders.ts).
+  const deckList = !decksOffered ? [] : onlyDeckId ? decks.filter((d) => d.id === onlyDeckId) : activeDecks(decks)
   const offersBinders = binders !== false && (binderList.length > 0 || create)
   const offersDecks = decksOffered && (deckList.length > 0 || create)
   const asksFirst = unsorted || (offersBinders && offersDecks)

@@ -9,10 +9,12 @@
 //    part, which is where MTGO looks for them.
 //
 // Simple and Exact printing add a "Sideboard" section when the deck has one, which the importer
-// (parseCardList) reads back into the sideboard. Considering is never exported. Mirrors the Android
-// app's data/DeckExport.kt.
+// (parseCardList) reads back into the sideboard, and start with the deck's primer as "// " comment
+// lines, which importers skip (Arena and MTGO take no comments, so they leave it out). Considering
+// is never exported. Mirrors the Android app's data/DeckExport.kt.
 
 import type { Deck, DeckCardEntry } from '../types/models'
+import { primerComments } from './primer'
 
 export const DECK_EXPORT_FORMATS = ['SIMPLE', 'EXACT', 'ARENA', 'MTGO'] as const
 export type DeckExportFormat = (typeof DECK_EXPORT_FORMATS)[number]
@@ -80,6 +82,7 @@ export function deckExportText(deck: Deck, format: DeckExportFormat, printings: 
   switch (format) {
     case 'SIMPLE':
     case 'EXACT':
+      sections.push(primerComments(deck.description))
       sections.push([...commanders.map((c) => line(c, 1)), ...rest.map((e) => line(e))])
       if (sideboard.length > 0) sections.push(['Sideboard', ...sideboard.map((e) => line(e))])
       break

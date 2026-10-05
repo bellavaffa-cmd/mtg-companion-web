@@ -55,9 +55,16 @@ import {
   DECK_OWNERSHIP_OPTIONS, DECK_OWNERSHIP_LABELS, DECK_OWNERSHIP_DESCRIPTIONS,
 } from '../types/models'
 import type { Deck, DeckCardEntry, DeckOwnership, GameMode } from '../types/models'
+import { AboutPanel, CardCategoriesDialog, CategoryDialog, CompanionPanel, DeckValuePanel, FolderDialog, useDeckChange } from '../components/DeckExtras'
+import { DECK_GROUPINGS, DECK_GROUPING_LABELS, categoryCounts, groupCards, withSuggestedCategories, type CardFacts, type DeckGrouping } from '../decks/categories'
+import { companionEntry, companionNamed, withCompanion } from '../decks/companion'
+import { folderOf, isArchived, withArchived } from '../decks/deckFolders'
+import { deckValueOf, recordDeckValue } from '../decks/deckValueHistory'
 
 /** Whether the deck's Cards tab shows a list or a grid of card images, remembered in this browser. */
 const DECK_VIEW_KEY = 'mtgweb_deck_cards_view'
+/** How the Cards tab groups the deck (decks/categories.ts), remembered in this browser for every deck. */
+const DECK_GROUPING_KEY = 'mtgweb_deck_grouping'
 
 export function DeckDetailPage() {
   const money = useMoney()
@@ -90,6 +97,21 @@ export function DeckDetailPage() {
   const [view, setView] = useState<'list' | 'grid'>(() => {
     try { return localStorage.getItem(DECK_VIEW_KEY) === 'grid' ? 'grid' : 'list' } catch { return 'list' }
   })
+  const [grouping, setGrouping] = useState<DeckGrouping>(() => {
+    try {
+      const saved = localStorage.getItem(DECK_GROUPING_KEY)
+      return (DECK_GROUPINGS as readonly string[]).includes(saved ?? '') ? saved as DeckGrouping : 'TYPE'
+    } catch { return 'TYPE' }
+  })
+  const chooseGrouping = (next: DeckGrouping) => {
+    setGrouping(next)
+    try { localStorage.setItem(DECK_GROUPING_KEY, next) } catch { /* this visit only */ }
+  }
+  // A card whose categories are being picked, a category being set up, and the folder picker.
+  const [categoriesFor, setCategoriesFor] = useState<DeckCardEntry | null>(null)
+  const [categoryOpen, setCategoryOpen] = useState<string | null>(null)
+  const [filing, setFiling] = useState(false)
+  const { one: changeDeck } = useDeckChange()
   const switchView = () => {
     const next = view === 'list' ? 'grid' : 'list'
     setView(next)
@@ -164,6 +186,13 @@ export function DeckDetailPage() {
     if (deck) localStorage.setItem(LAST_DECK_KEY, deck.id)
   }, [deck?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Today's value, for the deck's value over time (decks/deckValueHistory.ts).
+  useEffect(() => {
+    if (!deck || !cardData) return
+    const value = deckValueOf(deck, new Map([...cardData.values()].map((c) => [c.id, c.prices?.usd ? Number(c.prices.usd) : null])))
+    if (value) recordDeckValue(deck.id, value.usd, value.cards)
+  }, [cardData]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Desktop shows stats beside the cards, so its tabs have no Stats tab.
   const tabs: ('Cards' | 'Considering' | 'Stats' | 'Suggestions' | 'Details')[] =
     size === 'desktop' ? ['Cards', 'Considering', 'Suggestions', 'Details'] : ['Cards', 'Considering', 'Stats', 'Suggestions', 'Details']
@@ -208,15 +237,27 @@ export function DeckDetailPage() {
   const tagHits = q ? [...new Set(deck.cards.filter((c) => matches(c) && !c.name.toLowerCase().includes(q)).flatMap((c) => matchedTags(tagsOf(roleTags, c.name), q)))] : []
   const shownCount = q ? deck.cards.filter(matches).length : 0
 
-  const groups = TYPE_GROUPS.map((type) => {
-    const cards = deck.cards
-      .filter((c) => !commanderIds.has(c.scryfallId) && primaryTypeOf(c.typeLine) === type && matches(c))
-      .sort((a, b) => a.name.localeCompare(b.name))
-    return { type, cards, count: cards.reduce((s, c) => s + c.quantity, 0) }
-  }).filter((g) => g.cards.length > 0)
+  // What grouping needs of each card: what Scryfall says of it, and its role tags.
+  const factsOf = (e: DeckCardEntry): CardFacts | undefined => {
+    const roles = tagsOf(roleTags, e.name).map(tagLabel)
+    const card = cardData?.get(e.scryfallId)
+    if (!card) return grouping === 'ROLE' ? { cmc: null, colors: null, land: false, roles } : undefined
+    return { cmc: card.cmc ?? null, colors: card.colors ?? card.card_faces?.[0]?.colors ?? null, land: primaryTypeOf(card.type_line ?? e.typeLine) === 'Land', roles }
+  }
+  const groups: { type: string; label: string; cards: DeckCardEntry[]; count: number; target: number | null; category?: string }[] = grouping === 'TYPE'
+    ? TYPE_GROUPS.map((type) => {
+      const cards = deck.cards
+        .filter((c) => !commanderIds.has(c.scryfallId) && primaryTypeOf(c.typeLine) === type && matches(c))
+        .sort((a, b) => a.name.localeCompare(b.name))
+      return { type, label: TYPE_PLURALS[type], cards, count: cards.reduce((s, c) => s + c.quantity, 0), target: null }
+    }).filter((g) => g.cards.length > 0)
+    : groupCards(deck.cards.filter((c) => !commanderIds.has(c.scryfallId) && matches(c)), grouping, factsOf, q || cardFilter !== 'ALL' ? {} : deck.categoryTargets ?? {})
+      .map((g) => ({ type: g.key, label: g.label, cards: g.cards, count: g.count, target: g.target, category: grouping === 'CATEGORY' && g.key !== 'cat:' ? g.label : undefined }))
+  // A category's count is the whole deck's, commanders included, against its target.
+  const catCounts = grouping === 'CATEGORY' ? categoryCounts(deck) : {}
   const shownCommanders = commanders.filter(matches)
   // The cards as the list shows them, which the zoom swipes along.
-  const listed = [...shownCommanders, ...groups.flatMap((g) => g.cards)]
+  const listed = [...shownCommanders, ...groups.flatMap((g) => g.cards)].filter((c, i, all) => all.indexOf(c) === i)
   // The sideboard's cards, after the main deck's groups. The chips are about the main deck, so only
   // "All" shows them.
   const sideShown = side.filter((c) => cardFilter === 'ALL' && matches(c)).sort((a, b) => a.name.localeCompare(b.name))
@@ -274,6 +315,11 @@ export function DeckDetailPage() {
         actions.push({ label: `Move to ${sideName.toLowerCase()}`, icon: 'drive_file_move', section: inDeck, onClick: () => toSideboard(entry) })
       }
     }
+    actions.push({
+      label: 'Categories…', icon: 'label', section: inDeck,
+      detail: entry.categories?.length ? entry.categories.join(', ') : 'Your own groups: Ramp, Removal, Win cons…',
+      onClick: () => setCategoriesFor(entry),
+    })
     actions.push({ label: 'Change printing', icon: 'swap_horiz', detail: 'Another art or set — the copies stay', section: inDeck, onClick: () => setChangingPrinting(entry) })
     // Elsewhere: the card itself, away from the deck.
     actions.push({ label: 'View card', icon: 'visibility', section: 'Elsewhere', onClick: () => setZoomId(entry.scryfallId) })
@@ -309,11 +355,20 @@ export function DeckDetailPage() {
     showUndo({ message: doneMessage('move', copiesOf(entry), deck.name), undo })
   }
   /** What a sideboard card's ⋮ offers: back into the main deck, off the sideboard, a look at it. */
-  const sideActions = (entry: DeckCardEntry): SheetAction[] => [
-    { label: 'View card', icon: 'visibility', onClick: () => setSideZoomId(entry.scryfallId) },
-    { label: 'Move to main deck', icon: 'drive_file_move', onClick: () => toMain(entry) },
-    { label: `Remove from ${sideName.toLowerCase()}`, icon: 'close', tone: 'danger', onClick: () => setRemovingSide(entry) },
-  ]
+  const sideActions = (entry: DeckCardEntry): SheetAction[] => {
+    const isCompanion = companionEntry(deck)?.scryfallId === entry.scryfallId
+    return [
+      { label: 'View card', icon: 'visibility', onClick: () => setSideZoomId(entry.scryfallId) },
+      // One of the ten companions can be marked as the deck's (decks/companion.ts).
+      ...(isCompanion
+        ? [{ label: 'Not the companion', icon: 'pets', detail: 'Stays in the sideboard', onClick: () => changeDeck(deck.id, (d) => withCompanion(d, null)) }]
+        : companionNamed(entry.name)
+          ? [{ label: 'Make it the companion', icon: 'pets', detail: companionNamed(entry.name)!.rule, onClick: () => changeDeck(deck.id, (d) => withCompanion(d, entry.name)) }]
+          : []),
+      { label: 'Move to main deck', icon: 'drive_file_move', onClick: () => toMain(entry) },
+      { label: `Remove from ${sideName.toLowerCase()}`, icon: 'close', tone: 'danger', onClick: () => setRemovingSide(entry) },
+    ]
+  }
   /** One sideboard copy fewer; the last copy is asked about first, as in the main deck. */
   const sideFewer = (entry: DeckCardEntry) => {
     if (entry.quantity > 1) setSideboardQuantity(deck.id, entry.scryfallId, entry.quantity - 1)
@@ -421,6 +476,22 @@ export function DeckDetailPage() {
     </div>
   )
 
+  const suggestCategories = () => {
+    const { deck: next, filled } = withSuggestedCategories(deck, (name) => tagsOf(roleTags, name))
+    if (filled === 0) { setNotice(tagging ? 'Still finding what the cards do — try again in a moment.' : 'No role tags to suggest from.'); return }
+    const undo = recordUndo(() => changeDeck(deck.id, () => next))
+    showUndo({ message: `Filled in categories for ${filled} ${filled === 1 ? 'card' : 'cards'}.`, undo })
+  }
+  const groupBy = deck.cards.length > 0 && (
+    <div className="group-by">
+      <span className="lbl">Group by</span>
+      {DECK_GROUPINGS.map((g) => <PillChip key={g} label={DECK_GROUPING_LABELS[g]} selected={grouping === g} onClick={() => chooseGrouping(g)} />)}
+      {grouping === 'CATEGORY' && deck.cards.some((c) => !c.categories?.length) && (
+        <button type="button" className="link" onClick={suggestCategories}><Icon name="auto_awesome" aria-hidden /> Suggest categories</button>
+      )}
+    </div>
+  )
+
   const searchNote = q && deck.cards.length > 0 && (
     <div className="dim search-note">
       {shownCount} {shownCount === 1 ? 'card' : 'cards'}
@@ -458,7 +529,7 @@ export function DeckDetailPage() {
   const sideboardGroup = showSideboard && (sideShown.length > 0 || (!q && cardFilter === 'ALL')) && (
     <div className="sideboard-group">
       <div className="grp">
-        {sideName} ({sideboardCount(deck)})
+        {!hasSideboard(deck.gameMode) && companionEntry(deck) && side.length === 1 ? 'Companion' : sideName} ({sideboardCount(deck)})
         {hasSideboard(deck.gameMode) && sideLimit !== null && <span>up to {sideLimit}</span>}
       </div>
       {sideShown.length === 0
@@ -488,6 +559,7 @@ export function DeckDetailPage() {
 
   const cardList = (
     <>
+      {groupBy}
       {filterChips}
       {searchNote}
       {deck.cards.length === 0 ? (
@@ -502,12 +574,22 @@ export function DeckDetailPage() {
               {cardViews(shownCommanders, true)}
             </div>
           )}
-          {groups.map((g) => (
-            <div key={g.type}>
-              <div className="grp">{TYPE_PLURALS[g.type]}<span>{g.count}</span></div>
-              {cardViews(g.cards)}
-            </div>
-          ))}
+          {groups.map((g) => {
+            const count = g.category && !q && cardFilter === 'ALL' ? catCounts[g.category] ?? g.count : g.count
+            const status = g.target == null ? '' : count < g.target ? ' short' : count > g.target ? ' over' : ' ok'
+            return (
+              <div key={g.type}>
+                {g.category ? (
+                  <button type="button" className="grp grp-button" onClick={() => setCategoryOpen(g.category!)} aria-label={`${g.label}: target and name`}>
+                    {g.label}<span className={`cat-target${status}`}>{g.target != null ? `${count}/${g.target}` : count}</span>
+                  </button>
+                ) : (
+                  <div className="grp">{g.label}<span>{g.count}</span></div>
+                )}
+                {g.cards.length > 0 ? cardViews(g.cards) : <div className="dim">None yet — open a card's ⋮ and choose Categories.</div>}
+              </div>
+            )
+          })}
         </div>
       )}
       {sideboardGroup}
@@ -638,6 +720,8 @@ export function DeckDetailPage() {
               {tab === 'Cards' ? cardList : tab === 'Considering' ? consideringList : tab === 'Suggestions' ? suggestions : details}
             </div>
             <aside className="deck-aside">
+              <div style={{ marginBottom: 12 }}><AboutPanel deck={deck} /></div>
+              <div style={{ marginBottom: 12 }}><DeckValuePanel deckId={deck.id} /></div>
               <DeckStats deck={deck} cardsById={cardData} roleTags={roleTags} tagging={!!tagging} onTag={(label) => { setTabName('Cards'); setFilter(label) }} />
             </aside>
           </div>
@@ -659,6 +743,8 @@ export function DeckDetailPage() {
             {tab === 'Considering' && consideringList}
             {tab === 'Stats' && (
               <div style={{ marginTop: 12 }}>
+                <div style={{ marginBottom: 12 }}><AboutPanel deck={deck} /></div>
+                <div style={{ marginBottom: 12 }}><DeckValuePanel deckId={deck.id} /></div>
                 <DeckStats deck={deck} cardsById={cardData} roleTags={roleTags} tagging={!!tagging} onTag={(label) => { setTabName('Cards'); setFilter(label) }} />
               </div>
             )}
@@ -830,7 +916,11 @@ export function DeckDetailPage() {
               : []),
             { label: 'Import list', icon: 'upload_file', detail: 'Paste a decklist or choose a file', onClick: () => setImporting(true) },
             { label: 'Export list', icon: 'ios_share', detail: 'Simple, exact printing, Arena or MTGO', onClick: () => setShowExport(true) },
-            { label: 'Deck details', icon: 'tune', detail: 'Format, ownership, commander and tags', onClick: () => setTabName('Details') },
+            { label: 'Deck details', icon: 'tune', detail: 'Format, ownership, commander, companion and tags', onClick: () => setTabName('Details') },
+            { label: 'Move to folder…', icon: 'folder', detail: folderOf(deck) ? `In ${folderOf(deck)}` : 'File it on your decks list', onClick: () => setFiling(true) },
+            isArchived(deck)
+              ? { label: 'Back on the decks list', icon: 'unarchive', detail: 'Out of Archived, and offered in pickers again', onClick: () => { changeDeck(deck.id, (d) => withArchived(d, false)); setNotice('Back on your decks list.') } }
+              : { label: 'Archive', icon: 'archive', detail: 'Kept, but hidden from the list and from pickers', onClick: () => { changeDeck(deck.id, (d) => withArchived(d, true)); setNotice('Archived. Find it under Archived on your decks list.') } },
             { label: 'Delete deck', icon: 'delete', tone: 'danger', detail: 'Asks first — it goes from your other devices too', onClick: () => setConfirmDelete(true) },
           ]}
           onClose={() => setDeckSheet(false)}
@@ -989,6 +1079,9 @@ export function DeckDetailPage() {
         />
       )}
       {showExport && <ExportDeckDialog deck={deck} onDismiss={() => setShowExport(false)} />}
+      {categoriesFor && <CardCategoriesDialog deck={deck} entry={categoriesFor} onClose={() => setCategoriesFor(null)} />}
+      {categoryOpen && <CategoryDialog deck={deck} name={categoryOpen} onClose={() => setCategoryOpen(null)} />}
+      {filing && <FolderDialog deck={deck} onClose={() => setFiling(false)} />}
       {sharing && <ShareDialog kind="deck" itemId={deck.id} name={deck.name} onClose={() => setSharing(false)} />}
       {whoHas && <WhoHasItSheet deck={deck} onClose={() => setWhoHas(false)} />}
       {comparePicking && (
@@ -1208,6 +1301,8 @@ function DeckDetails({ deck, onDelete }: { deck: Deck; onDelete: () => void }) {
           {deck.commander && <div className="dim" style={{ marginTop: 10 }}>Tap a commander to unset it. It stays in the deck.</div>}
         </div>
       )}
+
+      {!isLimited(deck.gameMode) && <CompanionPanel deck={deck} index={3} />}
 
       <div className="panel rise" style={rise(3)}>
         <div className="p-h"><h3>Tags</h3></div>

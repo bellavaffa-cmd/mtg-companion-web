@@ -23,6 +23,7 @@ import { clockElapsed, formatClock, reminderLines, TURN_TIMER_CHOICES, turnTimeL
 import { useNow } from './useNow'
 import { layoutIdFor, type TableSeed } from './gameNight'
 import './lifecounter.css'
+import { activeDecks } from '../decks/deckFolders'
 
 type Overlay = null | 'seating' | 'settings' | 'restart' | 'dice' | 'history' | 'table' | 'mode' | 'archenemy' | 'games'
 
@@ -348,7 +349,7 @@ export function LifeCounterPage() {
       )}
       {meFor !== null && (
         <MeSheet
-          decks={decks}
+          decks={activeDecks(decks)}
           currentDeckId={settings.meDeckId}
           isMe={settings.meSeat === meFor}
           onPick={(deckId) => { lc.updateSettings({ meSeat: meFor, meDeckId: deckId }); setMeFor(null) }}

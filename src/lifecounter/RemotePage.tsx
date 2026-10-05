@@ -20,6 +20,7 @@ import { deckInfoAction, formatClock, reminderLines, tokenLabel, turnTimerText, 
 import { useNow } from './useNow'
 import '../social/social.css'
 import './remote.css'
+import { activeDecks } from '../decks/deckFolders'
 
 /** No word from the table for this long (it publishes at least every HEARTBEAT_MS): it's gone. */
 const SILENT_MS = HEARTBEAT_MS * 2 + 10_000
@@ -299,7 +300,7 @@ export function RemotePage() {
         <RmSheet title="Your deck" onClose={() => setSheet(null)}>
           {decks.length === 0 && <p className="rm-muted">You have no decks yet.</p>}
           <div className="rm-list">
-            {decks.map((d) => (
+            {activeDecks(decks).map((d) => (
               <button key={d.id} type="button" className={`rm-opt${d.id === prefs.deckId ? ' on' : ''}`} onClick={() => chooseDeck(d)}>
                 <span className="rm-swatch" style={commanderArt(d) ? { backgroundImage: `url("${commanderArt(d)}")` } : undefined} />
                 <span className="rm-opt-text"><b>{d.name}</b><span>{d.commander?.name ?? 'No commander'}</span></span>
