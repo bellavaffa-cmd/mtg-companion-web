@@ -218,6 +218,13 @@ export interface CollectionEntry {
   condition?: string | null
   /** The language the copies are printed in, as Scryfall codes it (CARD_LANGUAGES: "en", "ja"…); left out = not said. */
   language?: string | null
+  /**
+   * Where the copies physically are: some in one storage place, some in another (see
+   * collection/storagePlaces.ts). Never more than the entry's copies, plain and foil apart; the rest
+   * have no place yet. Left out until a copy is given a place; then kept, as [] once none have one —
+   * so a binder with no "places" key anywhere was written by an app that doesn't know about places.
+   */
+  places?: CopyPlace[]
 }
 
 // The entry as JSON — locally, in sync and in shared binders — is these fields by name. Keys added
@@ -227,7 +234,50 @@ export interface CollectionEntry {
 //   "priceAlertAbove": number, USD — owned binders: notify when the price is at or above it
 //   "condition":       "NM" | "LP" | "MP" | "HP" | "DMG" — for every copy in the entry
 //   "language":        "en" | "ja" | "de" | "fr" | "it" | "es" | "pt" | "ru" | "ko" | "zhs" | "zht"
+//   "places":          [{ "placeId": "…", "qty": 2, "foil": true, "section": "Red" }, { "placeId": "…", "qty": 1, "page": 3, "slot": 5 }]
+//                      where the copies are kept (CopyPlace below); "foil", "section", "page" and "slot" left out when not said
 // Copies of one printing in different conditions aren't split into entries: the entry says one.
+
+/**
+ * Some of an entry's copies in one storage place. [foil]: these are foil copies (left out: plain).
+ * In a box, [section] names the section ("Red", "2X2"); in a binder, [page] and [slot] (from 1) say
+ * which pocket. The Android app's CopyPlace, field for field.
+ */
+export interface CopyPlace {
+  placeId: string
+  qty: number
+  foil?: boolean
+  section?: string
+  page?: number
+  slot?: number
+}
+
+/** What a storage place is: shown as Box, Binder, Deck box, Shelf, Other. */
+export type PlaceKind = 'BOX' | 'BINDER' | 'DECK_BOX' | 'SHELF' | 'OTHER'
+/** How a box is sorted, to suggest where a new card goes: by colour then A–Z, by set then number, by type, A–Z. */
+export type SortRule = 'COLOUR' | 'SET' | 'TYPE' | 'NAME'
+
+/**
+ * A physical place cards are kept — a box, a binder, a shelf — made by the user and nestable
+ * ("Shelf › Red box"). Kept in the Unsorted pile's [Collection.storagePlaces], so it syncs with the
+ * library. The Android app's StoragePlace, field for field; optional fields are left out when not set.
+ */
+export interface StoragePlace {
+  id: string
+  name: string
+  kind: PlaceKind
+  /** The place it sits in; left out at the top. */
+  parentId?: string
+  /** A word about it — "Bulk", "Trade fodder". */
+  note?: string
+  /** A box's sections, in order. */
+  sections?: string[]
+  /** A binder's pockets per page (9 when left out). */
+  pocketsPerPage?: number
+  /** A box's sorting rule. */
+  sortRule?: SortRule
+  createdAt: number
+}
 
 export interface Collection {
   id: string
@@ -240,6 +290,12 @@ export interface Collection {
    * (see collection/wishlist.ts). Lower-cased names. Forgotten once no deck considers the card.
    */
   notWanted?: string[]
+  /**
+   * The Unsorted pile only: the user's storage places (see collection/storagePlaces.ts). The pile is
+   * always there and has the same id on every device, so the places ride along with it when it syncs.
+   * Left out until the first place is made; then kept, as [] once none are left.
+   */
+  storagePlaces?: StoragePlace[]
 }
 
 /**

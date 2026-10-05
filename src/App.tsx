@@ -10,6 +10,7 @@ import { HomePage } from './pages/HomePage'
 import { CollectionsPage } from './pages/CollectionsPage'
 import { CollectionDetailPage } from './pages/CollectionDetailPage'
 import { SetCardsPage } from './pages/SetCardsPage'
+import { PlacePage } from './pages/PlacePage'
 import { DecksPage } from './pages/DecksPage'
 import { PreconsPage } from './pages/PreconsPage'
 import { NewDeckPage } from './pages/NewDeckPage'
@@ -65,6 +66,7 @@ export default function App() {
             <Route path="/collections/:id" element={<CollectionDetailPage />} />
             <Route path="/collections/tag/:tagId" element={<TagBinderPage />} />
             <Route path="/collections/set/:code" element={<SetCardsPage />} />
+            <Route path="/collections/place/:id" element={<PlacePage />} />
             <Route path="/collections/thin" element={<SpreadThinPage />} />
             <Route path="/decks" element={<DecksPage />} />
             <Route path="/decks/new" element={<NewDeckPage />} />

@@ -1,0 +1,128 @@
+// "Where it is" on a card's page: every copy of the card, by where it's physically kept — a place
+// (and its section or pocket), a deck box, lent out, or no place yet — with "Move a copy" and "Give it
+// a place". The logic is whereItIs() in storagePlaces.ts. Mirrors the Android app's WhereItIs.kt
+// (ui/detail/WhereItIs.kt).
+
+import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useSync } from '../sync/SyncContext'
+import { Icon } from '../components/Icon'
+import { Dialog } from '../components/Dialog'
+import type { ScryfallCard } from '../types/scryfall'
+import type { CopyPlace } from '../types/models'
+import { PLACE_ICONS, PlacePicker } from './StorageTab'
+import { cardFactsOf, moveCopies, placeTree, placesOf, placeUnplaced, suggestSpot, whereItIs, type WhereLine } from './storagePlaces'
+import './storage.css'
+
+const ICONS: Record<WhereLine['kind'], string> = { place: 'inventory_2', deck: 'style', lent: 'handshake', none: 'error' }
+
+export function WhereItIs({ name, card }: { name: string; card: ScryfallCard | null }) {
+  const { collections, decks, changeStorage } = useSync()
+  const navigate = useNavigate()
+  const places = placesOf(collections)
+  const { lines, total } = useMemo(() => whereItIs(collections, decks, name), [collections, decks, name])
+  const [giving, setGiving] = useState(false)
+  const [moving, setMoving] = useState(false)
+  if (total === 0) return null
+  const unplaced = lines.find((l) => l.kind === 'none')?.qty ?? 0
+  const placeLines = lines.filter((l): l is Extract<WhereLine, { kind: 'place' }> => l.kind === 'place')
+
+  const give = (placeId: string) => {
+    const place = places.find((p) => p.id === placeId)
+    if (!place) return
+    changeStorage((c) => placeUnplaced(c, name, card?.id ?? null, suggestSpot(place, card ? cardFactsOf(card) : { name }, c).spot, 1).collections)
+  }
+
+  return (
+    <div className="panel">
+      <div className="p-h"><h3>Where it is</h3><span className="dim">{total} {total === 1 ? 'copy' : 'copies'}</span></div>
+      <div className="where-list">
+        {lines.map((l, i) => {
+          const icon = l.kind === 'place' ? PLACE_ICONS[places.find((p) => p.id === l.placeId)?.kind ?? 'OTHER'] : ICONS[l.kind]
+          const go = l.kind === 'place' ? () => navigate(`/collections/place/${l.placeId}`) : l.kind === 'deck' ? () => navigate(`/decks/${l.deckId}`) : null
+          const body = (
+            <>
+              <Icon name={icon} />
+              <div className="storage-text"><b>{l.title}</b>{l.detail && <span>{l.detail}</span>}</div>
+              <b>×{l.qty}</b>
+            </>
+          )
+          return go
+            ? <button key={i} type="button" className="where-row press" onClick={go}>{body}</button>
+            : <div key={i} className={`where-row${l.kind === 'none' ? ' none' : ''}`}>{body}</div>
+        })}
+        {places.length > 0 && (placeLines.length > 0 || unplaced > 0) && (
+          <div className="where-actions">
+            <button type="button" className="btn soft" onClick={() => setMoving(true)}>Move a copy</button>
+            <button type="button" className="btn line" disabled={unplaced === 0} onClick={() => setGiving(true)}>Give it a place</button>
+          </div>
+        )}
+      </div>
+      {giving && <PlacePicker title={`Give ${name} a place`} onPick={give} onClose={() => setGiving(false)} />}
+      {moving && <MoveCopyDialog name={name} card={card} lines={placeLines} unplaced={unplaced} onDismiss={() => setMoving(false)} />}
+    </div>
+  )
+}
+
+/** Moves copies from one place (or from none) to another place (or to none). */
+function MoveCopyDialog({ name, card, lines, unplaced, onDismiss }: {
+  name: string; card: ScryfallCard | null; lines: Extract<WhereLine, { kind: 'place' }>[]; unplaced: number; onDismiss: () => void
+}) {
+  const { collections, changeStorage } = useSync()
+  const places = placesOf(collections)
+  const sources = [...lines.map((l, i) => ({ key: String(i), label: `${l.title}${l.detail ? ` (${l.detail})` : ''}`, qty: l.qty, line: l as typeof l | null })),
+    ...(unplaced > 0 ? [{ key: 'none', label: 'No place yet', qty: unplaced, line: null }] : [])]
+  const [from, setFrom] = useState(sources[0]?.key ?? '')
+  const [to, setTo] = useState('')
+  const [count, setCount] = useState(1)
+  const source = sources.find((s) => s.key === from)
+  const max = source?.qty ?? 0
+
+  const move = () => {
+    if (!source) return
+    const target = places.find((p) => p.id === to)
+    changeStorage((c) => {
+      const spot = target ? suggestSpot(target, card ? cardFactsOf(card) : { name }, c).spot : null
+      if (!source.line) return spot ? placeUnplaced(c, name, card?.id ?? null, spot, count).collections : c
+      const { collectionId, scryfallId, line } = source.line
+      return c.map((col) => (col.id !== collectionId ? col : {
+        ...col,
+        entries: col.entries.map((e) => (e.scryfallId === scryfallId ? moveCopies(e, line as CopyPlace, spot, count).entry : e)),
+      }))
+    })
+    onDismiss()
+  }
+
+  return (
+    <Dialog
+      title="Move a copy"
+      onDismiss={onDismiss}
+      actions={
+        <>
+          <button type="button" className="btn line" onClick={onDismiss}>Cancel</button>
+          <button type="button" className="btn gold" disabled={!source || (to === '' && !source.line)} onClick={move}>Move</button>
+        </>
+      }
+    >
+      <div className="field-label">From</div>
+      <select className="input" aria-label="From" value={from} onChange={(e) => { setFrom(e.target.value); setCount(1) }}>
+        {sources.map((s) => <option key={s.key} value={s.key}>{s.label} — {s.qty}</option>)}
+      </select>
+      <div className="field-label" style={{ marginTop: 12 }}>To</div>
+      <select className="input" aria-label="To" value={to} onChange={(e) => setTo(e.target.value)}>
+        <option value="">No place</option>
+        {placeTree(places).map((n) => <option key={n.place.id} value={n.place.id}>{`${' '.repeat(n.depth)}${n.place.name}`}</option>)}
+      </select>
+      {max > 1 && (
+        <>
+          <div className="field-label" style={{ marginTop: 12 }}>How many</div>
+          <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+            <button type="button" className="ib" aria-label="One fewer" disabled={count <= 1} onClick={() => setCount((n) => Math.max(1, n - 1))}><Icon name="remove" /></button>
+            <b>{count}</b>
+            <button type="button" className="ib" aria-label="One more" disabled={count >= max} onClick={() => setCount((n) => Math.min(max, n + 1))}><Icon name="add" /></button>
+          </div>
+        </>
+      )}
+    </Dialog>
+  )
+}

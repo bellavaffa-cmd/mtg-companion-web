@@ -40,6 +40,7 @@ import {
   type AdvancedFacts, type AdvancedFilter,
 } from './advancedFilter'
 import { AdvancedFilterPage } from './AdvancedFilterPage'
+import { placeTree, placesOf } from './storagePlaces'
 import { useCardViewMode } from '../settings/settings'
 
 
@@ -258,6 +259,7 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
           <ActiveFilterChips
             chips={filterChips(cardFilter, advFilter, {
               binderName: (id) => collections.find((c) => c.id === id)?.name,
+              placeName: (id) => placesOf(collections).find((p) => p.id === id)?.name,
               formatLocal: (n) => money.formatLocal(n),
             })}
             onRemove={(key) => { const next = removeChip(cardFilter, advFilter, key); setCardFilter(next.basic); setAdvFilter(next.advanced) }}
@@ -271,6 +273,7 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
           advanced={advFilter}
           countFor={countFor}
           binders={ownedBinders}
+          places={placeTree(placesOf(collections)).map((n) => ({ id: n.place.id, name: n.place.name, depth: n.depth }))}
           sets={ownedSets}
           onApply={(basic, adv) => { setCardFilter(basic); setAdvFilter(adv); setAdvOpen(false) }}
           onClose={() => setAdvOpen(false)}

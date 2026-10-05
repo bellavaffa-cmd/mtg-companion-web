@@ -16,6 +16,7 @@ import { useSync } from '../sync/SyncContext'
 import { sourcesForName } from '../collection/cardSources'
 import { canBeFoil, onlyFoil } from '../collection/addTo'
 import { PriceHistoryPanel } from '../collection/PriceHistoryPanel'
+import { WhereItIs } from '../collection/WhereItIs'
 import {
   backImageUrl, biggerImageUrl, canBeCommander, cardTags, displayImageUrl, displayManaCost, displayOracleText, largeImageUrl, type ScryfallCard,
 } from '../types/scryfall'
@@ -222,6 +223,9 @@ export function CardPage() {
                 </div>
               )}
             </div>
+
+            {/* Where the copies are physically kept (collection/storagePlaces.ts). */}
+            <WhereItIs name={oracleName} card={card} />
 
             {card.legalities && (
               <div className="panel">

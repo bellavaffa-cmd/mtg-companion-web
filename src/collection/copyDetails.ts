@@ -5,6 +5,7 @@
 // conditionCode and languageCode when a CSV comes in. Mirrors the Android app's data/CopyDetails.kt.
 
 import type { CollectionEntry } from '../types/models'
+import { withPlaces } from './storagePlaces'
 
 /** Conditions, best first: Near Mint, Lightly / Moderately / Heavily Played, Damaged. */
 export const CARD_CONDITIONS = ['NM', 'LP', 'MP', 'HP', 'DMG'] as const
@@ -132,5 +133,7 @@ export function withCopiesOf(entry: CollectionEntry, added: CollectionEntry): Co
   next = withOptional(next, 'condition', entry.condition ?? added.condition)
   next = withOptional(next, 'language', entry.language ?? added.language)
   next = withOptional(next, 'priceAlertAbove', entry.priceAlertAbove ?? added.priceAlertAbove)
+  // Where the added copies are kept comes with them (see storagePlaces.ts).
+  if (entry.places !== undefined || added.places !== undefined) next = withPlaces(next, [...(entry.places ?? []), ...(added.places ?? [])])
   return next
 }

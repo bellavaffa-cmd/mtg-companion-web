@@ -19,19 +19,22 @@ import {
 import { NO_COLLECTION_FILTER, type CollectionFilter } from './cardFilter'
 import { CARD_CONDITIONS, CARD_LANGUAGES, languageName } from './copyDetails'
 import { useSavedFilters } from './savedFilters'
+import { NO_PLACE } from './storagePlaces'
 
 const COLOR_NAMES: Record<string, string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green', C: 'Colourless' }
 const toggle = <T,>(list: T[], item: T) => (list.includes(item) ? list.filter((x) => x !== item) : [...list, item])
 
 export interface SetOption { code: string; name: string }
 
-export function AdvancedFilterPage({ basic, advanced, countFor, binders, sets, onApply, onClose }: {
+export function AdvancedFilterPage({ basic, advanced, countFor, binders, places = [], sets, onApply, onClose }: {
   basic: CollectionFilter
   advanced: AdvancedFilter
   /** How many cards the list would show with these filters. */
   countFor: (basic: CollectionFilter, advanced: AdvancedFilter) => number
   /** The owned binders, for "Binder". */
   binders: { id: string; name: string }[]
+  /** The storage places, in tree order with their depth, for "Place". */
+  places?: { id: string; name: string; depth: number }[]
   /** The sets of the cards owned, for "Find a set". */
   sets: SetOption[]
   onApply: (basic: CollectionFilter, advanced: AdvancedFilter) => void
@@ -233,6 +236,13 @@ export function AdvancedFilterPage({ basic, advanced, countFor, binders, sets, o
             <select className="input" aria-label="Binder" value={a.binder} onChange={(e) => set('binder', e.target.value)}>
               <option value="">Any binder</option>
               {binders.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Place">
+            <select className="input" aria-label="Place" value={a.place} onChange={(e) => set('place', e.target.value)}>
+              <option value="">Any place</option>
+              <option value={NO_PLACE}>No place yet</option>
+              {places.map((x) => <option key={x.id} value={x.id}>{`${'\u2003'.repeat(x.depth)}${x.name}`}</option>)}
             </select>
           </Field>
           <Field label="In a deck">

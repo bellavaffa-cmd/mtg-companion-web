@@ -14,7 +14,7 @@ import type { ScryfallCard } from '../../src/types/scryfall.ts'
 const card = (over: Partial<ScryfallCard>): ScryfallCard => ({ id: 'x', name: 'X', ...over }) as ScryfallCard
 const adv = (over: Partial<AdvancedFilter>): AdvancedFilter => ({ ...NO_ADVANCED_FILTER, ...over })
 const basic = (over: Partial<CollectionFilter>): CollectionFilter => ({ ...NO_COLLECTION_FILTER, ...over })
-const copies = (over: Partial<CopyFacts>): CopyFacts => ({ nonfoil: 1, foil: 0, conditions: [], languages: ['en'], binders: [], inDeck: false, copies: 1, ...over })
+const copies = (over: Partial<CopyFacts>): CopyFacts => ({ nonfoil: 1, foil: 0, conditions: [], languages: ['en'], binders: [], places: [], unplaced: 0, inDeck: false, copies: 1, ...over })
 const one = copies({})
 
 const atraxa = advancedFactsOf(card({
@@ -230,9 +230,9 @@ const decks = [{ id: 'd1', name: 'Izzet', cards: [{ ...entry('bolt', 1), canBeCo
 
 test('copies: binders and decks, not wishlists; a copy with no language said is English', () => {
   const facts = copyFactsOf(collections, decks)
-  assert.deepEqual(facts.get('bolt'), { nonfoil: 4, foil: 1, conditions: ['LP', 'NM'], languages: ['ja', 'en'], binders: ['b1', 'b2'], inDeck: true, copies: 5 })
-  assert.deepEqual(facts.get('jace'), { nonfoil: 1, foil: 0, conditions: [], languages: [], binders: [], inDeck: true, copies: 1 })
-  assert.deepEqual(facts.get('ring'), { nonfoil: 0, foil: 1, conditions: [], languages: ['en'], binders: ['b1'], inDeck: false, copies: 1 })
+  assert.deepEqual(facts.get('bolt'), { nonfoil: 4, foil: 1, conditions: ['LP', 'NM'], languages: ['ja', 'en'], binders: ['b1', 'b2'], places: [], unplaced: 4, inDeck: true, copies: 5 })
+  assert.deepEqual(facts.get('jace'), { nonfoil: 1, foil: 0, conditions: [], languages: [], binders: [], places: [], unplaced: 0, inDeck: true, copies: 1 })
+  assert.deepEqual(facts.get('ring'), { nonfoil: 0, foil: 1, conditions: [], languages: ['en'], binders: ['b1'], places: [], unplaced: 1, inDeck: false, copies: 1 })
 })
 
 test('your copies: finish, etched kept as foil, condition, language, binder, in a deck, copies', () => {
@@ -256,6 +256,23 @@ test('your copies: finish, etched kept as foil, condition, language, binder, in 
   assert.equal(advancedMatches(adv({ inDeck: 'no' }), solRing, ringCopies), true)
   assert.equal(advancedMatches(adv({ copiesOp: '>=', copies: '4' }), bolt, boltCopies), true)
   assert.equal(advancedMatches(adv({ copiesOp: '<', copies: '2' }), bolt, boltCopies), false)
+})
+
+test('your copies: the place they are kept, a place inside it, or none yet', () => {
+  const shelf = { id: 'shelf', name: 'Shelf', kind: 'SHELF' as const, createdAt: 1 }
+  const red = { id: 'red', name: 'Red box', kind: 'BOX' as const, parentId: 'shelf', createdAt: 2 }
+  const facts = copyFactsOf([
+    { id: 'unsorted', name: 'Unsorted', createdAt: 0, type: 'OWNED', storagePlaces: [shelf, red], entries: [entry('bolt', 2, 0, { places: [{ placeId: 'red', qty: 2 }] }), entry('ring', 1)] },
+  ], [])
+  assert.deepEqual(facts.get('bolt')?.places, ['shelf', 'red'])
+  assert.equal(advancedMatches(adv({ place: 'shelf' }), bolt, facts.get('bolt')), true)
+  assert.equal(advancedMatches(adv({ place: 'red' }), solRing, facts.get('ring')), false)
+  assert.equal(advancedMatches(adv({ place: 'none' }), solRing, facts.get('ring')), true)
+  assert.equal(advancedMatches(adv({ place: 'none' }), bolt, facts.get('bolt')), false)
+  assert.deepEqual(filterChips(NO_COLLECTION_FILTER, adv({ place: 'red' }), { ...ctx, placeName: (id) => (id === 'red' ? 'Red box' : undefined) }).map(chipText), ['Red box'])
+  assert.deepEqual(filterChips(NO_COLLECTION_FILTER, adv({ place: 'none' }), ctx).map(chipText), ['No place yet'])
+  assert.equal(removeChip(NO_COLLECTION_FILTER, adv({ place: 'red' }), 'place').advanced.place, '')
+  assert.equal(advancedCount(adv({ place: 'red' })), 1)
 })
 
 test('count: one per chip', () => {
@@ -345,7 +362,7 @@ const SAVED_JSON = '[{"id":"s1","name":"Cheap blue","basic":{"type":"creature","
   + '"advanced":{"colorTarget":"identity","colorMode":"atMost","colors":["U","B"],"multicolor":false,"mvOp":"<=","mv":"3","manaCost":"",'
   + '"powerOp":">=","power":"","toughnessOp":">=","toughness":"","loyaltyOp":">=","loyalty":"","format":"commander","legality":"legal",'
   + '"sets":["mh3"],"cardIs":["commander","token"],"keywords":"flying","priceMin":"","priceMax":"5","artist":"Rebecca \\"Becky\\" Guay","flavor":"",'
-  + '"finishes":["nonfoil","foil"],"conditions":["NM","DMG"],"language":"ja","binder":"b1","inDeck":"no","copiesOp":">=","copies":"2"}}]'
+  + '"finishes":["nonfoil","foil"],"conditions":["NM","DMG"],"language":"ja","binder":"b1","place":"red","inDeck":"no","copiesOp":">=","copies":"2"}}]'
 
 test('saved filters: the same JSON text as the Android app, and back', () => {
   const saved = [{
@@ -353,7 +370,7 @@ test('saved filters: the same JSON text as the Android app, and back', () => {
     basic: basic({ type: 'creature', colors: ['B', 'U'], rarities: ['mythic', 'rare'] }),
     advanced: adv({
       colors: ['B', 'U'], mv: '3', format: 'commander', sets: ['mh3'], cardIs: ['token', 'commander'], keywords: 'flying', priceMax: '5',
-      artist: 'Rebecca "Becky" Guay', finishes: ['foil', 'nonfoil'], conditions: ['DMG', 'NM'], language: 'ja', binder: 'b1', inDeck: 'no', copies: '2',
+      artist: 'Rebecca "Becky" Guay', finishes: ['foil', 'nonfoil'], conditions: ['DMG', 'NM'], language: 'ja', binder: 'b1', place: 'red', inDeck: 'no', copies: '2',
     }),
   }]
   assert.equal(savedFiltersToJson(saved), SAVED_JSON)

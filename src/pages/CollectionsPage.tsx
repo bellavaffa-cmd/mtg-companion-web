@@ -14,13 +14,14 @@ import { ShareCollectionDialog } from '../social/ShareWithFriend'
 import { TagBindersSection } from '../collection/TagBinders'
 import { AllCardsTab } from '../collection/AllCardsTab'
 import { SetsTab } from '../collection/SetsTab'
+import { StorageTab } from '../collection/StorageTab'
 
 export function CollectionsPage() {
   const { collections, deleteCollection, accountsAvailable } = useSync()
-  // All cards (first, like the Android app), your binders, your sets — how much of each you have —
-  // or (with accounts) what friends share with you.
+  // All cards (first, like the Android app), your binders, where the cards are kept (Storage), your
+  // sets — how much of each you have — or (with accounts) what friends share with you.
   const [params, setParams] = useSearchParams()
-  const tabs = accountsAvailable ? ['all', 'binders', 'sets', 'shared'] : ['all', 'binders', 'sets']
+  const tabs = accountsAvailable ? ['all', 'binders', 'storage', 'sets', 'shared'] : ['all', 'binders', 'storage', 'sets']
   const tab = tabs.includes(params.get('tab') ?? '') ? params.get('tab')! : 'all'
   const sharedTab = tab === 'shared'
   const navigate = useNavigate()
@@ -65,14 +66,14 @@ export function CollectionsPage() {
           )}
       />
       <div className={`content-scroll${wide ? '' : ' with-nav'}`}>
-        <div className="rise" style={{ ...rise(0), marginBottom: 14, maxWidth: 480 }}>
+        <div className="rise" style={{ ...rise(0), marginBottom: 14, maxWidth: 560 }}>
           <SegmentedTabs
-            labels={accountsAvailable ? ['All cards', 'Binders', 'Sets', 'Shared'] : ['All cards', 'Binders', 'Sets']}
+            labels={accountsAvailable ? ['All cards', 'Binders', 'Storage', 'Sets', 'Shared'] : ['All cards', 'Binders', 'Storage', 'Sets']}
             selected={tabs.indexOf(tab)}
             onSelect={(i) => setParams(i === 0 ? {} : { tab: tabs[i] }, { replace: true })}
           />
         </div>
-        {sharedTab ? <SharedFriendsView /> : tab === 'sets' ? <SetsTab /> : tab === 'all' ? <AllCardsTab onImport={() => setImporting('new')} /> : binders.length === 0 && unsortedCards === 0 && !wishlist?.entries.length ? (
+        {sharedTab ? <SharedFriendsView /> : tab === 'storage' ? <StorageTab /> : tab === 'sets' ? <SetsTab /> : tab === 'all' ? <AllCardsTab onImport={() => setImporting('new')} /> : binders.length === 0 && unsortedCards === 0 && !wishlist?.entries.length ? (
           <div className="empty-state rise" style={rise(1)}>
             <Icon name="collections" />
             <div>No binders yet. Make one for the cards you own — or import your whole collection from another app and sort it later. Cards you want go in your Wishlist.</div>

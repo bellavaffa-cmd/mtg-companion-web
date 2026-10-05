@@ -13,10 +13,15 @@
 //  - A field both sides changed differently (a deck's name, say) goes to the more recent edit.
 //    Clearing a field is a change too. A binder card's own fields — its price alerts, its copies'
 //    condition and language — merge this way, each on its own.
+//  - Where a binder card's copies are kept (its "places") merges line by line like the cards do, and
+//    the storage places themselves (on the Unsorted pile) place by place — see
+//    collection/storagePlaces.ts. A binder saved by an app that doesn't know about places leaves them
+//    as they were.
 // The Android app merges the same way — see data/supabase/ItemMerge.kt.
 
 import type { Collection, CollectionEntry, Deck, DeckCardEntry, GameResult } from '../types/models'
 import { canonicalJson } from './canonicalJson'
+import { keepPlacesFromOlderApp, mergeCopyPlaces, mergePlaceLists, tidied } from '../collection/storagePlaces'
 // The phone keeps this many saved versions of a deck (DeckRepository.MAX_VERSIONS).
 import { MAX_VERSIONS } from '../decks/versions'
 
@@ -178,13 +183,34 @@ export function mergeDeck(base: Deck, mine: Deck, theirs: Deck, minePreferred: b
   }
 }
 
-export function mergeCollection(base: Collection, mine: Collection, theirs: Collection, minePreferred: boolean): Collection {
+export function mergeCollection(base: Collection, mineIn: Collection, theirsIn: Collection, minePreferred: boolean): Collection {
+  // A side saved by an app that doesn't know about places left them as they were.
+  const mine = keepPlacesFromOlderApp(base, mineIn)
+  const theirs = keepPlacesFromOlderApp(base, theirsIn)
+  const placesIn = (list: CollectionEntry[]) => new Map(list.map((e) => [e.scryfallId, e]))
+  const [b, m, t] = [placesIn(base.entries), placesIn(mine.entries), placesIn(theirs.entries)]
+  // Each card's places line by line (one added on both sides keeps the other device's), then no more
+  // than its merged copies.
+  const entries = mergeEntries(base.entries, mine.entries, theirs.entries, COLLECTION_COUNTS, minePreferred).map((e) => {
+    const id = e.scryfallId
+    if (!b.has(id) || !m.has(id) || !t.has(id)) return tidied(e)
+    const places = mergeCopyPlaces(b.get(id)!.places, m.get(id)!.places, t.get(id)!.places)
+    if (places === undefined) {
+      if (e.places === undefined) return e
+      const { places: _gone, ...rest } = e
+      return rest
+    }
+    return tidied({ ...e, places })
+  })
+  const storagePlaces = mergePlaceLists(base.storagePlaces, mine.storagePlaces, theirs.storagePlaces, minePreferred)
+  const { storagePlaces: _theirs, ...rest } = theirs
   return {
-    ...theirs,
+    ...rest,
+    ...(storagePlaces !== undefined ? { storagePlaces } : {}),
     name: pick(base.name, mine.name, theirs.name, minePreferred),
     type: pick(base.type, mine.type, theirs.type, minePreferred),
     createdAt: Math.min(mine.createdAt, theirs.createdAt),
     notWanted: mergeStringSet(base.notWanted ?? [], mine.notWanted ?? [], theirs.notWanted ?? []),
-    entries: mergeEntries(base.entries, mine.entries, theirs.entries, COLLECTION_COUNTS, minePreferred),
+    entries,
   }
 }

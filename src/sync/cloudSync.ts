@@ -11,6 +11,7 @@ import { normalizeDeck } from '../types/models'
 import { apiHeaders, OfflineError, restUrl } from './supabaseAuth'
 import { canonicalJson } from './canonicalJson'
 import { saveToStorage } from './storage'
+import { keepPlacesFromOlderApp } from '../collection/storagePlaces'
 
 const STATE_KEY = 'mtgweb_cloud_state'
 
@@ -394,7 +395,8 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
         ? JSON.parse(baseJson)
         : row.kind === 'deck'
           ? { ...mine, cards: [], considering: [], sideboard: [], tags: [], gameResults: [], versions: [] }
-          : { ...mine, entries: [] }
+          // The places too: each device's own, kept as additions rather than the cloud's replacing them.
+          : { ...mine, entries: [], storagePlaces: undefined }
       const merged = row.kind === 'deck'
         ? mergeDeck(base as Deck, mine as Deck, JSON.parse(theirJson) as Deck, (localEdit ?? 0) > row.edited_ms)
         : mergeCollection(base as Collection, mine as Collection, JSON.parse(theirJson) as Collection, (localEdit ?? 0) > row.edited_ms)
@@ -410,6 +412,19 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
 
     if (localEdit !== undefined && localEdit > row.edited_ms) {
       continue // ours is newer; pushed below
+    }
+    // A binder saved by an app that doesn't know about storage places comes without them: this
+    // device's are kept and pushed back, rather than the older app's save clearing them everywhere.
+    const healed = row.kind === 'collection' && mineJson !== undefined
+      ? keepPlacesFromOlderApp(JSON.parse(mineJson) as Collection, theirs as Collection)
+      : theirs
+    if (healed !== theirs) {
+      const healedJson = canonicalJson(healed)
+      if (healedJson !== mineJson) remoteChanges.set(key, healed)
+      local.set(key, healedJson)
+      pending[key] = Math.max(now, row.edited_ms + 1)
+      items[key] = { hash: hash(theirJson), editedMs: row.edited_ms, base: theirJson, baseMs: row.edited_ms }
+      continue
     }
     if (mineJson !== theirJson) remoteChanges.set(key, theirs)
     items[key] = { hash: hash(theirJson), editedMs: row.edited_ms, base: theirJson, baseMs: row.edited_ms }
@@ -618,7 +633,7 @@ export function applyRescue(library: Library, rescue: Rescue): Library {
           ? JSON.parse(kept.base)
           : isDeck
             ? { ...mine, cards: [], considering: [], sideboard: [], tags: [], gameResults: [], versions: [] }
-            : { ...mine, entries: [] }
+            : { ...mine, entries: [], storagePlaces: undefined }
         next = isDeck
           ? mergeDeck(base as Deck, mine as Deck, current as Deck, true)
           : mergeCollection(base as Collection, mine as Collection, current as Collection, true)

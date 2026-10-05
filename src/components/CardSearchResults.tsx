@@ -17,6 +17,7 @@ import { canBeFoil, onlyFoil } from '../collection/addTo'
 import { appendPage } from '../search/pages'
 import { useSync } from '../sync/SyncContext'
 import { cardSources, sourcesLabel, type HeldIn } from '../collection/cardSources'
+import { keptInLabel } from '../collection/storagePlaces'
 
 interface Props {
   /** Inside a deck or binder: adding goes straight there (the page shows the Undo bar). Omitted on
@@ -225,6 +226,9 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
 
 function ResultRow({ card, held, onZoom, onMore, onAdd }: { card: ScryfallCard; held?: HeldIn[]; onZoom: () => void; onMore: () => void; onAdd?: () => void }) {
   const money = useMoney()
+  // Where its copies are kept, beside where they're held: "In 1 binder · Red box ×2".
+  const { collections } = useSync()
+  const kept = held && held.length > 0 ? keptInLabel(collections, card.id) : ''
   const longPress = useLongPress({ onLongPress: onMore, onClick: onZoom })
   return (
     <div className="crow no-qty" style={{ gridTemplateColumns: '56px minmax(0, 1fr) auto auto' }}>
@@ -237,7 +241,7 @@ function ResultRow({ card, held, onZoom, onMore, onAdd }: { card: ScryfallCard; 
         <div className="cmeta"><span>{card.type_line ?? ''}</span></div>
         {held && held.length > 0 && (
           <div className="cmeta held-in" title={held.map((h) => `${h.name} ×${h.quantity}`).join(', ')}>
-            <span><Icon name="inventory_2" aria-hidden />{sourcesLabel(held)}</span>
+            <span><Icon name="inventory_2" aria-hidden />{sourcesLabel(held)}{kept ? ` · ${kept}` : ''}</span>
           </div>
         )}
       </div>

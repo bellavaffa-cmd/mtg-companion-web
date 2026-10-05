@@ -10,6 +10,7 @@ import { canBeCommander, hasFlipSides, type ScryfallCard } from '../types/scryfa
 import { GAME_MODE_LABELS, GAME_MODES, type Collection, type Deck } from '../types/models'
 import { CARD_CONDITIONS, languageName } from './copyDetails'
 import { COLLECTION_FILTER_RARITIES, NO_COLLECTION_FILTER, type CollectionFilter, type FilterColor } from './cardFilter'
+import { NO_PLACE, placeFactsOf, placesOf } from './storagePlaces'
 
 /** How a number is compared: stored as these, shown as ≤ ≥ ≠. */
 export type CompareOp = '=' | '<' | '<=' | '>' | '>=' | '!='
@@ -90,6 +91,8 @@ export interface AdvancedFilter {
   language: string
   /** A binder's id, or '' for any. */
   binder: string
+  /** A storage place's id (copies in it or in a place inside it), NO_PLACE for copies with no place yet, or '' for any. */
+  place: string
   inDeck: InDeck
   copiesOp: CompareOp
   copies: string
@@ -101,7 +104,7 @@ export const NO_ADVANCED_FILTER: AdvancedFilter = {
   powerOp: '>=', power: '', toughnessOp: '>=', toughness: '', loyaltyOp: '>=', loyalty: '',
   format: '', legality: 'legal', sets: [], cardIs: [], keywords: '',
   priceMin: '', priceMax: '', artist: '', flavor: '',
-  finishes: [], conditions: [], language: '', binder: '', inDeck: 'any', copiesOp: '>=', copies: '',
+  finishes: [], conditions: [], language: '', binder: '', place: '', inDeck: 'any', copiesOp: '>=', copies: '',
 }
 
 /** A typed number, or null for anything else (blank, "*", "abc"). */
@@ -165,7 +168,7 @@ export function advancedCount(a: AdvancedFilter): number {
     numberOf(a.power) !== null, numberOf(a.toughness) !== null, numberOf(a.loyalty) !== null,
     a.format !== '', keywordList(a.keywords).length > 0,
     numberOf(a.priceMin) !== null || numberOf(a.priceMax) !== null, a.artist.trim() !== '', a.flavor.trim() !== '',
-    a.language !== '', a.binder !== '', a.inDeck !== 'any', numberOf(a.copies) !== null,
+    a.language !== '', a.binder !== '', a.place !== '', a.inDeck !== 'any', numberOf(a.copies) !== null,
   ].filter(Boolean).length + a.sets.length + a.cardIs.length + a.finishes.length + a.conditions.length
 }
 
@@ -242,6 +245,10 @@ export interface CopyFacts {
   languages: string[]
   /** The owned binders holding it. */
   binders: string[]
+  /** The storage places holding binder copies, each with the places it sits in. */
+  places: string[]
+  /** Binder copies with no place yet (not counting ones lent out). */
+  unplaced: number
   inDeck: boolean
   /** All copies, in binders and decks — as All cards counts them. */
   copies: number
@@ -256,12 +263,13 @@ export function copyFactsOf(collections: Collection[], decks: Deck[]): Map<strin
   const of = (id: string) => {
     let f = out.get(id)
     if (!f) {
-      f = { nonfoil: 0, foil: 0, conditions: [], languages: [], binders: [], inDeck: false, copies: 0 }
+      f = { nonfoil: 0, foil: 0, conditions: [], languages: [], binders: [], places: [], unplaced: 0, inDeck: false, copies: 0 }
       out.set(id, f)
     }
     return f
   }
   const addOnce = (list: string[], v: string) => { if (!list.includes(v)) list.push(v) }
+  const places = placesOf(collections)
   for (const c of collections) {
     if (c.type === 'WISHLIST') continue
     for (const e of c.entries) {
@@ -274,6 +282,9 @@ export function copyFactsOf(collections: Collection[], decks: Deck[]): Map<strin
       if (e.condition) addOnce(f.conditions, e.condition)
       addOnce(f.languages, e.language || 'en')
       addOnce(f.binders, c.id)
+      const where = placeFactsOf(e, places)
+      where.places.forEach((p) => addOnce(f.places, p))
+      f.unplaced += where.unplaced
     }
   }
   for (const d of decks) {
@@ -360,7 +371,7 @@ export function advancedMatches(
   if (a.artist.trim() && !facts.artist.toLowerCase().includes(a.artist.trim().toLowerCase())) return false
   if (a.flavor.trim() && !facts.flavor.toLowerCase().includes(a.flavor.trim().toLowerCase())) return false
 
-  const copiesOn = a.finishes.length > 0 || a.conditions.length > 0 || a.language !== '' || a.binder !== '' || a.inDeck !== 'any' || numberOf(a.copies) !== null
+  const copiesOn = a.finishes.length > 0 || a.conditions.length > 0 || a.language !== '' || a.binder !== '' || a.place !== '' || a.inDeck !== 'any' || numberOf(a.copies) !== null
   if (!copiesOn) return true
   if (!copies) return false
   if (a.finishes.length > 0) {
@@ -371,6 +382,7 @@ export function advancedMatches(
   if (a.conditions.length > 0 && !a.conditions.some((c) => copies.conditions.includes(c))) return false
   if (a.language && !copies.languages.includes(a.language)) return false
   if (a.binder && !copies.binders.includes(a.binder)) return false
+  if (a.place === NO_PLACE ? copies.unplaced <= 0 : a.place && !copies.places.includes(a.place)) return false
   if (a.inDeck === 'yes' && !copies.inDeck) return false
   if (a.inDeck === 'no' && copies.inDeck) return false
   const n = numberOf(a.copies)
@@ -455,6 +467,8 @@ export const chipText = (c: FilterChip) => [c.label, c.symbols.join('')].filter(
 export interface ChipContext {
   /** A binder's name by id. */
   binderName: (id: string) => string | undefined
+  /** A storage place's name by id. */
+  placeName?: (id: string) => string | undefined
   /** An amount typed in the chosen currency, as shown: "$1.50". */
   formatLocal: (amount: number) => string
 }
@@ -505,6 +519,7 @@ export function filterChips(basic: CollectionFilter, a: AdvancedFilter, ctx: Chi
   CARD_CONDITIONS.filter((c) => a.conditions.includes(c)).forEach((c) => add(`condition:${c}`, CONDITION_LABELS[c] ?? c))
   if (a.language) add('language', languageName(a.language))
   if (a.binder) add('binder', ctx.binderName(a.binder) ?? 'Binder')
+  if (a.place) add('place', a.place === NO_PLACE ? 'No place yet' : ctx.placeName?.(a.place) ?? 'Place')
   if (a.inDeck === 'yes') add('inDeck', 'In a deck')
   if (a.inDeck === 'no') add('inDeck', 'Not in a deck')
   num('copies', 'Copies', a.copiesOp, a.copies)
@@ -539,6 +554,7 @@ export function removeChip(basic: CollectionFilter, a: AdvancedFilter, key: stri
     case 'condition': adv = { ...adv, conditions: adv.conditions.filter((s) => s !== value) }; break
     case 'language': adv = { ...adv, language: '' }; break
     case 'binder': adv = { ...adv, binder: '' }; break
+    case 'place': adv = { ...adv, place: '' }; break
     case 'inDeck': adv = { ...adv, inDeck: 'any' }; break
     case 'copies': adv = { ...adv, copies: '' }; break
   }
@@ -577,7 +593,7 @@ function advancedJson(a: AdvancedFilter) {
     cardIs: CARD_IS.filter((is) => a.cardIs.includes(is)), keywords: a.keywords,
     priceMin: a.priceMin, priceMax: a.priceMax, artist: a.artist, flavor: a.flavor,
     finishes: FINISHES.filter((f) => a.finishes.includes(f)), conditions: CARD_CONDITIONS.filter((c) => a.conditions.includes(c)),
-    language: a.language, binder: a.binder, inDeck: a.inDeck, copiesOp: a.copiesOp, copies: a.copies,
+    language: a.language, binder: a.binder, place: a.place, inDeck: a.inDeck, copiesOp: a.copiesOp, copies: a.copies,
   }
 }
 
@@ -624,6 +640,7 @@ function advancedFrom(raw: Record<string, unknown>): AdvancedFilter {
     conditions: strList(raw.conditions).filter((s) => (CARD_CONDITIONS as readonly string[]).includes(s)),
     language: str(raw.language, ''),
     binder: str(raw.binder, ''),
+    place: str(raw.place, ''),
     inDeck: oneOf(raw.inDeck, ['any', 'yes', 'no'] as const, d.inDeck),
     copiesOp: oneOf(raw.copiesOp, COMPARE_OPS, d.copiesOp),
     copies: str(raw.copies, ''),

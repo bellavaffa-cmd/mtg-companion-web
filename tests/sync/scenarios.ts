@@ -304,6 +304,45 @@ export function syncScenarios(cas: boolean) {
     assert.equal(sim.show('A', 'd1'), 'x1')
   })
 
+  // Storage places ride in the binders' JSON (collection/storagePlaces.ts). An app from before them
+  // drops the keys whenever it saves a binder; this app keeps its own and puts them back.
+  const unsorted = (entries: object[], places?: object[]) =>
+    ({ id: 'unsorted', name: 'Unsorted', createdAt: 0, type: 'OWNED', entries, ...(places ? { storagePlaces: places } : {}) }) as unknown as cs.Library['collections'][number]
+  const card = (id: string, quantity: number, places?: object[]) => ({ scryfallId: id, name: id, imageUrl: null, quantity, foilQuantity: 0, ...(places ? { places } : {}) })
+  const redBox = { id: 'red', name: 'Red box', kind: 'BOX', createdAt: 1 }
+
+  test("an older app's save of a binder doesn't lose where its cards are kept", async () => {
+    sim.reset('A', 'B')
+    sim.setLibrary('A', { decks: [], collections: [unsorted([card('x', 2, [{ placeId: 'red', qty: 2 }])], [redBox])] })
+    await sim.settle('A', 'B')
+    // B is an older app: it reads the binder without the keys it doesn't know, and saves it so.
+    sim.setLibrary('B', { decks: [], collections: [unsorted([card('x', 2), card('y', 1)])] })
+    await sim.pass('B')
+    assert.equal((sim.collectionRow('unsorted')!.data as { storagePlaces?: unknown }).storagePlaces, undefined)
+    await sim.settle('A')
+    const a = sim.library('A').collections[0]
+    assert.deepEqual(a.storagePlaces, [redBox])
+    assert.deepEqual(a.entries.map((e) => [e.scryfallId, e.places]), [['x', [{ placeId: 'red', qty: 2 }]], ['y', undefined]])
+    // ...and they're back on the server for every other device.
+    const row = sim.collectionRow('unsorted')!.data as { storagePlaces?: unknown; entries: { places?: unknown }[] }
+    assert.deepEqual(row.storagePlaces, [redBox])
+    assert.deepEqual(row.entries[0].places, [{ placeId: 'red', qty: 2 }])
+  })
+
+  test('copies given places on two devices at once keep both', async () => {
+    sim.reset('A', 'B')
+    sim.setLibrary('A', { decks: [], collections: [unsorted([card('x', 3)], [redBox])] })
+    await sim.settle('A', 'B')
+    sim.setLibrary('A', { decks: [], collections: [unsorted([card('x', 3, [{ placeId: 'red', qty: 1 }])], [redBox])] })
+    await sim.pass('A')
+    sim.setLibrary('B', { decks: [], collections: [unsorted([card('x', 3, [{ placeId: 'red', qty: 1, section: 'Red' }])], [redBox])] })
+    await sim.settle('B', 'A')
+    for (const dev of ['A', 'B']) {
+      // Lines added on both sides come in key order, the same on every device.
+      assert.deepEqual(sim.library(dev).collections[0].entries[0].places, [{ placeId: 'red', qty: 1, section: 'Red' }, { placeId: 'red', qty: 1 }])
+    }
+  })
+
   test('whose library is it', () => {
     assert.equal(sim.cs.libraryIsAnotherAccounts(null, 'u'), false) // never synced: the browser's own
     assert.equal(sim.cs.libraryIsAnotherAccounts('u', 'u'), false)

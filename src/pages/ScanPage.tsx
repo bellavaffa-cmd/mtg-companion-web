@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getByExactName, getByFuzzyName, getBySetAndNumber, getCardsByIds, getPrintings, OfflineError } from '../api/scryfall'
 import { canBeFoil, deckPlace, doneMessage } from '../collection/addTo'
 import { AddToSheet, type AddTarget } from '../components/AddToSheet'
@@ -27,7 +27,10 @@ import { copyNumber, grouped, onlyRepeats, repeatedCards, saveNewest, scannedTwi
 import { useSync } from '../sync/SyncContext'
 import { UNSORTED_COLLECTION_ID } from '../types/models'
 import { isLimited } from '../decks/limited'
-import { displayImageUrl, type ScryfallCard } from '../types/scryfall'
+import { backImageUrl, cardTags, displayImageUrl, type ScryfallCard } from '../types/scryfall'
+import { addedHere, cardFactsOf, placesOf, pocketLabel, putAway, suggestSpot, undoPutAway, type PutAwayResult, type PutAwayStep, type Spot } from '../collection/storagePlaces'
+import { PlacePicker } from '../collection/StorageTab'
+import '../collection/storage.css'
 
 /** A card's shape: the guide box matches it. */
 const CARD_ASPECT = 63 / 88
@@ -100,6 +103,26 @@ function savePile(rows: ScanRow[]): number {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+/** One card put away this session (put-away mode): what happened to it, and how to take it back. */
+interface PutAwayRow {
+  id: number
+  card: ScryfallCard
+  /** Where it goes: "Red › around “L”", "Page 3, slot 6". */
+  hint: string | null
+  /** The section or pocket, short, for the list. */
+  where: string
+  spot: Spot
+  result: PutAwayResult
+  label: string
+  step: PutAwayStep | null
+}
+
+/** A scanned card as a new binder entry, with no copies yet — as the scanner's Add to… makes it. */
+const entryOf = (card: ScryfallCard) => ({
+  scryfallId: card.id, name: card.name, imageUrl: displayImageUrl(card), quantity: 0, foilQuantity: 0,
+  backImageUrl: backImageUrl(card), tags: cardTags(card),
+})
+
 /**
  * Scan cards with the camera, like the phone app: hold one in the frame and its name is read and
  * looked up; each card goes into a list, and the list is added to a deck or binder in one go.
@@ -108,7 +131,50 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 export function ScanPage() {
   const back = useBack('/search')
   const navigate = useNavigate()
-  const { addCardToDeck, addCardsToDeck, addCardToSideboard, addEntryToCollection, importIntoCollection, recordUndo } = useSync()
+  const { addCardToDeck, addCardsToDeck, addCardToSideboard, addEntryToCollection, importIntoCollection, recordUndo, collections, changeStorage } = useSync()
+  // Put-away mode (?putAway=<place>): each card scanned is put away into that place at once, rather
+  // than gathered into a pile (see collection/storagePlaces.ts).
+  const [params, setParams] = useSearchParams()
+  const target = placesOf(collections).find((p) => p.id === params.get('putAway')) ?? null
+  const [session, setSession] = useState<PutAwayRow[]>([])
+  const [choosingPlace, setChoosingPlace] = useState(false)
+  /** Puts [card] away into the target; read by the camera loop, so it always sees the place chosen now. */
+  const putAwayCard = useRef<((card: ScryfallCard, id: number) => void) | null>(null)
+  putAwayCard.current = target
+    ? (card, id) => {
+      const got: { row?: PutAwayRow } = {}
+      changeStorage((c) => {
+        const { spot, hint } = suggestSpot(target, cardFactsOf(card), c)
+        const o = putAway(c, card, spot, entryOf(card))
+        const where = spot.section ?? (spot.page && spot.slot ? pocketLabel(spot.page, spot.slot) : target.name)
+        got.row = { id, card, hint, where, spot, result: o.result, label: o.label, step: o.step }
+        return o.collections
+      })
+      const row = got.row
+      if (!row) return
+      setSession((list) => [row, ...list])
+      setStatus(`${card.name} — ${row.label}`)
+    }
+    : null
+  /** A card that was already here is another copy after all: it's added, here. */
+  const anotherCopy = (row: PutAwayRow) => {
+    const got: { step?: PutAwayStep } = {}
+    changeStorage((c) => {
+      const out = addedHere(c, row.card, row.spot, entryOf(row.card))
+      got.step = out.step
+      return out.collections
+    })
+    const step = got.step
+    if (step) setSession((list) => [{ ...row, id: nextScanId++, result: 'new', label: 'new to collection', step }, ...list])
+  }
+  /** Takes back the newest card of the session. */
+  const undoLast = () => {
+    const [last, ...rest] = session
+    if (!last) return
+    if (last.step) changeStorage((c) => undoPutAway(c, last.step!))
+    setSession(rest)
+    setStatus(`${last.card.name} taken back`)
+  }
   const confirmAdd = useAddCheck()
   const showUndo = useUndoBar()
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -150,6 +216,12 @@ export function ScanPage() {
   /** Every scan is its own row, newest first, so a card read twice shows twice. */
   const addScanned = (card: ScryfallCard, exact = false): number => {
     const id = nextScanId++
+    if (putAwayCard.current) {
+      putAwayCard.current(card, id)
+      setFlash((n) => n + 1)
+      navigator.vibrate?.(30)
+      return id
+    }
     setScanned((list) => {
       const row: ScanRow = { id, card, foil: false, at: Date.now(), exact }
       const next = [row, ...list]
@@ -452,7 +524,8 @@ export function ScanPage() {
             const added = bySight?.card ?? card
             devLog(`added ${added.name} ${added.set} #${added.collector_number} (${printing ? 'small print' : bySight ? (bySight.certain ? 'by sight, certain' : 'by sight, best guess') : 'usual printing'})`)
             const id = addScanned(added, !!printing || bySight?.certain === true)
-            if (look) void matchArt(id, card, look, setCode)
+            // Put away already: the printing is matched on the card's name, so it's left as it is.
+            if (look && !putAwayCard.current) void matchArt(id, card, look, setCode)
           } catch (e) {
             if (stopped) break
             tracker.failed()
@@ -597,8 +670,8 @@ export function ScanPage() {
   return (
     <>
       <TopBar
-        title="Scan"
-        onBack={() => (scanned.length > 0 ? setLeaving(() => back) : back())}
+        title={target ? 'Put away' : 'Scan'}
+        onBack={() => (scanned.length > 0 && !target ? setLeaving(() => back) : back())}
         actions={
           <>
           {torch && (
@@ -624,6 +697,12 @@ export function ScanPage() {
         }
       />
       <div className="content-scroll scan-page">
+        {target && (
+          <button type="button" className="putaway-target" onClick={() => setChoosingPlace(true)} aria-label={`Putting away into ${target.name} — change`}>
+            <span>Putting away into: {target.name}</span>
+            <Icon name="expand_more" aria-hidden />
+          </button>
+        )}
         <div className="scan-view" data-no-pull>
           <video ref={videoRef} className="scan-video" playsInline muted autoPlay />
           <div className="scan-guide-wrap">
@@ -663,14 +742,47 @@ export function ScanPage() {
           <button type="submit" className="btn gold" disabled={!typed.trim() || lookingUp}>Add</button>
         </form>
 
-        {pileKept < scanned.length && (
+        {target && session[0] && (() => {
+          const last = session[0]
+          return (
+            <div className="putaway-last">
+              <ArtImage className="thumb" src={toArtCrop(displayImageUrl(last.card))} seed={last.card.name} colors={last.card.color_identity} />
+              <div className="storage-text">
+                <b>{last.card.name}</b>
+                {last.result !== 'here' && last.hint && <span className="file-in">File in: {last.hint}</span>}
+                {last.result === 'here' && (
+                  <button type="button" className="link" style={{ padding: 0, alignSelf: 'flex-start' }} onClick={() => anotherCopy(last)}>It's another copy — add it</button>
+                )}
+              </div>
+              <span className={`putaway-badge ${last.result}`}>{last.label.charAt(0).toUpperCase() + last.label.slice(1)}</span>
+            </div>
+          )
+        })()}
+        {target && session.length > 0 && (
+          <>
+            <div className="putaway-head">
+              <span>This session: {session.length} {session.length === 1 ? 'card' : 'cards'}</span>
+              <button type="button" className="link" onClick={undoLast}>Undo last</button>
+            </div>
+            <div className="putaway-rows">
+              {session.map((r) => (
+                <div key={r.id} className="putaway-row">
+                  <span>{r.card.name}</span>
+                  <span className={r.result}>{r.where} · {r.label}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {!target && pileKept < scanned.length && (
           <div className="notice warn" style={{ marginTop: 12 }}>
             This browser is out of room to keep the whole pile. If the page reloads, only the newest {pileKept} of
             your {scanned.length} scans come back — add them to a deck or binder soon.
           </div>
         )}
 
-        {scanned.length > 0 && (
+        {!target && scanned.length > 0 && (
           <>
             <div className="scan-list-head">
               <span>
@@ -746,6 +858,14 @@ export function ScanPage() {
         >
           <p className="muted" style={{ margin: 0 }}>They haven't been put into a deck or binder yet, and leaving throws them away.</p>
         </Dialog>
+      )}
+
+      {choosingPlace && (
+        <PlacePicker
+          title="Put cards away into…"
+          onPick={(id) => setParams({ putAway: id }, { replace: true })}
+          onClose={() => setChoosingPlace(false)}
+        />
       )}
 
       {pickingArt && (

@@ -11,6 +11,7 @@
 import type { CollectionEntry, Deck, DeckCardEntry } from '../types/models'
 import { proxyCopies } from '../decks/proxies'
 import { backImageUrl, cardTags, displayImageUrl, partnerAbility, type ScryfallCard } from '../types/scryfall'
+import { withPlaces } from './storagePlaces'
 
 /**
  * The regular version among one set's printings of a card: the lowest collector number, since the
@@ -37,11 +38,12 @@ export function withEntryPrinting(entries: CollectionEntry[], oldId: string, car
   if (entries.some((e) => e.scryfallId === card.id)) {
     return entries
       .filter((e) => e.scryfallId !== oldId)
-      .map((e) => (e.scryfallId !== card.id ? e : {
-        ...e,
-        quantity: e.quantity + old.quantity,
-        foilQuantity: e.foilQuantity + old.foilQuantity,
-      }))
+      .map((e) => {
+        if (e.scryfallId !== card.id) return e
+        const joined = { ...e, quantity: e.quantity + old.quantity, foilQuantity: e.foilQuantity + old.foilQuantity }
+        // Where the copies are kept comes along too (storagePlaces.ts).
+        return e.places !== undefined || old.places !== undefined ? withPlaces(joined, [...(e.places ?? []), ...(old.places ?? [])]) : joined
+      })
   }
   return entries.map((e) => (e.scryfallId !== oldId ? e : {
     ...e,

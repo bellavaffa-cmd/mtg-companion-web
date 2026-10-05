@@ -31,6 +31,7 @@ import { moveToConsidering as movedToConsidering, swapConsidered as swappedConsi
 import { entryFromCard } from '../decks/newDeck'
 import { movedToMain, movedToSideboard, withSideboardCopies, withSideboardQuantity } from '../decks/sideboard'
 import { takeCopies } from '../collection/addTo'
+import { splitPlaces } from '../collection/storagePlaces'
 import { changeBetween, isNoChange, undoChange } from './undo'
 import { withCopiesOf, withCopyDetails, withOptional } from '../collection/copyDetails'
 
@@ -255,6 +256,11 @@ interface SyncContextValue {
   wantAgain: (cardName: string) => void
   /** Moves cards in and out of binders in one change (a trade); answers the ones there weren't enough copies of. */
   changeCollections: (changes: CollectionChange[]) => CollectionChange[]
+  /**
+   * Changes the storage places or where copies are kept (collection/storagePlaces.ts): [change] gets
+   * the binders as they are now and answers them changed. Runs at once, so a caller can note what it did.
+   */
+  changeStorage: (change: (collections: Collection[]) => Collection[]) => void
 }
 
 const SyncContext = createContext<SyncContextValue | null>(null)
@@ -1262,7 +1268,13 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       updateLibrary((lib) => {
         const ids = new Set(scryfallIds)
         const moving = (lib.collections.find((c) => c.id === fromId)?.entries.filter((e) => ids.has(e.scryfallId)) ?? [])
-          .map((e) => (count === undefined ? e : { ...e, ...takeCopies(e, count) }))
+          .map((e) => {
+            const moved = count === undefined ? e : { ...e, ...takeCopies(e, count) }
+            if (e.places === undefined) return moved
+            // Where the copies are kept goes with them; a copy made in the app has no place of its own.
+            if (copy) { const { places: _none, ...rest } = moved; return rest }
+            return { ...moved, places: splitPlaces(e, moved.quantity, moved.foilQuantity).going }
+          })
           .filter((e) => e.quantity + e.foilQuantity > 0)
         if (moving.length === 0 || fromId === toId) return lib
         const taken = new Map(moving.map((e) => [e.scryfallId, e]))
@@ -1275,7 +1287,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
               const entries = c.entries.flatMap((e) => {
                 const t = taken.get(e.scryfallId)
                 if (!t) return [e]
-                const left = { ...e, quantity: e.quantity - t.quantity, foilQuantity: e.foilQuantity - t.foilQuantity }
+                const left = { ...e, quantity: e.quantity - t.quantity, foilQuantity: e.foilQuantity - t.foilQuantity,
+                  ...(e.places !== undefined ? { places: splitPlaces(e, t.quantity, t.foilQuantity).staying } : {}) }
                 return left.quantity + left.foilQuantity > 0 ? [left] : []
               })
               return { ...c, entries }
@@ -1326,6 +1339,16 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         return { ...lib, collections: result.collections }
       })
       return short
+    },
+    [updateLibrary],
+  )
+
+  const changeStorage = useCallback(
+    (change: (collections: Collection[]) => Collection[]) => {
+      updateLibrary((lib) => {
+        const collections = change(lib.collections)
+        return collections === lib.collections ? lib : { ...lib, collections }
+      })
     },
     [updateLibrary],
   )
@@ -1447,6 +1470,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setEntryPriceAlertAbove,
       setEntryCopyDetails,
       changeCollections,
+      changeStorage,
       importIntoCollection,
       moveEntries,
       recordUndo,
@@ -1463,7 +1487,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       signInWithToken, syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setReplaceable, setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, setCardTags, addGameResult,
       addCardsToDeck, stopConsidering, considerIntoDeck, moveToConsidering, swapConsidered, importIntoDeck, addCardToSideboard, setSideboardQuantity, moveToSideboard, moveToMain, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
-      setEntryQuantities, setEntryPriceAlert, setEntryPriceAlertAbove, setEntryCopyDetails, changeCollections, importIntoCollection, moveEntries, recordUndo, removeEntriesFromCollection,
+      setEntryQuantities, setEntryPriceAlert, setEntryPriceAlertAbove, setEntryCopyDetails, changeCollections, changeStorage, importIntoCollection, moveEntries, recordUndo, removeEntriesFromCollection,
     ],
   )
 

@@ -139,6 +139,8 @@ export function createSim(cas: boolean) {
       return row?.deleted ? '(deleted)' : row?.data ? cardsText(row.data.cards as { scryfallId: string; quantity: number }[]) : '(none)'
     },
     row: (id = 'd1') => rows.get(`deck:${id}`),
+    /** A binder's row on the server. */
+    collectionRow: (id: string) => rows.get(`collection:${id}`),
     /** Moves a row as if its push had committed late, stamped [secondsEarlier] before the newest row. */
     backdate(id: string, secondsEarlier: number, change: (row: Row) => void) {
       const row = { ...rows.get(`deck:${id}`)! }
