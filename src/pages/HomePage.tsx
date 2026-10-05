@@ -27,6 +27,7 @@ import { GetStartedCard, SamplesBar } from '../onboarding/GetStarted'
 import { EmptyState } from '../components/EmptyState'
 import { shouldOpenWelcome, showGetStarted } from '../onboarding/onboarding'
 import { useWelcomeFacts, useWelcomeState } from '../onboarding/useWelcome'
+import { recordWords } from '../a11y/descriptions'
 
 const CARD_OF_DAY_KEY = 'mtgweb_card_of_day'
 /** Set once the "Get the Android app" banner has been dismissed. */
@@ -239,10 +240,11 @@ export function HomePage() {
                 <StatFigure value={decks.length} label="Decks" onClick={() => navigate('/decks')} />
                 <StatFigure value={binderCount} label="Binders" onClick={() => navigate('/collections?tab=binders')} />
                 <StatFigure value={value?.usd ?? null} format={(v) => money.format(v, true)} label="Collection value" onClick={() => navigate('/value')} />
-                <button type="button" className="stat press" style={{ cursor: 'default' }}>
-                  <span className="num">{record ?? <span style={{ color: 'var(--t2)' }}>—</span>}</span>
+                <div className="stat">
+                  <span className="num" aria-hidden={record ? true : undefined}>{record ?? <span style={{ color: 'var(--t2)' }}>—</span>}</span>
+                  {record && <span className="sr-only">{recordWords(wins, losses, draws)}</span>}
                   <span className="lbl">{record ? `Match record · ${Math.round((wins * 100) / results.length)}% wins` : 'No games logged yet'}</span>
-                </button>
+                </div>
               </div>
             </section>
           ) : (
@@ -252,10 +254,11 @@ export function HomePage() {
                 <StatFigure value={decks.length} label="Decks" onClick={() => navigate('/decks')} />
                 <StatFigure value={binderCount} label="Binders" onClick={() => navigate('/collections?tab=binders')} />
                 <StatFigure value={value?.usd ?? null} format={(v) => money.format(v, true)} label="Collection value" onClick={() => navigate('/value')} />
-                <button type="button" className="stat press" style={{ cursor: 'default' }}>
-                  <span className="num">{record ?? <span style={{ color: 'var(--t2)' }}>—</span>}</span>
+                <div className="stat">
+                  <span className="num" aria-hidden={record ? true : undefined}>{record ?? <span style={{ color: 'var(--t2)' }}>—</span>}</span>
+                  {record && <span className="sr-only">{recordWords(wins, losses, draws)}</span>}
                   <span className="lbl">Match record</span>
-                </button>
+                </div>
               </div>
             </>
           )}
@@ -357,7 +360,8 @@ export function HomePage() {
 
         {record && (
           <div className="record rise" style={rise(3)}>
-            <span className="num">{record}</span>
+            <span className="num" aria-hidden="true">{record}</span>
+            <span className="sr-only">{recordWords(wins, losses, draws)}</span>
             <div>
               <div className="record-title">Match record</div>
               <div className="muted" style={{ fontSize: 12.5 }}>{Math.round((wins * 100) / results.length)}% win rate across all decks</div>

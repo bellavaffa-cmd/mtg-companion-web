@@ -76,7 +76,7 @@ export function PlaceLabelPage() {
           <span className="label-h">Size</span>
           <div className="label-sizes">
             {LABEL_SIZES.map((s) => (
-              <button key={s.size} type="button" className={`pull-chip${size === s.size ? ' on' : ''}`} onClick={() => setSize(s.size)}>{s.label}</button>
+              <button key={s.size} type="button" className={`pull-chip${size === s.size ? ' on' : ''}`} aria-pressed={size === s.size} onClick={() => setSize(s.size)}>{s.label}</button>
             ))}
           </div>
           <span className="label-h">Show on it</span>

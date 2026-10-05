@@ -10,6 +10,7 @@ import { backImageUrl as backImageOf, displayImageUrl, largeImageUrl, type Scryf
 import { Icon } from './Icon'
 import { InlineManaText } from './ManaSymbols'
 import { IconButton, PillChip, SectionHeader } from './kit'
+import { useModalFocus } from './useModalFocus'
 
 interface Props {
   imageUrl: string | null
@@ -219,9 +220,14 @@ export function CardZoomModal({
     return () => { cancelled = true }
   }, [name])
 
+  // Escape, focus kept inside, focus back afterwards. Wraps the close button too, which sits outside the overlay.
+  const layer = useRef<HTMLDivElement>(null)
+  const keepFocusIn = useModalFocus(layer, onClose)
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      // Not while typing (a price, a note).
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       if (e.key === 'ArrowLeft') onPrev?.()
       if (e.key === 'ArrowRight') onNext?.()
     }
@@ -268,7 +274,7 @@ export function CardZoomModal({
   }
 
   return (
-    <>
+    <div ref={layer} className="zoom-layer" role="dialog" aria-modal="true" aria-label={name} onKeyDown={keepFocusIn}>
     {/* Outside the overlay: its backdrop blur would pin a fixed child to the scrolling layer. */}
     <IconButton icon="close" label="Close" variant="glass" className="zoom-close" onClick={onClose} />
     <div className="zoom-overlay" onClick={onClose}>
@@ -407,6 +413,6 @@ export function CardZoomModal({
         </div>
       </div>
     </div>
-    </>
+    </div>
   )
 }

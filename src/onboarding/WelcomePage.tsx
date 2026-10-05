@@ -60,7 +60,8 @@ export function WelcomePage() {
                 key={s}
                 type="button"
                 className={`welcome-dot${i === index ? ' on' : ''}${s !== 'done' && stepDone(s, facts) ? ' done' : ''}`}
-                aria-label={TITLES[s]}
+                aria-label={`${TITLES[s]}${s !== 'done' && stepDone(s, facts) ? ', done' : ''}`}
+                aria-current={i === index ? 'step' : undefined}
                 onClick={() => go(s)}
               />
             ))}

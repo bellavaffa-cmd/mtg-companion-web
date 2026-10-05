@@ -26,6 +26,7 @@ import { useNow } from './useNow'
 import { layoutIdFor, type TableSeed } from './gameNight'
 import './lifecounter.css'
 import { activeDecks } from '../decks/deckFolders'
+import { useModalFocus } from '../components/useModalFocus'
 
 type Overlay = null | 'seating' | 'settings' | 'restart' | 'dice' | 'history' | 'table' | 'mode' | 'archenemy' | 'games' | 'chart'
 
@@ -655,20 +656,17 @@ function HistoryOverlay({ game, onClear, onClose }: { game: Game; onClear: () =>
 }
 
 function Sheet({ title, subtitle, onClose, children }: { title: string; subtitle?: string; onClose: () => void; children: ReactNode }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  const box = useRef<HTMLDivElement>(null)
+  const keepFocusIn = useModalFocus(box, onClose)
   return (
-    <div className="lc-sheet" role="dialog" aria-modal="true" aria-label={title}>
+    <div ref={box} className="lc-sheet" role="dialog" aria-modal="true" aria-label={title} onKeyDown={keepFocusIn}>
       <div className="lc-sheet-head">
         <div>
           <h2>{title}</h2>
           {subtitle && <p>{subtitle}</p>}
         </div>
         <button type="button" className="lc-close" onClick={onClose} aria-label="Close">
-          <span className="material-symbols-rounded">close</span>
+          <span className="material-symbols-rounded" aria-hidden>close</span>
         </button>
       </div>
       <div className="lc-sheet-body">{children}</div>

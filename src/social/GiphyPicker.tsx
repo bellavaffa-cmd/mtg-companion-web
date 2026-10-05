@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Icon } from '../components/Icon'
 import { accessToken, apiHeaders, restUrl } from '../sync/supabaseAuth'
 import { fetchGiphyGif, GiphyError } from './giphy'
+import { useModalFocus } from '../components/useModalFocus'
 
 interface Gif {
   id: string
@@ -47,12 +48,9 @@ export function GiphyPicker({ onPicked, onClose }: { onPicked: (file: File) => v
   const [link, setLink] = useState('')
   const search = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    search.current?.focus()
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  const box = useRef<HTMLDivElement>(null)
+  const keepFocusIn = useModalFocus(box, onClose)
+  useEffect(() => { search.current?.focus() }, [])
 
   // Typing settles for a moment before searching, and one letter isn't searched: every search
   // counts against Giphy's hourly limit.
@@ -104,7 +102,7 @@ export function GiphyPicker({ onPicked, onClose }: { onPicked: (file: File) => v
   return createPortal(
     <>
       <div className="scrim giphy-scrim" onClick={onClose} />
-      <div className="sheet picker-sheet giphy-sheet" role="dialog" aria-modal="true" aria-label="Pick a GIF">
+      <div ref={box} className="sheet picker-sheet giphy-sheet" role="dialog" aria-modal="true" aria-label="Pick a GIF" onKeyDown={keepFocusIn}>
         <div className="grab" />
         <div className="picker-head">
           <div className="giphy-search">

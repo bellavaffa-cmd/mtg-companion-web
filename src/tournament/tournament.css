@@ -9,7 +9,7 @@
 .events > p,
 .event-note {
   margin: 0;
-  font-size: 12.5px;
+  font-size: 0.7812rem;
 }
 .event-gap {
   margin-top: 10px;
@@ -54,20 +54,20 @@
 .event-standing-text b,
 .event-stepper-text b,
 .event-table-head b {
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .event-row-text span,
 .event-standing-text span,
 .event-stepper-text span,
 .event-table-head span {
-  font-size: 12.5px;
+  font-size: 0.7812rem;
   color: var(--t1);
 }
 .event-row-when {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  font-size: 12.5px;
+  font-size: 0.7812rem;
   white-space: nowrap;
 }
 .event-row-when b {
@@ -100,7 +100,7 @@
   padding: 6px 6px 6px 12px;
   border-radius: 12px;
   background: var(--g2);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .event-entrant button {
   display: inline-flex;
@@ -110,7 +110,7 @@
   color: var(--t2);
 }
 .event-entrant .icon {
-  font-size: 16px;
+  font-size: 1rem;
 }
 .event-stepper {
   display: flex;
@@ -125,11 +125,11 @@
   min-width: 56px;
   text-align: center;
   font-family: var(--num);
-  font-size: 26px;
+  font-size: 1.625rem;
 }
 .event-stepper-value small {
   font-family: var(--ui);
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--t1);
 }
 .event-clock {
@@ -144,13 +144,13 @@
   text-align: center;
 }
 .event-clock > span {
-  font-size: 12.5px;
+  font-size: 0.7812rem;
   color: var(--t1);
 }
 .event-clock-time {
   font-family: var(--num);
   font-weight: 400;
-  font-size: 84px;
+  font-size: 5.25rem;
   line-height: 1;
   letter-spacing: 1px;
 }
@@ -159,7 +159,7 @@
 }
 .event-clock.over .event-clock-time {
   color: var(--gold);
-  font-size: 56px;
+  font-size: 3.5rem;
 }
 .event-clock-buttons {
   display: flex;
@@ -176,7 +176,7 @@
 }
 .event-table-hint {
   margin: -4px 0 0;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .event-actions {
   display: flex;
@@ -206,7 +206,7 @@
   min-width: 22px;
   text-align: center;
   font-family: var(--num);
-  font-size: 24px;
+  font-size: 1.5rem;
   color: var(--gold);
 }
 .event-player-icon {
@@ -214,12 +214,12 @@
 }
 .event-points {
   font-family: var(--num);
-  font-size: 28px;
+  font-size: 1.75rem;
   white-space: nowrap;
 }
 .event-points small {
   font-family: var(--ui);
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: var(--t1);
   margin-left: 3px;
 }
@@ -240,7 +240,7 @@
   color: var(--t0);
 }
 .event-champion .icon {
-  font-size: 32px;
+  font-size: 2rem;
   color: var(--gold);
 }
 .event-champion span {
@@ -248,11 +248,11 @@
   flex-direction: column;
 }
 .event-champion small {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--t1);
 }
 .event-champion b {
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 .event-bracket {
   display: grid;
@@ -295,7 +295,7 @@
 }
 .event-seed {
   min-width: 20px;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--t2);
   text-align: right;

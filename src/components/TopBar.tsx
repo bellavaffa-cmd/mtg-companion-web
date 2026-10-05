@@ -23,7 +23,8 @@ export function TopBar({ title, onBack, actions, progress }: Props) {
   return (
     <div className="top-bar" style={style}>
       {onBack && <BackButton onClick={onBack} overArt={overHero} />}
-      <div className="top-bar-title">{title}</div>
+      {/* The page's heading — except over hero art, where the hero carries the h1 and this repeats it. */}
+      {overHero ? <div className="top-bar-title" aria-hidden="true">{title}</div> : <h1 className="top-bar-title">{title}</h1>}
       {phone && <SyncButton variant={overHero && progress < 0.6 ? 'glass' : ''} />}
       {actions}
     </div>

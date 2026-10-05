@@ -1,0 +1,140 @@
+/* Accessibility: the skip link, the main landmark, finger-sized hit areas and reduced motion.
+   Loaded after the other sheets. The Android half: ui/common/A11y.kt (semantics helpers) and
+   minimumInteractiveComponentSize() on the same controls. */
+
+/* ---- Skip to content (components/Layout.tsx) ---- */
+
+.skip-link {
+  position: fixed;
+  top: calc(var(--safe-top) + 8px);
+  left: 8px;
+  z-index: 100;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-weight: 800;
+  transform: translateY(calc(-100% - 24px - var(--safe-top)));
+}
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: none;
+}
+
+/* The page itself, focused by the skip link: no ring round the whole page. */
+main[tabindex='-1']:focus {
+  outline: none;
+}
+.phone-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The card view's dialog wraps its close button and overlay without boxing them (CardZoomModal.tsx). */
+.zoom-layer {
+  display: contents;
+}
+
+/* The top bar's title is the page's h1 (TopBar.tsx); it keeps the bar's own type. */
+h1.top-bar-title,
+h2.sheet-title {
+  margin: 0;
+}
+/* Dialog and sheet titles are headings too; they keep their own size and spacing. */
+h2.dialog-title {
+  margin-top: 0;
+}
+
+/* ---- Focus ----
+   The ring is the accent, outside the control so it shows on an accent-filled button too. Fields and
+   text boxes that drop the browser's ring draw their own inset accent line on focus. */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+.lc-root :focus-visible,
+.rm-root :focus-visible {
+  outline-color: var(--gold-art);
+}
+.giphy-search:focus-within {
+  box-shadow: inset 0 0 0 1.5px var(--gold);
+}
+
+/* ---- Hit areas ----
+   Small controls keep how they look but take at least a 44px square of touch: an invisible layer,
+   centred on the control, at least 44px each way. :where() keeps position: relative from overriding
+   a control that is placed absolutely. */
+:where(
+    .chip, .seg button, .seg2 button, .seg-choice button, .adv-seg button, .link, .link-btn, .btn.sm,
+    .more, .ib, .icon-btn, .searchpill .clear, .precon-action, .cmd-chip button, .pull-chip,
+    .mini-stepper button, .stepper-big button, .rm-tax button, .rm-stepper button, .rm-chip,
+    .lc-icon-btn, .lc-swatch, .lc-clock-btn, .undo-btn, .side-sec a, .tag-chip:is(button, a)
+  ) {
+  position: relative;
+}
+:where(
+    .chip, .seg button, .seg2 button, .seg-choice button, .adv-seg button, .link, .link-btn, .btn.sm,
+    .more, .ib, .icon-btn, .searchpill .clear, .precon-action, .cmd-chip button, .pull-chip,
+    .mini-stepper button, .stepper-big button, .rm-tax button, .rm-stepper button, .rm-chip,
+    .lc-icon-btn, .lc-swatch, .lc-clock-btn, .undo-btn, .side-sec a, .tag-chip:is(button, a)
+  )::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
+}
+
+/* Inside a life-counter tile (which clips to its rounded corners) the ring sits just inside. */
+.lc-root .lc-tap:focus-visible,
+.lc-root .lc-name:focus-visible,
+.lc-root .lc-chip:focus-visible {
+  outline-offset: -4px;
+}
+
+/* ---- Colour isn't the only signal ----
+   A picked colour in the WUBRG pickers carries a tick as well as its ring and full strength; an
+   unpicked one is dimmed less, so its symbol still reads. */
+.sf-color {
+  position: relative;
+  opacity: 0.6;
+}
+.sf-color[aria-pressed='true']::before {
+  content: '✓';
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* The quantity pill's − and +: 44px tall and wide, still clear of each other across the count. */
+.qty button::after {
+  inset: -5px -7px;
+}
+
+/* ---- Reduced motion ----
+   theme.css already cuts animations and transitions short; the card view's tilt follows the pointer
+   rather than animating, so it is switched off here. */
+@media (prefers-reduced-motion: reduce) {
+  .card3d {
+    transform: none !important;
+  }
+  .seg-ind {
+    transition: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}

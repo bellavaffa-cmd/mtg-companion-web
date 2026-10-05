@@ -80,11 +80,11 @@ export function DeckCardTile({
         {entry.imageUrl
           ? <img src={entry.imageUrl} alt={entry.name} loading="lazy" data-card-preview={biggerImageUrl(entry.imageUrl) ?? undefined} />
           : <ArtImage src={null} seed={entry.name} />}
-        {entry.quantity > 1 && <span className="card-cell-count">×{entry.quantity}</span>}
-        {commander && <span className="card-cell-star" aria-label="Commander"><Icon name="star" /></span>}
+        {entry.quantity > 1 && <span className="card-cell-count"><span aria-hidden="true">×</span>{entry.quantity}<span className="sr-only"> copies</span></span>}
+        {commander && <span className="card-cell-star" role="img" aria-label="Commander"><Icon name="star" /></span>}
         {entry.backImageUrl && <span className="flip-badge"><Icon name="autorenew" /></span>}
       </div>
-      <div className="card-cell-name">{entry.name}</div>
+      <div className="card-cell-name" aria-hidden={entry.imageUrl ? true : undefined}>{entry.name}</div>
       <div className="card-cell-badges"><DeckCardBadges entry={entry} combo={combo} lent={lent} /></div>
     </div>
   )

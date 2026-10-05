@@ -28,10 +28,11 @@ test('the five accents, in the app\'s order', () => {
   assert.deepEqual(ACCENT_THEMES.map((a) => a.label), ['Gold', 'Sapphire', 'Amethyst', 'Ruby', 'Emerald'])
 })
 
-test('gold carries dark ink in the dark; the cooler accents white', () => {
+test('every accent carries dark ink in the dark, white in the light', () => {
   assert.equal(accentVars('GOLD', true)['--gold-ink'], '#1c1405')
-  assert.equal(accentVars('SAPPHIRE', true)['--gold-ink'], '#ffffff')
+  assert.equal(accentVars('SAPPHIRE', true)['--gold-ink'], '#1c1405')
   assert.equal(accentVars('GOLD', false)['--gold-ink'], '#ffffff')
+  assert.equal(accentVars('RUBY', false)['--gold-ink'], '#ffffff')
 })
 
 test('in the light every accent keeps 4.5:1 on white, and its ink on it', () => {

@@ -24,6 +24,7 @@ import { useNow } from './useNow'
 import '../social/social.css'
 import './remote.css'
 import { activeDecks } from '../decks/deckFolders'
+import { useModalFocus } from '../components/useModalFocus'
 
 /** No word from the table for this long (it publishes at least every HEARTBEAT_MS): it's gone. */
 const SILENT_MS = HEARTBEAT_MS * 2 + 10_000
@@ -304,7 +305,7 @@ export function RemotePage() {
           {decks.length === 0 && <p className="rm-muted">You have no decks yet.</p>}
           <div className="rm-list">
             {activeDecks(decks).map((d) => (
-              <button key={d.id} type="button" className={`rm-opt${d.id === prefs.deckId ? ' on' : ''}`} onClick={() => chooseDeck(d)}>
+              <button key={d.id} type="button" className={`rm-opt${d.id === prefs.deckId ? ' on' : ''}`} aria-pressed={d.id === prefs.deckId} onClick={() => chooseDeck(d)}>
                 <span className="rm-swatch" style={commanderArt(d) ? { backgroundImage: `url("${commanderArt(d)}")` } : undefined} />
                 <span className="rm-opt-text"><b>{d.name}</b><span>{d.commander?.name ?? 'No commander'}</span></span>
               </button>
@@ -482,8 +483,8 @@ function Remote({
   // The crown and the flag beside whoever holds the monarch and the initiative.
   const badges = (seat: number) => (
     <>
-      {state.monarch === seat && <span className="material-symbols-rounded rm-badge" title="Monarch" aria-label="Monarch">crown</span>}
-      {state.initiative === seat && <span className="material-symbols-rounded rm-badge" title="Initiative" aria-label="Initiative">swords</span>}
+      {state.monarch === seat && <span className="material-symbols-rounded rm-badge" role="img" title="Monarch" aria-label="Monarch">crown</span>}
+      {state.initiative === seat && <span className="material-symbols-rounded rm-badge" role="img" title="Initiative" aria-label="Initiative">swords</span>}
     </>
   )
 
@@ -796,15 +797,12 @@ function Stepper({ label, value, color, icon, onChange }: { label: string; value
 }
 
 function RmSheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  const box = useRef<HTMLDivElement>(null)
+  const keepFocusIn = useModalFocus(box, onClose)
   return (
     <>
       <button type="button" className="rm-scrim" aria-label="Close" onClick={onClose} />
-      <div className="rm-sheet" role="dialog" aria-modal="true" aria-label={title}>
+      <div ref={box} className="rm-sheet" role="dialog" aria-modal="true" aria-label={title} onKeyDown={keepFocusIn}>
         <div className="rm-sheet-head">
           <h3>{title}</h3>
           <button type="button" className="rm-chip" onClick={onClose}>Done</button>
@@ -851,7 +849,7 @@ function BackgroundSheet({
     }
   }
   const opt = (kind: BackgroundKind, title: string, sub: string, swatch: CSSProperties, onClick: () => void, disabled = false) => (
-    <button type="button" className={`rm-opt${currentKind === kind ? ' on' : ''}`} onClick={onClick} disabled={disabled || busy}>
+    <button type="button" className={`rm-opt${currentKind === kind ? ' on' : ''}`} aria-pressed={currentKind === kind} onClick={onClick} disabled={disabled || busy}>
       <span className="rm-swatch" style={swatch} />
       <span className="rm-opt-text"><b>{title}</b><span>{sub}</span></span>
     </button>

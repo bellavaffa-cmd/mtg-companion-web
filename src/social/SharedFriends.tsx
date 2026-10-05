@@ -238,7 +238,7 @@ function FriendTile({ f, index, updated, wanted, theyWant, onOpen }: { f: Friend
       )}
       <div className="shade" />
       {flag && <span className="flag">{flag}</span>}
-      {updated && <span className="new-dot" aria-label="Updated since you last looked" />}
+      {updated && <span className="new-dot" role="img" aria-label="Updated since you last looked" />}
       <div className="meta">
         <div className="t-name">{name}</div>
         {f.profile && <div className="t-cmd">{handle(f.profile)}</div>}

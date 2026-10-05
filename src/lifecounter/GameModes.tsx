@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { searchCards } from '../api/scryfall'
 import {
   cardFace, currentCard, loadingMode, MODE_LABEL, MODE_QUERY, planarFace, planeswalk as walk, revealNextBounty, revealNextScheme, startedMode,
@@ -6,6 +6,7 @@ import {
 } from './gameModes'
 import { displayName, type Player } from './game'
 import { seatStyle } from './PlayerTile'
+import { useModalFocus } from '../components/useModalFocus'
 
 /**
  * The life counter's game modes, as in the Android app: Planechase (a shuffled deck of planes and
@@ -91,24 +92,21 @@ export function ModeSheet({
   const card = currentCard(state)
   const face = card ? cardFace(state, card) : null
   const title = MODE_LABEL[state.mode]
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  const box = useRef<HTMLDivElement>(null)
+  const keepFocusIn = useModalFocus(box, onClose)
   const subtitle = state.loading ? undefined
     : state.mode === 'PLANECHASE' ? `${state.planeDeck.length} ${state.planeDeck.length === 1 ? 'plane' : 'planes'} left in the deck`
       : state.mode === 'ARCHENEMY' ? `${state.schemeDeck.length} ${state.schemeDeck.length === 1 ? 'scheme' : 'schemes'} left in the deck`
         : undefined
   return (
-    <div className="lc-sheet" role="dialog" aria-modal="true" aria-label={title}>
+    <div ref={box} className="lc-sheet" role="dialog" aria-modal="true" aria-label={title} onKeyDown={keepFocusIn}>
       <div className="lc-sheet-head">
         <div>
           <h2>{title}</h2>
           {subtitle && <p>{subtitle}</p>}
         </div>
         <button type="button" className="lc-close" onClick={onClose} aria-label="Close">
-          <span className="material-symbols-rounded">close</span>
+          <span className="material-symbols-rounded" aria-hidden>close</span>
         </button>
       </div>
       <div className="lc-sheet-body">
@@ -187,17 +185,14 @@ export function ModeSheet({
 
 /** Archenemy is one player against the rest: who it is, before the schemes are shuffled. */
 export function ArchenemyPicker({ players, onPick, onClose }: { players: Player[]; onPick: (id: number) => void; onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  const box = useRef<HTMLDivElement>(null)
+  const keepFocusIn = useModalFocus(box, onClose)
   return (
-    <div className="lc-sheet" role="dialog" aria-modal="true" aria-label="Who's the Archenemy?">
+    <div ref={box} className="lc-sheet" role="dialog" aria-modal="true" aria-label="Who's the Archenemy?" onKeyDown={keepFocusIn}>
       <div className="lc-sheet-head">
         <div><h2>Who's the Archenemy?</h2></div>
         <button type="button" className="lc-close" onClick={onClose} aria-label="Close">
-          <span className="material-symbols-rounded">close</span>
+          <span className="material-symbols-rounded" aria-hidden>close</span>
         </button>
       </div>
       <div className="lc-sheet-body">

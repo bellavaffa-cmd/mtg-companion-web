@@ -136,9 +136,9 @@ export function PullListPage() {
             </div>
 
             <div className="chips wrap pull-chips">
-              <button type="button" className={`pull-chip${view === 'place' ? ' on' : ''}`} onClick={() => setView('place')}>By place</button>
-              <button type="button" className={`pull-chip${view === 'az' ? ' on' : ''}`} onClick={() => setView('az')}>A–Z</button>
-              <button type="button" className={`pull-chip${hidePulled ? ' on' : ''}`} onClick={() => setHidePulled((h) => !h)}>Hide pulled</button>
+              <button type="button" className={`pull-chip${view === 'place' ? ' on' : ''}`} aria-pressed={view === 'place'} onClick={() => setView('place')}>By place</button>
+              <button type="button" className={`pull-chip${view === 'az' ? ' on' : ''}`} aria-pressed={view === 'az'} onClick={() => setView('az')}>A–Z</button>
+              <button type="button" className={`pull-chip${hidePulled ? ' on' : ''}`} aria-pressed={hidePulled} onClick={() => setHidePulled((h) => !h)}>Hide pulled</button>
               {filterPlace && (
                 <button type="button" className="pull-chip on" onClick={() => { params.delete('place'); setParams(params, { replace: true }) }}>
                   Only {filterPlace.name} <Icon name="close" aria-hidden />

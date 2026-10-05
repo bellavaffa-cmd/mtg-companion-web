@@ -244,6 +244,7 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
         <button
           type="button"
           className={`ib filter-ib${filtering || filterOpen ? ' on' : ''}`}
+          aria-expanded={filterOpen}
           aria-label={filtering ? `Filters, ${filtersOn} on` : 'Filters'}
           title={filtering ? `Filters, ${filtersOn} on` : 'Filters'}
           onClick={() => setFilterOpen((o) => !o)}
@@ -519,12 +520,12 @@ function CardRow({ card, price, selecting, selected, onToggle, onZoom }: {
   card: AllCard; price?: number; selecting: boolean; selected: boolean; onToggle: () => void; onZoom: () => void
 }) {
   const money = useMoney()
-  const longPress = useLongPress({ onLongPress: onToggle, onClick: selecting ? onToggle : onZoom })
+  const longPress = useLongPress({ onLongPress: onToggle, onClick: selecting ? onToggle : onZoom, selected: selecting ? selected : undefined })
   const where = card.sources.map((s) => s.name)
   return (
     <div className={`crow no-qty${selected ? ' picked' : ''}`} style={{ gridTemplateColumns: '56px minmax(0, 1fr) auto', cursor: 'pointer' }} {...longPress}>
       <div className="thumb-wrap">
-        {selecting && <span className={`pick-mark${selected ? ' on' : ''}`} aria-label={selected ? 'Selected' : 'Not selected'}>{selected && <Icon name="check" />}</span>}
+        {selecting && <span className={`pick-mark${selected ? ' on' : ''}`} aria-hidden="true">{selected && <Icon name="check" />}</span>}
         <ArtImage className="thumb" src={toArtCrop(card.imageUrl)} seed={card.name} />
         {card.backImageUrl && <span className="flip-badge"><Icon name="autorenew" /></span>}
       </div>
@@ -544,17 +545,17 @@ function CardRow({ card, price, selecting, selected, onToggle, onZoom }: {
 function CardTile({ card, selecting, selected, onToggle, onZoom }: {
   card: AllCard; selecting: boolean; selected: boolean; onToggle: () => void; onZoom: () => void
 }) {
-  const longPress = useLongPress({ onLongPress: onToggle, onClick: selecting ? onToggle : onZoom })
+  const longPress = useLongPress({ onLongPress: onToggle, onClick: selecting ? onToggle : onZoom, selected: selecting ? selected : undefined })
   return (
     <div className={`card-cell press${selected ? ' picked' : ''}`} {...longPress}>
       <div className="card-cell-img">
         {card.imageUrl ? <img src={card.imageUrl} alt={card.name} loading="lazy" data-card-preview={biggerImageUrl(card.imageUrl) ?? undefined} /> : <ArtImage src={null} seed={card.name} />}
-        {selecting && <span className={`pick-mark${selected ? ' on' : ''}`} aria-label={selected ? 'Selected' : 'Not selected'}>{selected && <Icon name="check" />}</span>}
-        <span className="card-cell-count">×{card.total}</span>
+        {selecting && <span className={`pick-mark${selected ? ' on' : ''}`} aria-hidden="true">{selected && <Icon name="check" />}</span>}
+        <span className="card-cell-count"><span aria-hidden="true">×</span>{card.total}<span className="sr-only"> copies</span></span>
         {card.proxies > 0 && <span className="card-cell-proxy">proxy</span>}
         {card.backImageUrl && <span className="flip-badge"><Icon name="autorenew" /></span>}
       </div>
-      <div className="card-cell-name">{card.name}</div>
+      <div className="card-cell-name" aria-hidden={card.imageUrl ? true : undefined}>{card.name}</div>
     </div>
   )
 }

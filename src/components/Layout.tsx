@@ -34,8 +34,11 @@ export function Layout() {
   if (size === 'phone') {
     return (
       <div className="phone-shell">
+        <SkipLink />
         <div className="phone-frame">
-          <Outlet />
+          <main id="main" className="phone-main" tabIndex={-1}>
+            <Outlet />
+          </main>
           {TAB_ROUTES.has(location.pathname) && <BottomNav />}
         </div>
         <PullToSync />
@@ -45,12 +48,34 @@ export function Layout() {
 
   return (
     <div className={`wide-shell ${size}`}>
+      <SkipLink />
       {size === 'desktop' ? <Sidebar /> : <NavRail />}
-      <div className="wide-main">
+      <main id="main" className="wide-main" tabIndex={-1}>
         <Outlet />
-      </div>
+      </main>
       <PullToSync />
     </div>
+  )
+}
+
+/**
+ * The first thing Tab reaches: past the sidebar or rail to the page itself. Hidden until focused.
+ * Moves focus by hand rather than by #main, so the address keeps no fragment for the router.
+ */
+function SkipLink() {
+  return (
+    <a
+      href="#main"
+      className="skip-link"
+      onClick={(e) => {
+        e.preventDefault()
+        const main = document.getElementById('main')
+        main?.focus()
+        main?.scrollIntoView()
+      }}
+    >
+      Skip to content
+    </a>
   )
 }
 
@@ -90,7 +115,7 @@ export function InboxBadge({ dot }: { dot?: boolean }) {
   const { inbox } = useSocial()
   const n = inbox.friend_requests + inbox.trades
   if (n === 0) return null
-  return <span className={dot ? 'inbox-dot' : 'count-badge'} aria-label={`${n} waiting`}>{dot ? '' : n}</span>
+  return <span className={dot ? 'inbox-dot' : 'count-badge'} role="img" aria-label={`${n} waiting`}>{dot ? '' : n}</span>
 }
 
 function Sidebar() {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Icon } from './Icon'
 import { ArtImage, PillChip, toArtCrop } from './kit'
 import { PrintingPicker } from './PrintingPicker'
@@ -8,6 +8,7 @@ import { hasSideboard, sideboardChoice, sideboardChoiceHint } from '../decks/sid
 import { GAME_MODES, GAME_MODE_LABELS, isUnsorted, UNSORTED_COLLECTION_ID, type Collection, type GameMode } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 import { activeDecks } from '../decks/deckFolders'
+import { useModalFocus } from './useModalFocus'
 
 /**
  * Where the user chose to put the cards, and how. [printing] is another printing chosen in the sheet
@@ -97,13 +98,9 @@ export function AddToSheet({
   const [newName, setNewName] = useState('')
   const [format, setFormat] = useState<GameMode>('COMMANDER')
 
-  useEffect(() => {
-    // The printing picker over the sheet closes first.
-    if (choosingPrinting) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, choosingPrinting])
+  // The printing picker over the sheet is the layer on top, so it closes first.
+  const box = useRef<HTMLDivElement>(null)
+  const keepFocusIn = useModalFocus(box, onClose)
 
   const pick = (target: AddTarget) => {
     onClose()
@@ -128,12 +125,12 @@ export function AddToSheet({
   return (
     <>
       <div className="scrim" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={sheetTitle(verb, what)}>
+      <div ref={box} className="sheet" role="dialog" aria-modal="true" aria-label={sheetTitle(verb, what)} onKeyDown={keepFocusIn}>
         <div className="grab" />
         <div className={`sheet-head${imageUrl === undefined ? ' no-art' : ''}`}>
           {imageUrl !== undefined && <ArtImage src={toArtCrop(imageUrl)} seed={what} />}
           <div style={{ minWidth: 0 }}>
-            <div className="sheet-title">{sheetTitle(verb, what)}</div>
+            <h2 className="sheet-title">{sheetTitle(verb, what)}</h2>
             {subtitle && <div className="sheet-sub">{subtitle}</div>}
           </div>
         </div>

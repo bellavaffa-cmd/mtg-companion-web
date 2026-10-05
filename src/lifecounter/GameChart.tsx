@@ -79,6 +79,8 @@ export function GameChart({ log, seats }: { log: GameLog; seats: ChartSeat[] }) 
           <li key={s.seat}>
             <i style={{ background: colorOf(s.seat) }} aria-hidden />
             {nameOf(s.seat)} <span>{s.points[s.points.length - 1].life}</span>
+            {/* The ✕ on the chart, in words: the line's colour alone doesn't say who went out. */}
+            {log.outs.some((o) => o.seat === s.seat) && <span className="gc-out-word"> · out</span>}
           </li>
         ))}
       </ul>

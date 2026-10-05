@@ -5,11 +5,11 @@
 .loan-card { padding: 12px 14px; border-radius: 14px; background: var(--g1); display: flex; flex-direction: column; gap: 8px; max-width: 560px; }
 .loan-card.overdue { box-shadow: inset 0 0 0 1px rgba(255, 138, 76, 0.5); }
 .loan-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-.loan-h h2 { margin: 0; font-size: 15px; font-weight: 800; }
-.loan-h span { font-size: 12px; }
+.loan-h h2 { margin: 0; font-size: 0.9375rem; font-weight: 800; }
+.loan-h span { font-size: 0.75rem; }
 .loan-h .late { color: var(--cut); font-weight: 700; }
-.loan-sum { font-size: 14px; color: var(--t0); opacity: 0.85; }
-.loan-line { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.loan-sum { font-size: 0.875rem; color: var(--t0); opacity: 0.85; }
+.loan-line { display: flex; align-items: center; gap: 10px; font-size: 0.875rem; }
 .loan-line > span:first-child { flex: 1; min-width: 0; }
 /* Where a card goes back to can be long ("Bulk box — red, colourless and artifacts › Red"): it shares the line, not takes it. */
 .loan-line > span.dim { flex: 0 1 auto; max-width: 55%; text-align: right; }
@@ -33,18 +33,18 @@
 .move-list li:last-child { border-left-color: transparent; }
 .move-list li::before { content: ''; position: absolute; left: -7px; top: 2px; width: 12px; height: 12px; border-radius: 6px; background: var(--g3); }
 .move-list li.first::before { background: var(--gold); }
-.move-list .when { font-size: 12px; color: var(--t1); }
-.move-list b { font-size: 14px; }
-.move-list .dim { font-size: 12px; }
+.move-list .when { font-size: 0.75rem; color: var(--t1); }
+.move-list b { font-size: 0.875rem; }
+.move-list .dim { font-size: 0.75rem; }
 .recent-moves { max-width: 560px; margin-top: 18px; }
-.recent-moves h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--t1); margin: 0 0 10px; }
+.recent-moves h3 { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--t1); margin: 0 0 10px; }
 
 .value-page { max-width: 560px; }
 .value-total { padding: 14px; border-radius: 16px; background: var(--g1); display: flex; flex-direction: column; gap: 4px; }
-.value-total .big { font-family: var(--num); font-size: 44px; line-height: 1; color: var(--gold); }
+.value-total .big { font-family: var(--num); font-size: 2.75rem; line-height: 1; color: var(--gold); }
 .value-bars { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
 .value-bar { padding: 12px 14px; border-radius: 14px; background: var(--g1); display: flex; flex-direction: column; gap: 8px; }
-.value-bar-h { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; }
+.value-bar-h { display: flex; justify-content: space-between; gap: 10px; font-size: 0.875rem; }
 .value-bar .storage-bar > div.grey { background: var(--t2); }
 .value-print { display: none; }
 
@@ -62,16 +62,16 @@
 
 /* Sorting a new pile: the scanner's big pile tile and the piles so far. */
 .sort-tile { margin-top: 12px; padding: 16px 18px; border-radius: 18px; display: flex; align-items: center; gap: 16px; color: #1e0d02; }
-.sort-tile .num { font-family: var(--num); font-size: 64px; line-height: 1; }
+.sort-tile .num { font-family: var(--num); font-size: 4rem; line-height: 1; }
 .sort-tile .txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.sort-tile .txt > span { font-size: 13px; font-weight: 700; }
-.sort-tile .txt > b { font-size: 20px; font-weight: 800; }
+.sort-tile .txt > span { font-size: 0.8125rem; font-weight: 700; }
+.sort-tile .txt > b { font-size: 1.25rem; font-weight: 800; }
 .sort-tile.none { background: var(--g2); color: var(--t0); }
 .sort-piles { margin-top: 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .sort-pile { padding: 12px; border-radius: 14px; background: var(--g1); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .sort-pile.on { box-shadow: inset 0 0 0 2px var(--pile); }
-.sort-pile .dim { font-size: 12px; }
-.sort-pile b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sort-pile .dim { font-size: 0.75rem; }
+.sort-pile b { font-size: 0.9375rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sort-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .sort-head input { flex: 1; min-width: 160px; }
 .sort-rule { padding: 10px 12px; border-radius: 12px; background: var(--g1); display: flex; flex-direction: column; gap: 8px; }

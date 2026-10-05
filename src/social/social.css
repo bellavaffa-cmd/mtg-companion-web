@@ -6,12 +6,12 @@
 }
 .social-title {
   margin: 0;
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 800;
   color: var(--t0);
 }
 .profile-name {
-  font-size: 18px;
+  font-size: 1.125rem;
   font-weight: 800;
   color: var(--t0);
   overflow: hidden;
@@ -78,14 +78,14 @@
   min-width: 0;
 }
 .person-main .dim {
-  font-size: 12.5px;
+  font-size: 0.7812rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .person-name {
   font-weight: 700;
-  font-size: 14.5px;
+  font-size: 0.9062rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -112,7 +112,7 @@
   border-radius: 11px;
   background: var(--gold);
   color: var(--gold-ink);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
   display: inline-grid;
   place-items: center;
@@ -154,7 +154,7 @@
 }
 .friend-hero h1 {
   margin: 12px 0 2px;
-  font-size: 24px;
+  font-size: 1.5rem;
   color: var(--t0);
 }
 .owner-line {
@@ -162,7 +162,7 @@
   align-items: center;
   gap: 8px;
   margin-top: 8px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--t1);
 }
 .owner-line b {
@@ -204,7 +204,7 @@
 }
 .ro-qty {
   font-family: var(--num);
-  font-size: 20px;
+  font-size: 1.25rem;
   color: var(--t0);
 }
 
@@ -236,7 +236,7 @@
   padding: 2px 4px 2px 10px;
   border-radius: 12px;
   background: var(--g0);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .mini-stepper.on {
   background: var(--gold-soft);
@@ -248,7 +248,7 @@
   margin-right: 2px;
 }
 .mini-stepper .ms-label .icon {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: var(--gold);
 }
 .mini-stepper button {
@@ -257,7 +257,7 @@
   border: 0;
   background: transparent;
   color: var(--t0);
-  font-size: 17px;
+  font-size: 1.0625rem;
 }
 .mini-stepper button:disabled {
   color: var(--t2);
@@ -277,7 +277,7 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-  font-size: 13.5px;
+  font-size: 0.8438rem;
 }
 .thumb.sm {
   width: 40px;
@@ -287,7 +287,7 @@
 }
 .tc-qty {
   font-family: var(--num);
-  font-size: 17px;
+  font-size: 1.0625rem;
   color: var(--t0);
   flex: none;
 }
@@ -311,10 +311,10 @@
   place-items: center;
 }
 .tc-remove .icon {
-  font-size: 17px;
+  font-size: 1.0625rem;
 }
 .trade-empty {
-  font-size: 13px;
+  font-size: 0.8125rem;
   padding: 4px 0;
 }
 
@@ -365,7 +365,7 @@
   gap: 10px;
 }
 .trade-status {
-  font-size: 12.5px;
+  font-size: 0.7812rem;
   color: var(--t1);
 }
 .trade-status.open,
@@ -388,7 +388,7 @@
   }
 }
 .trade-side-title {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -400,7 +400,7 @@
   padding: 10px 12px;
   border-radius: 14px;
   background: var(--g2);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .trade-message b {
   color: var(--t0);
@@ -436,7 +436,7 @@
   padding-bottom: 38%;
   display: grid;
   place-items: center;
-  font-size: 64px;
+  font-size: 4rem;
   font-weight: 800;
   color: #fff;
   background: rgba(0, 0, 0, 0.45);
@@ -510,7 +510,7 @@
 }
 .folder .icon {
   color: var(--gold);
-  font-size: 24px;
+  font-size: 1.5rem;
   margin-bottom: 6px;
 }
 .folder b {
@@ -540,7 +540,7 @@
   min-width: 0;
 }
 .share-switch .txt span {
-  font-size: 12.5px;
+  font-size: 0.7812rem;
   color: var(--t1);
 }
 .share-switch .sw {
@@ -582,7 +582,7 @@
 .share-link-row .input {
   flex: 1;
   min-width: 0;
-  font-size: 12.5px;
+  font-size: 0.7812rem;
 }
 
 .link-card {
@@ -597,7 +597,7 @@
   max-width: 380px;
 }
 .link-icon {
-  font-size: 44px !important;
+  font-size: 2.75rem !important;
   color: var(--gold);
 }
 
@@ -630,11 +630,11 @@
   background: transparent;
   color: var(--t0);
   font: inherit;
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 .giphy-label {
   margin: 0 4px 8px;
-  font-size: 12.5px;
+  font-size: 0.7812rem;
 }
 .giphy-grid {
   display: grid;
@@ -666,7 +666,7 @@
   place-items: center;
   background: color-mix(in srgb, var(--g0) 70%, transparent);
   color: var(--t0);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 .giphy-link {
@@ -675,7 +675,7 @@
 .giphy-attribution {
   margin-top: 12px;
   text-align: center;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -718,11 +718,11 @@
 .who-text {
   flex: 1;
   min-width: 0;
-  font-size: 13.5px;
+  font-size: 0.8438rem;
 }
 .who-nobody {
   margin: 0;
-  font-size: 13.5px;
+  font-size: 0.8438rem;
 }
 
 /* ---- Trade value ---- */
@@ -756,7 +756,7 @@
   color: var(--gold);
 }
 .trade-value .tv-note {
-  font-size: 12.5px;
+  font-size: 0.7812rem;
 }
 
 /* Friends' Trades tab: the ways to cards for trade and loans, above the trades (FriendsPage.tsx). */

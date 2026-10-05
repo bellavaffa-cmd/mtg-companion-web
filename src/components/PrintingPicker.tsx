@@ -42,6 +42,7 @@ export function PrintingPicker({ name, currentId, prompt = "Pick the printing yo
               type="button"
               key={card.id}
               className={`card-cell press${card.id === currentId ? ' picked' : ''}`}
+              aria-current={card.id === currentId ? 'true' : undefined}
               onClick={() => onPick(card)}
             >
               <div className="card-cell-img">
