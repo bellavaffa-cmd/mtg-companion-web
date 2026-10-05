@@ -7,15 +7,16 @@
 //    the same id on every device, so they sync with the library like any binder does.
 //  - Which copies are where: each binder entry's "places", [{placeId, qty, foil?, section?, page?,
 //    slot?}]. Never more than the entry's copies, plain and foil apart; the rest have no place yet.
-//  - Physical decks and copies tagged "lent to …" count as places of their own, read from the decks
-//    and the tags rather than stored.
+//  - Physical decks and copies out on loan count as places of their own, read from the decks and the
+//    loans (the Unsorted pile's "loans", see loans.ts) rather than stored — and, until they're turned
+//    into loans, copies tagged "lent to …".
 //
 // Pure, so it can be tested. Mirrors the Android app's data/StoragePlaces.kt rule for rule, with the
 // same tests (tests/collection/storagePlaces.test.ts ↔ StoragePlacesTest.kt).
 
 import {
   isUnsorted, UNSORTED_COLLECTION_ID,
-  type Collection, type CollectionEntry, type CopyPlace, type Deck, type PlaceKind, type SortRule, type StoragePlace,
+  type Collection, type CollectionEntry, type CopyPlace, type Deck, type Loan, type LoanCard, type PlaceKind, type SortRule, type StoragePlace,
 } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 import { realCopiesOf, withUnsortedPile } from './unsorted'
@@ -314,7 +315,7 @@ export function splitPlaces(entry: CollectionEntry, plain: number, foil: number)
   return { staying: staying.filter((p) => p.qty > 0), going }
 }
 
-// ---- How much has a place ----
+// ---- Copies out on loan ----
 
 /** A tag of the user's that says the copies are out on loan: "lent", "lent to Sam". */
 export const lentTag = (entry: { userTags?: string[] }): string | null =>
@@ -322,15 +323,106 @@ export const lentTag = (entry: { userTags?: string[] }): string | null =>
 
 const owned = (collections: Collection[]) => collections.filter((c) => c.type !== 'WISHLIST')
 
+/** The user's loans, kept on the Unsorted pile (see collection/loans.ts). */
+export function loansOf(collections: Collection[]): Loan[] {
+  return collections.find(isUnsorted)?.loans ?? []
+}
+
+/** Copies of a loan's card not back yet. */
+export const stillOut = (card: LoanCard): number => Math.max(0, card.qty - Math.max(0, card.back ?? 0))
+
+/** Whether some of a loan's cards are still out. */
+export const isOpen = (loan: Loan): boolean => loan.cards.some((c) => stillOut(c) > 0)
+
+/**
+ * Copies of one loan's card that count as lent out now: [qty] of them, from the binder [collectionId]
+ * (where they were found — a card lent from a binder) or from the card's deck.
+ */
+export interface LentCopy { loan: Loan; card: LoanCard; qty: number; collectionId?: string }
+
+const nameKeyOf = (name: string) => name.trim().toLowerCase()
+const entryKey = (collectionId: string, scryfallId: string, foil: boolean) => `${collectionId}|${scryfallId}|${foil ? 'foil' : ''}`
+const deckKey = (deckId: string, name: string) => `${deckId}|${nameKeyOf(name)}`
+
+/**
+ * Every copy out on loan that's still there to be lent: a card lent from a binder is one of its
+ * entry's copies with no place (lending took it off its place), a card lent from a deck one of the
+ * deck's real copies. A loan can't count more copies than that — the oldest loans first — so one whose
+ * copies were since removed from the collection counts only what's left. A card whose binder has gone
+ * is looked for in the others, the Unsorted pile first.
+ */
+export function lentCopies(collections: Collection[], decks: Deck[] = []): LentCopy[] {
+  const loans = loansOf(collections).filter(isOpen)
+  if (loans.length === 0) return []
+  const known = new Set(placesOf(collections).map((p) => p.id))
+  const budget = new Map<string, number>()
+  const add = (key: string, n: number) => { if (n > 0) budget.set(key, (budget.get(key) ?? 0) + n) }
+  const piles = [...owned(collections).filter(isUnsorted), ...owned(collections).filter((c) => !isUnsorted(c))]
+  for (const c of piles) {
+    for (const e of c.entries) {
+      const clean = placedCopies(e).every((p) => known.has(p.placeId)) ? e : withPlaces(e, placedCopies(e).filter((p) => known.has(p.placeId)))
+      const free = unplacedCopies(clean)
+      add(entryKey(c.id, e.scryfallId, false), free.plain)
+      add(entryKey(c.id, e.scryfallId, true), free.foil)
+    }
+  }
+  for (const d of decks) for (const e of realCopiesOf(d)) add(deckKey(d.id, e.name), e.quantity)
+  const take = (key: string, want: number): number => {
+    const n = Math.min(want, budget.get(key) ?? 0)
+    if (n > 0) budget.set(key, (budget.get(key) ?? 0) - n)
+    return n
+  }
+  const out: LentCopy[] = []
+  for (const loan of [...loans].sort((a, b) => a.lentAt - b.lentAt)) {
+    for (const card of loan.cards) {
+      const want = stillOut(card)
+      if (want <= 0) continue
+      if (card.deckId) {
+        const got = take(deckKey(card.deckId, card.name), want)
+        if (got > 0) out.push({ loan, card, qty: got })
+        continue
+      }
+      let left = want
+      const order = [...piles.filter((c) => c.id === card.collectionId), ...piles.filter((c) => c.id !== card.collectionId)]
+      for (const c of order) {
+        if (left <= 0) break
+        const got = take(entryKey(c.id, card.scryfallId, !!card.foil), left)
+        if (got <= 0) continue
+        left -= got
+        out.push({ loan, card, qty: got, collectionId: c.id })
+      }
+    }
+  }
+  return out
+}
+
+/** How many copies of each binder entry are out on loan, by "collectionId|scryfallId|foil" ("" for plain). */
+export function lentByEntry(lent: LentCopy[]): Map<string, number> {
+  const out = new Map<string, number>()
+  for (const l of lent) {
+    if (!l.collectionId) continue
+    const key = entryKey(l.collectionId, l.card.scryfallId, !!l.card.foil)
+    out.set(key, (out.get(key) ?? 0) + l.qty)
+  }
+  return out
+}
+
+/** Copies of [entry] (in [collectionId]) out on loan, plain and foil, from [lentByEntry]. */
+export function lentOf(lent: Map<string, number>, collectionId: string, entry: CollectionEntry): { plain: number; foil: number } {
+  return { plain: lent.get(entryKey(collectionId, entry.scryfallId, false)) ?? 0, foil: lent.get(entryKey(collectionId, entry.scryfallId, true)) ?? 0 }
+}
+
+// ---- How much has a place ----
+
 export interface StorageSummary {
   /** Every copy owned: in binders, the Unsorted pile and physical decks. */
   total: number
   /** Those with a place: a storage place, a deck box, or lent out. */
   placed: number
   unplaced: number
-  /** Real copies in physical decks (not proxies). */
+  /** Real copies in physical decks (not proxies), less those lent out from them. */
   inDecks: number
-  /** Copies with no other place whose entry is tagged "lent …". */
+  /** Copies out on loan, and copies with no other place whose entry is tagged "lent …". */
   lent: number
   /** Copies in each place itself — not counting the places inside it — by id. */
   own: Record<string, number>
@@ -338,6 +430,8 @@ export interface StorageSummary {
 
 export function storageSummary(collections: Collection[], decks: Deck[]): StorageSummary {
   const known = new Set(placesOf(collections).map((p) => p.id))
+  const lentNow = lentCopies(collections, decks)
+  const byEntry = lentByEntry(lentNow)
   const own: Record<string, number> = {}
   let total = 0
   let inPlaces = 0
@@ -354,11 +448,15 @@ export function storageSummary(collections: Collection[], decks: Deck[]): Storag
         here += p.qty
       }
       inPlaces += here
-      if (lentTag(e)) lent += copies - here
+      const loaned = lentOf(byEntry, c.id, e)
+      lent += loaned.plain + loaned.foil
+      if (lentTag(e)) lent += copies - here - loaned.plain - loaned.foil
     }
   }
-  const inDecks = decks.reduce((n, d) => n + realCopiesOf(d).reduce((m, e) => m + e.quantity, 0), 0)
-  total += inDecks
+  const fromDecks = lentNow.filter((l) => l.card.deckId).reduce((n, l) => n + l.qty, 0)
+  const inDecks = decks.reduce((n, d) => n + realCopiesOf(d).reduce((m, e) => m + e.quantity, 0), 0) - fromDecks
+  total += inDecks + fromDecks
+  lent += fromDecks
   const placed = inPlaces + inDecks + lent
   return { total, placed, unplaced: total - placed, inDecks, lent, own }
 }
@@ -445,7 +543,8 @@ export function nextPocket(place: StoragePlace, collections: Collection[]): { pa
 export type WhereLine =
   | { kind: 'place'; title: string; detail: string; qty: number; placeId: string; collectionId: string; scryfallId: string; line: CopyPlace }
   | { kind: 'deck'; title: string; detail: string; qty: number; deckId: string }
-  | { kind: 'lent'; title: string; detail: string; qty: number }
+  /** Copies out on loan ([loanId]), or tagged "lent …" (no loan). */
+  | { kind: 'lent'; title: string; detail: string; qty: number; loanId?: string }
   | { kind: 'none'; title: string; detail: string; qty: number }
 
 const nameKeys = (n: string) => { const full = n.trim().toLowerCase(); return [full, full.split(' // ')[0].trim()] }
@@ -460,14 +559,31 @@ export function sameCardName(a: string, b: string): boolean {
 export const pocketLabel = (page: number, slot: number) => `Page ${page}, slot ${slot}`
 
 /**
+ * Where a loan's card came from, short: "Red box › Red", "Atraxa deck", or the binder it had no place
+ * in ("Unsorted"). "Somewhere" when that's all gone.
+ */
+export function loanCardFrom(card: LoanCard, collections: Collection[], decks: Deck[]): string {
+  if (card.deckId) {
+    const deck = decks.find((d) => d.id === card.deckId)
+    return deck ? `${deck.name} deck` : 'a deck'
+  }
+  const place = card.placeId ? placesOf(collections).find((p) => p.id === card.placeId) : undefined
+  if (place) return card.section ? `${place.name} › ${card.section}` : place.name
+  return collections.find((c) => c.id === card.collectionId)?.name ?? 'Somewhere'
+}
+
+/**
  * Where every copy of the card called [name] is (any printing): a line per spot in a place, one per
- * physical deck, the copies lent out, and the ones with no place yet. With their total.
+ * physical deck (less the copies lent out from it), one per loan, and the ones with no place yet.
+ * With their total.
  */
 export function whereItIs(collections: Collection[], decks: Deck[], name: string): { lines: WhereLine[]; total: number } {
   const places = placesOf(collections)
   const byId = new Map(places.map((p) => [p.id, p]))
+  const lent = lentCopies(collections, decks).filter((l) => sameCardName(l.card.name, name))
+  const byEntry = lentByEntry(lent)
   const lines: WhereLine[] = []
-  let lent = 0
+  let tagged = 0
   let lentWords = ''
   let none = 0
   const noneIn: string[] = []
@@ -490,11 +606,12 @@ export function whereItIs(collections: Collection[], decks: Deck[], name: string
           placeId: place.id, collectionId: c.id, scryfallId: e.scryfallId, line,
         })
       }
-      const left = copies - here
+      const loaned = lentOf(byEntry, c.id, e)
+      const left = copies - here - loaned.plain - loaned.foil
       if (left <= 0) continue
       const tag = lentTag(e)
       if (tag) {
-        lent += left
+        tagged += left
         lentWords = lentWords || tag
       } else {
         none += left
@@ -503,12 +620,23 @@ export function whereItIs(collections: Collection[], decks: Deck[], name: string
     }
   }
   for (const d of decks) {
-    const qty = realCopiesOf(d).filter((e) => sameCardName(e.name, name)).reduce((n, e) => n + e.quantity, 0)
+    const qty = realCopiesOf(d).filter((e) => sameCardName(e.name, name)).reduce((n, e) => n + e.quantity, 0) - lentFromDeck(lent, d.id, name)
     if (qty > 0) lines.push({ kind: 'deck', title: `Deck: ${d.name}`, detail: 'In its deck box', qty, deckId: d.id })
   }
-  if (lent > 0) lines.push({ kind: 'lent', title: 'Lent out', detail: lentWords.charAt(0).toUpperCase() + lentWords.slice(1), qty: lent })
+  const loanIds = [...new Set(lent.map((l) => l.loan.id))]
+  for (const id of loanIds) {
+    const mine = lent.filter((l) => l.loan.id === id)
+    const from = [...new Set(mine.map((l) => loanCardFrom(l.card, collections, decks)))].join(', ')
+    lines.push({ kind: 'lent', title: `Lent to ${mine[0].loan.to}`, detail: `From ${from}`, qty: mine.reduce((n, l) => n + l.qty, 0), loanId: id })
+  }
+  if (tagged > 0) lines.push({ kind: 'lent', title: 'Lent out', detail: lentWords.charAt(0).toUpperCase() + lentWords.slice(1), qty: tagged })
   if (none > 0) lines.push({ kind: 'none', title: 'No place yet', detail: `In ${noneIn.join(', ')}`, qty: none })
   return { lines, total: lines.reduce((n, l) => n + l.qty, 0) }
+}
+
+/** How many of a deck's real copies of the card called [name] are out on loan. */
+export function lentFromDeck(lent: LentCopy[], deckId: string, name: string): number {
+  return lent.filter((l) => l.card.deckId === deckId && sameCardName(l.card.name, name)).reduce((n, l) => n + l.qty, 0)
 }
 
 /**
@@ -683,13 +811,16 @@ export function putAway(collections: Collection[], card: { id: string; name: str
   }
   const finishes = foil ? [true, false] : [false, true]
   const knownOnly = (e: CollectionEntry) => (placedCopies(e).every((p) => known.has(p.placeId)) ? e : withPlaces(e, placedCopies(e).filter((p) => known.has(p.placeId))))
+  // Copies out on loan have no place, but they aren't here to put away.
+  const lent = lentByEntry(lentCopies(collections))
 
   // A copy with no place.
   for (const f of finishes) {
     for (const { c, e } of candidates) {
       const clean = knownOnly(e)
       const free = unplacedCopies(clean)
-      if ((f ? free.foil : free.plain) <= 0) continue
+      const out = lentOf(lent, c.id, e)
+      if ((f ? free.foil - out.foil : free.plain - out.plain) <= 0) continue
       const { entry } = placeCopies(clean, to, 1, f)
       return {
         collections: mapEntry(collections, c.id, e.scryfallId, () => entry),
@@ -754,7 +885,7 @@ export function undoPutAway(collections: Collection[], step: PutAwayStep): Colle
 /**
  * Gives up to [count] copies of the card called [name] that have no place the spot [to] — copies of
  * the printing [preferId] first, the Unsorted pile's before the binders', plain before foil. Copies
- * tagged as lent out are left alone. Also how many it gave.
+ * out on loan, or tagged as lent out, are left alone. Also how many it gave.
  */
 export function placeUnplaced(collections: Collection[], name: string, preferId: string | null, to: Spot, count: number): { collections: Collection[]; moved: number } {
   const known = new Set(placesOf(collections).map((p) => p.id))
@@ -769,13 +900,17 @@ export function placeUnplaced(collections: Collection[], name: string, preferId:
   }
   let left = count
   let out = collections
+  // Copies out on loan have no place, but they aren't here to be given one.
+  const lent = lentByEntry(lentCopies(collections))
   for (const foil of [false, true]) {
     for (const { c, e } of order) {
       if (left <= 0) break
       const current = out.find((x) => x.id === c.id)?.entries.find((x) => x.scryfallId === e.scryfallId)
       if (!current) continue
       const clean = placedCopies(current).every((p) => known.has(p.placeId)) ? current : withPlaces(current, placedCopies(current).filter((p) => known.has(p.placeId)))
-      const { entry, moved } = placeCopies(clean, to, left, foil)
+      const free = unplacedCopies(clean)
+      const away = lentOf(lent, c.id, e)
+      const { entry, moved } = placeCopies(clean, to, Math.min(left, foil ? free.foil - away.foil : free.plain - away.plain), foil)
       if (moved === 0) continue
       left -= moved
       out = mapEntry(out, c.id, e.scryfallId, () => entry)

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
@@ -79,6 +79,12 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
   const [podDialog, setPodDialog] = useState<api.Pod | 'new' | null>(null)
   const person = (id: string) => overview.people[id] ?? null
 
+  // What friends have lent the user (supabase/migrations/20261006010000_loans.sql) — nothing if the
+  // server can't say.
+  const [borrowed, setBorrowed] = useState(0)
+  useEffect(() => {
+    api.myBorrowedLoans().then((l) => setBorrowed(l.reduce((n, x) => n + x.cards.reduce((m, c) => m + c.qty, 0), 0))).catch(() => {})
+  }, [])
   const incoming = overview.friends.filter((f) => f.status === 'pending' && f.incoming)
   const outgoing = overview.friends.filter((f) => f.status === 'pending' && !f.incoming)
   const friends = overview.friends
@@ -109,6 +115,12 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
         <Icon name="swap_horiz" />
         <span style={{ flex: 1 }}>Trades</span>
         {inbox.trades > 0 && <span className="count-badge">{inbox.trades}</span>}
+        <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
+      </button>
+
+      <button type="button" className="banner press rise" style={{ ...rise(1), marginTop: 8 }} onClick={() => navigate('/loans?tab=borrowed')}>
+        <Icon name="handshake" />
+        <span style={{ flex: 1 }}>{borrowed > 0 ? `Borrowed from friends: ${borrowed} ${borrowed === 1 ? 'card' : 'cards'}` : 'Loans'}</span>
         <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
       </button>
 

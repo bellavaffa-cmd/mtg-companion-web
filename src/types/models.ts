@@ -321,6 +321,58 @@ export interface Collection {
    * Left out until the first place is made; then kept, as [] once none are left.
    */
   storagePlaces?: StoragePlace[]
+  /**
+   * The Unsorted pile only: the user's loans — cards lent to a friend or anyone else (see
+   * collection/loans.ts). They ride along with the pile when it syncs, like [storagePlaces], and merge
+   * loan by loan. Left out until the first loan; then kept, as [] once none are left — so a pile with
+   * no "loans" key was saved by an app that doesn't know about loans.
+   */
+  loans?: Loan[]
+}
+
+// The pile's "loans" as JSON — locally and in sync:
+//   "loans": [{ "id": "…", "to": "Sam", "friendId": "…", "lentAt": 1790000000000, "backBy": "2026-10-12",
+//               "gameNight": true, "note": "for Saturday", "returnedAt": 1790000000000,
+//               "cards": [{ "name": "Sol Ring", "scryfallId": "…", "qty": 1, "deckId": "…" },
+//                         { "name": "The One Ring", "scryfallId": "…", "qty": 1, "foil": true, "collectionId": "unsorted",
+//                           "placeId": "…", "page": 3, "slot": 5, "back": 1 }] }]
+// Optional keys are left out when not said, as in a binder entry's "places".
+
+/**
+ * Copies of one card lent in a loan, with where they came from: a deck ([deckId]), or a binder's
+ * entry ([collectionId]) — and, when they were in a place, that spot ([placeId], [section], [page],
+ * [slot]), so getting them back puts them there again. [back]: how many have come back. The Android
+ * app's LoanCard, field for field.
+ */
+export interface LoanCard {
+  name: string
+  scryfallId: string
+  qty: number
+  foil?: boolean
+  collectionId?: string
+  placeId?: string
+  section?: string
+  page?: number
+  slot?: number
+  deckId?: string
+  back?: number
+}
+
+/**
+ * Cards lent to someone: a friend by account ([friendId]) or anyone by name ([to] — a friend's name
+ * too). [backBy]: the day they're due back ("2026-10-12"); [gameNight]: due at the next game night.
+ * [returnedAt]: when the last card came back. The Android app's Loan, field for field.
+ */
+export interface Loan {
+  id: string
+  to: string
+  friendId?: string
+  cards: LoanCard[]
+  lentAt: number
+  backBy?: string
+  gameNight?: boolean
+  note?: string
+  returnedAt?: number
 }
 
 /**

@@ -1,6 +1,6 @@
 // "Where it is" on a card's page: every copy of the card, by where it's physically kept — a place
-// (and its section or pocket), a deck box, lent out, or no place yet — with "Move a copy" and "Give it
-// a place". The logic is whereItIs() in storagePlaces.ts. Mirrors the Android app's WhereItIs.kt
+// (and its section or pocket), a deck box, lent out (a loan each), or no place yet — with "Move a
+// copy", "Give it a place", "Lend" (LendPage.tsx) and "History" (CopyHistoryPage.tsx). The logic is whereItIs() in storagePlaces.ts. Mirrors the Android app's WhereItIs.kt
 // (ui/detail/WhereItIs.kt).
 
 import { useMemo, useState } from 'react'
@@ -12,6 +12,8 @@ import type { ScryfallCard } from '../types/scryfall'
 import type { CopyPlace } from '../types/models'
 import { PLACE_ICONS, PlacePicker } from './StorageTab'
 import { cardFactsOf, moveCopies, placeTree, placesOf, placeUnplaced, suggestSpot, whereItIs, type WhereLine } from './storagePlaces'
+import { movedMove, putAwayMove } from './copyHistory'
+import { recordMoves } from './copyHistoryStore'
 import './storage.css'
 
 const ICONS: Record<WhereLine['kind'], string> = { place: 'inventory_2', deck: 'style', lent: 'handshake', none: 'error' }
@@ -30,7 +32,9 @@ export function WhereItIs({ name, card }: { name: string; card: ScryfallCard | n
   const give = (placeId: string) => {
     const place = places.find((p) => p.id === placeId)
     if (!place) return
-    changeStorage((c) => placeUnplaced(c, name, card?.id ?? null, suggestSpot(place, card ? cardFactsOf(card) : { name }, c).spot, 1).collections)
+    let moved = 0
+    changeStorage((c) => { const out = placeUnplaced(c, name, card?.id ?? null, suggestSpot(place, card ? cardFactsOf(card) : { name }, c).spot, 1); moved = out.moved; return out.collections })
+    if (moved > 0) recordMoves([putAwayMove(Date.now(), { name, scryfallId: card?.id }, moved, { id: place.id, name: place.name }, null)])
   }
 
   return (
@@ -39,7 +43,9 @@ export function WhereItIs({ name, card }: { name: string; card: ScryfallCard | n
       <div className="where-list">
         {lines.map((l, i) => {
           const icon = l.kind === 'place' ? PLACE_ICONS[places.find((p) => p.id === l.placeId)?.kind ?? 'OTHER'] : ICONS[l.kind]
-          const go = l.kind === 'place' ? () => navigate(`/collections/place/${l.placeId}`) : l.kind === 'deck' ? () => navigate(`/decks/${l.deckId}`) : null
+          const go = l.kind === 'place' ? () => navigate(`/collections/place/${l.placeId}`)
+            : l.kind === 'deck' ? () => navigate(`/decks/${l.deckId}`)
+              : l.kind === 'lent' ? () => navigate('/loans') : null
           const body = (
             <>
               <Icon name={icon} />
@@ -57,6 +63,12 @@ export function WhereItIs({ name, card }: { name: string; card: ScryfallCard | n
             <button type="button" className="btn line" disabled={unplaced === 0} onClick={() => setGiving(true)}>Give it a place</button>
           </div>
         )}
+        <div className="where-actions">
+          <button type="button" className="btn line" disabled={!lines.some((l) => l.kind === 'place' || l.kind === 'deck' || l.kind === 'none')} onClick={() => navigate(`/loans/lend?card=${encodeURIComponent(name)}`)}>
+            <Icon name="handshake" aria-hidden />Lend
+          </button>
+          <button type="button" className="btn line" onClick={() => navigate(`/history?card=${encodeURIComponent(name)}`)}><Icon name="history" aria-hidden />History</button>
+        </div>
       </div>
       {giving && <PlacePicker title={`Give ${name} a place`} onPick={give} onClose={() => setGiving(false)} />}
       {moving && <MoveCopyDialog name={name} card={card} lines={placeLines} unplaced={unplaced} onDismiss={() => setMoving(false)} />}
@@ -81,6 +93,8 @@ function MoveCopyDialog({ name, card, lines, unplaced, onDismiss }: {
   const move = () => {
     if (!source) return
     const target = places.find((p) => p.id === to)
+    const from = source.line ? places.find((p) => p.id === source.line!.placeId) : undefined
+    recordMoves([movedMove(Date.now(), { name, scryfallId: card?.id }, count, from ? { id: from.id, name: source.line!.title } : null, target ? { id: target.id, name: target.name } : null)])
     changeStorage((c) => {
       const spot = target ? suggestSpot(target, card ? cardFactsOf(card) : { name }, c).spot : null
       if (!source.line) return spot ? placeUnplaced(c, name, card?.id ?? null, spot, count).collections : c

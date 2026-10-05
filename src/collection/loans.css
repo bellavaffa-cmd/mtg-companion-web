@@ -1,0 +1,79 @@
+/* Loans (LoansPage.tsx, LendPage.tsx), a copy's history (CopyHistoryPage.tsx), value by place
+   (ValueByPlacePage.tsx) and sorting a new pile (SortPilePanel.tsx). */
+
+.loan-list { max-width: 560px; display: flex; flex-direction: column; gap: 10px; }
+.loan-card { padding: 12px 14px; border-radius: 14px; background: var(--g1); display: flex; flex-direction: column; gap: 8px; max-width: 560px; }
+.loan-card.overdue { box-shadow: inset 0 0 0 1px rgba(255, 138, 76, 0.5); }
+.loan-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.loan-h h2 { margin: 0; font-size: 15px; font-weight: 800; }
+.loan-h span { font-size: 12px; }
+.loan-h .late { color: var(--cut); font-weight: 700; }
+.loan-sum { font-size: 14px; color: var(--t0); opacity: 0.85; }
+.loan-line { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.loan-line > span:first-child { flex: 1; min-width: 0; }
+.loan-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.loan-actions .btn { flex: 1; min-height: 40px; }
+.loan-some { display: flex; flex-direction: column; gap: 8px; }
+.loan-some-row { display: flex; align-items: center; gap: 8px; }
+.loan-some-row .storage-text { flex: 1; min-width: 0; }
+
+.lend-page { max-width: 560px; }
+.lend-row { display: flex; align-items: center; gap: 10px; }
+.lend-pick { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; cursor: pointer; }
+.lend-pick input { width: 20px; height: 20px; accent-color: var(--gold); flex: none; }
+.lend-qty { display: flex; align-items: center; gap: 6px; }
+.lend-page .field-label { margin-top: 14px; }
+
+.move-list { list-style: none; margin: 0; padding: 0 0 0 12px; max-width: 560px; }
+.move-list li { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 0 0 18px 18px; border-left: 2px solid var(--g3); }
+.move-list li:last-child { border-left-color: transparent; }
+.move-list li::before { content: ''; position: absolute; left: -7px; top: 2px; width: 12px; height: 12px; border-radius: 6px; background: var(--g3); }
+.move-list li.first::before { background: var(--gold); }
+.move-list .when { font-size: 12px; color: var(--t1); }
+.move-list b { font-size: 14px; }
+.move-list .dim { font-size: 12px; }
+.recent-moves { max-width: 560px; margin-top: 18px; }
+.recent-moves h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--t1); margin: 0 0 10px; }
+
+.value-page { max-width: 560px; }
+.value-total { padding: 14px; border-radius: 16px; background: var(--g1); display: flex; flex-direction: column; gap: 4px; }
+.value-total .big { font-family: var(--num); font-size: 44px; line-height: 1; color: var(--gold); }
+.value-bars { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.value-bar { padding: 12px 14px; border-radius: 14px; background: var(--g1); display: flex; flex-direction: column; gap: 8px; }
+.value-bar-h { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; }
+.value-bar .storage-bar > div.grey { background: var(--t2); }
+.value-print { display: none; }
+
+/* The PDF report: printed on its own, black on white. */
+@media print {
+  .value-print, .value-print * { visibility: visible !important; }
+  .value-print { display: block; position: absolute; left: 0; top: 0; width: 100%; color: #000; font: 10pt/1.35 var(--ui); }
+  .value-print h1 { font-size: 16pt; margin: 0 0 4pt; }
+  .value-print p { margin: 0 0 10pt; }
+  .value-print table { width: 100%; border-collapse: collapse; margin-bottom: 12pt; }
+  .value-print th, .value-print td { border-bottom: 0.3mm solid #ccc; padding: 2pt 4pt; text-align: left; vertical-align: top; }
+  .value-print th { font-weight: 700; }
+  .value-print tr { break-inside: avoid; }
+}
+
+/* Sorting a new pile: the scanner's big pile tile and the piles so far. */
+.sort-tile { margin-top: 12px; padding: 16px 18px; border-radius: 18px; display: flex; align-items: center; gap: 16px; color: #1e0d02; }
+.sort-tile .num { font-family: var(--num); font-size: 64px; line-height: 1; }
+.sort-tile .txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sort-tile .txt > span { font-size: 13px; font-weight: 700; }
+.sort-tile .txt > b { font-size: 20px; font-weight: 800; }
+.sort-tile.none { background: var(--g2); color: var(--t0); }
+.sort-piles { margin-top: 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.sort-pile { padding: 12px; border-radius: 14px; background: var(--g1); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sort-pile.on { box-shadow: inset 0 0 0 2px var(--pile); }
+.sort-pile .dim { font-size: 12px; }
+.sort-pile b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sort-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sort-head input { flex: 1; min-width: 160px; }
+.sort-rule { padding: 10px 12px; border-radius: 12px; background: var(--g1); display: flex; flex-direction: column; gap: 8px; }
+.sort-rule-h { display: flex; align-items: center; gap: 8px; }
+.sort-rule-h .dot { width: 14px; height: 14px; border-radius: 7px; flex: none; }
+.sort-rule-h b { flex: 1; }
+.sort-rule select, .sort-rule input { width: 100%; }
+.sort-rule .row2 { display: flex; gap: 8px; }
+.sort-rule .row2 > * { flex: 1; }

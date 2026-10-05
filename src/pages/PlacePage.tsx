@@ -17,7 +17,11 @@ import { binderPockets, closeGapsMoves, fitSteps, looseCopies, relocate, undoMov
 import { lastCheckedLabel } from '../collection/placeCheck'
 import { clearCheck, loadCheck, saveCheck } from '../collection/checkSession'
 import { useUndoBar } from '../components/useUndoBar'
+import { movesOfPlace } from '../collection/copyHistory'
+import { useCopyHistory } from '../collection/copyHistoryStore'
+import { MoveList } from './CopyHistoryPage'
 import '../collection/storage.css'
+import '../collection/loans.css'
 
 /**
  * One storage place, the Android app's PlaceScreen: its copies, their value and its sections — a box's
@@ -25,6 +29,7 @@ import '../collection/storage.css'
  * places inside it, "Put cards away" into it with the scanner, Check (scan everything in it, see
  * collection/placeCheck.ts) and when it was last checked, and a label to stick on it
  * (PlaceLabelPage.tsx). A binder has Close the gaps and Add cards in order (BinderFitPage.tsx).
+ * More has Lend cards from here (LendPage.tsx); Recent moves lists what came and went (copyHistory.ts).
  * At /collections/place/:id (?page=3 opens a binder at that page).
  */
 export function PlacePage() {
@@ -53,6 +58,8 @@ export function PlacePage() {
   const [checking, setChecking] = useState(false)
   const [closing, setClosing] = useState<PocketMove[] | null>(null)
   const showUndo = useUndoBar()
+  const history = useCopyHistory()
+  const recent = useMemo(() => movesOfPlace(history, placeAndInside(places, id), 10), [history, places, id])
   const page = Number(params.get('page')) || 1
   const setPage = (n: number) => setParams((ps) => { const next = new URLSearchParams(ps); next.set('page', String(n)); return next }, { replace: true })
 
@@ -190,6 +197,12 @@ export function PlacePage() {
             {cards.length === 0 && sections.length === 0 && <div className="dim">Nothing here yet. Put cards away to fill it.</div>}
           </div>
         )}
+        {recent.length > 0 && (
+          <div className="recent-moves">
+            <h3>Recent moves</h3>
+            <MoveList moves={recent} named />
+          </div>
+        )}
       </div>
 
       {more && (
@@ -199,6 +212,7 @@ export function PlacePage() {
           actions={[
             { label: 'Change place', icon: 'edit', detail: 'Its name, what it is, where it sits', onClick: () => setEditing(true) },
             { label: 'New place inside', icon: 'add', detail: `A box or binder in ${place.name}`, onClick: () => setAdding(true) },
+            { label: 'Lend cards from here', icon: 'handshake', detail: 'Tick the cards, then who has them', onClick: () => navigate(`/loans/lend?place=${encodeURIComponent(place.id)}`) },
             { label: 'Delete place', icon: 'delete', tone: 'danger', detail: 'Its cards stay in your collection, with no place', onClick: () => setDeleting(true) },
           ]}
           onClose={() => setMore(false)}

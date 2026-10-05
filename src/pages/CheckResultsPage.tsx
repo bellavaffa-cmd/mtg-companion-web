@@ -5,6 +5,8 @@ import { Icon } from '../components/Icon'
 import { Dialog } from '../components/Dialog'
 import { PageHeader, useBack } from '../components/kit'
 import { placesOf, placePath } from '../collection/storagePlaces'
+import { checkedMove } from '../collection/copyHistory'
+import { recordMoves } from '../collection/copyHistoryStore'
 import { lastCheckedLabel, listedWhere, markChecked, markNoPlace, reconcile, recordHere, removeMissing } from '../collection/placeCheck'
 import { clearCheck, loadCheck } from '../collection/checkSession'
 import '../collection/storage.css'
@@ -66,6 +68,9 @@ export function CheckResultsPage() {
   }
   const save = () => {
     changeStorage((c) => markChecked(c, place.id, Date.now()))
+    // Each card found where it should be, in its history (collection/copyHistory.ts).
+    const at = Date.now()
+    recordMoves(result.lines.filter((l) => l.kind === 'HERE').map((l) => checkedMove(at, l.scan, { id: place.id, name: [place.name, session.section].filter(Boolean).join(' › ') }, 'where it should be')))
     clearCheck()
     navigate(`/collections/place/${place.id}`, { replace: true })
   }

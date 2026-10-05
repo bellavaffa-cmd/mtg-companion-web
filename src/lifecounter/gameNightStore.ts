@@ -81,3 +81,12 @@ export async function estimateDeckBracket(deck: Deck): Promise<number | null> {
   brackets.set(key, bracket)
   return bracket
 }
+
+/**
+ * Game nights kept here, for a loan due back "next game night" (collection/loans.ts): whether there's
+ * been one (a night with players seated in pods, now or before), and when each started.
+ */
+export function gameNights(): { exists: boolean; nights: { at: number }[] } {
+  const all = [saved.current, saved.previous].filter((n): n is GameNight => !!n && n.pods.length > 0)
+  return { exists: all.length > 0 || saved.current.players.length > 1, nights: all.map((n) => ({ at: n.createdAt })) }
+}

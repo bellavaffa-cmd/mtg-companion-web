@@ -10,6 +10,7 @@ import { CardZoomModal, zoomSteps } from '../components/CardZoomModal'
 import { ActionSheet } from '../components/ActionSheet'
 import type { SheetAction } from '../components/ActionSheet'
 import { AddToDeckSection, DeckCardRow, DeckCardTile } from '../components/DeckCardViews'
+import { lentCopies, lentFromDeck } from '../collection/storagePlaces'
 import { useAddSearch, useComboPieces, useDeckCombos } from '../components/useDeckCardSearch'
 import { ComboPieceWarningDialog, DeckImportDialog, SwapPickerDialog } from '../components/DeckBuildingDialogs'
 import { combosWithCard } from '../decks/considering'
@@ -142,6 +143,9 @@ export function DeckDetailPage() {
   const ownedKeys = useMemo(() => ownedNameKeys(collections), [collections])
   // A card whose printing is being changed: another art, another set.
   const [changingPrinting, setChangingPrinting] = useState<DeckCardEntry | null>(null)
+  // Its copies out on loan (collection/loans.ts): the deck still lists them, marked lent out.
+  const lentHere = useMemo(() => (deck ? lentCopies(collections, [deck]).filter((l) => l.card.deckId === deck.id) : []), [collections, deck])
+  const lentOutOf = (entry: DeckCardEntry) => (lentHere.length === 0 ? 0 : lentFromDeck(lentHere, deck!.id, entry.name))
   // A deck built with proxies: how many are left, and which you already own a real copy of.
   const proxiesLeft = deck ? deckProxyCopies(deck) : 0
   const swaps = useMemo(
@@ -436,7 +440,7 @@ export function DeckDetailPage() {
       <div className="card-grid">
         {entries.map((entry) => (
           <DeckCardTile
-            key={entry.scryfallId} entry={entry} combo={combo} commander={commander}
+            key={entry.scryfallId} entry={entry} combo={combo} commander={commander} lent={sideboard ? 0 : lentOutOf(entry)}
             onZoom={() => zoom(entry)} onMore={() => more(entry)}
           />
         ))}
@@ -445,7 +449,7 @@ export function DeckDetailPage() {
       <div className="list">
         {entries.map((entry) => (
           <DeckCardRow
-            key={entry.scryfallId} entry={entry} combo={combo} commander={commander}
+            key={entry.scryfallId} entry={entry} combo={combo} commander={commander} lent={sideboard ? 0 : lentOutOf(entry)}
             onZoom={() => zoom(entry)} onMore={() => more(entry)}
             onIncrement={commander ? undefined : () => { void oneMore(entry, !!sideboard) }}
             onDecrement={commander ? undefined : () => (sideboard ? sideFewer(entry) : fewer(entry))}

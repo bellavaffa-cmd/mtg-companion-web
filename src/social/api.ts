@@ -187,6 +187,7 @@ const MESSAGES: Record<string, string> = {
   not_in_pod: "You're not in that pod any more.",
   bad_players: 'Check the players: 2 to 10, each with a name, and one winner at most.',
   too_many_games: 'This pod has 5,000 games recorded — delete some old ones first.',
+  too_many_loans: 'You have 500 loans open — get some cards back first.',
 }
 
 async function call<T>(fn: string, args: Record<string, unknown> = {}, { signedIn = true } = {}): Promise<T> {
@@ -378,6 +379,35 @@ export const respondTrade = (tradeId: string, action: 'accept' | 'decline' | 'ca
   call<void>('respond_trade', { p_trade: tradeId, p_action: action, p_reply: reply || null })
 /** True: this call marked the caller's side, so move the cards. False: it was already done. Null: an older server that doesn't say. */
 export const markTradeApplied = (tradeId: string) => call<boolean | null>('mark_trade_applied', { p_trade: tradeId })
+
+// ---- Loans to friends (supabase/migrations/20261006010000_loans.sql) ----
+// The loan itself is the library's (collection/loans.ts); these only let the friend see it. Every
+// call is best effort: the server may not have them yet, or the user may be offline.
+
+/** A loan a friend made to the user, as the server keeps it. */
+export interface BorrowedLoan {
+  id: string
+  clientId: string
+  lender: Profile | null
+  cards: { name: string; qty: number; printingId: string | null }[]
+  backBy: string | null
+  gameNight: boolean
+  note: string | null
+  lentAt: number
+}
+
+/** Sends a loan to a friend (again): [cards] are the copies still out. */
+export const upsertLoan = (loan: { id: string; friendId: string; lentAt: number; backBy?: string; gameNight?: boolean; note?: string }, cards: { name: string; qty: number; printingId: string }[]) =>
+  call<string>('upsert_loan', {
+    p_client_id: loan.id, p_borrower: loan.friendId, p_cards: cards, p_back_by: loan.backBy ?? null,
+    p_game_night: !!loan.gameNight, p_note: loan.note ?? null, p_lent_at: new Date(loan.lentAt).toISOString(),
+  })
+/** Every card is back. */
+export const markLoanReturned = (clientId: string) => call<void>('mark_loan_returned', { p_client_id: clientId })
+/** What the user has borrowed from friends and not given back. */
+export const myBorrowedLoans = () => call<BorrowedLoan[]>('my_borrowed_loans').then((l) => l ?? [])
+/** Asks the friend for the cards back, by a notification. False: one already went in the last 12 hours. */
+export const remindLoan = (clientId: string) => call<boolean>('remind_loan', { p_client_id: clientId })
 
 // ---- Links (QR codes and share links open the web app at these) ----
 

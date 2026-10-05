@@ -16,6 +16,10 @@ import { CheckResultsPage } from './pages/CheckResultsPage'
 import { PlaceLabelPage, PlaceLinkPage } from './pages/PlaceLabelPage'
 import { PullListPage } from './pages/PullListPage'
 import { PutBackPage } from './pages/PutBackPage'
+import { LoansPage } from './pages/LoansPage'
+import { LendPage } from './pages/LendPage'
+import { CopyHistoryPage } from './pages/CopyHistoryPage'
+import { ValueByPlacePage } from './pages/ValueByPlacePage'
 import { DecksPage } from './pages/DecksPage'
 import { PreconsPage } from './pages/PreconsPage'
 import { NewDeckPage } from './pages/NewDeckPage'
@@ -76,6 +80,10 @@ export default function App() {
             <Route path="/collections/place/:id/fit" element={<BinderFitPage />} />
             <Route path="/collections/place/:id/check" element={<CheckResultsPage />} />
             <Route path="/collections/labels" element={<PlaceLabelPage />} />
+            <Route path="/collections/value" element={<ValueByPlacePage />} />
+            <Route path="/loans" element={<LoansPage />} />
+            <Route path="/loans/lend" element={<LendPage />} />
+            <Route path="/history" element={<CopyHistoryPage />} />
             <Route path="/place/:id" element={<PlaceLinkPage />} />
             <Route path="/collections/thin" element={<SpreadThinPage />} />
             <Route path="/decks" element={<DecksPage />} />

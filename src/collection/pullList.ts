@@ -29,7 +29,7 @@ import { isBasicLand } from '../decks/missing'
 import { buildCardListText } from './cardListText'
 import { intoPile, pileEntryOf, withUnsortedPile } from './unsorted'
 import {
-  copyKey, copyPlace, lentTag, mergeCopyPlaces, moveCopies, parentsOf, placeAndInside, placeCopies, placedCopies, placesOf,
+  copyKey, copyPlace, lentByEntry, lentCopies, lentFromDeck, lentOf, lentTag, mergeCopyPlaces, moveCopies, parentsOf, placeAndInside, placeCopies, placedCopies, placesOf,
   placeTree, pocketLabel, positionHint, ruleSection, sameCardName, suggestSpot, tidied, unplacedCopies, withPlaces,
   type CardFacts, type Spot,
 } from './storagePlaces'
@@ -175,7 +175,7 @@ interface Source { key: string; name: string; qty: number; source: PullSource; r
  * Every copy [deck] still needs (see pullNeeds), with where to fetch it from, grouped in walking
  * order. Each copy is found once: in a place first (in tree order), then with no place (the Unsorted
  * pile's before the binders'), then in another deck you hold; what's left is a basic land or a card
- * not owned. Wishlists, and copies tagged as lent out, aren't fetched from.
+ * not owned. Wishlists, copies out on loan and copies tagged as lent out aren't fetched from.
  */
 export function pullList(deck: Deck, collections: Collection[], decks: Deck[]): PullList {
   const places = placesOf(collections)
@@ -184,6 +184,9 @@ export function pullList(deck: Deck, collections: Collection[], decks: Deck[]): 
   const owned = collections.filter((c) => c.type !== 'WISHLIST')
   const piles = [...owned.filter(isUnsorted), ...owned.filter((c) => !isUnsorted(c))]
   const sources: Source[] = []
+  // Copies out on loan (collection/loans.ts) aren't here to fetch.
+  const lent = lentCopies(collections, decks)
+  const lentHere = lentByEntry(lent)
   for (const c of piles) {
     for (const e of c.entries) {
       if (e.quantity + (e.foilQuantity ?? 0) <= 0 || lentTag(e)) continue
@@ -197,7 +200,9 @@ export function pullList(deck: Deck, collections: Collection[], decks: Deck[]): 
         })
       }
       // Copies in a place that's gone have no place any more.
-      const free = unplacedCopies(knownOnly(e, byId))
+      const unplaced = unplacedCopies(knownOnly(e, byId))
+      const away = lentOf(lentHere, c.id, e)
+      const free = { plain: unplaced.plain - away.plain, foil: unplaced.foil - away.foil }
       const at = piles.indexOf(c)
       if (free.plain > 0) sources.push({ key: `l:${c.id}:${e.scryfallId}:`, name: e.name, qty: free.plain, source: { kind: 'loose', collectionId: c.id, scryfallId: e.scryfallId, foil: false }, rank: [1, 0, at] })
       if (free.foil > 0) sources.push({ key: `l:${c.id}:${e.scryfallId}:foil`, name: e.name, qty: free.foil, source: { kind: 'loose', collectionId: c.id, scryfallId: e.scryfallId, foil: true }, rank: [1, 1, at] })
@@ -213,7 +218,10 @@ export function pullList(deck: Deck, collections: Collection[], decks: Deck[]): 
       if (had) had.qty += real
       else held.set(nameKey(e.name), { name: e.name, qty: real })
     }
-    for (const [key, h] of held) sources.push({ key: `d:${d.id}:${key}`, name: h.name, qty: h.qty, source: { kind: 'deck', deckId: d.id }, rank: [2, i] })
+    for (const [key, h] of held) {
+      const qty = h.qty - lentFromDeck(lent, d.id, h.name)
+      if (qty > 0) sources.push({ key: `d:${d.id}:${key}`, name: h.name, qty, source: { kind: 'deck', deckId: d.id }, rank: [2, i] })
+    }
   })
   const rankOrder = (a: Source, b: Source) => {
     for (let i = 0; i < Math.max(a.rank.length, b.rank.length); i++) {

@@ -5,7 +5,9 @@ import { Icon } from '../components/Icon'
 import { Dialog } from '../components/Dialog'
 import { PageHeader, SegmentedTabs, useBack } from '../components/kit'
 import { useCardData } from '../collection/cardData'
-import { cardFactsOf } from '../collection/storagePlaces'
+import { cardFactsOf, placesOf } from '../collection/storagePlaces'
+import { putBackMove } from '../collection/copyHistory'
+import { recordMoves } from '../collection/copyHistoryStore'
 import { putBackList, takeApart, type PutBackMode, type PutBackRow, type TakeApartResult } from '../collection/pullList'
 import { loadPutBackProgress, savePutBackProgress } from '../collection/pullProgress'
 import type { DeckCardEntry } from '../types/models'
@@ -68,6 +70,13 @@ export function PutBackPage() {
       const out = result
       return { collections: out.collections, decks: ds.map((x) => (x.id === d.id ? out.deck : x)) }
     })
+    // The copies' history: each back in its place, or out of the deck with none (collection/copyHistory.ts).
+    const at = Date.now()
+    const places = placesOf(collections)
+    recordMoves(list.groups.flatMap((g) => g.rows).map((r) => {
+      const place = r.dest ? places.find((p) => p.id === r.dest!.placeId) : undefined
+      return putBackMove(at, { name: r.name, scryfallId: r.scryfallId }, r.qty, deck.name, place ? { id: place.id, name: [place.name, r.dest!.section].filter(Boolean).join(' › ') } : null)
+    }))
     setConfirming(false)
     savePutBackProgress(deck.id, null)
     setDone(result)

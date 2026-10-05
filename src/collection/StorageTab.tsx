@@ -1,6 +1,6 @@
 // The Collection's Storage tab: how much of the collection has a place, the places themselves as a
-// tree with their copies, the deck boxes and the copies lent out — and the dialogs to make, change
-// and pick a place. The logic is in storagePlaces.ts. Mirrors the Android app's StorageTab.kt
+// tree with their copies, the deck boxes and the copies lent out (the Loans page), Sort a new pile and
+// Value by place — and the dialogs to make, change and pick a place. The logic is in storagePlaces.ts. Mirrors the Android app's StorageTab.kt
 // (ui/collection/StorageTab.kt).
 
 import { useMemo, useState } from 'react'
@@ -63,10 +63,14 @@ export function StorageTab() {
           <div className="storage-text"><b>Deck boxes</b><span>Your physical decks, kept up to date</span></div>
           <span className="storage-n">{count(summary.inDecks)}</span>
         </button>
-        <div className="storage-row storage-card rise" style={rise(5)}>
+        <button type="button" className="storage-row storage-card press rise" style={rise(5)} onClick={() => navigate('/loans')}>
           <Icon name="handshake" className="storage-icon" />
-          <div className="storage-text"><b>Lent out</b><span>Copies you've tagged “lent to …”</span></div>
+          <div className="storage-text"><b>Lent out</b><span>Your loans, and what friends lent you</span></div>
           <span className="storage-n">{count(summary.lent)}</span>
+        </button>
+        <div className="place-actions rise" style={rise(6)}>
+          <button type="button" className="btn line" onClick={() => navigate('/scan?sort')}><Icon name="call_split" aria-hidden />Sort a new pile</button>
+          <button type="button" className="btn line" onClick={() => navigate('/collections/value')}><Icon name="payments" aria-hidden />Value by place</button>
         </div>
       </div>
 

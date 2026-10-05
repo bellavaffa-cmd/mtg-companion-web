@@ -13,6 +13,7 @@ import { canonicalJson } from './canonicalJson'
 import { saveToStorage } from './storage'
 import { keepLastChecked, keepPlacesFromOlderApp } from '../collection/storagePlaces'
 import { keepCameFromFromOlderApp } from '../collection/pullList'
+import { keepLoansFromOlderApp } from '../collection/loans'
 
 const STATE_KEY = 'mtgweb_cloud_state'
 
@@ -397,7 +398,7 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
         : row.kind === 'deck'
           ? { ...mine, cards: [], considering: [], sideboard: [], tags: [], gameResults: [], versions: [], cameFrom: undefined }
           // The places too: each device's own, kept as additions rather than the cloud's replacing them.
-          : { ...mine, entries: [], storagePlaces: undefined }
+          : { ...mine, entries: [], storagePlaces: undefined, loans: undefined }
       const merged = row.kind === 'deck'
         ? mergeDeck(base as Deck, mine as Deck, JSON.parse(theirJson) as Deck, (localEdit ?? 0) > row.edited_ms)
         : mergeCollection(base as Collection, mine as Collection, JSON.parse(theirJson) as Collection, (localEdit ?? 0) > row.edited_ms)
@@ -417,11 +418,12 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
     // A binder saved by an app that doesn't know about storage places comes without them: this
     // device's are kept and pushed back, rather than the older app's save clearing them everywhere.
     // The same for a deck saved without where its copies came from (Deck.cameFrom), and for a place
-    // saved without when it was last checked (StoragePlace.lastChecked, collection/placeCheck.ts).
+    // saved without when it was last checked (StoragePlace.lastChecked, collection/placeCheck.ts), and
+    // for the Unsorted pile saved without its loans (Collection.loans, collection/loans.ts).
     const healed = mineJson === undefined
       ? theirs
       : row.kind === 'collection'
-        ? keepLastChecked(JSON.parse(mineJson) as Collection, keepPlacesFromOlderApp(JSON.parse(mineJson) as Collection, theirs as Collection))
+        ? keepLoansFromOlderApp(JSON.parse(mineJson) as Collection, keepLastChecked(JSON.parse(mineJson) as Collection, keepPlacesFromOlderApp(JSON.parse(mineJson) as Collection, theirs as Collection)))
         : keepCameFromFromOlderApp(JSON.parse(mineJson) as Deck, theirs as Deck)
     if (healed !== theirs) {
       const healedJson = canonicalJson(healed)
@@ -638,7 +640,7 @@ export function applyRescue(library: Library, rescue: Rescue): Library {
           ? JSON.parse(kept.base)
           : isDeck
             ? { ...mine, cards: [], considering: [], sideboard: [], tags: [], gameResults: [], versions: [], cameFrom: undefined }
-            : { ...mine, entries: [], storagePlaces: undefined }
+            : { ...mine, entries: [], storagePlaces: undefined, loans: undefined }
         next = isDeck
           ? mergeDeck(base as Deck, mine as Deck, current as Deck, true)
           : mergeCollection(base as Collection, mine as Collection, current as Collection, true)

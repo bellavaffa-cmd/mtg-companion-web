@@ -19,12 +19,16 @@
 //    as they were. When a place was last checked (collection/placeCheck.ts) merges to the later check.
 //  - Where a deck's copies came from (its "cameFrom", see collection/pullList.ts) merges card by card
 //    the same way; a deck saved by an app that doesn't know about it leaves it as it was.
+//  - The loans (on the Unsorted pile, see collection/loans.ts) merge loan by loan, their cards card by
+//    card, and the copies back only go up; a pile saved by an app that doesn't know about loans leaves
+//    them as they were.
 // The Android app merges the same way — see data/supabase/ItemMerge.kt.
 
 import type { Collection, CollectionEntry, Deck, DeckCardEntry, GameResult } from '../types/models'
 import { canonicalJson } from './canonicalJson'
 import { keepPlacesFromOlderApp, mergeCopyPlaces, mergePlaceLists, tidied } from '../collection/storagePlaces'
 import { keepCameFromFromOlderApp, mergeCameFrom } from '../collection/pullList'
+import { keepLoansFromOlderApp, mergeLoans } from '../collection/loans'
 // The phone keeps this many saved versions of a deck (DeckRepository.MAX_VERSIONS).
 import { MAX_VERSIONS } from '../decks/versions'
 
@@ -194,8 +198,9 @@ export function mergeDeck(base: Deck, mineIn: Deck, theirsIn: Deck, minePreferre
 
 export function mergeCollection(base: Collection, mineIn: Collection, theirsIn: Collection, minePreferred: boolean): Collection {
   // A side saved by an app that doesn't know about places left them as they were.
-  const mine = keepPlacesFromOlderApp(base, mineIn)
-  const theirs = keepPlacesFromOlderApp(base, theirsIn)
+  // ...and one that doesn't know about loans left those as they were.
+  const mine = keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, mineIn))
+  const theirs = keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, theirsIn))
   const placesIn = (list: CollectionEntry[]) => new Map(list.map((e) => [e.scryfallId, e]))
   const [b, m, t] = [placesIn(base.entries), placesIn(mine.entries), placesIn(theirs.entries)]
   // Each card's places line by line (one added on both sides keeps the other device's), then no more
@@ -213,10 +218,12 @@ export function mergeCollection(base: Collection, mineIn: Collection, theirsIn: 
     return tidied({ ...e, places })
   })
   const storagePlaces = mergePlaceLists(base.storagePlaces, mine.storagePlaces, theirs.storagePlaces, minePreferred)
-  const { storagePlaces: _theirs, ...rest } = theirs
+  const loans = mergeLoans(base.loans, mine.loans, theirs.loans, minePreferred)
+  const { storagePlaces: _theirs, loans: _theirLoans, ...rest } = theirs
   return {
     ...rest,
     ...(storagePlaces !== undefined ? { storagePlaces } : {}),
+    ...(loans !== undefined ? { loans } : {}),
     name: pick(base.name, mine.name, theirs.name, minePreferred),
     type: pick(base.type, mine.type, theirs.type, minePreferred),
     createdAt: Math.min(mine.createdAt, theirs.createdAt),

@@ -346,6 +346,37 @@ export function syncScenarios(cas: boolean) {
     assert.deepEqual(row.storagePlaces, [{ ...checked, name: 'Red box, top' }])
   })
 
+  // Loans ride on the Unsorted pile (Collection.loans, collection/loans.ts): an app from before them
+  // drops the key when it saves the pile, and this app keeps its loans and puts them back.
+  const loan = { id: 'L1', to: 'Sam', lentAt: 1_790_000_000_000, cards: [{ name: 'x', scryfallId: 'x', qty: 1, collectionId: 'unsorted', placeId: 'red' }] }
+  test("an older app's save of the pile doesn't lose the loans", async () => {
+    sim.reset('A', 'B')
+    sim.setLibrary('A', { decks: [], collections: [{ ...unsorted([card('x', 2, [{ placeId: 'red', qty: 1 }])], [redBox]), loans: [loan] }] })
+    await sim.settle('A', 'B')
+    // B knows places but not loans: it renames the box and saves the pile without the key.
+    sim.setLibrary('B', { decks: [], collections: [unsorted([card('x', 2, [{ placeId: 'red', qty: 1 }])], [{ ...redBox, name: 'Red box, top' }])] })
+    await sim.pass('B')
+    await sim.settle('A')
+    const a = sim.library('A').collections[0]
+    assert.deepEqual(a.loans, [loan])
+    assert.equal(a.storagePlaces?.[0].name, 'Red box, top')
+    assert.deepEqual((sim.collectionRow('unsorted')!.data as { loans?: unknown }).loans, [loan])
+  })
+
+  test('a card got back on one device and a loan made on another keep both', async () => {
+    sim.reset('A', 'B')
+    sim.setLibrary('A', { decks: [], collections: [{ ...unsorted([card('x', 2)], [redBox]), loans: [loan] }] })
+    await sim.settle('A', 'B')
+    sim.setLibrary('A', { decks: [], collections: [{ ...unsorted([card('x', 2, [{ placeId: 'red', qty: 1 }])], [redBox]), loans: [{ ...loan, cards: [{ ...loan.cards[0], back: 1 }], returnedAt: 5 }] }] })
+    const other = { id: 'L2', to: 'Priya', lentAt: 1_790_000_000_001, cards: [{ name: 'x', scryfallId: 'x', qty: 1, collectionId: 'unsorted' }] }
+    sim.setLibrary('B', { decks: [], collections: [{ ...unsorted([card('x', 2)], [redBox]), loans: [loan, other] }] })
+    await sim.settle('A', 'B', 'A')
+    for (const d of ['A', 'B']) {
+      const loans = sim.library(d).collections[0].loans!
+      assert.deepEqual(loans.map((l) => `${l.id} ${l.cards[0].back ?? 0} ${l.returnedAt ?? '-'}`), ['L1 1 5', 'L2 0 -'])
+    }
+  })
+
   test('copies given places on two devices at once keep both', async () => {
     sim.reset('A', 'B')
     sim.setLibrary('A', { decks: [], collections: [unsorted([card('x', 3)], [redBox])] })

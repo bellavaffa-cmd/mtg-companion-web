@@ -38,6 +38,11 @@ import { reconcile, type CheckScan } from '../collection/placeCheck'
 import { loadCheck, saveCheck, type CheckSession } from '../collection/checkSession'
 import { looseCopies } from '../collection/binderPages'
 import { cardsIn, placePath } from '../collection/storagePlaces'
+import { fileEveryPile, nextPile, ownedCounts, wantedByDecks, type FiledPiles, type SortScan, type SortSession } from '../collection/sortPiles'
+import { loadPiles, loadSort, saveSort } from '../collection/sortSession'
+import { SortPilePanel } from '../collection/SortPilePanel'
+import { addedMove, putAwayMove } from '../collection/copyHistory'
+import { recordMoves } from '../collection/copyHistoryStore'
 import '../collection/storage.css'
 
 /** A card's shape: the guide box matches it. */
@@ -160,6 +165,12 @@ export function ScanPage() {
       })
       const row = got.row
       if (!row) return
+      // The copy's history (collection/copyHistory.ts): put away from where it was, or added here.
+      const placesNow = placesOf(collections)
+      const fromPlace = row.step?.from ? placesNow.find((p) => p.id === row.step!.from!.placeId) : undefined
+      const here = { id: target.id, name: [target.name, row.spot.section].filter(Boolean).join(' › ') }
+      if (row.result === 'new') recordMoves([addedMove(Date.now(), { name: card.name, scryfallId: card.id }, 1, here, 'by scanning')])
+      else if (row.result !== 'here') recordMoves([putAwayMove(Date.now(), { name: card.name, scryfallId: card.id }, 1, here, fromPlace ? { id: fromPlace.id, name: fromPlace.name } : row.step?.collectionId === UNSORTED_COLLECTION_ID ? { id: '', name: 'Unsorted' } : null, 'by scanning')])
       setSession((list) => [row, ...list])
       setStatus(`${card.name} — ${row.label}`)
     }
@@ -223,6 +234,51 @@ export function ScanPage() {
       setStatus(`${card.name} — ticked${row.where ? ` (${row.where})` : ''}`)
     }
     : null
+  // Sort mode (?sort): each card scanned goes in the first pile whose rule fits it — shown big, in its
+  // pile's colour — and Done files every pile at once (collection/sortPiles.ts, SortPilePanel.tsx).
+  // The sort is kept in the tab (sortSession.ts), so a reload doesn't lose it.
+  const sortMode = params.has('sort') && !target && !checkPlace && !tickKind
+  const [sort, setSortState] = useState<SortSession | null>(() => (params.has('sort') ? loadSort() ?? { source: '', rules: loadPiles(collections), newCards: true, scans: [] } : null))
+  const sortNow = useRef(sort)
+  const setSort = (next: SortSession | null) => { sortNow.current = next; saveSort(next); setSortState(next) }
+  const owned = useMemo(() => (sortMode ? ownedCounts(collections, decks) : new Map<string, number>()), [sortMode, collections, decks])
+  const wanted = useMemo(() => (sortMode ? wantedByDecks(collections, decks) : new Map<string, { decks: string[]; qty: number }>()), [sortMode, collections, decks])
+  const sortCard = useRef<((card: ScryfallCard, id: number) => void) | null>(null)
+  sortCard.current = sortMode
+    ? (card, id) => {
+      const now = sortNow.current ?? { source: '', rules: loadPiles(collections), newCards: true, scans: [] }
+      const usd = Number(card.prices?.usd ?? card.prices?.usd_foil)
+      const price = Number.isFinite(usd) && (card.prices?.usd || card.prices?.usd_foil) ? usd : null
+      const choice = nextPile(now, { name: card.name, rarity: card.rarity, usd: price }, owned, wanted)
+      const scan: SortScan = {
+        id, scryfallId: card.id, name: card.name, rarity: card.rarity ?? null, usd: price, facts: cardFactsOf(card), entry: entryOf(card),
+        pile: choice?.index ?? -1, why: choice?.why ?? '', ...(choice && choice.decks.length > 0 ? { decks: choice.decks } : {}),
+      }
+      setSort({ ...now, scans: [...now.scans, scan] })
+      setStatus(choice ? `${card.name} — pile ${choice.index + 1}` : `${card.name} — no pile fits`)
+    }
+    : null
+  const fileSort = () => {
+    const now = sortNow.current
+    if (!now || now.scans.length === 0) return
+    const at = Date.now()
+    let filed: FiledPiles | null = null
+    changeStorage((c) => { filed = fileEveryPile(c, now); return filed.collections })
+    const done = filed as FiledPiles | null
+    if (done) {
+      const placeOf = (id: string | undefined) => (id ? placesOf(done.collections).find((p) => p.id === id) ?? null : null)
+      recordMoves(done.steps.map(({ scan, step, to }) => {
+        const place = placeOf(step?.to.placeId)
+        const where = place ? { id: place.id, name: to } : null
+        return now.newCards || !step
+          ? addedMove(at, scan, 1, where, now.source.trim() || undefined)
+          : putAwayMove(at, scan, 1, where ?? { id: '', name: to }, step.from ? placeOf(step.from.placeId) : null, 'sorting a pile')
+      }))
+    }
+    const n = now.scans.length
+    setSort({ ...now, scans: [] })
+    showUndo({ message: `Filed ${n} ${n === 1 ? 'card' : 'cards'}${now.source.trim() ? ` from ${now.source.trim()}` : ''}` })
+  }
   // A box label read by the camera: what it offers, over the camera (PlaceLabelSheet).
   const [labelId, setLabelId] = useState<string | null>(null)
   const labelShown = useRef<string | null>(null)
@@ -292,6 +348,12 @@ export function ScanPage() {
     const id = nextScanId++
     // While a box label's sheet is up, cards wait.
     if (labelShown.current) return id
+    if (sortCard.current) {
+      sortCard.current(card, id)
+      setFlash((n) => n + 1)
+      navigator.vibrate?.(30)
+      return id
+    }
     if (tickCard.current) {
       tickCard.current(card)
       setFlash((n) => n + 1)
@@ -613,7 +675,7 @@ export function ScanPage() {
             devLog(`added ${added.name} ${added.set} #${added.collector_number} (${printing ? 'small print' : bySight ? (bySight.certain ? 'by sight, certain' : 'by sight, best guess') : 'usual printing'})`)
             const id = addScanned(added, !!printing || bySight?.certain === true)
             // Put away already: the printing is matched on the card's name, so it's left as it is.
-            if (look && !putAwayCard.current && !checkCard.current) void matchArt(id, card, look, setCode)
+            if (look && !putAwayCard.current && !checkCard.current && !sortCard.current) void matchArt(id, card, look, setCode)
           } catch (e) {
             if (stopped) break
             tracker.failed()
@@ -769,7 +831,7 @@ export function ScanPage() {
   return (
     <>
       <TopBar
-        title={target ? 'Put away' : tickKind ? 'Scan to tick' : checkPlace ? 'Check' : 'Scan'}
+        title={target ? 'Put away' : tickKind ? 'Scan to tick' : checkPlace ? 'Check' : sortMode ? 'Sorting a new pile' : 'Scan'}
         onBack={() => (scanned.length > 0 && !target && !tickKind && !checkPlace ? setLeaving(() => back) : back())}
         actions={
           <>
@@ -859,6 +921,7 @@ export function ScanPage() {
           <button type="submit" className="btn gold" disabled={!typed.trim() || lookingUp}>Add</button>
         </form>
 
+        {sortMode && sort && <SortPilePanel session={sort} onChange={setSort} onDone={fileSort} />}
         {target && session[0] && (() => {
           const last = session[0]
           return (

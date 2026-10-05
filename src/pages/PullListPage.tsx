@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { useMoney } from '../money/currency'
+import { pulledMove } from '../collection/copyHistory'
+import { recordMoves } from '../collection/copyHistoryStore'
 import { Icon } from '../components/Icon'
 import { Dialog } from '../components/Dialog'
 import { PageHeader, useBack } from '../components/kit'
@@ -86,6 +88,16 @@ export function PullListPage() {
       result = movePulled(d, pullList(d, cols, ds), ticked, cols, ds)
       return { collections: result.collections, decks: result.decks }
     })
+    // The copies' history: each ticked row pulled from its place (collection/copyHistory.ts).
+    const at = Date.now()
+    const places = placesOf(collections)
+    recordMoves(list.groups.flatMap((g) => g.rows).filter((r) => ticked.has(r.key) && r.source.kind !== 'missing' && r.source.kind !== 'basic').map((r) => {
+      const src = r.source
+      const from = src.kind === 'place'
+        ? { id: src.line.placeId, name: [places.find((p) => p.id === src.line.placeId)?.name ?? 'a place', src.line.section].filter(Boolean).join(' › ') }
+        : src.kind === 'deck' ? { id: '', name: `${decks.find((x) => x.id === src.deckId)?.name ?? 'another'} deck` } : null
+      return pulledMove(at, { name: r.name, scryfallId: r.scryfallId }, r.qty, deck.name, from)
+    }))
     setMoving(false)
     save(new Set())
     setOpenPullDeck(null)

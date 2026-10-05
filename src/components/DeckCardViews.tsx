@@ -6,13 +6,17 @@ import { Icon } from './Icon'
 import { ArtImage, SectionHeader, toArtCrop } from './kit'
 import { useLongPress } from './useLongPress'
 
-/** Cut candidate, combo piece, or one card away from a combo — each at a glance, worded as on the phone. */
-export function DeckCardBadges({ entry, combo }: { entry: DeckCardEntry; combo: ComboPieces }) {
+/**
+ * Cut candidate, combo piece, or one card away from a combo — each at a glance, worded as on the phone.
+ * And copies lent out (collection/loans.ts): [lent] of them.
+ */
+export function DeckCardBadges({ entry, combo, lent = 0 }: { entry: DeckCardEntry; combo: ComboPieces; lent?: number }) {
   const piece = hasNameKey(combo.pieces, entry.name)
   const nearMiss = !piece && hasNameKey(combo.nearMiss, entry.name)
-  if (!entry.replaceable && !piece && !nearMiss) return null
+  if (!entry.replaceable && !piece && !nearMiss && lent <= 0) return null
   return (
     <>
+      {lent > 0 && <span className="badge warn"><Icon name="handshake" />LENT OUT{entry.quantity > 1 ? ` ×${lent}` : ''}</span>}
       {entry.replaceable && <span className="badge cut"><Icon name="swap_horiz" />CUT</span>}
       {piece && <span className="badge gold"><Icon name="bolt" />COMBO</span>}
       {nearMiss && <span className="badge line"><Icon name="bolt" />+1 COMBO</span>}
@@ -22,11 +26,13 @@ export function DeckCardBadges({ entry, combo }: { entry: DeckCardEntry; combo: 
 
 /** A card in the deck's list: tap to look at it, hold (or right-click) or ⋮ for its actions. */
 export function DeckCardRow({
-  entry, combo, commander, onZoom, onMore, onIncrement, onDecrement,
+  entry, combo, commander, lent, onZoom, onMore, onIncrement, onDecrement,
 }: {
   entry: DeckCardEntry
   combo: ComboPieces
   commander?: boolean
+  /** Copies lent out from the deck. */
+  lent?: number
   onZoom: () => void
   onMore: () => void
   onIncrement?: () => void
@@ -44,7 +50,7 @@ export function DeckCardRow({
         <div className="cname">{entry.name}</div>
         <div className="cmeta">
           {commander && <span className="badge gold"><Icon name="star" />Commander</span>}
-          <DeckCardBadges entry={entry} combo={combo} />
+          <DeckCardBadges entry={entry} combo={combo} lent={lent} />
           <span>{entry.typeLine ?? ''}</span>
         </div>
       </div>
@@ -65,8 +71,8 @@ export function DeckCardRow({
 
 /** A card in the deck's grid: the whole card, tap to look at it, hold (or right-click) for its actions. */
 export function DeckCardTile({
-  entry, combo, commander, onZoom, onMore,
-}: { entry: DeckCardEntry; combo: ComboPieces; commander?: boolean; onZoom: () => void; onMore: () => void }) {
+  entry, combo, commander, lent, onZoom, onMore,
+}: { entry: DeckCardEntry; combo: ComboPieces; commander?: boolean; lent?: number; onZoom: () => void; onMore: () => void }) {
   const longPress = useLongPress({ onLongPress: onMore, onClick: onZoom })
   return (
     <div className="card-cell press" {...longPress}>
@@ -79,7 +85,7 @@ export function DeckCardTile({
         {entry.backImageUrl && <span className="flip-badge"><Icon name="autorenew" /></span>}
       </div>
       <div className="card-cell-name">{entry.name}</div>
-      <div className="card-cell-badges"><DeckCardBadges entry={entry} combo={combo} /></div>
+      <div className="card-cell-badges"><DeckCardBadges entry={entry} combo={combo} lent={lent} /></div>
     </div>
   )
 }
