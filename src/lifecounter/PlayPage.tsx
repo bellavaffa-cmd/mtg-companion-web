@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Dialog } from '../components/Dialog'
 import { Icon } from '../components/Icon'
+import { GameChart } from './GameChart'
 import { PageHeader, SectionHeader, rise, useLayoutSize } from '../components/kit'
 import { rememberedSeat, remotePath } from './seat'
-import { useTableGames, type TableGame } from './tableGames'
+import { chartSeats, useTableGames, type TableGame } from './tableGames'
 import './play.css'
 
 /**
@@ -55,8 +58,15 @@ function PlayRow({ icon, title, subtitle, highlight, onClick }: { icon: string; 
 
 function RecentGameRow({ game, index }: { game: TableGame; index: number }) {
   const winner = game.players.find((p) => p.seat === game.winnerSeat)
+  const [chart, setChart] = useState(false)
+  const Row = game.log ? 'button' : 'div'
   return (
-    <div className="play-game rise" style={rise(Math.min(3 + index, 10))}>
+    <>
+    <Row
+      {...(game.log ? { type: 'button' as const, onClick: () => setChart(true), 'aria-label': `${winner ? `${winner.name} won` : 'Nobody left standing'} — life chart and recap` } : {})}
+      className={`play-game rise${game.log ? ' press' : ''}`}
+      style={rise(Math.min(3 + index, 10))}
+    >
       <Icon name="emoji_events" className={`play-game-icon${winner ? ' won' : ''}`} />
       <span className="play-row-text">
         <b>{winner ? `${winner.name} won` : 'Nobody left standing'}</b>
@@ -67,6 +77,12 @@ function RecentGameRow({ game, index }: { game: TableGame; index: number }) {
         {/* "3 Oct" — the day a game ended. */}
         <span>{new Date(game.endedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>
       </span>
-    </div>
+    </Row>
+    {chart && game.log && (
+      <Dialog title={winner ? `${winner.name} won` : 'Nobody left standing'} onDismiss={() => setChart(false)} actions={<button type="button" className="btn line" onClick={() => setChart(false)}>Close</button>}>
+        <GameChart log={game.log} seats={chartSeats(game)} />
+      </Dialog>
+    )}
+    </>
   )
 }

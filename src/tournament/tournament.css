@@ -227,3 +227,76 @@
   color: var(--t1);
   margin-left: 3px;
 }
+
+/* ---- The top cut / final table (playoff.ts) ---- */
+
+.event-cut {
+  margin-top: 14px;
+}
+.event-champion {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: var(--gold-soft);
+  color: var(--t0);
+}
+.event-champion .icon {
+  font-size: 32px;
+  color: var(--gold);
+}
+.event-champion span {
+  display: flex;
+  flex-direction: column;
+}
+.event-champion small {
+  font-size: 12px;
+  color: var(--t1);
+}
+.event-champion b {
+  font-size: 18px;
+}
+.event-bracket {
+  display: grid;
+  gap: 4px 12px;
+}
+@media (min-width: 720px) {
+  .event-bracket {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+}
+.event-bracket-round {
+  min-width: 0;
+}
+.event-match-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+.event-match-player b {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.event-match-player.waiting b {
+  color: var(--t2);
+  font-weight: 500;
+}
+.event-match-player.won b,
+.event-match-player.won .icon {
+  color: var(--gold);
+}
+.event-seed {
+  min-width: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--t2);
+  text-align: right;
+}

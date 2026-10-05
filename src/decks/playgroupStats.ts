@@ -4,6 +4,7 @@
 
 import type { Deck, GameResult } from '../types/models'
 import { gameStats, type Matchup } from './gameStats'
+import { mulliganStats, type MulliganStats } from './mulligans'
 
 /** Games a deck needs before it's ranked, and before a player or commander can be your nemesis. */
 export const MIN_GAMES = 3
@@ -43,6 +44,8 @@ export interface PlaygroupStats {
   /** The person and the commander you do worst against (MIN_GAMES or more, more losses than wins). */
   nemesis: Matchup | null
   nemesisCommander: Matchup | null
+  /** Mulligans over every game that recorded them (mulligans.ts). */
+  mulligans: MulliganStats
 }
 
 const rate = (wins: number, games: number) => (games ? Math.floor((wins * 100) / games) : 0)
@@ -97,5 +100,6 @@ export function playgroupStats(decks: Deck[]): PlaygroupStats {
     unranked: records.filter((r) => r.games < MIN_GAMES).sort((a, b) => b.games - a.games || byName(a, b)),
     nemesis: nemesisOf(overall.opponents),
     nemesisCommander: nemesisOf(overall.commanders),
+    mulligans: mulliganStats(all),
   }
 }

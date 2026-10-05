@@ -856,3 +856,12 @@
   font-size: 14px;
   margin: 0;
 }
+
+/* The Ring's abilities on the Counters sheet. */
+.rm-ring {
+  margin: 0 0 8px;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--t1);
+}

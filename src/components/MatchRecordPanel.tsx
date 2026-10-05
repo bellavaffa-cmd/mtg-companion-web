@@ -3,6 +3,7 @@ import { autocomplete } from '../api/scryfall'
 import { useSync } from '../sync/SyncContext'
 import type { Deck, GameResult } from '../types/models'
 import { gameStats, matchupRecord, type Matchup } from '../decks/gameStats'
+import { mulliganStats, mulliganSummary } from '../decks/mulligans'
 import { Dialog } from './Dialog'
 import { Icon } from './Icon'
 import { rise } from './kit'
@@ -19,6 +20,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 export function MatchRecordPanel({ deck, closed }: { deck: Deck; closed?: string }) {
   const { addGameResult, removeGameResult } = useSync()
   const stats = useMemo(() => gameStats(deck.gameResults), [deck.gameResults])
+  const mulligans = useMemo(() => mulliganSummary(mulliganStats(deck.gameResults)), [deck.gameResults])
   const [logging, setLogging] = useState(false)
   const [showAll, setShowAll] = useState(false)
   const [removing, setRemoving] = useState<GameResult | null>(null)
@@ -43,6 +45,7 @@ export function MatchRecordPanel({ deck, closed }: { deck: Deck; closed?: string
             {stats.streak && <span className="dim">{stats.streak.count} {stats.streak.result === 'WIN' ? 'wins' : stats.streak.result === 'LOSS' ? 'losses' : 'draws'} in a row</span>}
           </div>
           {length.length > 0 && <div className="dim match-length">A game takes about {length.join(' · ')}</div>}
+          {mulligans && <div className="dim match-length">{mulligans}</div>}
           {stats.commanders.length > 0 && <MatchupList title="Commanders faced" rows={stats.commanders} />}
           {stats.opponents.length > 0 && <MatchupList title="Against" rows={stats.opponents} />}
           <div className="match-sub">Latest games</div>
@@ -51,7 +54,7 @@ export function MatchRecordPanel({ deck, closed }: { deck: Deck; closed?: string
               <div key={g.id} className="match-game">
                 <span className={`match-result ${g.result.toLowerCase()}`}>{g.result}</span>
                 <span className="dim match-detail">
-                  {[g.opponent ? `vs ${g.opponent}` : null, g.commanders?.length ? g.commanders.join(', ') : null, g.turns ? `${g.turns} turns` : null].filter(Boolean).join(' · ') || '—'}
+                  {[g.opponent ? `vs ${g.opponent}` : null, g.commanders?.length ? g.commanders.join(', ') : null, g.turns ? `${g.turns} turns` : null, g.mulligans ? `${g.mulligans} ${g.mulligans === 1 ? 'mulligan' : 'mulligans'}` : null].filter(Boolean).join(' · ') || '—'}
                 </span>
                 <button type="button" className="match-remove" aria-label="Remove this result" onClick={() => setRemoving(g)}>
                   <Icon name="close" />

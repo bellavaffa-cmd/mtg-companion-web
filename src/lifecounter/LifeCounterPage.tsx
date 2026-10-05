@@ -16,7 +16,8 @@ import { SeatCodeSheet, useSeatLinks } from './LinkSeat'
 import { useRemoteHost } from './remote'
 import { useWakeLock } from './wakeLock'
 import { useSync } from '../sync/SyncContext'
-import { clearTableGames, deleteTableGame, meResultOf, recordTableGame, tableGameOf, useTableGames } from './tableGames'
+import { clearTableGames, deleteTableGame, gameLogOf, meResultOf, recordTableGame, tableGameOf, useTableGames } from './tableGames'
+import { GameChart } from './GameChart'
 import { CommanderSheet, MeSheet, TableGamesSheet } from './TableSheets'
 import { loadSeatDeckInfo } from './seatDeck'
 import { clockElapsed, formatClock, reminderLines, TURN_TIMER_CHOICES, turnTimeLeft, type GameClock } from './tableExtras'
@@ -25,7 +26,7 @@ import { layoutIdFor, type TableSeed } from './gameNight'
 import './lifecounter.css'
 import { activeDecks } from '../decks/deckFolders'
 
-type Overlay = null | 'seating' | 'settings' | 'restart' | 'dice' | 'history' | 'table' | 'mode' | 'archenemy' | 'games'
+type Overlay = null | 'seating' | 'settings' | 'restart' | 'dice' | 'history' | 'table' | 'mode' | 'archenemy' | 'games' | 'chart'
 
 /**
  * Whether the screen is wider than tall, and — when it is — whether the device was turned
@@ -302,6 +303,7 @@ export function LifeCounterPage() {
               ['High roll', 'casino', () => setRoll(highRoll(game.players.map((p) => p.id)))],
               ['Seating', 'event_seat', () => open('seating')],
               ['Games', 'emoji_events', () => open('games')],
+              ['Life chart', 'show_chart', () => open('chart')],
             ]],
             ['Table', [
               ['Monarch', 'crown', () => open('table')],
@@ -335,6 +337,14 @@ export function LifeCounterPage() {
       )}
       {overlay === 'settings' && <SettingsOverlay lc={lc} onClose={closeAll} />}
       {overlay === 'dice' && <DiceOverlay onClose={closeAll} />}
+      {overlay === 'chart' && (
+        <Sheet title="Life chart" subtitle={gameOver(game, settings.autoKill) ? 'How the game went' : 'The game so far'} onClose={closeAll}>
+          <GameChart
+            log={gameLogOf(game, settings)}
+            seats={game.players.map((p) => ({ seat: p.id, name: displayName(p), colorIndex: p.colorIndex }))}
+          />
+        </Sheet>
+      )}
       {overlay === 'history' && <HistoryOverlay game={game} onClear={() => dispatch({ type: 'clearHistory' })} onClose={closeAll} />}
       {overlay === 'table' && <TableOverlay game={game} dispatch={dispatch} onClose={closeAll} />}
       {overlay === 'games' && <TableGamesSheet games={tableGames} onDelete={deleteTableGame} onClear={clearTableGames} onClose={closeAll} Sheet={Sheet} />}

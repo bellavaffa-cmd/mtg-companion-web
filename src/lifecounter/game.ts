@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { DEFAULT_LAYOUT_ID, layoutById, playerCount } from './tableLayouts'
 import { avatarUrl } from '../social/api'
+import { clampCounter, cleanRingBearer } from './counterRules'
+import { DUNGEONS, roomOf, venture as ventureTo, type DungeonState } from './dungeons'
 import {
   changedTokenCounts, clockElapsed, newClock, pauseClock, resumeClock, tokenLabel, TURN_TIMER_CHOICES,
   type GameClock, type SeatDeckInfo,
@@ -89,6 +91,13 @@ export interface Player {
   deckInfo?: SeatDeckInfo | null
   /** How many of each of [deckInfo]'s tokens are out, by token id. */
   tokenCounts?: Record<string, number>
+  /** Where their venture marker is (dungeons.ts), and how many dungeons they've completed this game. */
+  dungeon?: DungeonState | null
+  dungeonsCompleted?: number
+  /** Their Ring-bearer's name, once the Ring has tempted them (the 'ring' counter is how often). */
+  ringBearer?: string | null
+  /** Mulligans they took this game (0: kept seven); unset until someone records it. */
+  mulligans?: number | null
 }
 
 /** Damage [p] has taken from [from]'s commander (slot 0) or partner (slot 1). */
@@ -98,8 +107,11 @@ export const damageFrom = (p: Player, from: number, slot = 0) =>
 /** Every commander-damage total [p] carries — each one on its own, since 21 from either partner is lethal. */
 const damageTotals = (p: Player) => [...Object.values(p.commanderDamage), ...Object.values(p.partnerDamage ?? {})]
 
-/** Counters a player can keep besides poison. Storm is cleared when the turn passes. */
-export const COUNTER_KINDS = ['experience', 'energy', 'charge', 'storm', 'tokens', 'loyalty'] as const
+/**
+ * Counters a player can keep besides poison. Storm is cleared when the turn passes. Speed stops at 4
+ * and the Ring at 4 (counterRules.ts). Android's PlayerCounter, in its order.
+ */
+export const COUNTER_KINDS = ['experience', 'energy', 'charge', 'storm', 'tokens', 'loyalty', 'rad', 'speed', 'ring'] as const
 export type CounterKind = (typeof COUNTER_KINDS)[number]
 export const COUNTER_INFO: Record<CounterKind, { label: string; icon: string }> = {
   experience: { label: 'Experience', icon: 'school' },
@@ -108,6 +120,9 @@ export const COUNTER_INFO: Record<CounterKind, { label: string; icon: string }> 
   storm: { label: 'Storm', icon: 'thunderstorm' },
   tokens: { label: 'Tokens', icon: 'toll' },
   loyalty: { label: 'Loyalty', icon: 'shield' },
+  rad: { label: 'Rad', icon: 'science' },
+  speed: { label: 'Speed', icon: 'speed' },
+  ring: { label: 'The Ring', icon: 'trip_origin' },
 }
 export const counterOf = (p: Player, kind: CounterKind) => p.counters?.[kind] ?? 0
 
@@ -322,12 +337,23 @@ export function dealColors(count: number, shuffle: boolean, random: () => number
 export const startingLifeFor = (s: LifeSettings, players: number) =>
   players <= 2 ? s.twoPlayerStartingLife : s.multiplayerStartingLife
 
-/** One thing that happened, for the history sheet. [playerId] is null for table-wide events. */
+/**
+ * One thing that happened, for the history sheet. [playerId] is null for table-wide events. The
+ * rest is for the life chart (lifeChart.ts), absent from entries saved before it: the round, the
+ * game clock, that player's life after it and whether it had them out (automatic knock-outs on),
+ * and whether it began a turn ([first]: a new first player).
+ */
 export interface HistoryEntry {
   id: number
   at: number
   playerId: number | null
   text: string
+  turn?: number
+  ms?: number
+  life?: number
+  out?: LossReason | null
+  turnStart?: boolean
+  first?: boolean
 }
 
 export type DayNight = 'DAY' | 'NIGHT'
@@ -534,8 +560,8 @@ export function gameOver(game: Game, autoKill: boolean): { winnerId: number | nu
   return { winnerId: alive[0]?.id ?? null }
 }
 
-/** How many history entries a game keeps. */
-const HISTORY_LIMIT = 200
+/** How many history entries a game keeps — as many as the Android app, so a long game's chart starts at its start. */
+const HISTORY_LIMIT = 500
 
 /**
  * [by]: the seat whose remote asked for the change (see remote.ts); absent for changes made on the
@@ -587,6 +613,15 @@ export type GameAction = { by?: number } & (
   | { type: 'meDeck'; seat: number | null; info: SeatDeckInfo | null }
   /** Pauses or restarts the game clock. */
   | { type: 'clock'; paused: boolean }
+  /** Seat [id] ventures to [to]: a room below theirs, or a dungeon to start ([undercity]: venturing into Undercity). */
+  | { type: 'venture'; id: number; to: string; undercity?: boolean }
+  /** Takes seat [id]'s marker out of its dungeon, without completing it. */
+  | { type: 'leaveDungeon'; id: number }
+  /** Puts right seat [id]'s completed-dungeons count. */
+  | { type: 'dungeonsCompleted'; id: number; delta: number }
+  | { type: 'ringBearer'; id: number; name: string | null }
+  /** Seat [id]'s mulligans this game (null: not recorded). */
+  | { type: 'mulligan'; id: number; value: number | null }
   | { type: 'match'; match: { id: string; code: string } | null }
 )
 
@@ -600,6 +635,10 @@ function undoKey(action: GameAction): string | null {
     case 'kill': case 'concede': case 'revive': return `out:${action.id}`
     case 'commanderCast': return `cast:${action.id}:${action.slot ?? 0}`
     case 'token': return `token:${action.id}:${action.tokenId}`
+    // Each step through a dungeon undoes on its own.
+    case 'venture': return `venture:${action.id}:${action.to}`
+    case 'leaveDungeon': case 'dungeonsCompleted': return `dungeon:${action.id}`
+    case 'mulligan': return `mulligan:${action.id}`
     case 'nextTurn': return 'turn'
     default: return null
   }
@@ -607,6 +646,8 @@ function undoKey(action: GameAction): string | null {
 
 /** Whether two versions of a player have the same life, damage, poison and counters. */
 const samePlayState = (a: Player, b: Player) =>
+  JSON.stringify(a.dungeon ?? null) === JSON.stringify(b.dungeon ?? null) && (a.dungeonsCompleted ?? 0) === (b.dungeonsCompleted ?? 0) &&
+  (a.mulligans ?? null) === (b.mulligans ?? null) &&
   a.life === b.life && a.poison === b.poison && a.killed === b.killed &&
   (a.commanderCasts ?? 0) === (b.commanderCasts ?? 0) && (a.partnerCasts ?? 0) === (b.partnerCasts ?? 0) &&
   JSON.stringify(a.commanderDamage) === JSON.stringify(b.commanderDamage) &&
@@ -665,6 +706,7 @@ function undo(game: Game, by: number | null): Game {
       ? {
           ...p, life: was.life, poison: was.poison, killed: was.killed, commanderDamage: was.commanderDamage, counters: was.counters,
           commanderCasts: was.commanderCasts, partnerDamage: was.partnerDamage, partnerCasts: was.partnerCasts, tokenCounts: was.tokenCounts,
+          dungeon: was.dungeon, dungeonsCompleted: was.dungeonsCompleted, mulligans: was.mulligans,
         }
       : p
   }
@@ -714,10 +756,20 @@ function updatePlayer(game: Game, id: number, fn: (p: Player) => Player): Game {
   return { ...game, touched: true, players: game.players.map((p) => (p.id === id ? fn(p) : p)) }
 }
 
-/** Adds an entry to the log, newest first. Ids carry on from the saved log, so they stay unique after a reload. */
-function note(game: Game, playerId: number | null, text: string): Game {
+/**
+ * Adds an entry to the log, newest first. Ids carry on from the saved log, so they stay unique after
+ * a reload. Each entry notes the round, the game clock and that player's life after it, for the chart.
+ */
+function note(game: Game, playerId: number | null, text: string, mark?: { turnStart?: boolean; first?: boolean }): Game {
   const id = (game.history[0]?.id ?? 0) + 1
-  const entry: HistoryEntry = { id, at: Date.now(), playerId, text }
+  const now = Date.now()
+  const p = playerId === null ? undefined : game.players.find((x) => x.id === playerId)
+  const entry: HistoryEntry = {
+    id, at: now, playerId, text, turn: game.turnNumber, ms: clockElapsed(gameClockOf(game), now),
+    ...(p ? { life: p.life, out: lossReason(p, true) } : {}),
+    ...(mark?.turnStart ? { turnStart: true } : {}),
+    ...(mark?.first ? { first: true } : {}),
+  }
   return { ...game, history: [entry, ...game.history].slice(0, HISTORY_LIMIT) }
 }
 
@@ -753,7 +805,7 @@ function applyAction(game: Game, action: GameAction): Game {
     case 'counter': {
       const p = game.players.find((x) => x.id === action.id)
       if (!p) return game
-      const value = Math.max(0, counterOf(p, action.counter) + action.delta)
+      const value = clampCounter(action.counter, counterOf(p, action.counter) + action.delta)
       if (value === counterOf(p, action.counter)) return game
       return note(
         updatePlayer(game, action.id, (x) => ({ ...x, counters: { ...x.counters, [action.counter]: value } })),
@@ -800,8 +852,11 @@ function applyAction(game: Game, action: GameAction): Game {
         `${action.delta > 0 ? '+' : '−'}${Math.abs(action.delta)} life (${before} → ${after})`,
       )
     }
-    case 'setLife':
-      return updatePlayer(game, action.id, (p) => ({ ...p, life: action.value }))
+    case 'setLife': {
+      const before = game.players.find((p) => p.id === action.id)?.life
+      if (before === undefined || before === action.value) return game
+      return note(updatePlayer(game, action.id, (p) => ({ ...p, life: action.value })), action.id, `Life set to ${action.value} (${before} → ${action.value})`)
+    }
     case 'commanderDamage': {
       // Commander damage costs life too (unless the table tracks them separately), clamped at 0.
       const p = game.players.find((x) => x.id === action.id)
@@ -892,10 +947,11 @@ function applyAction(game: Game, action: GameAction): Game {
         { ...game, touched: true, players, turnPlayerId: moved.turnPlayerId, turnNumber, hold: null, turnStartElapsed: elapsedNow(game) },
         moved.turnPlayerId,
         `Turn ${turnNumber}`,
+        { turnStart: true },
       )
     }
     case 'firstPlayer':
-      return note({ ...game, turnPlayerId: action.id, firstPlayerId: action.id, turnNumber: 1, turnStartElapsed: elapsedNow(game) }, action.id, 'Goes first')
+      return note({ ...game, turnPlayerId: action.id, firstPlayerId: action.id, turnNumber: 1, turnStartElapsed: elapsedNow(game) }, action.id, 'Goes first', { turnStart: true, first: true })
     case 'monarch':
       if (game.monarchId === action.id) return game
       return note({ ...game, touched: true, monarchId: action.id }, action.id,
@@ -931,6 +987,48 @@ function applyAction(game: Game, action: GameAction): Game {
       if (updated === current) return game
       const token = tokens.find((t) => t.id === action.tokenId)!
       return note(updatePlayer(game, action.id, (x) => ({ ...x, tokenCounts: counts })), action.id, `${tokenLabel(token)} tokens: ${updated}`)
+    }
+    case 'venture': {
+      const p = game.players.find((x) => x.id === action.id)
+      if (!p) return game
+      const v = ventureTo({ dungeon: p.dungeon ?? null, completed: p.dungeonsCompleted ?? 0 }, action.to, !!action.undercity)
+      if (!v) return game
+      const done = v.completed > (p.dungeonsCompleted ?? 0)
+      const room = roomName(v.dungeon)
+      return note(
+        updatePlayer(game, action.id, (x) => ({ ...x, dungeon: v.dungeon, dungeonsCompleted: v.completed })),
+        action.id,
+        done ? `Completed the dungeon in ${room} (${v.completed} completed)` : `Ventured into ${room}`,
+      )
+    }
+    case 'leaveDungeon': {
+      const p = game.players.find((x) => x.id === action.id)
+      if (!p?.dungeon) return game
+      return updatePlayer(game, action.id, (x) => ({ ...x, dungeon: null }))
+    }
+    case 'dungeonsCompleted': {
+      const p = game.players.find((x) => x.id === action.id)
+      if (!p) return game
+      const completed = Math.max(0, Math.min(99, (p.dungeonsCompleted ?? 0) + action.delta))
+      if (completed === (p.dungeonsCompleted ?? 0)) return game
+      return note(updatePlayer(game, action.id, (x) => ({ ...x, dungeonsCompleted: completed })), action.id, `Dungeons completed: ${completed}`)
+    }
+    case 'ringBearer': {
+      const name = cleanRingBearer(action.name)
+      const p = game.players.find((x) => x.id === action.id)
+      if (!p || (p.ringBearer ?? null) === name) return game
+      // A name, not a play: kept out of the history, as the Android table (which saves it as it's typed) does.
+      return updatePlayer(game, action.id, (x) => ({ ...x, ringBearer: name }))
+    }
+    case 'mulligan': {
+      const value = action.value === null ? null : Math.max(0, Math.min(7, Math.round(action.value)))
+      const p = game.players.find((x) => x.id === action.id)
+      if (!p || (p.mulligans ?? null) === value) return game
+      return note(
+        updatePlayer(game, action.id, (x) => ({ ...x, mulligans: value })),
+        action.id,
+        value === null ? 'Mulligans not recorded' : value === 0 ? 'Kept seven' : `Mulligans: ${value}`,
+      )
     }
     case 'clock': {
       const clock = gameClockOf(game)
@@ -978,6 +1076,14 @@ export function highRoll(ids: number[]): { rolls: Record<number, number>; winner
     if (leaders.length === 1) return { rolls, winnerId: leaders[0] }
   }
 }
+
+/** "Lost Mine of Phandelver: Goblin Lair", for the history. */
+function roomName(state: DungeonState | null): string {
+  const d = state ? DUNGEON_NAMES[state.dungeon] : undefined
+  const r = state ? roomOf(state) : null
+  return d && r ? `${d}: ${r.name}` : 'the dungeon'
+}
+const DUNGEON_NAMES: Record<string, string> = Object.fromEntries(DUNGEONS.map((d) => [d.id, d.name]))
 
 // ---- Persistence (this browser only — life counter games don't sync between devices) ----
 

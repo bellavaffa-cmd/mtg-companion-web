@@ -16,6 +16,10 @@ import {
   timeLeft, timerRunning, withDropped, withResult, withTimer, type EventFormat, type EventTable, type TableResult,
   type Tournament,
 } from './tournament'
+import {
+  canCut, cutLabel, cutSizes, matchWinner, playoffChampion, playoffChoices, playoffEditable, playoffRoundName, playoffStatus,
+  seedOrder, startPlayoff, withPlayoffResult, type PlayoffMatch,
+} from './playoff'
 import './tournament.css'
 
 // Small tournaments run from this device: the events list, a new event, and an event's rounds,
@@ -48,7 +52,7 @@ export function EventsPage() {
                 <span>{formatLabel(e)} · {e.players.length} players</span>
               </span>
               <span className="event-row-when">
-                <b>{statusText(e)}</b>
+                <b>{playoffStatus(e, (id) => playerName(e, id)) ?? statusText(e)}</b>
                 <span>{day(e.createdAt)}</span>
               </span>
             </button>
@@ -197,7 +201,7 @@ export function NewEventPage() {
   )
 }
 
-type Tab = 'round' | 'standings' | 'players'
+type Tab = 'round' | 'standings' | 'players' | 'playoff'
 
 /** One event: the current round (clock, tables, results), the standings and the players. */
 export function EventPage() {
@@ -213,16 +217,18 @@ export function EventPage() {
       </>
     )
   }
-  const shown: Tab = tab ?? (event.finished ? 'standings' : 'round')
-  const tabs: Tab[] = ['round', 'standings', 'players']
+  const tabs: Tab[] = event.playoff ? ['round', 'standings', 'playoff', 'players'] : ['round', 'standings', 'players']
+  const shown: Tab = tab && tabs.includes(tab) ? tab : event.playoff ? 'playoff' : event.finished ? 'standings' : 'round'
+  const labels: Record<Tab, string> = { round: 'Round', standings: 'Standings', players: 'Players', playoff: event.format === 'PODS' ? 'Final' : 'Top cut' }
   return (
     <>
       <TopBar title={event.name} onBack={back} />
       <div className="content-scroll events">
-        <p className="dim event-sub">{formatLabel(event)} · {event.players.length} players · {statusText(event)}</p>
-        <SegmentedTabs labels={['Round', 'Standings', 'Players']} selected={tabs.indexOf(shown)} onSelect={(i) => setTab(tabs[i])} />
+        <p className="dim event-sub">{formatLabel(event)} · {event.players.length} players · {playoffStatus(event, (id) => playerName(event, id)) ?? statusText(event)}</p>
+        <SegmentedTabs labels={tabs.map((t) => labels[t])} selected={tabs.indexOf(shown)} onSelect={(i) => setTab(tabs[i])} />
         {shown === 'round' && <RoundTab event={event} onStandings={() => setTab('standings')} />}
-        {shown === 'standings' && <StandingsTab event={event} />}
+        {shown === 'standings' && <StandingsTab event={event} onPlayoff={() => setTab('playoff')} />}
+        {shown === 'playoff' && <PlayoffTab event={event} />}
         {shown === 'players' && <PlayersTab event={event} />}
       </div>
     </>
@@ -331,10 +337,11 @@ function TableCard({ event, table, index }: { event: Tournament; table: EventTab
   )
 }
 
-function StandingsTab({ event }: { event: Tournament }) {
+function StandingsTab({ event, onPlayoff }: { event: Tournament; onPlayoff: () => void }) {
   const rows = standings(event)
   const [copied, setCopied] = useState(false)
-  const text = standingsText(event)
+  const champion = playoffChampion(event)
+  const text = standingsText(event) + (champion ? `\n\nChampion: ${playerName(event, champion)}` : '')
   const canShare = typeof navigator.share === 'function'
   return (
     <>
@@ -356,6 +363,7 @@ function StandingsTab({ event }: { event: Tournament }) {
           <span className="event-points">{s.points}<small>pts</small></span>
         </div>
       ))}
+      {canCut(event) && <CutButtons event={event} onCut={onPlayoff} />}
       <p className="dim event-note">
         {event.format === 'SWISS'
           ? 'Match win 3, draw 1. Ties go to opponents’ match-win %, then game-win %, then opponents’ game-win % (each at least 33%).'
@@ -391,5 +399,89 @@ function PlayersTab({ event }: { event: Tournament }) {
         </div>
       ))}
     </>
+  )
+}
+
+/** After the Swiss: cut to a top 8 / 4 / 2 (1v1) or a final table of the top 4 (pods). */
+function CutButtons({ event, onCut }: { event: Tournament; onCut: () => void }) {
+  const sizes = cutSizes(event)
+  if (sizes.length === 0) return null
+  return (
+    <div className="event-cut">
+      <div className="field-label">{event.format === 'PODS' ? 'Final table' : 'Top cut'}</div>
+      <p className="dim event-note">
+        {event.format === 'PODS'
+          ? 'The top players by the standings play one last game; its winner takes the event.'
+          : 'Single elimination, seeded by the standings: 1 plays 8, 4 plays 5, 2 plays 7, 3 plays 6.'}
+      </p>
+      <div className="event-chips">
+        {sizes.map((n) => (
+          <PillChip key={n} icon="account_tree" label={cutLabel(event.format, n)} onClick={() => { saveEvent(startPlayoff(event, n)); onCut() }} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** The bracket (or the final table), round by round, each match's result tapped in, and the champion. */
+function PlayoffTab({ event }: { event: Tournament }) {
+  const p = event.playoff!
+  const champion = playoffChampion(event)
+  // Each player's seed: where they sit in the first round, in bracket order.
+  const order = seedOrder(p.size)
+  const seedOf = new Map(p.rounds[0].flatMap((m) => m.players).map((id, i) => [id, order[i]]))
+  const seedNumber = (id: string | null) => (id == null || p.kind !== 'BRACKET' ? null : seedOf.get(id) ?? null)
+  return (
+    <>
+      {champion && (
+        <div className="event-champion" role="status">
+          <Icon name="emoji_events" />
+          <span><small>Champion</small><b>{playerName(event, champion)}</b></span>
+        </div>
+      )}
+      <div className="event-bracket">
+        {p.rounds.map((round, r) => (
+          <section key={r} className="event-bracket-round" aria-label={playoffRoundName(p, r)}>
+            <div className="field-label">{playoffRoundName(p, r)}</div>
+            {round.map((m, i) => <PlayoffCard key={i} event={event} match={m} round={r} index={i} seedNumber={seedNumber} />)}
+          </section>
+        ))}
+      </div>
+      {!champion && <p className="dim event-note">Tap each match's result. A result can change until the next match is played.</p>}
+    </>
+  )
+}
+
+function PlayoffCard({ event, match, round, index, seedNumber }: {
+  event: Tournament; match: PlayoffMatch; round: number; index: number; seedNumber: (id: string | null) => number | null
+}) {
+  const p = event.playoff!
+  const editable = playoffEditable(p, round, index)
+  const winner = matchWinner(match)
+  const set = (r: TableResult) => editable && saveEvent(withPlayoffResult(event, round, index, sameResult(match.result, r) ? null : r))
+  const ids = match.players
+  return (
+    <div className={`event-table event-match${winner ? ' done' : ''}`}>
+      {ids.map((id, i) => (
+        <div key={i} className={`event-match-player${id != null && id === winner ? ' won' : ''}${id == null ? ' waiting' : ''}`}>
+          {seedNumber(id) != null && <span className="event-seed">{seedNumber(id)}</span>}
+          <b>{id == null ? 'Waiting' : playerName(event, id)}</b>
+          {id != null && id === winner && <Icon name="check" />}
+        </div>
+      ))}
+      {editable && (
+        <div className="event-chips">
+          {p.kind === 'FINAL_TABLE'
+            ? ids.map((id, i) => {
+              const r = podResult(ids as string[], id)
+              return <PillChip key={i} label={playerName(event, id!)} icon="emoji_events" selected={sameResult(match.result, r)} onClick={() => set(r)} />
+            })
+            : playoffChoices(event.bestOf).map((c) => (
+              <PillChip key={c.label} label={c.label} selected={sameResult(match.result, { wins: c.wins, draws: c.draws })} onClick={() => set({ wins: c.wins, draws: c.draws })} />
+            ))}
+        </div>
+      )}
+      {editable && p.kind === 'BRACKET' && <p className="dim event-table-hint">From {playerName(event, ids[0]!)}'s side</p>}
+    </div>
   )
 }

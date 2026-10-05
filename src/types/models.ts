@@ -54,6 +54,8 @@ export interface GameResult {
   minutes?: number | null
   /** The commanders the opponents played (a partner pair as "A & B"). */
   commanders?: string[]
+  /** Mulligans taken (0: kept seven), when the table recorded them — see decks/mulligans.ts. */
+  mulligans?: number | null
 }
 
 export const GAME_MODES = [
