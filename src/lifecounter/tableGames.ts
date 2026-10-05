@@ -68,10 +68,15 @@ export function tableGameOf(game: Game, settings: LifeSettings, winnerSeat: numb
 export function gameLogOf(game: Game, settings: LifeSettings, endAt = Date.now()): GameLog {
   const clock = gameClockOf(game)
   const life = startingLifeFor(settings, game.players.length)
-  const entries = [...game.history].reverse().map((h) => ({
-    seat: h.playerId, ms: h.ms ?? Math.max(0, h.at - (game.startedAt ?? h.at)), turn: h.turn ?? game.turnNumber,
-    life: h.life ?? null, ...(h.out !== undefined ? { out: h.out } : {}), turnStart: !!h.turnStart, first: !!h.first,
-  }))
+  const endMs = clockElapsed(clock, endAt)
+  const entries = [
+    ...[...game.history].reverse().map((h) => ({
+      seat: h.playerId, ms: h.ms ?? Math.max(0, h.at - (game.startedAt ?? h.at)), turn: h.turn ?? game.turnNumber,
+      life: h.life ?? null, ...(h.out !== undefined ? { out: h.out } : {}), turnStart: !!h.turnStart, first: !!h.first,
+    })),
+    // Where everyone ended up, in case the last change isn't in the history (cleared, or older than it keeps).
+    ...game.players.map((p) => ({ seat: p.id, ms: endMs, turn: game.turnNumber, life: p.life, out: lossReason(p, true) })),
+  ]
   const damage = game.players.flatMap((p) => {
     const from = new Map<number, number>()
     for (const [k, v] of [...Object.entries(p.commanderDamage), ...Object.entries(p.partnerDamage ?? {})]) from.set(Number(k), (from.get(Number(k)) ?? 0) + v)
@@ -82,7 +87,7 @@ export function gameLogOf(game: Game, settings: LifeSettings, endAt = Date.now()
     game.players.map((p) => ({ seat: p.id, life })),
     game.players.map((p) => ({ seat: p.id, out: lossReason(p, settings.autoKill) })),
     damage,
-    clockElapsed(clock, endAt),
+    endMs,
     settings.turnTracker && game.players.length > 1,
     // Seat 1 opens a new game; choosing who goes first is in the history, and starts the turns over.
     1,
