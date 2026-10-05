@@ -1,23 +1,94 @@
-import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useMemo, useState, type ReactNode } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
-import { rise, useBack } from '../components/kit'
+import { PillChip, rise, useBack } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
+import { useOverview } from '../social/SocialContext'
+import { PodView } from './PodGames'
 import { matchupRecord, type Matchup } from '../decks/gameStats'
 import { MIN_GAMES, playgroupStats, type DeckRecord } from '../decks/playgroupStats'
 
 // The playgroup: every deck's games together — your record, who you play most and how you do
-// against them, your nemesis, which decks win most, and your streaks. Mirrors the Android app's
-// PlaygroupScreen (ui/lifecounter/PlaygroupScreen.kt).
+// against them, your nemesis, which decks win most, and your streaks. Above it, a switch to each
+// pod's shared games (PodGames.tsx). Mirrors the Android app's PlaygroupScreen
+// (ui/lifecounter/PlaygroupScreen.kt).
 
 /** How many people and commanders show before "Show all". */
 const SHOWN = 8
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 const record = (r: { wins: number; losses: number; draws: number }) => `${r.wins}–${r.losses}${r.draws > 0 ? `–${r.draws}` : ''}`
 
+/** The switcher's entry for pods while there are none to list (signed out, loading, no pods). */
+const PODS = 'pods'
+
 export function PlaygroupPage() {
   const back = useBack('/play')
+  const navigate = useNavigate()
+  const { account, accountsAvailable } = useSync()
+  const { overview, error, loading, refresh } = useOverview()
+  // "Just me", or a pod; kept in the address so Back lands on the same one.
+  const [params, setParams] = useSearchParams()
+  const chosen = params.get('pod')
+  const me = account ? overview?.me ?? null : null
+  const pods = me ? overview?.pods ?? [] : []
+  const pod = pods.find((p) => p.id === chosen) ?? null
+  const choose = (id: string | null) => setParams(id ? { pod: id } : {}, { replace: true })
+
+  let podsState: ReactNode = null
+  if (chosen && !pod) {
+    podsState = !accountsAvailable ? (
+      <div className="notice">Accounts aren't set up in this build.</div>
+    ) : !account ? (
+      <div className="empty-state rise" style={rise(0)}>
+        <Icon name="groups" />
+        <div>Sign in to see your pods' games.</div>
+        <button type="button" className="btn gold" onClick={() => navigate('/account')}>Sign in</button>
+      </div>
+    ) : !overview ? (
+      error ? (
+        <div className="empty-state">
+          <Icon name="cloud_off" />
+          <div>{error}</div>
+          <button type="button" className="btn line" disabled={loading} onClick={() => void refresh()}>Try again</button>
+        </div>
+      ) : (
+        <div className="empty-state"><Icon name="hourglass_empty" />Loading…</div>
+      )
+    ) : !me ? (
+      <div className="empty-state rise" style={rise(0)}>
+        <Icon name="groups" />
+        <div>Make your profile on Friends first — then your pods' games show here.</div>
+        <button type="button" className="btn gold" onClick={() => navigate('/friends?tab=profile')}>Make your profile</button>
+      </div>
+    ) : (
+      <div className="empty-state rise" style={rise(0)}>
+        <Icon name="groups" />
+        <div>{chosen === PODS ? "You're not in a pod yet." : "You're not in that pod any more."} A pod is a group of friends — make one on Friends, and everyone in it can record games here.</div>
+        <button type="button" className="btn line" onClick={() => navigate('/friends')}>Friends</button>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <TopBar title="Playgroup" onBack={back} />
+      <div className="content-scroll">
+        <div className="narrow-width">
+          <div className="chips" aria-label="Whose games" style={{ paddingTop: 4 }}>
+            <PillChip label="Just me" selected={!chosen} onClick={() => choose(null)} />
+            {pods.map((p) => <PillChip key={p.id} label={p.name} selected={pod?.id === p.id} onClick={() => choose(p.id)} />)}
+            {pods.length === 0 && accountsAvailable && <PillChip label="Pods" icon="groups" selected={!!chosen} onClick={() => choose(PODS)} />}
+          </div>
+          {pod && me ? <PodView key={pod.id} pod={pod} me={me} /> : podsState ?? <JustMe />}
+        </div>
+      </div>
+    </>
+  )
+}
+
+/** The round-A view: every one of the user's own decks' games together. */
+function JustMe() {
   const navigate = useNavigate()
   const { decks } = useSync()
   const stats = useMemo(() => playgroupStats(decks), [decks])
@@ -27,58 +98,53 @@ export function PlaygroupPage() {
 
   return (
     <>
-      <TopBar title="Playgroup" onBack={back} />
-      <div className="content-scroll">
-        <div className="narrow-width">
-          {stats.games === 0 ? (
-            <div className="empty-state rise" style={rise(0)}>
-              <Icon name="groups" />
-              <div>No games recorded yet. Log a result on a deck's Stats, or play with your phone as a remote at a life counter table — every deck's games come together here.</div>
-            </div>
-          ) : (
-            <>
-              <div className="panel match-panel rise" style={rise(0)}>
-                <div className="match-head">
-                  <span className="match-score">{record(stats)}</span>
-                  <span className="match-rate">{stats.winRate}% win rate over {plural(stats.games, 'game')}</span>
-                </div>
-                <div className="dim match-length">
-                  {[
-                    stats.streak ? `${stats.streak.count} ${stats.streak.result === 'WIN' ? 'wins' : stats.streak.result === 'LOSS' ? 'losses' : 'draws'} in a row now` : null,
-                    stats.longestWinStreak > 1 ? `Longest win streak ${stats.longestWinStreak}` : null,
-                  ].filter(Boolean).join(' · ') || `Across ${plural(decks.filter((d) => d.gameResults?.length).length, 'deck')}`}
-                </div>
-                {length.length > 0 && <div className="dim match-length">A game takes about {length.join(' · ')}</div>}
-              </div>
-
-              {(stats.nemesis || stats.nemesisCommander) && (
-                <div className="panel match-panel rise" style={rise(1)}>
-                  <div className="p-h"><h3>Nemesis</h3></div>
-                  {stats.nemesis && <MatchupRow label="Player" m={stats.nemesis} />}
-                  {stats.nemesisCommander && <MatchupRow label="Commander" m={stats.nemesisCommander} />}
-                  <div className="dim" style={{ marginTop: 6 }}>Who you do worst against, out of those you've played {MIN_GAMES} or more times.</div>
-                </div>
-              )}
-
-              {stats.ranked.length + stats.unranked.length > 0 && (
-                <div className="panel match-panel rise" style={rise(2)}>
-                  <div className="p-h"><h3>Decks</h3></div>
-                  {stats.ranked.map((r, i) => <DeckRow key={r.deckId} rank={i + 1} r={r} onOpen={() => openDeck(r.deckId)} />)}
-                  {stats.unranked.length > 0 && (
-                    <>
-                      <div className="match-sub">Fewer than {MIN_GAMES} games</div>
-                      {stats.unranked.map((r) => <DeckRow key={r.deckId} r={r} onOpen={() => openDeck(r.deckId)} />)}
-                    </>
-                  )}
-                </div>
-              )}
-
-              {stats.opponents.length > 0 && <MatchupPanel title="Against" rows={stats.opponents} index={3} />}
-              {stats.commanders.length > 0 && <MatchupPanel title="Commanders faced" rows={stats.commanders} index={4} />}
-            </>
-          )}
+      {stats.games === 0 ? (
+        <div className="empty-state rise" style={rise(0)}>
+          <Icon name="groups" />
+          <div>No games recorded yet. Log a result on a deck's Stats, or play with your phone as a remote at a life counter table — every deck's games come together here.</div>
         </div>
-      </div>
+      ) : (
+        <>
+          <div className="panel match-panel rise" style={rise(0)}>
+            <div className="match-head">
+              <span className="match-score">{record(stats)}</span>
+              <span className="match-rate">{stats.winRate}% win rate over {plural(stats.games, 'game')}</span>
+            </div>
+            <div className="dim match-length">
+              {[
+                stats.streak ? `${stats.streak.count} ${stats.streak.result === 'WIN' ? 'wins' : stats.streak.result === 'LOSS' ? 'losses' : 'draws'} in a row now` : null,
+                stats.longestWinStreak > 1 ? `Longest win streak ${stats.longestWinStreak}` : null,
+              ].filter(Boolean).join(' · ') || `Across ${plural(decks.filter((d) => d.gameResults?.length).length, 'deck')}`}
+            </div>
+            {length.length > 0 && <div className="dim match-length">A game takes about {length.join(' · ')}</div>}
+          </div>
+
+          {(stats.nemesis || stats.nemesisCommander) && (
+            <div className="panel match-panel rise" style={rise(1)}>
+              <div className="p-h"><h3>Nemesis</h3></div>
+              {stats.nemesis && <MatchupRow label="Player" m={stats.nemesis} />}
+              {stats.nemesisCommander && <MatchupRow label="Commander" m={stats.nemesisCommander} />}
+              <div className="dim" style={{ marginTop: 6 }}>Who you do worst against, out of those you've played {MIN_GAMES} or more times.</div>
+            </div>
+          )}
+
+          {stats.ranked.length + stats.unranked.length > 0 && (
+            <div className="panel match-panel rise" style={rise(2)}>
+              <div className="p-h"><h3>Decks</h3></div>
+              {stats.ranked.map((r, i) => <DeckRow key={r.deckId} rank={i + 1} r={r} onOpen={() => openDeck(r.deckId)} />)}
+              {stats.unranked.length > 0 && (
+                <>
+                  <div className="match-sub">Fewer than {MIN_GAMES} games</div>
+                  {stats.unranked.map((r) => <DeckRow key={r.deckId} r={r} onOpen={() => openDeck(r.deckId)} />)}
+                </>
+              )}
+            </div>
+          )}
+
+          {stats.opponents.length > 0 && <MatchupPanel title="Against" rows={stats.opponents} index={3} />}
+          {stats.commanders.length > 0 && <MatchupPanel title="Commanders faced" rows={stats.commanders} index={4} />}
+        </>
+      )}
     </>
   )
 }

@@ -3,6 +3,7 @@
 // through a server function that checks who is asking; nothing here reads a table directly.
 
 import { accessToken, apiHeaders, OfflineError, restUrl } from '../sync/supabaseAuth'
+import type { PodGame, PodPlayer } from '../decks/podStats'
 
 export interface Profile {
   user_id: string
@@ -183,6 +184,9 @@ const MESSAGES: Record<string, string> = {
   trade_closed: 'This trade has already been answered.',
   not_seated: "You're no longer sitting at this table.",
   not_host: 'Only the table can do that.',
+  not_in_pod: "You're not in that pod any more.",
+  bad_players: 'Check the players: 2 to 10, each with a name, and one winner at most.',
+  too_many_games: 'This pod has 5,000 games recorded — delete some old ones first.',
 }
 
 async function call<T>(fn: string, args: Record<string, unknown> = {}, { signedIn = true } = {}): Promise<T> {
@@ -308,6 +312,31 @@ export const removeFriend = (userId: string) => call<void>('remove_friend', { p_
 export const savePod = (podId: string | null, name: string, members: string[]) =>
   call<string>('save_pod', { p_pod: podId, p_name: name, p_members: members })
 export const leavePod = (podId: string) => call<void>('leave_pod', { p_pod: podId })
+
+// ---- A pod's games (supabase/migrations/20261005000000_pod_games.sql) ----
+
+/**
+ * Records a game played in a pod; answers its id. [clientId] makes it safe to send again: the same
+ * id updates the game instead of adding a second one.
+ */
+export const recordPodGame = (
+  podId: string,
+  clientId: string,
+  game: { playedAt: number; format: string; turns: number | null; minutes: number | null; players: PodPlayer[] },
+) =>
+  call<string>('record_pod_game', {
+    p_pod: podId,
+    p_client_id: clientId,
+    p_played_at: new Date(game.playedAt).toISOString(),
+    p_format: game.format,
+    p_turns: game.turns,
+    p_minutes: game.minutes,
+    p_players: game.players,
+  })
+/** A pod's games, newest first. */
+export const podGames = (podId: string, limit = 1000) => call<PodGame[]>('pod_games', { p_pod: podId, p_limit: limit }).then((g) => g ?? [])
+/** Whoever recorded a game, or the pod's owner, deletes it. */
+export const deletePodGame = (gameId: string) => call<void>('delete_pod_game', { p_game: gameId })
 
 // ---- Sharing ----
 
