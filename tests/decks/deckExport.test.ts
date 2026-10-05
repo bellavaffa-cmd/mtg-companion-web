@@ -62,3 +62,13 @@ test('adventures and omens use the front face, split cards keep both halves', ()
   assert.equal(clientCardName(fire, 'ARENA'), 'Fire // Ice')
   assert.equal(clientCardName(fire, 'SIMPLE'), 'Fire // Ice')
 })
+
+test("simple and exact start with the deck's primer as comments, which read back as nothing", () => {
+  const primed = { ...burn, description: '# Burn\n\nBolt **face**.' }
+  const text = deckExportText(primed, 'SIMPLE')
+  assert.equal(text.split('\n\n')[0], '// # Burn\n//\n// Bolt **face**.')
+  assert.equal(deckExportText(primed, 'EXACT', printings).startsWith('// # Burn'), true)
+  assert.equal(deckExportText(primed, 'ARENA', printings), deckExportText(burn, 'ARENA', printings))
+  assert.equal(deckExportText(primed, 'MTGO'), deckExportText(burn, 'MTGO'))
+  assert.deepEqual(parseCardList(text).lines.map((l) => l.name), parseCardList(deckExportText(burn, 'SIMPLE')).lines.map((l) => l.name))
+})

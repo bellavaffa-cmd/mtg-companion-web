@@ -12,6 +12,7 @@ const ICONS: Record<IssueKind, string> = {
   LEGALITY: 'gavel',
   COPY_LIMIT: 'content_copy',
   COLOR_IDENTITY: 'palette',
+  COMPANION: 'pets',
 }
 
 /**

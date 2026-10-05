@@ -14,6 +14,7 @@ import { saveToStorage } from './storage'
 import { keepLastChecked, keepPlacesFromOlderApp } from '../collection/storagePlaces'
 import { keepCameFromFromOlderApp } from '../collection/pullList'
 import { keepLoansFromOlderApp } from '../collection/loans'
+import { keepDeckExtrasFromOlderApp } from '../decks/deckExtras'
 
 const STATE_KEY = 'mtgweb_cloud_state'
 
@@ -424,7 +425,8 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
       ? theirs
       : row.kind === 'collection'
         ? keepLoansFromOlderApp(JSON.parse(mineJson) as Collection, keepLastChecked(JSON.parse(mineJson) as Collection, keepPlacesFromOlderApp(JSON.parse(mineJson) as Collection, theirs as Collection)))
-        : keepCameFromFromOlderApp(JSON.parse(mineJson) as Deck, theirs as Deck)
+        // ...and its primer, folder, archive flag, companion and categories (decks/deckExtras.ts).
+        : keepDeckExtrasFromOlderApp(JSON.parse(mineJson) as Deck, keepCameFromFromOlderApp(JSON.parse(mineJson) as Deck, theirs as Deck))
     if (healed !== theirs) {
       const healedJson = canonicalJson(healed)
       if (healedJson !== mineJson) remoteChanges.set(key, healed)

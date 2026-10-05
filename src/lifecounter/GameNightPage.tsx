@@ -15,6 +15,7 @@ import { estimateDeckBracket, knownBracket, newPlayerId, saveNight, startNewNigh
 import { useTableGames } from './tableGames'
 import './play.css'
 import './gameNight.css'
+import { activeDecks } from '../decks/deckFolders'
 
 /**
  * Game night: who's here and what they're playing, fair pods by power bracket (not last night's
@@ -26,7 +27,9 @@ export function GameNightPage() {
   const back = useBack('/play')
   const navigate = useNavigate()
   const { night, previous } = useGameNight()
-  const { decks, addGameResult, removeGameResult } = useSync()
+  const { decks: allDecks, addGameResult, removeGameResult } = useSync()
+  // Archived decks aren't offered (decks/deckFolders.ts).
+  const decks = activeDecks(allDecks)
   const { overview, person } = useOverview()
   const tableGames = useTableGames()
   const [guest, setGuest] = useState('')

@@ -1,13 +1,15 @@
 // A deck checked against its format's building rules, mirroring the Android app's DeckLegality.kt:
 // deck size, commander, banned/restricted cards, copy limits (main deck and sideboard counted
-// together), the sideboard's size, and colour identity. Pure, so it can be tested.
+// together), the sideboard's size, colour identity, and the companion's condition (companion.ts).
+// Pure, so it can be tested.
 
 import { canPair, pairingAbility, type PairCard } from './pairing'
 import { GAME_MODE_LABELS, type Deck, type DeckCardEntry, type GameMode } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 import { hasSideboard, sideboardLimit } from './sideboard'
+import { checkCompanion, companionCard, companionEntry, companionNamed, companionReason } from './companion'
 
-export type IssueKind = 'DECK_SIZE' | 'COMMANDER' | 'LEGALITY' | 'COPY_LIMIT' | 'COLOR_IDENTITY'
+export type IssueKind = 'DECK_SIZE' | 'COMMANDER' | 'LEGALITY' | 'COPY_LIMIT' | 'COLOR_IDENTITY' | 'COMPANION'
 
 export interface Issue {
   card: string | null
@@ -130,7 +132,9 @@ export function deckIssues(deck: Deck, cardsById: Map<string, ScryfallCard>): Is
   const side = deck.sideboard ?? []
   const sideboardCount = side.reduce((n, c) => n + c.quantity, 0)
   const sideLimit = sideboardLimit(mode)
-  if (sideboardCount > 0 && !hasSideboard(mode)) {
+  // In Commander the companion waits outside the 100, where a sideboard would be: one copy of it is fine.
+  const companionOutside = !hasSideboard(mode) && companionEntry(deck) ? 1 : 0
+  if (sideboardCount - companionOutside > 0 && !hasSideboard(mode)) {
     issues.push({ card: null, reason: `${label} has no sideboard — ${sideboardCount} card${sideboardCount === 1 ? '' : 's'} still there.`, kind: 'DECK_SIZE' })
   } else if (sideLimit !== null && sideboardCount > sideLimit) {
     issues.push({ card: null, reason: `Sideboard has ${sideboardCount} cards; ${label} allows at most ${sideLimit}.`, kind: 'DECK_SIZE' })
@@ -147,6 +151,29 @@ export function deckIssues(deck: Deck, cardsById: Map<string, ScryfallCard>): Is
   }
 
   issues.push(...copyLimitIssues(deck, cardsById))
+  issues.push(...companionIssues(deck, cardsById, commanderIdentity))
+  return issues
+}
+
+/**
+ * The companion: a companion card, in the sideboard (outside the 100 in Commander, inside the
+ * commander's colours), whose condition the starting deck — commanders included — meets.
+ */
+export function companionIssues(deck: Deck, cardsById: Map<string, ScryfallCard>, commanderIdentity: Set<string> | null = null): Issue[] {
+  const named = deck.companion?.trim()
+  if (!named) return []
+  const companion = companionNamed(named)
+  if (!companion) return [{ card: named, reason: "Isn't a companion.", kind: 'COMPANION' }]
+  const issues: Issue[] = []
+  const entry = companionEntry(deck)
+  if (!entry) {
+    issues.push({ card: companion.name, reason: hasSideboard(deck.gameMode) ? "The companion isn't in the sideboard." : "The companion isn't with the deck — add it again from Details.", kind: 'COMPANION' })
+  } else if (commanderIdentity) {
+    const outside = (cardsById.get(entry.scryfallId)?.color_identity ?? []).filter((c) => !commanderIdentity.has(c))
+    if (outside.length > 0) issues.push({ card: companion.name, reason: `Outside the commander's colour identity (${outside.join('')}).`, kind: 'COLOR_IDENTITY' })
+  }
+  const result = checkCompanion(companion.name, deck.cards.map((e) => companionCard(e, cardsById.get(e.scryfallId))), formatRules(deck.gameMode).deckSize)
+  if (!result.met) issues.push({ card: companion.name, reason: companionReason(companion, result), kind: 'COMPANION' })
   return issues
 }
 

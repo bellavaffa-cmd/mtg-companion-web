@@ -11,6 +11,8 @@ import { BinderPicker } from '../social/CardPicker'
 import { useSocial } from '../social/SocialContext'
 import { Avatar, handle } from '../social/ui'
 import { useNameTagSearch } from '../tags/useNameTagSearch'
+import { PrimerText, useDeckChange } from '../components/DeckExtras'
+import { tidyDescription } from '../decks/primer'
 
 type Loaded = { state: 'loading' } | { state: 'missing' } | { state: 'error'; message: string } | { state: 'ok'; item: api.SharedItem }
 
@@ -74,6 +76,7 @@ function SharedDeck({ item }: { item: api.SharedItem }) {
   const navigate = useNavigate()
   const { account, createDeckWithCards, setGameMode } = useSync()
   const deck = normalizeDeck({ ...(item.data as Partial<Deck>), id: String(item.data.id ?? ''), name: String(item.data.name ?? 'Deck') })
+  const { one: changeDeck } = useDeckChange()
   const [zoom, setZoom] = useState<DeckCardEntry | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
   const [query, setQuery] = useState('')
@@ -90,6 +93,9 @@ function SharedDeck({ item }: { item: api.SharedItem }) {
   const copy = () => {
     const mine = createDeckWithCards(`${deck.name}`, deck.cards.map((c) => ({ ...c })), deck.commander, deck.partnerCommander)
     if (deck.gameMode !== 'COMMANDER') setGameMode(mine.id, deck.gameMode as GameMode)
+    // The primer comes along: it's how the deck is meant to play.
+    const primer = tidyDescription(deck.description ?? '')
+    if (primer) changeDeck(mine.id, (d) => ({ ...d, description: primer }))
     setCopied(mine.id)
   }
 
@@ -115,6 +121,12 @@ function SharedDeck({ item }: { item: api.SharedItem }) {
         ) : (
           <button type="button" className="btn line" style={{ marginTop: 12 }} onClick={copy}><Icon name="content_copy" aria-hidden />Copy to my decks</button>
         )
+      )}
+      {!!deck.description?.trim() && (
+        <div className="panel rise" style={{ ...rise(2), marginTop: 14, maxWidth: 720 }}>
+          <div className="p-h"><h3>About</h3></div>
+          <PrimerText text={deck.description} />
+        </div>
       )}
       {deck.cards.length > 8 && (
         <div style={{ marginTop: 14, maxWidth: 480 }}>
