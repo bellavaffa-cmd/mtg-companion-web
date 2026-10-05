@@ -120,7 +120,8 @@ self.addEventListener('push', (event) => {
       renotify: Boolean(data.tag),
       icon: new URL('icon-192.png', scope).href,
       badge: new URL('icon-192.png', scope).href,
-      data: { url: new URL(data.open === 'trades' ? 'trades' : data.open === 'messages' ? 'messages' : 'friends', scope).href },
+      // Friends, on the tab the notification is about (src/social/friendsTabs.ts).
+      data: { url: new URL(data.open === 'trades' ? 'friends?tab=trades' : data.open === 'messages' ? 'friends?tab=messages' : 'friends', scope).href },
     }),
   )
 })

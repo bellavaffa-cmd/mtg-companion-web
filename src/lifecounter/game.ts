@@ -1107,6 +1107,9 @@ function save(key: string, value: unknown) {
   }
 }
 
+/** The life counter's saved settings, for showing the table a new game starts with (the Play tab). */
+export const savedLifeSettings = (): LifeSettings => normalizeSettings(load<Partial<LifeSettings>>(SETTINGS_KEY, {}))
+
 /** The life counter's settings and current game, kept in localStorage across reloads. */
 export function useLifeCounter() {
   const [settings, setSettings] = useState<LifeSettings>(() => normalizeSettings(load<Partial<LifeSettings>>(SETTINGS_KEY, {})))

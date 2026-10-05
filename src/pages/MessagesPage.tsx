@@ -30,7 +30,8 @@ export function MessagesPage() {
   )
 }
 
-function ConversationList({ overview }: { overview: api.Overview }) {
+/** Every conversation — on this page and on Friends' Messages tab. */
+export function ConversationList({ overview }: { overview: api.Overview }) {
   const navigate = useNavigate()
   const available = more.useSocialMore()
   const me = overview.me!.user_id

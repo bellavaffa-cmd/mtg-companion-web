@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
 import { Dialog } from '../components/Dialog'
-import { ArtImage, SectionHeader, SegmentedTabs, rise, toArtCrop, useBack } from '../components/kit'
+import { ArtImage, IconButton, SectionHeader, SegmentedTabs, rise, toArtCrop, useBack } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
 import * as api from '../social/api'
 import { useOverview } from '../social/SocialContext'
@@ -12,16 +12,30 @@ import { NotificationsPanel } from '../social/NotificationsPanel'
 import { Avatar, handle, QrCode } from '../social/ui'
 import { useSocialMore, unreadMessages } from '../social/more'
 import { ActivityList, TradeMatchesSection } from '../social/MoreUi'
+import { FRIENDS_TAB_LABELS, friendsTabCounts, friendsTabFor, friendsTabs } from '../social/friendsTabs'
+import { ConversationList } from './MessagesPage'
+import { TradeList } from './TradesPage'
 
 /**
- * Friends: the user's profile, adding friends by username or QR code, requests, pods, what friends
- * have shared, and trades.
+ * Friends, in four tabs (friendsTabs.ts): People — adding friends, requests, friends, pods and
+ * what's shared with you; Messages; Trades — trades, cards for trade, trade matches and loans; and
+ * Activity. Messages and Activity need the server's social_more functions. The user's own profile
+ * and QR code open from the header. The tab is kept in the address (?tab=…), so links, Back and
+ * tapped notifications (pwa/sw.template.js) land on the right one. The Android app's twin is
+ * ui/social/FriendsScreen.kt.
  */
 export function FriendsPage() {
   const back = useBack('/')
+  const [params, setParams] = useSearchParams()
+  const { account } = useSync()
+  const profile = params.get('tab') === 'profile'
   return (
     <>
-      <TopBar title="Friends" onBack={back} />
+      <TopBar
+        title={profile ? 'Your profile' : 'Friends'}
+        onBack={back}
+        actions={account && !profile ? <IconButton icon="account_circle" label="Your profile and QR code" onClick={() => setParams({ tab: 'profile' })} /> : undefined}
+      />
       <div className="content-scroll">
         <div className="narrow-width">
           <SocialGate>{(overview) => <FriendsContent overview={overview} />}</SocialGate>
@@ -72,15 +86,12 @@ export function SocialGate({ children }: { children: (overview: api.Overview) =>
 }
 
 function FriendsContent({ overview }: { overview: api.Overview }) {
-  const navigate = useNavigate()
-  const { refresh, inbox } = useOverview()
+  const { inbox } = useOverview()
   const me = overview.me!
-  // Friends, or the user's own profile; kept in the address so Back and links land on the right one.
+  // The tab, or the user's own profile; kept in the address so Back and links land on the right one.
   const [params, setParams] = useSearchParams()
-  const profileTab = params.get('tab') === 'profile'
-  // Activity, messages and trade matches need the server's social_more functions.
+  // Messages and Activity need the server's social_more functions.
   const more = useSocialMore()
-  const activityTab = !!more && params.get('tab') === 'activity'
   const [unread, setUnread] = useState(0)
   useEffect(() => {
     if (!more) return
@@ -88,15 +99,37 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
     unreadMessages().then((n) => { if (!cancelled) setUnread(n) }).catch(() => {})
     return () => { cancelled = true }
   }, [more, overview])
+
+  if (params.get('tab') === 'profile') return <ProfileTab me={me} />
+
+  const tabs = friendsTabs(more)
+  const tab = friendsTabFor(params.get('tab'), more)
+  const requests = overview.friends.filter((f) => f.status === 'pending' && f.incoming).length
+  return (
+    <>
+      <div className="rise" style={{ ...rise(0), marginBottom: 14 }}>
+        <SegmentedTabs
+          labels={tabs.map((t) => FRIENDS_TAB_LABELS[t])}
+          selected={tabs.indexOf(tab)}
+          counts={friendsTabCounts(tabs, { requests, unread, trades: inbox.trades })}
+          onSelect={(i) => setParams(tabs[i] === 'people' ? {} : { tab: tabs[i] }, { replace: true })}
+        />
+      </div>
+      {tab === 'people' && <PeopleTab overview={overview} onShowQr={() => setParams({ tab: 'profile' })} />}
+      {tab === 'messages' && <ConversationList overview={overview} />}
+      {tab === 'trades' && <TradesTab overview={overview} more={!!more} />}
+      {tab === 'activity' && <ActivityList />}
+    </>
+  )
+}
+
+/** People: adding a friend, requests, friends, requests you sent, pods, and the way to what's shared. */
+function PeopleTab({ overview, onShowQr }: { overview: api.Overview; onShowQr: () => void }) {
+  const navigate = useNavigate()
+  const { refresh } = useOverview()
+  const me = overview.me!
   const [podDialog, setPodDialog] = useState<api.Pod | 'new' | null>(null)
   const person = (id: string) => overview.people[id] ?? null
-
-  // What friends have lent the user (supabase/migrations/20261006010000_loans.sql) — nothing if the
-  // server can't say.
-  const [borrowed, setBorrowed] = useState(0)
-  useEffect(() => {
-    api.myBorrowedLoans().then((l) => setBorrowed(l.reduce((n, x) => n + x.cards.reduce((m, c) => m + c.qty, 0), 0))).catch(() => {})
-  }, [])
   const incoming = overview.friends.filter((f) => f.status === 'pending' && f.incoming)
   const outgoing = overview.friends.filter((f) => f.status === 'pending' && !f.incoming)
   const friends = overview.friends
@@ -104,58 +137,9 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
     .sort((a, b) => (person(a.user_id)?.display_name ?? '').localeCompare(person(b.user_id)?.display_name ?? ''))
   const sharers = [...new Set(overview.shared_with_me.map((s) => s.owner))]
 
-  const tabs = (
-    <div className="rise" style={{ ...rise(0), marginBottom: 14 }}>
-      <SegmentedTabs
-        labels={more ? ['Friends', 'Activity', 'Profile'] : ['Friends', 'Profile']}
-        selected={profileTab ? (more ? 2 : 1) : activityTab ? 1 : 0}
-        counts={incoming.length + inbox.trades + unread > 0 ? { 0: incoming.length + inbox.trades + unread } : {}}
-        onSelect={(i) => {
-          const tab = (more ? ['', 'activity', 'profile'] : ['', 'profile'])[i]
-          setParams(tab ? { tab } : {}, { replace: true })
-        }}
-      />
-    </div>
-  )
-  if (profileTab) {
-    return <>{tabs}<ProfileTab me={me} /></>
-  }
-  if (activityTab) {
-    return <>{tabs}<ActivityList /></>
-  }
-
   return (
     <>
-      {tabs}
-      <AddFriend onAdded={refresh} />
-
-      <button type="button" className="banner press rise" style={{ ...rise(1), marginTop: 12 }} onClick={() => navigate('/trades')}>
-        <Icon name="swap_horiz" />
-        <span style={{ flex: 1 }}>Trades</span>
-        {inbox.trades > 0 && <span className="count-badge">{inbox.trades}</span>}
-        <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
-      </button>
-      {more && (
-        <>
-          <button type="button" className="banner press rise" style={{ ...rise(1), marginTop: 8 }} onClick={() => navigate('/messages')}>
-            <Icon name="chat" />
-            <span style={{ flex: 1 }}>Messages</span>
-            {unread > 0 && <span className="count-badge">{unread}</span>}
-            <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
-          </button>
-          <button type="button" className="banner press rise" style={{ ...rise(1), marginTop: 8 }} onClick={() => navigate('/for-trade')}>
-            <Icon name="sell" />
-            <span style={{ flex: 1 }}>Your cards for trade</span>
-            <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
-          </button>
-        </>
-      )}
-
-      <button type="button" className="banner press rise" style={{ ...rise(1), marginTop: 8 }} onClick={() => navigate('/loans?tab=borrowed')}>
-        <Icon name="handshake" />
-        <span style={{ flex: 1 }}>{borrowed > 0 ? `Borrowed from friends: ${borrowed} ${borrowed === 1 ? 'card' : 'cards'}` : 'Loans'}</span>
-        <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
-      </button>
+      <AddFriend onAdded={refresh} onShowQr={onShowQr} />
 
       {incoming.length > 0 && (
         <>
@@ -189,8 +173,6 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
           })}
         </div>
       )}
-
-      <TradeMatchesSection overview={overview} />
 
       {outgoing.length > 0 && (
         <>
@@ -248,6 +230,37 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
       </button>
 
       {podDialog && <PodDialog overview={overview} pod={podDialog === 'new' ? null : podDialog} onClose={() => setPodDialog(null)} />}
+    </>
+  )
+}
+
+/** Trades: the way to your cards for trade and to loans, the trades themselves, and trade matches. */
+function TradesTab({ overview, more }: { overview: api.Overview; more: boolean }) {
+  const navigate = useNavigate()
+  // What friends have lent the user (supabase/migrations/20261006010000_loans.sql) — nothing if the
+  // server can't say.
+  const [borrowed, setBorrowed] = useState(0)
+  useEffect(() => {
+    api.myBorrowedLoans().then((l) => setBorrowed(l.reduce((n, x) => n + x.cards.reduce((m, c) => m + c.qty, 0), 0))).catch(() => {})
+  }, [])
+  return (
+    <>
+      <div className="friends-links">
+        {more && (
+          <button type="button" className="banner press rise" style={rise(1)} onClick={() => navigate('/for-trade')}>
+            <Icon name="sell" />
+            <span style={{ flex: 1 }}>Your cards for trade</span>
+            <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
+          </button>
+        )}
+        <button type="button" className="banner press rise" style={rise(1)} onClick={() => navigate('/loans?tab=borrowed')}>
+          <Icon name="handshake" />
+          <span style={{ flex: 1 }}>{borrowed > 0 ? `Borrowed / Lent · ${borrowed} ${borrowed === 1 ? 'card' : 'cards'} borrowed` : 'Borrowed / Lent'}</span>
+          <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
+        </button>
+      </div>
+      <TradeList overview={overview} />
+      <TradeMatchesSection overview={overview} />
     </>
   )
 }
@@ -324,7 +337,7 @@ export function WholeCollectionRow({ owner, name, binders, whole }: { owner: str
   )
 }
 
-function AddFriend({ onAdded }: { onAdded: () => Promise<void> }) {
+function AddFriend({ onAdded, onShowQr }: { onAdded: () => Promise<void>; onShowQr: () => void }) {
   const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [busy, setBusy] = useState(false)
@@ -363,6 +376,7 @@ function AddFriend({ onAdded }: { onAdded: () => Promise<void> }) {
       <button type="button" className="btn line block" style={{ marginTop: 10 }} onClick={() => navigate('/scan')}>
         <Icon name="qr_code_scanner" aria-hidden />Scan their QR code
       </button>
+      <button type="button" className="link" style={{ marginTop: 8 }} onClick={onShowQr}>Show my QR code</button>
     </div>
   )
 }
