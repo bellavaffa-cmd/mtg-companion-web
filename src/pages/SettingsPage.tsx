@@ -3,6 +3,7 @@ import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
 import { PricesPanel } from '../components/PricesPanel'
 import { BlockedPeople } from '../social/MoreUi'
+import { GettingStartedSection } from '../onboarding/GettingStartedSection'
 import { rise, useBack } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
 import { currencyOf, useCurrencySetting } from '../money/currency'
@@ -30,6 +31,7 @@ const SECTIONS = [
   { id: 'card-display', title: 'Card Display', icon: 'grid_view', to: '/settings/card-display' },
   { id: 'prices', title: 'Prices', icon: 'sell', to: '/settings/prices' },
   { id: 'blocked', title: 'Blocked people', icon: 'block', to: '/settings/blocked' },
+  { id: 'getting-started', title: 'Getting started', icon: 'flag', to: '/settings/getting-started' },
 ] as const
 
 /**
@@ -62,6 +64,8 @@ export function SettingsPage() {
       }
       case 'blocked':
         return account ? 'People who can’t see your things or contact you' : 'Sign in to block people'
+      case 'getting-started':
+        return 'The welcome steps, and the sample deck and binder'
     }
   }
 
@@ -101,6 +105,7 @@ export function SettingsSectionPage() {
           {found.id === 'card-display' && <CardDisplaySection />}
           {found.id === 'prices' && <PricesPanel heading={false} />}
           {found.id === 'blocked' && <BlockedPeople />}
+          {found.id === 'getting-started' && <GettingStartedSection />}
         </div>
       </div>
     </>

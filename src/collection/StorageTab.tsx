@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { Icon } from '../components/Icon'
+import { EmptyState } from '../components/EmptyState'
 import { Dialog } from '../components/Dialog'
 import { ActionSheet } from '../components/ActionSheet'
 import { rise } from '../components/kit'
@@ -50,10 +51,13 @@ export function StorageTab() {
 
       <div className="storage-list">
         {places.length === 0 && (
-          <div className="empty-state rise" style={rise(3)}>
-            <Icon name="shelves" />
-            <div>Boxes, binders and shelves: make one for each place you keep cards, then scan cards into it — the app remembers where each copy is.</div>
-          </div>
+          <EmptyState
+            className="rise"
+            style={rise(3)}
+            icon="shelves"
+            text="No places yet. Make one for each box, binder or shelf, and the app remembers where each copy is."
+            actions={[{ label: 'New place', icon: 'add', onClick: () => setEditing('new') }]}
+          />
         )}
         {childrenOf(places, null).map((top, i) => (
           <PlaceGroup key={top.id} top={top} places={places} summary={summary} index={i} onOpen={(id) => navigate(`/collections/place/${id}`)} />

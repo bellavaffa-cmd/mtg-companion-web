@@ -15,6 +15,7 @@ import { keepLastChecked, keepPlacesFromOlderApp } from '../collection/storagePl
 import { keepCameFromFromOlderApp } from '../collection/pullList'
 import { keepLoansFromOlderApp } from '../collection/loans'
 import { keepDeckExtrasFromOlderApp } from '../decks/deckExtras'
+import { syncable } from '../onboarding/onboarding'
 
 const STATE_KEY = 'mtgweb_cloud_state'
 
@@ -134,10 +135,15 @@ function hash(text: string): number {
   return h >>> 0 || 1
 }
 
+/**
+ * Every deck and binder the sync looks after, as JSON by key. Samples from the welcome flow are left
+ * out (onboarding/onboarding.ts): never pushed, never counted as deleted when they're removed, and
+ * left alone by what's pulled. The Android app's SyncCore.localJson does the same.
+ */
 export function libraryJson(lib: Library): Map<string, string> {
   const out = new Map<string, string>()
-  lib.decks.forEach((d) => out.set(`deck:${d.id}`, canonicalJson(d)))
-  lib.collections.forEach((c) => out.set(`collection:${c.id}`, canonicalJson(c)))
+  syncable(lib.decks).forEach((d) => out.set(`deck:${d.id}`, canonicalJson(d)))
+  syncable(lib.collections).forEach((c) => out.set(`collection:${c.id}`, canonicalJson(c)))
   return out
 }
 

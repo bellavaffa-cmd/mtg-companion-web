@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { SamplesBar } from '../onboarding/GetStarted'
 import { allUserTags, userTagsOf } from '../collection/userTags'
 import { PrintingPicker, printingName } from '../components/PrintingPicker'
 import { useMoney } from '../money/currency'
@@ -691,7 +692,7 @@ export function DeckDetailPage() {
             <div className="h-stats">
               <span><b>{totalCards}</b>cards</span>
               {usesCommander && commanders.length > 0 && <span>{GAME_MODE_LABELS[deck.gameMode as GameMode]}</span>}
-              <span className="bchip">{DECK_OWNERSHIP_LABELS[deck.ownership]}</span>
+              <span className="bchip">{deck.sample ? 'Sample' : DECK_OWNERSHIP_LABELS[deck.ownership]}</span>
               {size === 'tablet' && figures && figures.value > 0 && <span><b>{money.format(figures.value, true)}</b>value</span>}
             </div>
           </div>
@@ -711,6 +712,7 @@ export function DeckDetailPage() {
       </div>
 
       <div className="content-scroll">
+        {deck.sample && <SamplesBar style={{ marginTop: 10 }} />}
         {size === 'desktop' ? (
           <div className="deck-columns">
             <div style={{ minWidth: 0 }}>

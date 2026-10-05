@@ -13,6 +13,7 @@ import { collectionBreakdown } from './breakdown'
 import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { Icon } from '../components/Icon'
+import { EmptyState } from '../components/EmptyState'
 import { AddToSheet, type AddTarget } from '../components/AddToSheet'
 import { useUndoBar } from '../components/useUndoBar'
 import { useAddCheck } from '../components/useAddCheck'
@@ -204,13 +205,16 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
 
   if (cards.length === 0) {
     return (
-      <div className="empty-state rise" style={rise(1)}>
-        <Icon name="playing_cards" />
-        <div>No cards owned yet. Cards you add to any binder or deck appear here.</div>
-        <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
-          <button type="button" className="btn line" onClick={onImport}><Icon name="playlist_add" />Import your collection</button>
-        </div>
-      </div>
+      <EmptyState
+        className="rise"
+        style={rise(1)}
+        icon="playing_cards"
+        text="No cards yet. Every card in your binders and physical decks shows here."
+        actions={[
+          { label: 'Import your collection', icon: 'playlist_add', onClick: onImport },
+          { label: 'Scan cards', icon: 'photo_camera', to: '/scan' },
+        ]}
+      />
     )
   }
 
@@ -316,7 +320,7 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
       {notice && <div className="notice" style={{ marginTop: 10 }}><Icon name="check_circle" style={{ color: 'var(--ok)', fontSize: 18, marginRight: 6 }} />{notice}</div>}
 
       {shown.length === 0 ? (
-        <div className="empty-state">{filtering ? 'No cards match these filters.' : <>No cards match “{query}”.</>}</div>
+        <EmptyState icon="search_off" text={filtering ? 'No cards match these filters.' : <>No cards match “{query}”.</>} />
       ) : view === 'grid' ? (
         <div className="card-grid" style={{ marginTop: 14 }}>
           {shown.map((c) => (

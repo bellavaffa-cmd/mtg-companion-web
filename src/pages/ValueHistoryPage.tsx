@@ -2,6 +2,8 @@ import { useMemo, useRef, useState } from 'react'
 import { TopBar } from '../components/TopBar'
 import { ArtImage, PillChip, rise, toArtCrop, useBack } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
+import { EmptyState } from '../components/EmptyState'
+import { libraryFacts } from '../onboarding/onboarding'
 import { useMoney, type Money } from '../money/currency'
 import { MOVER_RANGES, moversOf, usePriceStore, type Mover, type MoverRangeId } from '../collection/priceMovers'
 import { VALUE_RANGES, changeOf, pointsIn, useCollectionValue, useValueHistory, type ValuePoint, type ValueRangeId } from '../collection/valueHistory'
@@ -36,7 +38,9 @@ export function ValueHistoryPage() {
       <TopBar title="Collection value" onBack={back} />
       <div className="content-scroll">
         <div className="narrow-width value-page rise" style={rise(0)}>
-          {!shown ? (
+          {!shown && libraryFacts([], collections).cards === 0 ? (
+            <EmptyState icon="show_chart" text="No value yet. Once your binders have cards, their value is noted here once a day." actions={[{ label: 'Bring in your cards', icon: 'playlist_add', to: '/welcome?step=collection' }]} />
+          ) : !shown ? (
             <>
               <div className="value-now dim">—</div>
               <p className="muted">Your binders' value is noted once a day, when Home works it out. The first one appears once their prices have loaded.</p>

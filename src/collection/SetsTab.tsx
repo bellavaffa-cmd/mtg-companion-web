@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { getSets } from '../api/scryfall'
 import { PillChip, SearchPill, rise } from '../components/kit'
+import { EmptyState } from '../components/EmptyState'
 import { allCardsOf } from './allCards'
 import { useCardData } from './cardData'
 import {
@@ -45,7 +46,17 @@ export function SetsTab() {
   }, [sets, cardsById, cards])
 
   const message = (text: string) => <div className="empty-state rise" style={rise(1)}>{text}</div>
-  if (cards.length === 0) return message('Cards you own show here, set by set, with how much of each set you have.')
+  if (cards.length === 0) {
+    return (
+      <EmptyState
+        className="rise"
+        style={rise(1)}
+        icon="layers"
+        text="No cards yet. Once you have some, each set shows how much of it you own."
+        actions={[{ label: 'Bring in your cards', icon: 'playlist_add', to: '/welcome?step=collection' }, { label: 'Scan cards', icon: 'photo_camera', to: '/scan' }]}
+      />
+    )
+  }
   if (failed && !list) {
     return (
       <div className="empty-state rise" style={rise(1)}>

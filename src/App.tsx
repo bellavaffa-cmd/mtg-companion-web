@@ -40,6 +40,7 @@ import { TagBinderPage } from './collection/TagBinders'
 import { RulesPage } from './pages/RulesPage'
 import { ScanPage } from './pages/ScanPage'
 import { NotFoundPage } from './pages/NotFoundPage'
+import { WelcomePage } from './onboarding/WelcomePage'
 import { SocialProvider } from './social/SocialContext'
 import './social/social.css'
 
@@ -123,6 +124,7 @@ export default function App() {
             <Route path="/login/:code" element={<ApproveLoginPage />} />
             <Route path="/join/:code/:seat" element={<JoinSeatPage />} />
             <Route path="/app" element={<GetAppPage />} />
+            <Route path="/welcome" element={<WelcomePage />} />
             <Route path="/value" element={<ValueHistoryPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>
