@@ -88,12 +88,12 @@ export function DeckCardTile({
  * Cards the deck doesn't have that match its search, offered under the deck's own matches so a
  * card can be added without leaving for Search. Nothing at all when there are none.
  */
-export function AddToDeckSection({ cards, onAdd, onZoom }: { cards: ScryfallCard[]; onAdd: (card: ScryfallCard) => void; onZoom: (card: ScryfallCard) => void }) {
+export function AddToDeckSection({ cards, onAdd, onZoom, title = 'Add to this deck' }: { cards: ScryfallCard[]; onAdd: (card: ScryfallCard) => void; onZoom: (card: ScryfallCard) => void; title?: string }) {
   const money = useMoney()
   if (cards.length === 0) return null
   return (
     <>
-      <SectionHeader title="Add to this deck" />
+      <SectionHeader title={title} />
       <div className="list">
         {cards.map((card) => (
           <div key={card.id} className="crow no-qty" style={{ gridTemplateColumns: '56px minmax(0, 1fr) auto auto' }}>

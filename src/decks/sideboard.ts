@@ -7,6 +7,7 @@
 
 import type { ListSection } from '../collection/cardListText'
 import { GAME_MODES_USING_COMMANDER, type Deck, type DeckCardEntry, type GameMode } from '../types/models'
+import { isLimited } from './limited'
 
 /** The most cards a sideboard may hold. */
 export const MAX_SIDEBOARD = 15
@@ -16,6 +17,29 @@ export const MAX_SIDEBOARD = 15
  * Considering instead.
  */
 export const hasSideboard = (mode: string): boolean => !GAME_MODES_USING_COMMANDER.has(mode as GameMode)
+
+/**
+ * The most cards a [mode] deck's sideboard may hold; null for no limit — in Limited the sideboard is
+ * the pool, every card opened that isn't in the main deck.
+ */
+export const sideboardLimit = (mode: string): number | null => (isLimited(mode) ? null : MAX_SIDEBOARD)
+
+/** What the sideboard is called: a Limited deck's is its pool. */
+export const sideboardName = (mode: string): 'Pool' | 'Sideboard' => (isLimited(mode) ? 'Pool' : 'Sideboard')
+
+/**
+ * The "Add to…" sheet's sideboard choice, given the formats of the decks on offer that have one:
+ * "Pool" when they're all Limited, "Sideboard" otherwise.
+ */
+export const sideboardChoice = (modes: string[]): 'Pool' | 'Sideboard' =>
+  (modes.length > 0 && modes.every(isLimited) ? 'Pool' : 'Sideboard')
+
+/** The line under that choice once it's picked, for the same decks. */
+export function sideboardChoiceHint(modes: string[]): string {
+  if (modes.length > 0 && modes.every(isLimited)) return 'Your draft or sealed pool — the cards not in the main deck.'
+  if (modes.some(isLimited)) return "Beside the main deck, up to 15 cards — or a Limited deck's pool. Only decks whose format has a sideboard are listed."
+  return 'Beside the main deck, up to 15 cards. Only decks whose format has a sideboard are listed.'
+}
 
 /** Where an imported decklist line goes in a deck. */
 export type DeckPart = 'main' | 'sideboard' | 'considering'

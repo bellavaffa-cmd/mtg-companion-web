@@ -98,8 +98,10 @@ export function manaBaseAdvice(pips: [string, number][], sources: [string, numbe
   }
 
   const commander = mode === 'COMMANDER'
-  const [low, high] = commander ? [34, 40] : [20, 27]
-  const typical = commander ? '36–38' : '22–26'
+  // A 40-card Limited deck runs about 17.
+  const limited = mode === 'LIMITED'
+  const [low, high] = commander ? [34, 40] : limited ? [16, 18] : [20, 27]
+  const typical = commander ? '36–38' : limited ? '16–18' : '22–26'
   if (landCount >= 1 && landCount < low) {
     advice.push(`${landCount} lands is light — most decks like this run ${typical}, fewer only with plenty of cheap ramp.`)
   } else if (landCount > high) {

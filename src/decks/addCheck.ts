@@ -3,7 +3,7 @@
 // rules as deckLegality.ts. Pure, so it can be tested; the Android app's AddCheck.kt says the same words.
 
 import { copyLimitExempt, formatRules } from './deckLegality'
-import { hasSideboard, MAX_SIDEBOARD } from './sideboard'
+import { hasSideboard, sideboardLimit } from './sideboard'
 import type { Deck } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 
@@ -12,7 +12,7 @@ export interface Adding {
   scryfallId: string
   name: string
   quantity: number
-  /** Going into the sideboard, which holds at most MAX_SIDEBOARD cards. */
+  /** Going into the sideboard, which holds at most MAX_SIDEBOARD cards (a Limited pool: any number). */
   toSideboard?: boolean
 }
 
@@ -44,13 +44,14 @@ export function addProblems(deck: Deck, adding: Adding[], cardsById: Map<string,
 
   let sideboardCount = (deck.sideboard ?? []).reduce((n, e) => n + e.quantity, 0)
   const sideboardKept = hasSideboard(deck.gameMode)
+  const sideLimit = sideboardLimit(deck.gameMode)
 
   return adding.map((item) => {
     const card = cardsById.get(item.scryfallId)
     const problems: string[] = []
     if (item.toSideboard && sideboardKept) {
       sideboardCount += item.quantity
-      if (sideboardCount > MAX_SIDEBOARD) problems.push(`Sideboard is full (${MAX_SIDEBOARD} max)`)
+      if (sideLimit !== null && sideboardCount > sideLimit) problems.push(`Sideboard is full (${sideLimit} max)`)
     }
     if (moving) return problems
     const legality = card?.legalities?.[rules.scryfall]

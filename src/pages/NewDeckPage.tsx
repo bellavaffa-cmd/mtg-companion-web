@@ -27,6 +27,7 @@ const FORMAT_NOTES: Record<GameMode, string> = {
   PAUPER: '60 cards, commons only',
   LEGACY: '60 cards from all of Magic, a few banned',
   VINTAGE: '60 cards from all of Magic, a few restricted',
+  LIMITED: 'A draft or sealed pool, built into 40 cards',
 }
 
 const COLOUR_NAMES: Record<string, string> = { W: 'White', U: 'Blue', B: 'Black', R: 'Red', G: 'Green', C: 'Colourless' }
