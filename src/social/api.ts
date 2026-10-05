@@ -199,7 +199,7 @@ const MESSAGES: Record<string, string> = {
   dm_too_long: 'Keep messages under 2,000 characters.',
   cant_message: 'You can only message friends.',
   slow_down: "You're sending messages very fast — wait a minute.",
-  cant_rate: 'You can rate a trade once you’ve updated your binders for it.',
+  cant_rate: "You can rate a trade once you've updated your binders for it.",
 }
 
 export async function call<T>(fn: string, args: Record<string, unknown> = {}, { signedIn = true } = {}): Promise<T> {

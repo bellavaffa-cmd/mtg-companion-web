@@ -67,6 +67,8 @@ test('copies for trade never exceed the copies there are', () => {
   assert.equal(forTradeOf(entry('s', 'Sol Ring', 2, 1, 5)), 3)
   assert.equal(forTradeOf(entry('s', 'Sol Ring', 2, 1)), 0)
   assert.equal(forTradeOf(entry('s', 'Sol Ring', 2, 1, -1)), 0)
+  assert.equal(forTradeOf(entry('s', 'Sol Ring', 4, 0, 2)), 2)
+  // Web only: a fraction (from a hand-edited binder) rounds down.
   assert.equal(forTradeOf(entry('s', 'Sol Ring', 4, 0, 2.7)), 2)
 })
 
