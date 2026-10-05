@@ -13,7 +13,11 @@ import { AddToDeckSection, DeckCardRow, DeckCardTile } from '../components/DeckC
 import { useAddSearch, useComboPieces, useDeckCombos } from '../components/useDeckCardSearch'
 import { ComboPieceWarningDialog, DeckImportDialog, SwapPickerDialog } from '../components/DeckBuildingDialogs'
 import { combosWithCard } from '../decks/considering'
-import { hasSideboard, MAX_SIDEBOARD, sideboardCount } from '../decks/sideboard'
+import { hasSideboard, MAX_SIDEBOARD, sideboardCount, sideboardLimit, sideboardName } from '../decks/sideboard'
+import { BASIC_LAND_FOR, isLimited, poolCopies, poolGroups } from '../decks/limited'
+import { BasicLandsDialog, PoolPairsHint } from '../components/LimitedPanels'
+import { AddToSheet, type AddTarget } from '../components/AddToSheet'
+import { getByExactName, getCardsByIds } from '../api/scryfall'
 import { deckPlace } from '../collection/addTo'
 import { addableCards } from '../decks/addSearch'
 import { CARD_FILTERS, CARD_FILTER_LABELS, filterCounts, noMatchMessage, passesFilter, type CardFilter } from '../decks/comboPieces'
@@ -64,6 +68,7 @@ export function DeckDetailPage() {
     decks, collections, setCardQuantity, removeCardFromDeck, setCommander, setPartnerCommander, deleteDeck, addToWishlist,
     setDeckOwnership, swapInProxy, changeDeckPrinting, stopConsidering, considerIntoDeck, setCardTags, setReplaceable, recordUndo,
     moveToConsidering, swapConsidered, importIntoDeck, setSideboardQuantity, moveToSideboard, moveToMain,
+    addCardToDeck, importIntoCollection,
   } = useSync()
   const addCardTo = useAddCardTo()
   const confirmAdd = useAddCheck()
@@ -118,6 +123,9 @@ export function DeckDetailPage() {
   const [comparePicking, setComparePicking] = useState(false)
   const [compareWith, setCompareWith] = useState<CompareTarget | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // Draft and sealed: the basic lands being chosen, and the binder the pool is being copied to.
+  const [addingBasics, setAddingBasics] = useState(false)
+  const [poolToBinder, setPoolToBinder] = useState(false)
   // A commander (or partner) about to come out of the deck, waiting for a yes.
   const [removingCommander, setRemovingCommander] = useState<DeckCardEntry | null>(null)
   // Taking the last copy out removes the card, which is easy to do by accident on a small − button:
@@ -179,6 +187,10 @@ export function DeckDetailPage() {
   const side = deck.sideboard ?? []
   // Shown for a format with a sideboard, and for any deck that still has cards there (one switched to Commander).
   const showSideboard = hasSideboard(deck.gameMode) || side.length > 0
+  // A draft or sealed deck: its sideboard is the pool it's built from (decks/limited.ts).
+  const limited = isLimited(deck.gameMode)
+  const sideName = sideboardName(deck.gameMode)
+  const sideLimit = sideboardLimit(deck.gameMode)
   const zoomEntry = deck.cards.find((c) => c.scryfallId === zoomId) ?? considering.find((c) => c.scryfallId === zoomId) ?? null
   // A card that's only being thought about: the zoom offers to add it rather than counting copies.
   const zoomConsidered = !!zoomEntry && !deck.cards.some((c) => c.scryfallId === zoomEntry.scryfallId)
@@ -207,6 +219,9 @@ export function DeckDetailPage() {
   // The sideboard's cards, after the main deck's groups. The chips are about the main deck, so only
   // "All" shows them.
   const sideShown = side.filter((c) => cardFilter === 'ALL' && matches(c)).sort((a, b) => a.name.localeCompare(b.name))
+  // A pool is shown by colour once its cards are known, and the zoom swipes along it in that order.
+  const pool = limited && cardData ? poolGroups(sideShown, cardData) : null
+  const sideListed = pool ? pool.flatMap((g) => g.cards) : sideShown
   const sideZoomEntry = side.find((c) => c.scryfallId === sideZoomId) ?? null
 
   // The second commander this card could be next to the main one (decks/pairing.ts): a partner, a
@@ -255,7 +270,7 @@ export function DeckDetailPage() {
       }
       actions.push({ label: 'Move to Considering', icon: 'drive_file_move', detail: 'Out of the deck, still on your list', section: inDeck, onClick: () => toConsidering(entry) })
       if (hasSideboard(deck!.gameMode)) {
-        actions.push({ label: 'Move to sideboard', icon: 'drive_file_move', section: inDeck, onClick: () => toSideboard(entry) })
+        actions.push({ label: `Move to ${sideName.toLowerCase()}`, icon: 'drive_file_move', section: inDeck, onClick: () => toSideboard(entry) })
       }
     }
     actions.push({ label: 'Change printing', icon: 'swap_horiz', detail: 'Another art or set — the copies stay', section: inDeck, onClick: () => setChangingPrinting(entry) })
@@ -286,7 +301,7 @@ export function DeckDetailPage() {
     const ok = await confirmAdd(deck, [entry], (e) => ({ scryfallId: e.scryfallId, name: e.name, quantity: e.quantity, toSideboard: true }), { moving: true })
     if (!ok) return
     const undo = recordUndo(() => moveToSideboard(deck.id, entry.scryfallId))
-    showUndo({ message: doneMessage('move', copiesOf(entry), deckPlace(deck.name, false, true)), undo })
+    showUndo({ message: doneMessage('move', copiesOf(entry), deckPlace(deck.name, false, true, limited)), undo })
   }
   const toMain = (entry: DeckCardEntry) => {
     const undo = recordUndo(() => moveToMain(deck.id, entry.scryfallId))
@@ -296,7 +311,7 @@ export function DeckDetailPage() {
   const sideActions = (entry: DeckCardEntry): SheetAction[] => [
     { label: 'View card', icon: 'visibility', onClick: () => setSideZoomId(entry.scryfallId) },
     { label: 'Move to main deck', icon: 'drive_file_move', onClick: () => toMain(entry) },
-    { label: 'Remove from sideboard', icon: 'close', tone: 'danger', onClick: () => setRemovingSide(entry) },
+    { label: `Remove from ${sideName.toLowerCase()}`, icon: 'close', tone: 'danger', onClick: () => setRemovingSide(entry) },
   ]
   /** One sideboard copy fewer; the last copy is asked about first, as in the main deck. */
   const sideFewer = (entry: DeckCardEntry) => {
@@ -333,7 +348,48 @@ export function DeckDetailPage() {
   /** A card from anywhere on the page into the deck, or onto its Considering list — said on the Undo bar. */
   const addToDeck = (card: ScryfallCard, considering = false) =>
     addCardTo(card, { kind: 'deck', id: deck.id, name: deck.name, quantity: 1, considering })
-  const addFromSearch = (card: ScryfallCard) => addToDeck(card)
+  // A Limited deck's search fills its pool: the main deck is built from there.
+  const addFromSearch = (card: ScryfallCard) =>
+    limited ? addCardTo(card, { kind: 'deck', id: deck.id, name: deck.name, gameMode: deck.gameMode, quantity: 1, considering: false, sideboard: true }) : addToDeck(card)
+
+  /** Draft and sealed: the basic lands chosen, into the main deck — new copies, not ones from the Unsorted pile. */
+  const addBasics = async (counts: Record<string, number>) => {
+    setAddingBasics(false)
+    const wanted = Object.entries(counts).filter(([, n]) => n > 0)
+    let cards: ScryfallCard[]
+    try {
+      cards = await Promise.all(wanted.map(([c]) => getByExactName(BASIC_LAND_FOR[c])))
+    } catch {
+      setNotice("Couldn't reach Scryfall — try again when you're online.")
+      return
+    }
+    const total = wanted.reduce((n, [, q]) => n + q, 0)
+    const undo = recordUndo(() => cards.forEach((card, i) => addCardToDeck(deck.id, card, wanted[i][1], false)))
+    showUndo({ message: doneMessage('add', `${total} basic ${total === 1 ? 'land' : 'lands'}`, deck.name), undo })
+  }
+
+  /** Draft and sealed, once it's over: every card in the deck and its pool copied into a binder. */
+  const copyPoolTo = async (target: AddTarget) => {
+    if (target.kind !== 'binder') return
+    const rows = poolCopies(deck)
+    const known = new Map(cardData ?? [])
+    const unknown = rows.filter((r) => !known.has(r.scryfallId)).map((r) => r.scryfallId)
+    if (unknown.length > 0) {
+      try {
+        for (const card of await getCardsByIds(unknown)) known.set(card.id, card)
+      } catch {
+        setNotice("Couldn't reach Scryfall — try again when you're online.")
+        return
+      }
+    }
+    const going = rows.flatMap((r) => {
+      const card = known.get(r.scryfallId)
+      return card ? [{ card, quantity: r.quantity, foilQuantity: 0 }] : []
+    })
+    const copies = going.reduce((n, g) => n + g.quantity, 0)
+    const undo = recordUndo(() => importIntoCollection(target.id, going))
+    showUndo({ message: doneMessage('copy', `${copies} ${copies === 1 ? 'card' : 'cards'}`, target.name), undo })
+  }
   /** A card on Considering, into the deck after all. */
   const intoDeck = async (entry: DeckCardEntry) => {
     if (!await confirmAdd(deck, [entry], (e) => ({ scryfallId: e.scryfallId, name: e.name, quantity: 1 }))) return
@@ -401,12 +457,31 @@ export function DeckDetailPage() {
   const sideboardGroup = showSideboard && (sideShown.length > 0 || (!q && cardFilter === 'ALL')) && (
     <div className="sideboard-group">
       <div className="grp">
-        Sideboard ({sideboardCount(deck)})
-        {hasSideboard(deck.gameMode) && <span>up to {MAX_SIDEBOARD}</span>}
+        {sideName} ({sideboardCount(deck)})
+        {hasSideboard(deck.gameMode) && sideLimit !== null && <span>up to {sideLimit}</span>}
       </div>
       {sideShown.length === 0
-        ? <div className="dim">No sideboard cards yet. Open a card's ⋮ menu and choose Move to sideboard, or pick Sideboard when adding one.</div>
-        : cardViews(sideShown, false, true)}
+        ? (
+          <div className="dim">
+            {limited
+              ? "No cards in the pool yet. Type a card's name above to add it, or scan the pool in."
+              : "No sideboard cards yet. Open a card's ⋮ menu and choose Move to sideboard, or pick Sideboard when adding one."}
+          </div>
+        )
+        : pool && cardData
+          ? (
+            // The pool by colour, with the pairs it supports best.
+            <>
+              <PoolPairsHint pool={side} cardsById={cardData} />
+              {pool.map((g) => (
+                <div key={g.key}>
+                  <div className="grp">{g.label}<span>{g.count}</span></div>
+                  {cardViews(g.cards, false, true)}
+                </div>
+              ))}
+            </>
+          )
+          : cardViews(sideShown, false, true)}
     </div>
   )
 
@@ -435,7 +510,7 @@ export function DeckDetailPage() {
         </div>
       )}
       {sideboardGroup}
-      <AddToDeckSection cards={addable} onAdd={addFromSearch} onZoom={setZoomSuggestion} />
+      <AddToDeckSection cards={addable} onAdd={addFromSearch} onZoom={setZoomSuggestion} title={limited ? 'Add to the pool' : undefined} />
     </>
   )
 
@@ -605,7 +680,7 @@ export function DeckDetailPage() {
       {sideSheet && (
         <ActionSheet
           title={sideSheet.name}
-          subtitle={[sideSheet.typeLine, `${sideSheet.quantity} in sideboard`].filter(Boolean).join(' · ')}
+          subtitle={[sideSheet.typeLine, `${sideSheet.quantity} in ${sideName.toLowerCase()}`].filter(Boolean).join(' · ')}
           imageUrl={sideSheet.imageUrl}
           actions={sideActions(sideSheet)}
           onClose={() => setSideSheet(null)}
@@ -737,6 +812,12 @@ export function DeckDetailPage() {
                   },
                 }]
               : []),
+            ...(limited
+              ? [
+                  { label: 'Add basic lands', icon: 'landscape', detail: '17 for 40 cards, by the colours you play', onClick: () => setAddingBasics(true) },
+                  { label: 'Add pool to a binder', icon: 'collections', detail: 'Every card here, deck and pool, copied into a binder', onClick: () => setPoolToBinder(true) },
+                ]
+              : []),
             { label: 'Import list', icon: 'upload_file', detail: 'Paste a decklist or choose a file', onClick: () => setImporting(true) },
             { label: 'Export list', icon: 'ios_share', detail: 'Simple, exact printing, Arena or MTGO', onClick: () => setShowExport(true) },
             { label: 'Deck details', icon: 'tune', detail: 'Format, ownership, commander and tags', onClick: () => setTabName('Details') },
@@ -817,17 +898,17 @@ export function DeckDetailPage() {
 
       {removingSide && (
         <Dialog
-          title="Remove from sideboard?"
+          title={`Remove from ${sideName.toLowerCase()}?`}
           onDismiss={() => setRemovingSide(null)}
           actions={
             <>
               <button type="button" className="btn line" onClick={() => setRemovingSide(null)}>Cancel</button>
-              <button type="button" className="btn danger" onClick={() => { setSideboardQuantity(deck.id, removingSide.scryfallId, 0); setRemovingSide(null) }}>Remove from sideboard</button>
+              <button type="button" className="btn danger" onClick={() => { setSideboardQuantity(deck.id, removingSide.scryfallId, 0); setRemovingSide(null) }}>Remove from {sideName.toLowerCase()}</button>
             </>
           }
         >
           <p className="muted" style={{ margin: 0 }}>
-            Take {removingSide.name} ({removingSide.quantity} {removingSide.quantity === 1 ? 'copy' : 'copies'}) out of this deck's sideboard?
+            Take {removingSide.name} ({removingSide.quantity} {removingSide.quantity === 1 ? 'copy' : 'copies'}) out of this deck's {sideName.toLowerCase()}?
           </p>
         </Dialog>
       )}
@@ -880,6 +961,21 @@ export function DeckDetailPage() {
             return { cards, sideboard: board }
           }}
           onDismiss={() => setImporting(false)}
+        />
+      )}
+      {addingBasics && (
+        <BasicLandsDialog deck={deck} cardsById={cardData ?? new Map()} onAdd={(counts) => { void addBasics(counts) }} onDismiss={() => setAddingBasics(false)} />
+      )}
+      {poolToBinder && (
+        <AddToSheet
+          verb="copy"
+          what={`${poolCopies(deck).reduce((n, c) => n + c.quantity, 0)} cards`}
+          subtitle="The main deck and the pool"
+          decks={false}
+          create
+          quantity={null}
+          onPick={(target) => { void copyPoolTo(target) }}
+          onClose={() => setPoolToBinder(false)}
         />
       )}
       {showExport && <ExportDeckDialog deck={deck} onDismiss={() => setShowExport(false)} />}
@@ -949,12 +1045,12 @@ export function DeckDetailPage() {
           onUserTags={(next) => setCardTags(sideZoomEntry.scryfallId, next)}
           onTagClick={(label) => { setSideZoomId(null); setTabName('Cards'); setFilter(label) }}
           onClose={() => setSideZoomId(null)}
-          {...zoomSteps(sideShown.length > 0 ? sideShown : side, sideZoomEntry, (card) => setSideZoomId(card.scryfallId))}
+          {...zoomSteps(sideListed.length > 0 ? sideListed : side, sideZoomEntry, (card) => setSideZoomId(card.scryfallId))}
         >
           <div className="row-between panel" style={{ padding: '14px 16px' }}>
             <div>
-              <div className="p-h" style={{ margin: 0 }}><h3>In the sideboard</h3></div>
-              <div className="dim">Beside the main deck, up to {MAX_SIDEBOARD} cards</div>
+              <div className="p-h" style={{ margin: 0 }}><h3>In the {sideName.toLowerCase()}</h3></div>
+              <div className="dim">{limited ? 'Opened, not in the main deck' : `Beside the main deck, up to ${MAX_SIDEBOARD} cards`}</div>
             </div>
             <div className="stepper-big">
               <button type="button" onClick={() => setSideboardQuantity(deck.id, sideZoomEntry.scryfallId, Math.max(1, sideZoomEntry.quantity - 1))} aria-label="One fewer">−</button>

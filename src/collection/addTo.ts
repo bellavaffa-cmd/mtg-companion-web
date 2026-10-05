@@ -39,9 +39,9 @@ export function doneMessage(verb: AddVerb, what: string, place: string): string 
   return `${VERB[verb][1]} ${what} to ${place}`
 }
 
-/** A deck as a place: the deck itself, its Considering list, or its sideboard. */
-export function deckPlace(deckName: string, considering: boolean, sideboard = false): string {
-  return considering ? `${deckName} · Considering` : sideboard ? `${deckName} · Sideboard` : deckName
+/** A deck as a place: the deck itself, its Considering list, or its sideboard (a Limited deck's pool). */
+export function deckPlace(deckName: string, considering: boolean, sideboard = false, pool = false): string {
+  return considering ? `${deckName} · Considering` : sideboard ? `${deckName} · ${pool ? 'Pool' : 'Sideboard'}` : deckName
 }
 
 /** "Printing: SET #number" — the printing a card being added goes in as. */

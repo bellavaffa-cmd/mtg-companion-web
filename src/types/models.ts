@@ -51,7 +51,7 @@ export interface GameResult {
 }
 
 export const GAME_MODES = [
-  'COMMANDER', 'BRAWL', 'STANDARD', 'PIONEER', 'MODERN', 'PAUPER', 'LEGACY', 'VINTAGE',
+  'COMMANDER', 'BRAWL', 'STANDARD', 'PIONEER', 'MODERN', 'PAUPER', 'LEGACY', 'VINTAGE', 'LIMITED',
 ] as const
 export type GameMode = (typeof GAME_MODES)[number]
 
@@ -64,6 +64,8 @@ export const GAME_MODE_LABELS: Record<GameMode, string> = {
   PAUPER: 'Pauper',
   LEGACY: 'Legacy',
   VINTAGE: 'Vintage',
+  // Draft and sealed: a 40-card deck from a pool, any card and any number of copies (decks/limited.ts).
+  LIMITED: 'Limited',
 }
 
 export const GAME_MODES_USING_COMMANDER: ReadonlySet<GameMode> = new Set(['COMMANDER', 'BRAWL'])
@@ -152,7 +154,8 @@ function isBasicLand(card: ScryfallCard): boolean {
  * always unlimited. Mirrors the Android app's duplicateWarning() in data/DeckLegality.kt.
  */
 export function duplicateWarning(deck: Deck, card: ScryfallCard, addingQuantity = 1): string | null {
-  if (isBasicLand(card)) return null
+  // Limited has no copy limit: a pool can hold several of a card.
+  if (isBasicLand(card) || deck.gameMode === 'LIMITED') return null
   const mode = deck.gameMode as GameMode
   const modeLabel = GAME_MODE_LABELS[mode] ?? deck.gameMode
   // The sideboard's copies count toward the same limit.

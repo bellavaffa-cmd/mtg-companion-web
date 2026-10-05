@@ -68,7 +68,9 @@ export function budgetSwapQuery(opts: {
     ? `otag:${opts.role.otag}`
     : `t:${primaryType(opts.typeLine).toLowerCase()} mv>=${Math.max(cmc - 1, 0)} mv<=${cmc + 1}`
   const ceiling = Math.max(opts.price * BUDGET_PRICE_FRACTION, 0.25).toFixed(2)
-  return `${job} id<=${opts.identity || 'c'} usd<${ceiling} f:${opts.format.toLowerCase()} -!"${opts.name.replace(/"/g, '')}"`
+  // Limited isn't a format Scryfall knows: any card goes.
+  const legal = opts.format === 'LIMITED' ? '' : ` f:${opts.format.toLowerCase()}`
+  return `${job} id<=${opts.identity || 'c'} usd<${ceiling}${legal} -!"${opts.name.replace(/"/g, '')}"`
 }
 
 /** The colour identity to search within: the commanders', or with none, the candidates' own. */

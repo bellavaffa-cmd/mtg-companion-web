@@ -5,7 +5,7 @@
 import { canPair, pairingAbility, type PairCard } from './pairing'
 import { GAME_MODE_LABELS, type Deck, type DeckCardEntry, type GameMode } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
-import { hasSideboard, MAX_SIDEBOARD } from './sideboard'
+import { hasSideboard, sideboardLimit } from './sideboard'
 
 export type IssueKind = 'DECK_SIZE' | 'COMMANDER' | 'LEGALITY' | 'COPY_LIMIT' | 'COLOR_IDENTITY'
 
@@ -28,6 +28,8 @@ const FORMATS: Record<string, { scryfall: string; deckSize: number; exactSize: b
   PAUPER: { scryfall: 'pauper', deckSize: 60, exactSize: false, singleton: false, maxCopies: 4, usesCommander: false },
   LEGACY: { scryfall: 'legacy', deckSize: 60, exactSize: false, singleton: false, maxCopies: 4, usesCommander: false },
   VINTAGE: { scryfall: 'vintage', deckSize: 60, exactSize: false, singleton: false, maxCopies: 4, usesCommander: false },
+  // Draft and sealed: no Scryfall format, so no card is banned or not legal, and no copy limit.
+  LIMITED: { scryfall: '', deckSize: 40, exactSize: false, singleton: false, maxCopies: Infinity, usesCommander: false },
 }
 
 const BASIC_LAND_NAMES = new Set([
@@ -123,13 +125,15 @@ export function deckIssues(deck: Deck, cardsById: Map<string, ScryfallCard>): Is
     }
   }
 
-  // The sideboard: only formats that have one, at most 15 cards, and every card legal there too.
+  // The sideboard: only formats that have one, at most 15 cards (a Limited pool: any number), and
+  // every card legal there too.
   const side = deck.sideboard ?? []
   const sideboardCount = side.reduce((n, c) => n + c.quantity, 0)
+  const sideLimit = sideboardLimit(mode)
   if (sideboardCount > 0 && !hasSideboard(mode)) {
     issues.push({ card: null, reason: `${label} has no sideboard — ${sideboardCount} card${sideboardCount === 1 ? '' : 's'} still there.`, kind: 'DECK_SIZE' })
-  } else if (sideboardCount > MAX_SIDEBOARD) {
-    issues.push({ card: null, reason: `Sideboard has ${sideboardCount} cards; ${label} allows at most ${MAX_SIDEBOARD}.`, kind: 'DECK_SIZE' })
+  } else if (sideLimit !== null && sideboardCount > sideLimit) {
+    issues.push({ card: null, reason: `Sideboard has ${sideboardCount} cards; ${label} allows at most ${sideLimit}.`, kind: 'DECK_SIZE' })
   }
   for (const entry of side) {
     switch (cardsById.get(entry.scryfallId)?.legalities?.[format.scryfall]) {

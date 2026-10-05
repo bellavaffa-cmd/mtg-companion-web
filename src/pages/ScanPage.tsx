@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getByExactName, getByFuzzyName, getBySetAndNumber, getCardsByIds, getPrintings, OfflineError } from '../api/scryfall'
-import { canBeFoil, doneMessage } from '../collection/addTo'
+import { canBeFoil, deckPlace, doneMessage } from '../collection/addTo'
 import { AddToSheet, type AddTarget } from '../components/AddToSheet'
 import { useAddCheck } from '../components/useAddCheck'
 import { useUndoBar } from '../components/useUndoBar'
@@ -26,6 +26,7 @@ import { appLinkPath, qrReader } from '../scan/qr'
 import { copyNumber, grouped, onlyRepeats, repeatedCards, saveNewest, scannedTwiceOver, withPrinting, type ScanRow } from '../scan/scanLog'
 import { useSync } from '../sync/SyncContext'
 import { UNSORTED_COLLECTION_ID } from '../types/models'
+import { isLimited } from '../decks/limited'
 import { displayImageUrl, type ScryfallCard } from '../types/scryfall'
 
 /** A card's shape: the guide box matches it. */
@@ -107,7 +108,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 export function ScanPage() {
   const back = useBack('/search')
   const navigate = useNavigate()
-  const { addCardToDeck, addCardsToDeck, addEntryToCollection, importIntoCollection, recordUndo } = useSync()
+  const { addCardToDeck, addCardsToDeck, addCardToSideboard, addEntryToCollection, importIntoCollection, recordUndo } = useSync()
   const confirmAdd = useAddCheck()
   const showUndo = useUndoBar()
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -543,7 +544,7 @@ export function ScanPage() {
     let left: typeof scanned = []
     if (target.kind === 'deck' && !target.considering) {
       // Asked first when a card breaks the deck's rules; cards left out stay on the pile.
-      const ok = await confirmAdd(target, groups, (g) => ({ scryfallId: g.card.id, name: g.card.name, quantity: g.quantity, card: g.card }))
+      const ok = await confirmAdd(target, groups, (g) => ({ scryfallId: g.card.id, name: g.card.name, quantity: g.quantity, card: g.card, toSideboard: !!target.sideboard }))
       if (!ok || ok.length === 0) return
       const going = new Set(ok.map((g) => `${g.card.id}:${g.foil}`))
       groups = ok
@@ -560,6 +561,11 @@ export function ScanPage() {
             addCardsToDeck(target.id, [s.card], true)
             continue
           }
+          // A sideboard — a Limited deck's pool, say — takes the copies as they are.
+          if (target.sideboard) {
+            addCardToSideboard(target.id, s.card, s.quantity)
+            continue
+          }
           // Scanned cards are new copies in hand, not the loose ones in the Unsorted pile.
           addCardToDeck(target.id, s.card, s.quantity, false)
         } else if (target.id === UNSORTED_COLLECTION_ID) {
@@ -568,7 +574,7 @@ export function ScanPage() {
         } else addEntryToCollection(target.id, s.card, s.foil ? 0 : s.quantity, s.foil ? s.quantity : 0)
       }
     })
-    const place = target.kind === 'deck' && target.considering ? `${target.name} · Considering` : target.name
+    const place = target.kind === 'deck' ? deckPlace(target.name, target.considering, target.sideboard, isLimited(target.gameMode ?? '')) : target.name
     const before = scanned
     showUndo({
       message: doneMessage('add', `${count} ${count === 1 ? 'card' : 'cards'}`, place),
@@ -759,6 +765,8 @@ export function ScanPage() {
           create
           // Each scan is a copy and says whether it's foil, so there's nothing to count or switch here.
           quantity={null}
+          // A deck's sideboard too: a draft or sealed pool is scanned straight in.
+          sideboard
           onPick={addAllTo}
           onClose={() => setPicking(false)}
         />

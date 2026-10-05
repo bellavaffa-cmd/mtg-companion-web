@@ -1,6 +1,7 @@
 import { useSync } from '../sync/SyncContext'
 import { deckPlace, doneMessage } from '../collection/addTo'
 import { UNSORTED_COLLECTION_ID } from '../types/models'
+import { isLimited } from '../decks/limited'
 import type { ScryfallCard } from '../types/scryfall'
 import type { AddTarget } from './AddToSheet'
 import { useAddCheck } from './useAddCheck'
@@ -34,7 +35,7 @@ export function useAddCardTo() {
         else addEntryToCollection(target.id, card, ...counts)
       }
     })
-    const place = target.kind === 'deck' ? deckPlace(target.name, target.considering, target.sideboard) : target.name
+    const place = target.kind === 'deck' ? deckPlace(target.name, target.considering, target.sideboard, isLimited(target.gameMode ?? '')) : target.name
     showUndo(undo
       ? { message: doneMessage('add', card.name, place), undo }
       : { message: `${card.name} is already in ${target.kind === 'deck' ? target.name : place}` })

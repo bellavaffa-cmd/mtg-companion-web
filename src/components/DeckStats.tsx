@@ -22,6 +22,7 @@ import { useDeckCombos } from './useDeckCardSearch'
 import { VersionDetailDialog, VersionHistoryPanel } from './DeckBuildingDialogs'
 import { estimateBracket, gameChangersOf, landSources, manaBaseAdvice, probabilityAtLeastOne } from '../decks/deckAnalysis'
 import { versionSummaries, type VersionSummary } from '../decks/versions'
+import { isLimited } from '../decks/limited'
 
 /** Canonical mana-color order, with generic {C} last. Mirrors the Android app's pipTotals. */
 const PIP_ORDER = ['W', 'U', 'B', 'R', 'G', 'Colorless'] as const
@@ -168,6 +169,8 @@ export function DeckStats({ deck, cardsById, roleTags, tagging = false, onTag }:
   // The bracket guess, from Scryfall's Game Changers and the combos Commander Spellbook finds (null:
   // it couldn't be asked, which the reason says). As on the phone, DeckDetailViewModel.buildAnalysis.
   const gameChangers = gameChangersOf(deck.cards, cardsById)
+  // A Commander bracket says nothing about a draft or sealed deck.
+  const limited = isLimited(deck.gameMode)
   const bracket = estimateBracket(gameChangers.length, deckCombos === null ? null : deckCombos?.included.length ?? 0)
   // The mana base: lands making each colour, against the colours the spells ask for.
   const { sources, lands } = landSources(deck.cards, cardsById)
@@ -243,7 +246,7 @@ export function DeckStats({ deck, cardsById, roleTags, tagging = false, onTag }:
         <SummaryFigure value={String(totalInDeck)} label={totalInDeck === 1 ? 'card' : 'cards'} />
         <SummaryFigure value={value} label="total value" />
         <SummaryFigure value={(figures?.avgMv ?? 0).toFixed(2)} label="avg mana value" />
-        <SummaryFigure value={String(bracket.bracket)} label="bracket" />
+        {!limited && <SummaryFigure value={String(bracket.bracket)} label="bracket" />}
       </div>
       <LegalitySection deck={deck} cardsById={cardsById} />
     </div>
@@ -258,7 +261,7 @@ export function DeckStats({ deck, cardsById, roleTags, tagging = false, onTag }:
       {fold('versions', <VersionHistoryPanel history={history} onOpen={setOpenVersion} index={0} />)}
       {openVersion && <VersionDetailDialog summary={openVersion} onDismiss={() => setOpenVersion(null)} />}
 
-      {fold('bracket', (
+      {!limited && fold('bracket', (
       <div className="panel rise" style={rise(0)}>
         <PanelHead title="Commander bracket" closed={`${bracket.bracket} · ${bracket.name}`} />
         <div className="bracket">

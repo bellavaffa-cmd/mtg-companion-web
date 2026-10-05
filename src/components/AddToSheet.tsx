@@ -4,7 +4,7 @@ import { ArtImage, PillChip, toArtCrop } from './kit'
 import { PrintingPicker } from './PrintingPicker'
 import { useSync } from '../sync/SyncContext'
 import { kindDetail, printingLine, sheetTitle, type AddVerb, type TargetKind } from '../collection/addTo'
-import { hasSideboard } from '../decks/sideboard'
+import { hasSideboard, sideboardChoice, sideboardChoiceHint } from '../decks/sideboard'
 import { GAME_MODES, GAME_MODE_LABELS, isUnsorted, UNSORTED_COLLECTION_ID, type Collection, type GameMode } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 
@@ -87,6 +87,8 @@ export function AddToSheet({
   const considering = part === 'considering'
   // Into the sideboard, only the decks that have one are listed, and no new deck is offered.
   const decksShown = intoSideboard ? deckList.filter((d) => hasSideboard(d.gameMode)) : deckList
+  // A Limited deck's sideboard is its pool, and is called that.
+  const sideboardModes = deckList.filter((d) => hasSideboard(d.gameMode)).map((d) => d.gameMode)
   const otherPrinting = chosenPrinting && printing && chosenPrinting.id !== printing.id ? { printing: chosenPrinting } : {}
   const [copies, setCopies] = useState(quantity?.initial ?? 1)
   const [isFoil, setIsFoil] = useState(foil?.on ?? false)
@@ -138,14 +140,14 @@ export function AddToSheet({
           <div className="addto-opts">
             {step === 'deck' && (
               <div className="seg-choice" role="radiogroup" aria-label="Where in the deck" style={sideboardOffered ? { gridTemplateColumns: '1fr 1fr 1fr' } : undefined}>
-                {([['deck', 'Into the deck'], ...(sideboardOffered ? [['sideboard', 'Sideboard']] : []), ['considering', 'Considering']] as [DeckPart, string][]).map(([value, label]) => {
+                {([['deck', 'Into the deck'], ...(sideboardOffered ? [['sideboard', sideboardChoice(sideboardModes)]] : []), ['considering', 'Considering']] as [DeckPart, string][]).map(([value, label]) => {
                   const on = value === 'sideboard' ? intoSideboard : value === 'deck' ? part === 'deck' || (part === 'sideboard' && !sideboardOffered) : considering
                   return <button key={value} type="button" role="radio" aria-checked={on} className={on ? 'on' : ''} onClick={() => setPart(value)}>{label}</button>
                 })}
               </div>
             )}
             {step === 'deck' && intoSideboard && (
-              <div className="addto-hint">Beside the main deck, up to 15 cards. Only decks whose format has a sideboard are listed.</div>
+              <div className="addto-hint">{sideboardChoiceHint(sideboardModes)}</div>
             )}
             {quantity && !(step === 'deck' && considering) && (
               <div className="addto-qty">
