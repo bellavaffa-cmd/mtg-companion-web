@@ -17,11 +17,14 @@
 //    the storage places themselves (on the Unsorted pile) place by place — see
 //    collection/storagePlaces.ts. A binder saved by an app that doesn't know about places leaves them
 //    as they were.
+//  - Where a deck's copies came from (its "cameFrom", see collection/pullList.ts) merges card by card
+//    the same way; a deck saved by an app that doesn't know about it leaves it as it was.
 // The Android app merges the same way — see data/supabase/ItemMerge.kt.
 
 import type { Collection, CollectionEntry, Deck, DeckCardEntry, GameResult } from '../types/models'
 import { canonicalJson } from './canonicalJson'
 import { keepPlacesFromOlderApp, mergeCopyPlaces, mergePlaceLists, tidied } from '../collection/storagePlaces'
+import { keepCameFromFromOlderApp, mergeCameFrom } from '../collection/pullList'
 // The phone keeps this many saved versions of a deck (DeckRepository.MAX_VERSIONS).
 import { MAX_VERSIONS } from '../decks/versions'
 
@@ -154,7 +157,11 @@ const DECK_COUNTS: EntryRules<DeckCardEntry> = { counts: ['quantity'], sets: ['u
 const COLLECTION_COUNTS: EntryRules<CollectionEntry> = { counts: ['quantity', 'foilQuantity'], sets: ['userTags'] }
 
 /** [minePreferred]: this device's edit is the more recent one, so it wins any field both changed. */
-export function mergeDeck(base: Deck, mine: Deck, theirs: Deck, minePreferred: boolean): Deck {
+export function mergeDeck(base: Deck, mineIn: Deck, theirsIn: Deck, minePreferred: boolean): Deck {
+  // A side saved by an app that doesn't know where the deck's copies came from left that as it was.
+  const mine = keepCameFromFromOlderApp(base, mineIn)
+  const theirs = keepCameFromFromOlderApp(base, theirsIn)
+  const cameFrom = mergeCameFrom(base.cameFrom, mine.cameFrom, theirs.cameFrom)
   // The phone's deck has two fields this app doesn't show but must not drop or diverge on.
   const asPhone = (deck: Deck) => deck as Deck & { considering?: DeckCardEntry[]; versions?: { id: string; savedAt: number }[] }
   const considering = mergeEntries(
@@ -166,8 +173,10 @@ export function mergeDeck(base: Deck, mine: Deck, theirs: Deck, minePreferred: b
     .filter((v, i, all) => all.findIndex((x) => x.id === v.id) === i)
     .sort((a, b) => a.savedAt - b.savedAt)
     .slice(-MAX_VERSIONS)
+  const { cameFrom: _theirs, ...theirsRest } = theirs
   return {
-    ...theirs,
+    ...theirsRest,
+    ...(cameFrom !== undefined ? { cameFrom } : {}),
     ...(considering.length > 0 || asPhone(theirs).considering ? { considering } : {}),
     ...(sideboard.length > 0 || theirs.sideboard ? { sideboard } : {}),
     ...(versions.length > 0 ? { versions } : {}),

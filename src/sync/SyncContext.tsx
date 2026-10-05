@@ -261,6 +261,11 @@ interface SyncContextValue {
    * the binders as they are now and answers them changed. Runs at once, so a caller can note what it did.
    */
   changeStorage: (change: (collections: Collection[]) => Collection[]) => void
+  /**
+   * Changes binders and decks together, in one change — a deck built from storage or taken apart
+   * (collection/pullList.ts): [change] gets them as they are now and answers them changed.
+   */
+  changeDecksAndStorage: (change: (collections: Collection[], decks: Deck[]) => { collections: Collection[]; decks: Deck[] }) => void
 }
 
 const SyncContext = createContext<SyncContextValue | null>(null)
@@ -1353,6 +1358,16 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [updateLibrary],
   )
 
+  const changeDecksAndStorage = useCallback(
+    (change: (collections: Collection[], decks: Deck[]) => { collections: Collection[]; decks: Deck[] }) => {
+      updateLibrary((lib) => {
+        const out = change(lib.collections, lib.decks)
+        return out.collections === lib.collections && out.decks === lib.decks ? lib : { ...lib, collections: out.collections, decks: out.decks }
+      })
+    },
+    [updateLibrary],
+  )
+
   const setEntryPriceAlert = useCallback(
     (collectionId: string, scryfallId: string, usd: number | null) => {
       updateLibrary((lib) =>
@@ -1471,6 +1486,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setEntryCopyDetails,
       changeCollections,
       changeStorage,
+      changeDecksAndStorage,
       importIntoCollection,
       moveEntries,
       recordUndo,
@@ -1487,7 +1503,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       signInWithToken, syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setReplaceable, setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, setCardTags, addGameResult,
       addCardsToDeck, stopConsidering, considerIntoDeck, moveToConsidering, swapConsidered, importIntoDeck, addCardToSideboard, setSideboardQuantity, moveToSideboard, moveToMain, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
-      setEntryQuantities, setEntryPriceAlert, setEntryPriceAlertAbove, setEntryCopyDetails, changeCollections, changeStorage, importIntoCollection, moveEntries, recordUndo, removeEntriesFromCollection,
+      setEntryQuantities, setEntryPriceAlert, setEntryPriceAlertAbove, setEntryCopyDetails, changeCollections, changeStorage, changeDecksAndStorage, importIntoCollection, moveEntries, recordUndo, removeEntriesFromCollection,
     ],
   )
 

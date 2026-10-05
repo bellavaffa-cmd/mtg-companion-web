@@ -343,6 +343,27 @@ export function syncScenarios(cas: boolean) {
     }
   })
 
+  // Where a deck's copies came from (Deck.cameFrom, collection/pullList.ts) rides in the deck's JSON
+  // the same way: an app from before it drops the key when it saves the deck, and this app puts it back.
+  test("an older app's save of a deck doesn't lose where its cards came from", async () => {
+    const built = (name: string, cameFrom?: object[]) =>
+      ({ id: 'd1', name, commander: null, partnerCommander: null, cards: [{ scryfallId: 'a', name: 'Sol Ring', imageUrl: null, quantity: 1, canBeCommander: false, typeLine: null, partnerAbility: null }],
+        gameMode: 'COMMANDER', createdAt: 1, tags: [], gameResults: [], ownership: 'PHYSICAL', ...(cameFrom ? { cameFrom } : {}) }) as unknown as cs.Library['decks'][number]
+    const line = { name: 'Sol Ring', placeId: 'red', qty: 1 }
+    sim.reset('A', 'B')
+    sim.setLibrary('A', { decks: [built('Krenko', [line])], collections: [] })
+    await sim.settle('A', 'B')
+    // B is an older app: it reads the deck without the key it doesn't know, renames it and saves it so.
+    sim.setLibrary('B', { decks: [built('Krenko goblins')], collections: [] })
+    await sim.pass('B')
+    assert.equal((sim.row('d1')!.data as { cameFrom?: unknown }).cameFrom, undefined)
+    await sim.settle('A')
+    const a = sim.library('A').decks[0]
+    assert.equal(a.name, 'Krenko goblins')
+    assert.deepEqual(a.cameFrom, [line])
+    assert.deepEqual((sim.row('d1')!.data as { cameFrom?: unknown }).cameFrom, [line])
+  })
+
   test('whose library is it', () => {
     assert.equal(sim.cs.libraryIsAnotherAccounts(null, 'u'), false) // never synced: the browser's own
     assert.equal(sim.cs.libraryIsAnotherAccounts('u', 'u'), false)

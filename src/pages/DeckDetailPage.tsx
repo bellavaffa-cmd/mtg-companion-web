@@ -27,8 +27,9 @@ import { WhoHasItSheet } from '../social/WhoHasIt'
 import { missingCards } from '../decks/missing'
 import { canPair, secondCommanderKind, SECOND_COMMANDER_NOUN, type SecondCommanderKind } from '../decks/pairing'
 import { buyCardUrl, buyListUrl } from '../api/buy'
-import { deckProxyCopies, proxiesHeldElsewhere, proxySwaps } from '../decks/proxies'
+import { deckProxyCopies, proxiesHeldElsewhere, proxyCopies, proxySwaps } from '../decks/proxies'
 import { realCopiesOf } from '../collection/unsorted'
+import { holdsCards, pullNeeds } from '../collection/pullList'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
 import { useAddCardTo } from '../components/useAddCardTo'
 import { useAddCheck } from '../components/useAddCheck'
@@ -787,6 +788,15 @@ export function DeckDetailPage() {
             { label: 'Share with friends', icon: 'group', detail: 'View only — friends, pods or a link', onClick: () => setSharing(true) },
             { label: 'Playtest', icon: 'playing_cards', detail: 'Mulligan, play or draw, then turns', onClick: () => setGoldfish(true) },
             { label: 'Compare with…', icon: 'compare_arrows', detail: 'Another deck or a saved version', onClick: () => setComparePicking(true) },
+            // Building it from storage, and taking it apart again (collection/pullList.ts).
+            ...(!holdsCards(deck)
+              ? [{ label: 'Build this deck', icon: 'inventory_2', detail: 'A pull list: its cards, place by place', onClick: () => navigate(`/decks/${deck.id}/pull`) }]
+              : pullNeeds(deck).length > 0
+                ? [{ label: 'Pull list', icon: 'inventory_2', detail: 'Fetch the cards it still needs from storage', onClick: () => navigate(`/decks/${deck.id}/pull`) }]
+                : []),
+            ...(holdsCards(deck) && deck.cards.some((c) => c.quantity - proxyCopies(deck, c) > 0)
+              ? [{ label: 'Take apart', icon: 'move_down', detail: 'A list to put its cards back where they go', onClick: () => navigate(`/decks/${deck.id}/put-back`) }]
+              : []),
             { label: 'Who has it?', icon: 'person_search', detail: "Friends who own the cards you're missing", onClick: () => setWhoHas(true) },
             ...(missing.length > 0
               ? [{

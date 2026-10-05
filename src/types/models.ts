@@ -130,6 +130,25 @@ export interface Deck {
    * as on the phone; data saved before it existed reads as empty. Synced and merged like [considering].
    */
   sideboard?: DeckCardEntry[]
+  /**
+   * Where the deck's real copies came from when they were pulled from storage with its pull list
+   * (collection/pullList.ts), so taking it apart can put each back there. Left out until a card is
+   * first pulled into it; then kept, as [] once none are left — so a deck with no "cameFrom" key was
+   * written by an app that doesn't know about it. The Android app's Deck.cameFrom, line for line.
+   */
+  cameFrom?: CameFrom[]
+}
+
+// The deck's "cameFrom" as JSON — locally and in sync:
+//   "cameFrom": [{ "name": "Sol Ring", "placeId": "…", "qty": 1, "section": "Colourless" }, { "name": "Purphoros, God of the Forge", "placeId": "…", "qty": 1, "page": 5, "slot": 1, "foil": true }]
+// "foil", "section", "page" and "slot" left out when not said, as in a binder entry's "places".
+
+/**
+ * Copies of the card called [name] that were pulled into a deck from one spot of a storage place: a
+ * CopyPlace with the card's name. The Android app's CameFrom, field for field.
+ */
+export interface CameFrom extends CopyPlace {
+  name: string
 }
 
 /** Commander/Brawl allow only 1 copy of any non-basic-land card; other formats allow up to

@@ -184,3 +184,101 @@ button.where-row { cursor: pointer; }
 .putaway-row span:last-child { color: var(--t1); text-align: right; }
 .putaway-row .moved, .putaway-row .placed { color: var(--ok); }
 .putaway-row .new { color: var(--gold-light); }
+
+/* Pull lists and put-back lists (PullListPage.tsx, PutBackPage.tsx) */
+.pull-page { padding-bottom: 96px; }
+.pull-progress-h { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.pull-progress-h span { color: var(--t1); }
+.pull-chips { max-width: 560px; margin-top: 10px; gap: 8px; }
+.pull-chip {
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--g2);
+  color: var(--t1);
+  font: 600 13px var(--ui);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.pull-chip.on { background: var(--gold); color: var(--gold-ink); font-weight: 700; }
+.pull-chip .material-symbols-rounded, .pull-chip .icon { font-size: 16px; }
+.pull-groups { max-width: 560px; margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.pull-group { padding: 12px 14px; border-radius: 14px; background: var(--g1); display: flex; flex-direction: column; gap: 8px; }
+.pull-group.ask { box-shadow: inset 0 0 0 1px rgba(243, 182, 74, 0.45); }
+.pull-group-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.pull-group-h h2 { margin: 0; font-size: 15px; font-weight: 800; }
+.pull-group-h span { font-size: 12px; color: var(--t1); text-align: right; }
+.pull-row { display: flex; align-items: center; gap: 10px; font-size: 14px; min-height: 32px; cursor: pointer; }
+.pull-row input { width: 22px; height: 22px; margin: 0; accent-color: var(--gold); flex: none; }
+.pull-row .nm { flex: 1; min-width: 0; }
+.pull-row .hint { color: var(--t1); font-size: 13px; text-align: right; }
+.pull-row .hint.ask { color: #f3b64a; }
+.pull-row.done { color: var(--t2); text-decoration: line-through; }
+.pull-row.done .hint { color: var(--t2); }
+.pull-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px calc(16px + var(--safe-bottom, 0px));
+  background: var(--g0, #0c0d11);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.pull-bar .btn { min-height: 48px; }
+.pull-bar .btn.gold { flex: 1; }
+
+/* Box labels (PlaceLabelPage.tsx): drawn at their printed size in millimetres */
+.label-page { padding-bottom: 96px; }
+.label-print { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; padding: 8px 0; }
+.box-label {
+  box-sizing: border-box;
+  padding: 3mm;
+  border-radius: 2mm;
+  background: #fbfaf6;
+  color: #14161c;
+  border: 1px solid #d8d4c8;
+  display: flex;
+  gap: 3mm;
+  align-items: center;
+  overflow: hidden;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.box-label-qr { flex: none; height: 100%; aspect-ratio: 1; }
+.box-label-qr svg { width: 100%; height: 100%; display: block; }
+.box-label-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.8mm; }
+.box-label-text .where { font: 700 2.6mm var(--ui); letter-spacing: 0.06em; text-transform: uppercase; color: #6a6355; }
+.box-label-text .name { font-family: 'Bebas Neue', var(--ui); font-size: 8mm; line-height: 1; overflow-wrap: anywhere; }
+.box-label-text .line { font-size: 2.8mm; color: #4a4538; }
+.box-label-text .brand { font-size: 2.4mm; color: #6a6355; }
+.box-label.size-small .box-label-text .name { font-size: 5.5mm; }
+.box-label.size-small .box-label-text .line { display: none; }
+.box-label.size-divider { flex-direction: column; justify-content: flex-start; text-align: center; }
+.box-label.size-divider .box-label-qr { height: auto; width: 45mm; }
+.box-label.size-divider .box-label-text { align-items: center; }
+.label-options { max-width: 560px; margin: 16px auto 0; display: flex; flex-direction: column; gap: 10px; }
+.label-h { font-size: 12px; font-weight: 700; color: var(--t1); letter-spacing: 0.04em; text-transform: uppercase; }
+.label-sizes { display: flex; gap: 6px; }
+.label-sizes .pull-chip { flex: 1; justify-content: center; border-radius: 10px; height: 36px; }
+
+/* A scanned box label (PlaceLabelSheet.tsx) */
+.label-found { display: flex; flex-direction: column; gap: 10px; padding: 4px 4px 8px; }
+.label-found-h { display: flex; align-items: center; gap: 10px; }
+.label-found-place { display: flex; flex-direction: column; gap: 2px; }
+.label-found-place .where { font-size: 12px; font-weight: 700; color: var(--t1); text-transform: uppercase; letter-spacing: 0.04em; }
+.label-found-place b { font-size: 22px; font-weight: 800; }
+.label-found .btn { min-height: 48px; }
+
+/* Printing a label page prints the labels and nothing else. */
+@media print {
+  @page { margin: 10mm; }
+  body { background: #fff !important; }
+  body * { visibility: hidden !important; }
+  .label-print, .label-print * { visibility: visible !important; }
+  .label-print { position: absolute; left: 0; top: 0; width: 100%; justify-content: flex-start; gap: 4mm; padding: 0; }
+  .box-label { border: 0.3mm dashed #999; border-radius: 0; }
+}

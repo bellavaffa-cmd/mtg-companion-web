@@ -30,6 +30,10 @@ import { isLimited } from '../decks/limited'
 import { backImageUrl, cardTags, displayImageUrl, type ScryfallCard } from '../types/scryfall'
 import { addedHere, cardFactsOf, placesOf, pocketLabel, putAway, suggestSpot, undoPutAway, type PutAwayResult, type PutAwayStep, type Spot } from '../collection/storagePlaces'
 import { PlacePicker } from '../collection/StorageTab'
+import { placeIdFromLabel } from '../collection/placeLabel'
+import { PlaceLabelSheet } from '../collection/PlaceLabelSheet'
+import { pullList, putBackList, rowToTick } from '../collection/pullList'
+import { loadPullProgress, loadPutBackProgress, tickRow } from '../collection/pullProgress'
 import '../collection/storage.css'
 
 /** A card's shape: the guide box matches it. */
@@ -131,7 +135,7 @@ const entryOf = (card: ScryfallCard) => ({
 export function ScanPage() {
   const back = useBack('/search')
   const navigate = useNavigate()
-  const { addCardToDeck, addCardsToDeck, addCardToSideboard, addEntryToCollection, importIntoCollection, recordUndo, collections, changeStorage } = useSync()
+  const { addCardToDeck, addCardsToDeck, addCardToSideboard, addEntryToCollection, importIntoCollection, recordUndo, collections, decks, changeStorage } = useSync()
   // Put-away mode (?putAway=<place>): each card scanned is put away into that place at once, rather
   // than gathered into a pile (see collection/storagePlaces.ts).
   const [params, setParams] = useSearchParams()
@@ -156,6 +160,43 @@ export function ScanPage() {
       setStatus(`${card.name} — ${row.label}`)
     }
     : null
+  // Scan-to-tick mode (?pull=<deck> or ?putBack=<deck>): each card scanned ticks its row on that deck's
+  // pull list or put-back list (collection/pullList.ts), kept where the list keeps its ticks.
+  const tickDeck = decks.find((d) => d.id === (params.get('pull') ?? params.get('putBack'))) ?? null
+  const tickKind: 'pull' | 'putBack' | null = !tickDeck || target ? null : params.get('pull') ? 'pull' : 'putBack'
+  const [tickCount, setTickCount] = useState<{ done: number; of: number } | null>(null)
+  const tickCard = useRef<((card: ScryfallCard) => void) | null>(null)
+  tickCard.current = tickDeck && tickKind
+    ? (card) => {
+      const rows: { key: string; name: string; qty: number; source?: { kind: string }; where?: string }[] = tickKind === 'pull'
+        ? pullList(tickDeck, collections, decks).groups.flatMap((g) => g.rows)
+        : putBackList(tickDeck, collections, loadPutBackProgress(tickDeck.id).mode === 'RULE' ? 'RULE' : 'ORIGIN').groups.flatMap((g) => g.rows)
+      const ticked = new Set((tickKind === 'pull' ? loadPullProgress(tickDeck.id) : loadPutBackProgress(tickDeck.id)).ticked)
+      const row = rowToTick(rows, ticked, card.name)
+      const countable = rows.filter((r) => r.source?.kind !== 'missing')
+      const of = countable.reduce((n, r) => n + r.qty, 0)
+      if (!row) {
+        const onList = rows.some((r) => r.name.toLowerCase() === card.name.toLowerCase())
+        setStatus(onList ? `${card.name} — already ticked` : `${card.name} isn't on the list`)
+        return
+      }
+      if (row.source?.kind === 'deck') {
+        setStatus(`${card.name} is only in another deck — tick it on the list to take it`)
+        return
+      }
+      const now = new Set(tickRow(tickKind, tickDeck.id, row.key).ticked)
+      const done = countable.filter((r) => now.has(r.key)).reduce((n, r) => n + r.qty, 0)
+      setTickCount({ done, of })
+      setStatus(`${card.name} — ticked${row.where ? ` (${row.where})` : ''}`)
+    }
+    : null
+  // A box label read by the camera: what it offers, over the camera (PlaceLabelSheet).
+  const [labelId, setLabelId] = useState<string | null>(null)
+  const labelShown = useRef<string | null>(null)
+  const labelDismissedAt = useRef(0)
+  const placesNow = useRef(placesOf(collections))
+  placesNow.current = placesOf(collections)
+  const closeLabel = () => { labelShown.current = null; labelDismissedAt.current = Date.now(); setLabelId(null) }
   /** A card that was already here is another copy after all: it's added, here. */
   const anotherCopy = (row: PutAwayRow) => {
     const got: { step?: PutAwayStep } = {}
@@ -216,6 +257,14 @@ export function ScanPage() {
   /** Every scan is its own row, newest first, so a card read twice shows twice. */
   const addScanned = (card: ScryfallCard, exact = false): number => {
     const id = nextScanId++
+    // While a box label's sheet is up, cards wait.
+    if (labelShown.current) return id
+    if (tickCard.current) {
+      tickCard.current(card)
+      setFlash((n) => n + 1)
+      navigator.vibrate?.(30)
+      return id
+    }
     if (putAwayCard.current) {
       putAwayCard.current(card, id)
       setFlash((n) => n + 1)
@@ -553,6 +602,17 @@ export function ScanPage() {
         if (video && !document.hidden && video.readyState >= 2) {
           const text = await read(video).catch(() => null)
           if (stopped) break
+          // A box label: its sheet, unless one is up or was just closed (the label's still in view).
+          const label = text ? placeIdFromLabel(text) : null
+          if (label && (!label.bare || placesNow.current.some((p) => p.id === label.id))) {
+            if (!labelShown.current && Date.now() - labelDismissedAt.current > 3000) {
+              labelShown.current = label.id
+              navigator.vibrate?.(30)
+              setLabelId(label.id)
+            }
+            await sleep(QR_EVERY_MS)
+            continue
+          }
           const path = text ? appLinkPath(text) : null
           if (path) {
             navigator.vibrate?.(30)
@@ -670,8 +730,8 @@ export function ScanPage() {
   return (
     <>
       <TopBar
-        title={target ? 'Put away' : 'Scan'}
-        onBack={() => (scanned.length > 0 && !target ? setLeaving(() => back) : back())}
+        title={target ? 'Put away' : tickKind ? 'Scan to tick' : 'Scan'}
+        onBack={() => (scanned.length > 0 && !target && !tickKind ? setLeaving(() => back) : back())}
         actions={
           <>
           {torch && (
@@ -697,6 +757,14 @@ export function ScanPage() {
         }
       />
       <div className="content-scroll scan-page">
+        {tickDeck && tickKind && (
+          <div className="putaway-target" role="status">
+            <span>
+              Ticking off: {tickKind === 'pull' ? 'pull list' : 'put back list'} for {tickDeck.name}
+              {tickCount ? ` · ${tickCount.done} of ${tickCount.of}` : ''}
+            </span>
+          </div>
+        )}
         {target && (
           <button type="button" className="putaway-target" onClick={() => setChoosingPlace(true)} aria-label={`Putting away into ${target.name} — change`}>
             <span>Putting away into: {target.name}</span>
@@ -775,14 +843,14 @@ export function ScanPage() {
           </>
         )}
 
-        {!target && pileKept < scanned.length && (
+        {!target && !tickKind && pileKept < scanned.length && (
           <div className="notice warn" style={{ marginTop: 12 }}>
             This browser is out of room to keep the whole pile. If the page reloads, only the newest {pileKept} of
             your {scanned.length} scans come back — add them to a deck or binder soon.
           </div>
         )}
 
-        {!target && scanned.length > 0 && (
+        {!target && !tickKind && scanned.length > 0 && (
           <>
             <div className="scan-list-head">
               <span>
@@ -858,6 +926,16 @@ export function ScanPage() {
         >
           <p className="muted" style={{ margin: 0 }}>They haven't been put into a deck or binder yet, and leaving throws them away.</p>
         </Dialog>
+      )}
+
+      {labelId && (
+        <PlaceLabelSheet
+          placeId={labelId}
+          onPutAway={(id) => { closeLabel(); setParams({ putAway: id }, { replace: true }) }}
+          onOpen={(id) => { closeLabel(); navigate(`/collections/place/${id}`) }}
+          onPull={(deckId, id) => { closeLabel(); navigate(`/decks/${deckId}/pull?place=${encodeURIComponent(id)}`) }}
+          onClose={closeLabel}
+        />
       )}
 
       {choosingPlace && (

@@ -12,6 +12,7 @@ import { apiHeaders, OfflineError, restUrl } from './supabaseAuth'
 import { canonicalJson } from './canonicalJson'
 import { saveToStorage } from './storage'
 import { keepPlacesFromOlderApp } from '../collection/storagePlaces'
+import { keepCameFromFromOlderApp } from '../collection/pullList'
 
 const STATE_KEY = 'mtgweb_cloud_state'
 
@@ -394,7 +395,7 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
       const base = baseJson !== undefined
         ? JSON.parse(baseJson)
         : row.kind === 'deck'
-          ? { ...mine, cards: [], considering: [], sideboard: [], tags: [], gameResults: [], versions: [] }
+          ? { ...mine, cards: [], considering: [], sideboard: [], tags: [], gameResults: [], versions: [], cameFrom: undefined }
           // The places too: each device's own, kept as additions rather than the cloud's replacing them.
           : { ...mine, entries: [], storagePlaces: undefined }
       const merged = row.kind === 'deck'
@@ -415,9 +416,12 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
     }
     // A binder saved by an app that doesn't know about storage places comes without them: this
     // device's are kept and pushed back, rather than the older app's save clearing them everywhere.
-    const healed = row.kind === 'collection' && mineJson !== undefined
-      ? keepPlacesFromOlderApp(JSON.parse(mineJson) as Collection, theirs as Collection)
-      : theirs
+    // The same for a deck saved without where its copies came from (Deck.cameFrom).
+    const healed = mineJson === undefined
+      ? theirs
+      : row.kind === 'collection'
+        ? keepPlacesFromOlderApp(JSON.parse(mineJson) as Collection, theirs as Collection)
+        : keepCameFromFromOlderApp(JSON.parse(mineJson) as Deck, theirs as Deck)
     if (healed !== theirs) {
       const healedJson = canonicalJson(healed)
       if (healedJson !== mineJson) remoteChanges.set(key, healed)
@@ -632,7 +636,7 @@ export function applyRescue(library: Library, rescue: Rescue): Library {
         const base = kept.base !== undefined
           ? JSON.parse(kept.base)
           : isDeck
-            ? { ...mine, cards: [], considering: [], sideboard: [], tags: [], gameResults: [], versions: [] }
+            ? { ...mine, cards: [], considering: [], sideboard: [], tags: [], gameResults: [], versions: [], cameFrom: undefined }
             : { ...mine, entries: [], storagePlaces: undefined }
         next = isDeck
           ? mergeDeck(base as Deck, mine as Deck, current as Deck, true)

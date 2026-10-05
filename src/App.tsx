@@ -11,6 +11,9 @@ import { CollectionsPage } from './pages/CollectionsPage'
 import { CollectionDetailPage } from './pages/CollectionDetailPage'
 import { SetCardsPage } from './pages/SetCardsPage'
 import { PlacePage } from './pages/PlacePage'
+import { PlaceLabelPage, PlaceLinkPage } from './pages/PlaceLabelPage'
+import { PullListPage } from './pages/PullListPage'
+import { PutBackPage } from './pages/PutBackPage'
 import { DecksPage } from './pages/DecksPage'
 import { PreconsPage } from './pages/PreconsPage'
 import { NewDeckPage } from './pages/NewDeckPage'
@@ -67,10 +70,15 @@ export default function App() {
             <Route path="/collections/tag/:tagId" element={<TagBinderPage />} />
             <Route path="/collections/set/:code" element={<SetCardsPage />} />
             <Route path="/collections/place/:id" element={<PlacePage />} />
+            <Route path="/collections/place/:id/label" element={<PlaceLabelPage />} />
+            <Route path="/collections/labels" element={<PlaceLabelPage />} />
+            <Route path="/place/:id" element={<PlaceLinkPage />} />
             <Route path="/collections/thin" element={<SpreadThinPage />} />
             <Route path="/decks" element={<DecksPage />} />
             <Route path="/decks/new" element={<NewDeckPage />} />
             <Route path="/decks/:id" element={<DeckDetailPage />} />
+            <Route path="/decks/:id/pull" element={<PullListPage />} />
+            <Route path="/decks/:id/put-back" element={<PutBackPage />} />
             <Route path="/precons" element={<PreconsPage />} />
             <Route path="/rules" element={<RulesPage />} />
             <Route path="/play" element={<PlayPage />} />

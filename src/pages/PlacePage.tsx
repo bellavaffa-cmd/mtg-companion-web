@@ -6,7 +6,6 @@ import { Icon } from '../components/Icon'
 import { Dialog } from '../components/Dialog'
 import { ActionSheet } from '../components/ActionSheet'
 import { ArtImage, IconButton, PageHeader, StatFigure, rise, toArtCrop, useBack } from '../components/kit'
-import { QrCode } from '../social/ui'
 import { useCardData } from '../collection/cardData'
 import { PLACE_ICONS, PlaceDialog } from '../collection/StorageTab'
 import {
@@ -18,7 +17,7 @@ import '../collection/storage.css'
 /**
  * One storage place, the Android app's PlaceScreen: its copies, their value and its sections — a box's
  * sections with their cards, a binder's pages of pockets — the places inside it, "Put cards away"
- * into it with the scanner, and a label to stick on it. At /collections/place/:id.
+ * into it with the scanner, and a label to stick on it (PlaceLabelPage.tsx). At /collections/place/:id.
  */
 export function PlacePage() {
   const { id = '' } = useParams<{ id: string }>()
@@ -41,7 +40,6 @@ export function PlacePage() {
   const [editing, setEditing] = useState(false)
   const [adding, setAdding] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [label, setLabel] = useState(false)
 
   if (!place) {
     return (
@@ -89,7 +87,7 @@ export function PlacePage() {
           <button type="button" className="btn gold" onClick={() => navigate(`/scan?putAway=${encodeURIComponent(place.id)}`)}>
             <Icon name="document_scanner" aria-hidden />Put cards away
           </button>
-          <button type="button" className="btn line" onClick={() => setLabel(true)}><Icon name="qr_code_2" aria-hidden />Label</button>
+          <button type="button" className="btn line" onClick={() => navigate(`/collections/place/${place.id}/label`)}><Icon name="qr_code_2" aria-hidden />Label</button>
         </div>
         {place.sortRule && (
           <p className="place-rule">Sorted {SORT_RULE_LABELS[place.sortRule].charAt(0).toLowerCase() + SORT_RULE_LABELS[place.sortRule].slice(1)}. New cards get a section by this rule.</p>
@@ -177,15 +175,6 @@ export function PlacePage() {
             Its {cards.length > 0 ? `${cards.reduce((n, c) => n + c.line.qty, 0)} copies stay in your collection with no place` : 'cards stay in your collection'}
             {inside.length > 0 ? ', and the places inside it move up a level' : ''}. Here and on your other devices.
           </p>
-        </Dialog>
-      )}
-      {label && (
-        <Dialog title={`Label for ${place.name}`} onDismiss={() => setLabel(false)} actions={<button type="button" className="btn gold" onClick={() => setLabel(false)}>Done</button>}>
-          <div className="place-label">
-            <QrCode text={place.id} size={200} label={`QR code for ${place.name}`} />
-            <b>{place.name}</b>
-            <span className="dim">Print it and stick it on. The code is the place's own, so it stays right if you rename it.</span>
-          </div>
         </Dialog>
       )}
     </>
