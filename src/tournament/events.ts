@@ -2,12 +2,16 @@
 // the Android app's ui/tournament/TournamentRepository.kt.
 
 import { useEffect, useState } from 'react'
+import { parsePlayoff } from './playoff'
 import { withEvent, type Tournament } from './tournament'
 
 const EVENTS_KEY = 'mtgweb_tournaments'
 const listeners = new Set<() => void>()
 let events: Tournament[] = (() => {
-  try { return JSON.parse(localStorage.getItem(EVENTS_KEY) ?? '[]') as Tournament[] } catch { return [] }
+  try {
+    // An event saved before playoffs has none; a malformed one is dropped rather than breaking the page.
+    return (JSON.parse(localStorage.getItem(EVENTS_KEY) ?? '[]') as Tournament[]).map((e) => ({ ...e, playoff: parsePlayoff(e.playoff) }))
+  } catch { return [] }
 })()
 
 function setEvents(next: Tournament[]) {

@@ -37,6 +37,29 @@
 //       The per-turn timer of the player whose turn it is ("turn"): leftMs left of it when this
 //       state was sent, below 0 once the turn has run over. null/absent: no turn timer.
 //
+// ---- Added with dungeons, the new counters and mulligans (all optional, the same rules) ----
+//
+// Remote -> table:
+//   {"type":"counter","counter":"rad"|"speed"|"ring",…}
+//       Three more counter names. Speed and the Ring stop at 4. An older table doesn't know them
+//       and ignores the request (it checks the name against its own list).
+//   {"type":"venture","to":"<dungeon id or room id>","undercity":true|false}
+//       Ventures: starts a dungeon ("lost-mine", "mad-mage", "tomb"; "undercity" only with
+//       "undercity":true) or moves to a room joined below the seat's current room. Anything else is
+//       ignored. Room and dungeon ids are in dungeons.ts / Dungeons.kt.
+//   {"type":"leaveDungeon"}
+//       Takes the seat's marker out of its dungeon without completing it.
+//   {"type":"ringBearer","name":"Frodo"|null}
+//       The seat's Ring-bearer (trimmed, at most 60 characters; blank or null: nobody).
+//   {"type":"mulligan","value":0..7|null}
+//       Mulligans the seat took this game (0: kept seven; null: not recorded).
+//
+// Table -> remotes, on each players[i] (absent from older tables, which read as "not tracked"):
+//   counters.rad / counters.speed / counters.ring — in the existing counters object; an older
+//       remote shows only the counters it knows and ignores the rest.
+//   dungeon: {"id":"undercity","room":"arena"} | null    dungeonsCompleted: 2
+//   ringBearer: "Frodo" | null                           mulligans: 1 | null
+//
 // Already in the protocol and used for the remote extras: "hold" (hold on), "target" (pointing,
 // shown as an announce), "concede", "planar" (with "plane" in the state), and showCard's lookup for
 // rulings (done on the phone; nothing goes to the table unless the card is shown).
@@ -50,6 +73,9 @@ import {
   type Announce, type CounterKind, type DayNight, type EmoteId, type Game, type GameAction, type LifeSettings,
 } from './game'
 import type { PlanarFace } from './gameModes'
+import { cleanMulligans } from '../decks/mulligans'
+import { cleanRingBearer } from './counterRules'
+import { cleanCompleted, parseDungeonState, type DungeonId } from './dungeons'
 import {
   clockElapsed, gameMinutes, holdAfterOk, parseDeckInfo, parseRemoteClock, parseRemoteTokens, parseTurnTimer, turnTimeLeft,
   type RemoteClock, type RemoteToken, type RemoteTurnTimer,
@@ -90,6 +116,12 @@ export interface RemoteSeat {
   partnerCasts?: number
   /** The seat's deck tokens and how many of each are out; absent/null from a table that doesn't track them. */
   tokens?: RemoteToken[] | null
+  /** Where the seat's venture marker is; absent from older tables. */
+  dungeon?: { id: DungeonId; room: string } | null
+  dungeonsCompleted?: number
+  ringBearer?: string | null
+  /** Mulligans this game; null: not recorded, absent: an older table. */
+  mulligans?: number | null
 }
 
 /** The plane in play, when the table is playing Planechase. */
@@ -157,6 +189,11 @@ export type RemoteAction =
   | { type: 'token'; id: string; delta: number }
   /** "OK, go on": clears someone else's hold on. */
   | { type: 'holdOk' }
+  // Dungeons, the Ring and mulligans (see the notes at the top).
+  | { type: 'venture'; to: string; undercity?: boolean }
+  | { type: 'leaveDungeon' }
+  | { type: 'ringBearer'; name: string | null }
+  | { type: 'mulligan'; value: number | null }
 
 /** Dice a remote can ask the table to roll; 2 is a coin. */
 export const REMOTE_DICE = [4, 6, 8, 10, 12, 20, 2]
@@ -217,6 +254,10 @@ export function buildRemoteState(game: Game, settings: LifeSettings, plane: Remo
         commanderCasts: p.commanderCasts ?? 0,
         partnerCasts: p.partnerCasts ?? 0,
         ...(p.deckInfo ? { tokens: p.deckInfo.tokens.map((t) => ({ id: t.id, name: t.name, pt: t.pt ?? null, count: p.tokenCounts?.[t.id] ?? 0 })) } : {}),
+        dungeon: p.dungeon ? { id: p.dungeon.dungeon, room: p.dungeon.room } : null,
+        dungeonsCompleted: p.dungeonsCompleted ?? 0,
+        ringBearer: p.ringBearer ?? null,
+        mulligans: p.mulligans ?? null,
       }
     }),
     shownCard: game.shownCard ?? null,
@@ -245,9 +286,24 @@ export function parseRemoteState(raw: unknown): RemoteState | null {
   return {
     ...(o as unknown as RemoteState),
     players: (o.players as RemoteSeat[]).map((p) => {
-      const { tokens, ...rest } = p
+      const { tokens, dungeon, dungeonsCompleted, ringBearer, mulligans, ...rest } = p
       const parsed = parseRemoteTokens(tokens)
-      return parsed ? { ...rest, tokens: parsed } : rest
+      const marker = parseDungeonState(dungeon)
+      // A table that knows dungeons, the Ring and mulligans always sends dungeonsCompleted; from an
+      // older one they stay absent, so the remote doesn't offer what the table would ignore.
+      const known = typeof dungeonsCompleted === 'number'
+      return {
+        ...rest,
+        ...(parsed ? { tokens: parsed } : {}),
+        ...(known
+          ? {
+              dungeon: marker ? { id: marker.dungeon, room: marker.room } : null,
+              dungeonsCompleted: cleanCompleted(dungeonsCompleted),
+              ringBearer: cleanRingBearer(ringBearer),
+              mulligans: cleanMulligans(mulligans),
+            }
+          : {}),
+      }
     }),
     clock: parseRemoteClock(o.clock),
     turnTimer: parseTurnTimer(o.turnTimer),
@@ -369,6 +425,14 @@ export function remoteToGameAction(game: Game, settings: LifeSettings, seat: num
     }
     case 'holdOk':
       return game.hold != null && holdAfterOk(game.hold, seat) === null ? { type: 'hold', id: null, by: seat } : null
+    case 'venture':
+      return typeof a.to === 'string' && a.to.length <= 40 ? { type: 'venture', id: seat, to: a.to, undercity: a.undercity === true, by: seat } : null
+    case 'leaveDungeon':
+      return { type: 'leaveDungeon', id: seat, by: seat }
+    case 'ringBearer':
+      return a.name === null || typeof a.name === 'string' ? { type: 'ringBearer', id: seat, name: cleanRingBearer(a.name), by: seat } : null
+    case 'mulligan':
+      return a.value === null || cleanMulligans(a.value) != null ? { type: 'mulligan', id: seat, value: a.value as number | null, by: seat } : null
     default:
       // 'planar' is played by the table's Planechase, not the game — see useRemoteHost.
       return null

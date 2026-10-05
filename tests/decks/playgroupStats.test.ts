@@ -62,3 +62,9 @@ test('no games at all', () => {
   assert.equal(stats.nemesis, null)
   assert.equal(stats.averageMinutes, null)
 })
+
+test('mulligans across every deck, over the games that recorded them', () => {
+  const m = (n: number, result: GameResult['result'], mulligans: number | null): GameResult => ({ ...game(n, result), mulligans })
+  const stats = playgroupStats([deck('Omnath', m(1, 'WIN', 1), m(2, 'LOSS', 0)), deck('Krenko', m(3, 'LOSS', 2), game(4, 'WIN'))])
+  assert.deepEqual(stats.mulligans, { recorded: 3, mulliganed: 2, rate: 66, winsAfter: 1, winRateAfter: 50, winRateKept: 0 })
+})

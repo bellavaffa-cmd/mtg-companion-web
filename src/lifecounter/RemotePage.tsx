@@ -12,6 +12,9 @@ import { displayImageUrl, displayOracleText } from '../types/scryfall'
 import { toArtCrop } from '../components/kit'
 import type { Deck, GameResult } from '../types/models'
 import { COUNTER_INFO, EMOTES, announceText, useAnnouncement, type EmoteId } from './game'
+import { isMaxSpeed, ringAbilities } from './counterRules'
+import { VenturePanel } from './DungeonMap'
+import { mulliganText } from '../decks/mulligans'
 import { useStepper } from './PlayerTile'
 import { useWakeLock } from './wakeLock'
 import { HEARTBEAT_MS, REMOTE_COUNTERS, REMOTE_DICE, parseRemoteState, type RemoteAction, type RemoteSeat, type RemoteState } from './remote'
@@ -627,13 +630,42 @@ function Remote({
           {REMOTE_COUNTERS.map((k) => (
             <Stepper
               key={k}
-              label={k === 'poison' ? 'Poison' : COUNTER_INFO[k].label}
+              label={k === 'poison' ? 'Poison' : k === 'speed' && isMaxSpeed(mine.counters.speed ?? 0) ? 'Speed · max speed' : k === 'ring' ? 'The Ring tempts you' : COUNTER_INFO[k].label}
               icon={k === 'poison' ? 'water_drop' : COUNTER_INFO[k].icon}
               value={k === 'poison' ? mine.poison : mine.counters[k] ?? 0}
               onChange={(delta) => send({ type: 'counter', counter: k, delta })}
             />
           ))}
-          <p className="rm-muted">Storm goes back to 0 when the turn passes.</p>
+          <p className="rm-muted">Storm goes back to 0 when the turn passes. Speed goes up at most once a turn and stops at 4.</p>
+          {(mine.counters.ring ?? 0) > 0 && (
+            <>
+              <div className="rm-label">Your Ring-bearer</div>
+              <ol className="rm-ring">{ringAbilities(mine.counters.ring ?? 0).map((a) => <li key={a}>{a}</li>)}</ol>
+              <RingBearerField value={mine.ringBearer ?? ''} onCommit={(name) => send({ type: 'ringBearer', name })} />
+            </>
+          )}
+          {mine.mulligans !== undefined && (
+            <>
+              <div className="rm-label">Mulligans</div>
+              <Stepper
+                label={mine.mulligans == null ? 'Not recorded' : mulliganText(mine.mulligans, state.players.length > 2)}
+                value={mine.mulligans ?? 0}
+                onChange={(delta) => send({ type: 'mulligan', value: mine.mulligans == null ? (delta > 0 ? 1 : 0) : mine.mulligans + delta < 0 ? null : Math.min(7, mine.mulligans + delta) })}
+              />
+            </>
+          )}
+          {mine.dungeon !== undefined && (
+            <>
+              <div className="rm-label">Dungeon</div>
+              <VenturePanel
+                dungeon={mine.dungeon ? { dungeon: mine.dungeon.id, room: mine.dungeon.room } : null}
+                completed={mine.dungeonsCompleted ?? 0}
+                hasInitiative={state.initiative === mine.seat}
+                onVenture={(to, undercity) => send({ type: 'venture', to, undercity })}
+                onLeave={() => send({ type: 'leaveDungeon' })}
+              />
+            </>
+          )}
         </RmSheet>
       )}
       {sheet === 'table' && <TableSheet state={state} mine={mine} send={send} onClose={() => setSheet(null)} />}
@@ -729,6 +761,23 @@ function TaxStepper({ casts, label, what, onChange }: { casts: number; label: st
       <span><b>Tax {2 * casts}</b><small>{label}</small></span>
       <button type="button" onClick={() => onChange(1)} aria-label={`Cast my ${what}`}>+</button>
     </div>
+  )
+}
+
+/** The Ring-bearer's name, sent when the field is left. */
+function RingBearerField({ value, onCommit }: { value: string; onCommit: (name: string | null) => void }) {
+  const [text, setText] = useState(value)
+  return (
+    <input
+      className="rm-input"
+      value={text}
+      maxLength={60}
+      placeholder="Ring-bearer's name"
+      aria-label="Ring-bearer"
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => { if (text.trim() !== value) onCommit(text.trim() || null) }}
+      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+    />
   )
 }
 
@@ -1013,7 +1062,7 @@ function GameOver({
   state: RemoteState
   seat: number
   deck: Deck | null
-  log: (result: Pick<GameResult, 'result' | 'opponent' | 'turns' | 'minutes' | 'commanders'>) => void
+  log: (result: Pick<GameResult, 'result' | 'opponent' | 'turns' | 'minutes' | 'commanders' | 'mulligans'>) => void
   onPickDeck: () => void
 }) {
   const [closed, setClosed] = useState(false)
@@ -1033,6 +1082,7 @@ function GameOver({
         turns: over.turns > 0 ? over.turns : null,
         minutes: over.minutes > 0 ? over.minutes : null,
         commanders: others.flatMap((p) => (p.commander ? [p.commander] : [])),
+        ...(state.players.find((p) => p.seat === seat)?.mulligans != null ? { mulligans: state.players.find((p) => p.seat === seat)!.mulligans } : {}),
       })
     }
     setLogged(true)

@@ -8,6 +8,10 @@ import type { SeatFacing } from './tableLayouts'
 import { avatarUrl } from '../social/api'
 import { clockElapsed, tokenChipText, tokenLabel, turnTimeLeft, turnTimerText, type GameClock } from './tableExtras'
 import { useNow } from './useNow'
+import { isMaxSpeed, ringAbilities } from './counterRules'
+import { roomOf } from './dungeons'
+import { VenturePanel } from './DungeonMap'
+import { mulliganText } from '../decks/mulligans'
 
 /** The turn timer on the active player's tile: it counts itself down on [clock]. */
 export interface TileTurnTimer { clock: GameClock; turnStartElapsed: number; minutes: number }
@@ -260,10 +264,17 @@ export function PlayerTile({
               <span className="material-symbols-rounded" aria-hidden>water_drop</span>{player.poison}
             </button>
           ) : (
-            <button key={k} type="button" className="lc-chip" onClick={() => setPanelOpen(true)} aria-label={`${COUNTER_INFO[k].label} ${counterOf(player, k)}`}>
+            <button key={k} type="button" className="lc-chip" onClick={() => setPanelOpen(true)} aria-label={`${COUNTER_INFO[k].label} ${counterOf(player, k)}${k === 'speed' && isMaxSpeed(counterOf(player, k)) ? ', max speed' : ''}`}>
               <span className="material-symbols-rounded" aria-hidden>{COUNTER_INFO[k].icon}</span>{counterOf(player, k)}
+              {k === 'speed' && isMaxSpeed(counterOf(player, k)) && <span className="lc-badge">Max speed</span>}
             </button>
           ))}
+          {settings.countersOnTile && (roomOf(player.dungeon) || (player.dungeonsCompleted ?? 0) > 0) && (
+            <button type="button" className="lc-chip" onClick={() => setPanelOpen(true)} aria-label={`Dungeon: ${roomOf(player.dungeon)?.name ?? 'none'}, ${player.dungeonsCompleted ?? 0} completed`}>
+              <span className="material-symbols-rounded" aria-hidden>stairs</span>
+              {roomOf(player.dungeon)?.name ?? ''}{(player.dungeonsCompleted ?? 0) > 0 ? ` ✓${player.dungeonsCompleted}` : ''}
+            </button>
+          )}
           {settings.countersOnTile && casts > 0 && (
             <span
               className="lc-chip"
@@ -344,6 +355,7 @@ export function PlayerTile({
             onPickCommander={() => { setPanelOpen(false); onPickCommander() }}
             onPickMe={onPickMe && (() => { setPanelOpen(false); onPickMe() })}
             meDeck={meDeck}
+            hasInitiative={hasInitiative}
           />
         )}
       </div>
@@ -433,6 +445,7 @@ function PlayerPanel({
   onPickCommander,
   onPickMe,
   meDeck,
+  hasInitiative,
 }: {
   player: Player
   opponents: Player[]
@@ -444,6 +457,7 @@ function PlayerPanel({
   onPickCommander: () => void
   onPickMe?: () => void
   meDeck?: string | null
+  hasInitiative: boolean
 }) {
   const [name, setName] = useState(player.name ?? '')
   const loss = lossReason(player, settings.autoKill)
@@ -507,6 +521,19 @@ function PlayerPanel({
         >
           <span className="material-symbols-rounded" aria-hidden>group</span>{player.hasPartner ? 'Partners ✓' : 'Partners'}
         </button>
+        <div className="lc-panel-label">Mulligans</div>
+        {player.mulligans == null ? (
+          <div className="lc-row-btns">
+            <button type="button" className="lc-wide-btn" onClick={() => dispatch({ type: 'mulligan', id: player.id, value: 0 })}>Kept 7</button>
+            <button type="button" className="lc-wide-btn" onClick={() => dispatch({ type: 'mulligan', id: player.id, value: 1 })}>Mulligan</button>
+          </div>
+        ) : (
+          <Counter
+            label={mulliganText(player.mulligans, opponents.length + 1 > 2)}
+            value={player.mulligans}
+            onChange={(delta) => dispatch({ type: 'mulligan', id: player.id, value: player.mulligans! + delta < 0 ? null : Math.min(7, player.mulligans! + delta) })}
+          />
+        )}
         {opponents.length > 0 && <div className="lc-panel-label">Commander damage taken</div>}
         {/* Each of an opponent's partners on its own row: 21 from either one is lethal, not both together. */}
         {opponents.flatMap((o) => (o.hasPartner ? [0, 1] : [0]).map((slot) => (
@@ -542,8 +569,35 @@ function PlayerPanel({
         )}
         <div className="lc-panel-label">Counters</div>
         {COUNTER_KINDS.map((k) => (
-          <Counter key={k} label={COUNTER_INFO[k].label} value={counterOf(player, k)} onChange={(delta) => dispatch({ type: 'counter', id: player.id, counter: k, delta })} />
+          <Counter
+            key={k}
+            label={k === 'speed' && isMaxSpeed(counterOf(player, k)) ? 'Speed · max speed' : k === 'ring' ? 'The Ring tempts you' : COUNTER_INFO[k].label}
+            value={counterOf(player, k)}
+            onChange={(delta) => dispatch({ type: 'counter', id: player.id, counter: k, delta })}
+          />
         ))}
+        {counterOf(player, 'ring') > 0 && (
+          <>
+            <ol className="lc-ring">
+              {ringAbilities(counterOf(player, 'ring')).map((a) => <li key={a}>{a}</li>)}
+            </ol>
+            <MessageField
+              value={player.ringBearer ?? ''}
+              label="Ring-bearer"
+              placeholder="Ring-bearer's name"
+              onCommit={(v) => dispatch({ type: 'ringBearer', id: player.id, name: v })}
+            />
+          </>
+        )}
+        <div className="lc-panel-label">Dungeon</div>
+        <VenturePanel
+          dungeon={player.dungeon}
+          completed={player.dungeonsCompleted ?? 0}
+          hasInitiative={hasInitiative}
+          onVenture={(to, undercity) => dispatch({ type: 'venture', id: player.id, to, undercity })}
+          onLeave={() => dispatch({ type: 'leaveDungeon', id: player.id })}
+          onCompleted={(delta) => dispatch({ type: 'dungeonsCompleted', id: player.id, delta })}
+        />
         <div className="lc-panel-label">My victory message</div>
         <MessageField value={player.victoryMessage ?? ''} label="My victory message" onCommit={(v) => dispatch({ type: 'messages', id: player.id, victory: v })} />
         <div className="lc-panel-label">My defeat message</div>
@@ -606,13 +660,13 @@ function Counter({ label, value, dot, onChange }: { label: string; value: number
 }
 
 /** A player's own message; empty uses the table's lists. Saved when the field is left. */
-function MessageField({ value, label, onCommit }: { value: string; label: string; onCommit: (v: string) => void }) {
+function MessageField({ value, label, placeholder = "Use the table's messages", onCommit }: { value: string; label: string; placeholder?: string; onCommit: (v: string) => void }) {
   const [text, setText] = useState(value)
   return (
     <input
       className="lc-name-input lc-message-input"
       value={text}
-      placeholder="Use the table's messages"
+      placeholder={placeholder}
       maxLength={60}
       aria-label={label}
       onChange={(e) => setText(e.target.value)}

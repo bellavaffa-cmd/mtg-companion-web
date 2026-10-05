@@ -145,7 +145,12 @@ function mergeGameResults(base: GameResult[], mine: GameResult[], theirs: GameRe
   const theirsIds = ids(theirs)
   const out: GameResult[] = []
   for (const game of [...theirs, ...mine]) {
-    if (out.some((g) => g.id === game.id)) continue
+    const same = out.findIndex((g) => g.id === game.id)
+    if (same !== -1) {
+      // The same game saved by an app that doesn't know about mulligans keeps the count the other side has.
+      if (out[same].mulligans == null && game.mulligans != null) out[same] = { ...out[same], mulligans: game.mulligans }
+      continue
+    }
     const removedByMe = baseIds.has(game.id) && !mineIds.has(game.id)
     const removedByThem = baseIds.has(game.id) && !theirsIds.has(game.id)
     if (!removedByMe && !removedByThem) out.push(game)

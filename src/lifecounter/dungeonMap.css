@@ -1,0 +1,119 @@
+/* A player's dungeon (DungeonMap.tsx), on the table's player panel and on a remote. */
+
+.dg {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: var(--sans, inherit);
+}
+.dg-where {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+.dg-where span {
+  color: var(--t1);
+}
+.dg-map {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.dg-link {
+  stroke: var(--t2);
+  stroke-width: 1.5;
+  opacity: 0.6;
+}
+.dg-link.open {
+  stroke: var(--lc-yellow, var(--gold));
+  opacity: 1;
+  stroke-width: 2.5;
+}
+.dg-room circle {
+  fill: var(--line);
+  stroke: var(--t2);
+  stroke-width: 1.5;
+}
+.dg-room.next circle {
+  stroke: var(--lc-yellow, var(--gold));
+  stroke-width: 2.5;
+}
+.dg-room.here circle {
+  fill: var(--lc-yellow, var(--gold));
+  stroke: var(--t0);
+}
+.dg-room text {
+  fill: var(--t1);
+  font-size: 9.5px;
+  font-weight: 600;
+}
+.dg-room.here text {
+  fill: var(--t0);
+  font-weight: 800;
+}
+.dg-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--t2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.dg-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dg-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--t0);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.dg-option b {
+  font-size: 14px;
+}
+.dg-option span {
+  font-size: 12.5px;
+  color: var(--t1);
+}
+.dg-option.initiative {
+  border-color: var(--lc-yellow, var(--gold));
+}
+.dg-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--t2);
+}
+.dg-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--t1);
+}
+.dg-foot > span {
+  margin-right: auto;
+}
+.dg-small {
+  min-width: 34px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--t0);
+  font: inherit;
+  cursor: pointer;
+}
+.dg-small.wide {
+  margin-left: 6px;
+}

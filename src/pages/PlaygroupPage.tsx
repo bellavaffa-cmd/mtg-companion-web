@@ -8,6 +8,7 @@ import { useOverview } from '../social/SocialContext'
 import { PodView } from './PodGames'
 import { matchupRecord, type Matchup } from '../decks/gameStats'
 import { MIN_GAMES, playgroupStats, type DeckRecord } from '../decks/playgroupStats'
+import { mulliganSummary } from '../decks/mulligans'
 
 // The playgroup: every deck's games together — your record, who you play most and how you do
 // against them, your nemesis, which decks win most, and your streaks. Above it, a switch to each
@@ -117,6 +118,7 @@ function JustMe() {
               ].filter(Boolean).join(' · ') || `Across ${plural(decks.filter((d) => d.gameResults?.length).length, 'deck')}`}
             </div>
             {length.length > 0 && <div className="dim match-length">A game takes about {length.join(' · ')}</div>}
+            {mulliganSummary(stats.mulligans) && <div className="dim match-length">{mulliganSummary(stats.mulligans)}</div>}
           </div>
 
           {(stats.nemesis || stats.nemesisCommander) && (

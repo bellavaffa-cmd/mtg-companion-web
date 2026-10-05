@@ -1726,3 +1726,30 @@
   padding: 4px 0;
   font-size: 19px !important;
 }
+
+/* ---- Speed, the Ring, mulligans (PlayerTile.tsx) ---- */
+
+.lc-badge {
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--lc-yellow);
+  color: #000;
+  font-size: 0.7em;
+  letter-spacing: 0.02em;
+}
+.lc-ring {
+  margin: 0 0 6px;
+  padding-left: 20px;
+  font-family: var(--sans, inherit);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--t1, #c9cad3);
+}
+.lc-row-btns {
+  display: flex;
+  gap: 6px;
+}
+.lc-row-btns .lc-wide-btn {
+  flex: 1;
+}

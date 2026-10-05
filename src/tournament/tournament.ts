@@ -8,6 +8,10 @@
 // Commander pods: the winner of a pod game gets 3 points, a drawn pod gives everyone in it 1, the
 // rest 0; ties are broken by the average points of everyone you've shared a pod with. Players
 // still tied keep the event's seeded order.
+//
+// After the Swiss, an event can cut to a playoff (playoff.ts): kept here as [Tournament.playoff].
+
+import type { Playoff } from './playoff'
 
 export type EventFormat = 'SWISS' | 'PODS'
 
@@ -62,6 +66,8 @@ export interface Tournament {
   /** The rounds paired so far, oldest first. Only the last one's results can still change. */
   rounds: EventRound[]
   finished: boolean
+  /** The top 8/4/2 bracket or the pods' final table, once cut to; absent from events saved before playoffs. */
+  playoff?: Playoff | null
 }
 
 export const MIN_PLAYERS = 4

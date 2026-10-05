@@ -2,7 +2,9 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { searchCards } from '../api/scryfall'
 import type { ScryfallCard } from '../types/scryfall'
 import type { Deck } from '../types/models'
-import type { TableGame } from './tableGames'
+import { chartSeats, type TableGame } from './tableGames'
+import { GameChart } from './GameChart'
+import { mulliganText } from '../decks/mulligans'
 
 // The table's own sheets for who's playing what: a seat's commander (for a player without a phone),
 // the table owner's seat and deck, and the games played at this table. Mirrors the Android app's
@@ -96,6 +98,7 @@ export function TableGamesSheet({ games, onDelete, onClear, onClose, Sheet }: {
   Sheet: (p: SheetProps) => ReactNode
 }) {
   const [confirm, setConfirm] = useState(false)
+  const [charted, setCharted] = useState<string | null>(null)
   const wins = new Map<string, number>()
   for (const g of games) {
     const w = g.players.find((p) => p.seat === g.winnerSeat)
@@ -129,8 +132,15 @@ export function TableGamesSheet({ games, onDelete, onClear, onClose, Sheet }: {
                   {g.players.map((p) => (
                     <div key={p.seat} className={`lc-game-player${p.out ? ' out' : ''}`}>
                       {p.seat === g.winnerSeat ? '★ ' : ''}{p.name}{p.commander ? ` · ${p.commander}` : ''}{p.me ? ' · you' : ''}
+                      {p.mulligans != null ? ` · ${mulliganText(p.mulligans, g.players.length > 2)}` : ''}
                     </div>
                   ))}
+                  {g.log && (
+                    <button type="button" className="lc-wide-btn" aria-expanded={charted === g.id} onClick={() => setCharted(charted === g.id ? null : g.id)}>
+                      <span className="material-symbols-rounded" aria-hidden>show_chart</span>{charted === g.id ? 'Hide the chart' : 'Life chart and recap'}
+                    </button>
+                  )}
+                  {g.log && charted === g.id && <GameChart log={g.log} seats={chartSeats(g)} />}
                 </li>
               )
             })}
