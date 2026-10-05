@@ -32,7 +32,8 @@ export function TradesPage() {
   )
 }
 
-function TradeList({ overview }: { overview: api.Overview }) {
+/** The trades themselves, filtered — on this page and on Friends' Trades tab. */
+export function TradeList({ overview }: { overview: api.Overview }) {
   const navigate = useNavigate()
   const me = overview.me!.user_id
   const available = more.useSocialMore()
