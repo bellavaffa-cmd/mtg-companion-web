@@ -2,6 +2,7 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
 import { PricesPanel } from '../components/PricesPanel'
+import { BlockedPeople } from '../social/MoreUi'
 import { rise, useBack } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
 import { currencyOf, useCurrencySetting } from '../money/currency'
@@ -28,6 +29,7 @@ const SECTIONS = [
   { id: 'appearance', title: 'Appearance', icon: 'dark_mode', to: '/settings/appearance' },
   { id: 'card-display', title: 'Card Display', icon: 'grid_view', to: '/settings/card-display' },
   { id: 'prices', title: 'Prices', icon: 'sell', to: '/settings/prices' },
+  { id: 'blocked', title: 'Blocked people', icon: 'block', to: '/settings/blocked' },
 ] as const
 
 /**
@@ -58,6 +60,8 @@ export function SettingsPage() {
         const c = currencyOf(chosen)
         return `${c.name} (${c.code})`
       }
+      case 'blocked':
+        return account ? 'People who can’t see your things or contact you' : 'Sign in to block people'
     }
   }
 
@@ -96,6 +100,7 @@ export function SettingsSectionPage() {
           {found.id === 'appearance' && <AppearanceSection />}
           {found.id === 'card-display' && <CardDisplaySection />}
           {found.id === 'prices' && <PricesPanel heading={false} />}
+          {found.id === 'blocked' && <BlockedPeople />}
         </div>
       </div>
     </>

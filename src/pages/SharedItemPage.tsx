@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TopBar } from '../components/TopBar'
+import { BlockReportButton } from '../social/MoreUi'
 import { Icon } from '../components/Icon'
 import { CardZoomModal, zoomSteps } from '../components/CardZoomModal'
 import { ArtImage, SearchPill, SectionHeader, StatFigure, TYPE_GROUPS, TYPE_PLURALS, primaryTypeOf, rise, toArtCrop, useBack } from '../components/kit'
@@ -43,7 +44,19 @@ export function SharedItemPage() {
   const title = loaded.state === 'ok' ? String(loaded.item.data.name ?? 'Shared') : 'Shared'
   return (
     <>
-      <TopBar title={title} onBack={back} />
+      <TopBar
+        title={title}
+        onBack={back}
+        actions={loaded.state === 'ok' && account && loaded.item.owner.user_id !== account.userId ? (
+          <BlockReportButton
+            compact
+            userId={loaded.item.owner.user_id}
+            name={loaded.item.owner.display_name}
+            item={{ kind: loaded.item.kind, id: String(loaded.item.data.id ?? params.itemId ?? '') }}
+            onBlocked={back}
+          />
+        ) : undefined}
+      />
       <div className="content-scroll">
         {loaded.state === 'loading' && <div className="empty-state"><Icon name="hourglass_empty" />Loading…</div>}
         {loaded.state === 'error' && <div className="empty-state"><Icon name="cloud_off" />{loaded.message}</div>}

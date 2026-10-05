@@ -10,6 +10,8 @@ import { useOverview } from '../social/SocialContext'
 import { ProfileEditor } from '../social/ProfileEditor'
 import { NotificationsPanel } from '../social/NotificationsPanel'
 import { Avatar, handle, QrCode } from '../social/ui'
+import { useSocialMore, unreadMessages } from '../social/more'
+import { ActivityList, TradeMatchesSection } from '../social/MoreUi'
 
 /**
  * Friends: the user's profile, adding friends by username or QR code, requests, pods, what friends
@@ -76,6 +78,16 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
   // Friends, or the user's own profile; kept in the address so Back and links land on the right one.
   const [params, setParams] = useSearchParams()
   const profileTab = params.get('tab') === 'profile'
+  // Activity, messages and trade matches need the server's social_more functions.
+  const more = useSocialMore()
+  const activityTab = !!more && params.get('tab') === 'activity'
+  const [unread, setUnread] = useState(0)
+  useEffect(() => {
+    if (!more) return
+    let cancelled = false
+    unreadMessages().then((n) => { if (!cancelled) setUnread(n) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [more, overview])
   const [podDialog, setPodDialog] = useState<api.Pod | 'new' | null>(null)
   const person = (id: string) => overview.people[id] ?? null
 
@@ -95,15 +107,21 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
   const tabs = (
     <div className="rise" style={{ ...rise(0), marginBottom: 14 }}>
       <SegmentedTabs
-        labels={['Friends', 'Profile']}
-        selected={profileTab ? 1 : 0}
-        counts={incoming.length + inbox.trades > 0 ? { 0: incoming.length + inbox.trades } : {}}
-        onSelect={(i) => setParams(i === 1 ? { tab: 'profile' } : {}, { replace: true })}
+        labels={more ? ['Friends', 'Activity', 'Profile'] : ['Friends', 'Profile']}
+        selected={profileTab ? (more ? 2 : 1) : activityTab ? 1 : 0}
+        counts={incoming.length + inbox.trades + unread > 0 ? { 0: incoming.length + inbox.trades + unread } : {}}
+        onSelect={(i) => {
+          const tab = (more ? ['', 'activity', 'profile'] : ['', 'profile'])[i]
+          setParams(tab ? { tab } : {}, { replace: true })
+        }}
       />
     </div>
   )
   if (profileTab) {
     return <>{tabs}<ProfileTab me={me} /></>
+  }
+  if (activityTab) {
+    return <>{tabs}<ActivityList /></>
   }
 
   return (
@@ -117,6 +135,21 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
         {inbox.trades > 0 && <span className="count-badge">{inbox.trades}</span>}
         <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
       </button>
+      {more && (
+        <>
+          <button type="button" className="banner press rise" style={{ ...rise(1), marginTop: 8 }} onClick={() => navigate('/messages')}>
+            <Icon name="chat" />
+            <span style={{ flex: 1 }}>Messages</span>
+            {unread > 0 && <span className="count-badge">{unread}</span>}
+            <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
+          </button>
+          <button type="button" className="banner press rise" style={{ ...rise(1), marginTop: 8 }} onClick={() => navigate('/for-trade')}>
+            <Icon name="sell" />
+            <span style={{ flex: 1 }}>Your cards for trade</span>
+            <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
+          </button>
+        </>
+      )}
 
       <button type="button" className="banner press rise" style={{ ...rise(1), marginTop: 8 }} onClick={() => navigate('/loans?tab=borrowed')}>
         <Icon name="handshake" />
@@ -156,6 +189,8 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
           })}
         </div>
       )}
+
+      <TradeMatchesSection overview={overview} />
 
       {outgoing.length > 0 && (
         <>

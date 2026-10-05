@@ -12,6 +12,8 @@ import { cardTotal } from '../social/tradeLogic'
 import { Avatar, handle } from '../social/ui'
 import { SocialGate } from './FriendsPage'
 import { TradeValue } from '../social/TradeValue'
+import * as more from '../social/more'
+import { matchSentence } from '../social/moreLogic'
 
 interface TheirBinder { id: string; name: string; entries: CollectionEntry[] }
 
@@ -53,6 +55,39 @@ function Composer({ overview }: { overview: api.Overview }) {
   const [theirBinders, setTheirBinders] = useState<TheirBinder[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Cards they've marked for trade (seen by all friends), and matches either way to start from.
+  const available = more.useSocialMore()
+  const [forTrade, setForTrade] = useState<more.ForTradeCard[]>([])
+  const [match, setMatch] = useState<more.TradeMatch | null>(null)
+  const startedWith = !!replyTo || !!(location.state as { want?: unknown } | null)?.want
+  useEffect(() => {
+    if (!available || !to) return
+    let cancelled = false
+    more.forTradeList(to).then((l) => { if (!cancelled) setForTrade(l ?? []) }).catch(() => {})
+    if (!startedWith) more.tradeMatches().then((m) => { if (!cancelled) setMatch(m.find((x) => x.friend === to) ?? null) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [available, to, startedWith])
+  const forTradeBinders = [...new Set(forTrade.map((c) => c.item_id))].map((binderId) => {
+    const cards = forTrade.filter((c) => c.item_id === binderId)
+    return {
+      id: binderId,
+      name: cards[0]?.item_name ?? 'Binder',
+      entries: cards.map((c): CollectionEntry => {
+        const plain = Math.min(c.for_trade, Math.max(0, c.quantity))
+        return { scryfallId: c.scryfall_id, name: c.name, imageUrl: c.image_url ?? null, quantity: plain, foilQuantity: c.for_trade - plain, ...(c.condition ? { condition: c.condition } : {}) }
+      }),
+    }
+  })
+  const addMatch = (m: more.TradeMatch) => {
+    const add = (list: api.TradeCard[], cards: more.MatchCard[]) => {
+      const keys = new Set(list.map(tradeKey))
+      return [...list, ...cards.map(more.matchAsTrade).filter((c) => !keys.has(tradeKey(c)))]
+    }
+    setWant((l) => add(l, m.they_have))
+    setGive((l) => add(l, m.they_want))
+    setMatch(null)
+  }
 
   const sharedBinders = overview.shared_with_me.filter((s) => s.owner === to && s.kind === 'collection')
   const sharedIds = sharedBinders.map((s) => s.item_id).join(',')
@@ -100,6 +135,14 @@ function Composer({ overview }: { overview: api.Overview }) {
         </span>
       </div>
 
+      {match && (match.they_have.length > 0 || match.they_want.length > 0) && (
+        <div className="banner" style={{ marginTop: 12 }}>
+          <Icon name="auto_awesome" />
+          <span style={{ flex: 1 }}>{matchSentence(friend.display_name, match.they_have.length, match.they_want.length)}.</span>
+          <button type="button" className="btn gold sm" onClick={() => addMatch(match)}>Add them</button>
+        </div>
+      )}
+
       <SectionHeader title={`You ask for${want.length ? ` · ${cardTotal(want)}` : ''}`} action="Pick cards" onAction={() => setPicking('theirs')} />
       <TradeCardList cards={want} empty={`Nothing yet — pick from ${friend.display_name}'s shared binders.`} onRemove={(c) => setWant((l) => remove(l, c))} />
 
@@ -119,8 +162,14 @@ function Composer({ overview }: { overview: api.Overview }) {
 
       {picking === 'theirs' && (
         <PickerSheet title={`${friend.display_name}'s binders`} subtitle="Pick what you'd like" onClose={() => setPicking(null)}>
+          {forTradeBinders.map((b) => (
+            <div key={`ft:${b.id}`} className="picker-group">
+              <div className="picker-group-title">For trade · {b.name}</div>
+              <BinderPicker collectionId={b.id} entries={b.entries} picked={want} onChange={setWant} emptyText="Nothing here." />
+            </div>
+          ))}
           {sharedBinders.length === 0 ? (
-            <div className="notice">{friend.display_name} hasn't shared a binder with you.</div>
+            forTradeBinders.length === 0 && <div className="notice">{friend.display_name} hasn't shared a binder with you or marked cards for trade.</div>
           ) : !theirBinders ? (
             <div className="empty-state"><Icon name="hourglass_empty" />Loading…</div>
           ) : theirBinders.map((b) => (

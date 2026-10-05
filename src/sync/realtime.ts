@@ -231,3 +231,28 @@ export function watchMatch(
     onLive,
   })
 }
+
+/**
+ * Listens on the signed-in user's private message channel ("dm:<user id>"), where send_message puts
+ * each new direct message they send or receive (event "message"). Only that user may listen
+ * (MtgCompanionApp/supabase/migrations/20261006020000_social_more.sql). The Android app's twin is
+ * DmChannel in data/social/DmChannel.kt.
+ */
+export function watchDm(
+  userId: string,
+  token: () => Promise<string | null>,
+  onEvent: (event: string, payload: unknown) => void,
+  onJoined: () => void,
+  onLive: (live: boolean) => void,
+): () => void {
+  return openChannel({
+    topic: `dm:${userId}`,
+    token,
+    config: { broadcast: { ack: false, self: false }, presence: { key: '' }, private: true },
+    onMessage: (m) => {
+      if (m.event === 'broadcast' && m.payload?.event) onEvent(m.payload.event, m.payload.payload)
+    },
+    onJoined: () => onJoined(),
+    onLive,
+  })
+}
