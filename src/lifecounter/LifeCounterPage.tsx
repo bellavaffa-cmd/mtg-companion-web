@@ -1,3 +1,4 @@
+import { countAction } from '../usage/usage'
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
@@ -88,6 +89,7 @@ export function LifeCounterPage() {
     if (!seed || seededFrom.current === location.key) return
     seededFrom.current = location.key
     selectLayout(layoutIdFor(seed.players.length, settings.layoutId))
+    countAction('game_started')
     seed.players.forEach((p, i) => {
       dispatch({ type: 'name', id: i + 1, name: p.name })
       if (p.commander) dispatch({ type: 'seatCommander', id: i + 1, name: p.commander, art: null })
@@ -155,6 +157,7 @@ export function LifeCounterPage() {
     const kept = tableGames.find((g) => g.id === record.id)
     if (kept && kept.winnerSeat === record.winnerSeat && kept.players.every((p, i) => p.out === record.players[i]?.out)) return
     recordTableGame(record)
+    countAction('game_recorded')
     const deck = decks.find((d) => d.id === settings.meDeckId)
     const seatLinked = !!game.players.find((p) => p.id === settings.meSeat)?.linked
     const result = deck ? meResultOf(record, settings.meSeat, seatLinked) : null
@@ -330,10 +333,10 @@ export function LifeCounterPage() {
       )}
 
       {overlay === 'restart' && (
-        <Confirm text="Start a new game?" confirm="New game" onConfirm={() => { lc.restart(); closeAll() }} onCancel={closeAll} />
+        <Confirm text="Start a new game?" confirm="New game" onConfirm={() => { lc.restart(); countAction('game_started'); closeAll() }} onCancel={closeAll} />
       )}
       {overlay === 'seating' && (
-        <SeatingOverlay current={game.layoutId} onPick={(id) => { lc.selectLayout(id); closeAll() }} onClose={closeAll} />
+        <SeatingOverlay current={game.layoutId} onPick={(id) => { lc.selectLayout(id); countAction('game_started'); closeAll() }} onClose={closeAll} />
       )}
       {overlay === 'settings' && <SettingsOverlay lc={lc} onClose={closeAll} />}
       {overlay === 'dice' && <DiceOverlay onClose={closeAll} />}

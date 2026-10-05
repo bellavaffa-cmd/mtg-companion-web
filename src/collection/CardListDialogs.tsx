@@ -1,3 +1,4 @@
+import { countAction } from '../usage/usage'
 import { useEffect, useRef, useState } from 'react'
 import { Dialog } from '../components/Dialog'
 import { Icon } from '../components/Icon'
@@ -128,6 +129,7 @@ export function ImportCardsDialog({ collection, onDismiss, onCreated, startInNew
       if (result.cards.length > 0) {
         const targetId = collection?.id ?? (newBinder ? createCollection(name.trim() || 'Imported', 'OWNED').id : UNSORTED_COLLECTION_ID)
         importIntoCollection(targetId, result.cards)
+        countAction('cards_imported')
         if (!collection && newBinder) onCreated?.(targetId)
       }
       setStage({

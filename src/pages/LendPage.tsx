@@ -1,3 +1,4 @@
+import { countAction } from '../usage/usage'
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
@@ -75,6 +76,7 @@ export function LendPage() {
     changeStorage((c) => { after = lend(c, picks, loan); return after })
     const made = loansOf(after).find((l) => l.id === id)
     if (made) {
+      countAction('loan_created')
       const due = loanDue(made, dayOf(now), []).label
       recordMoves(picks.map((p) => lentMove(now, { name: p.source.name, scryfallId: p.source.scryfallId }, p.qty, to, p.source.from, p.source.line?.placeId ?? null, due === 'No date' ? null : due)))
       if (made.friendId) void sendLoan(made)

@@ -1,3 +1,4 @@
+import { countAction } from '../usage/usage'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { TopBar } from '../components/TopBar'
@@ -115,6 +116,7 @@ function Composer({ overview }: { overview: api.Overview }) {
     setError(null)
     try {
       await api.proposeTrade(to, want, give, message.trim(), replyTo?.id ?? null)
+      countAction('trade_proposed')
       await refresh()
       navigate('/trades', { replace: true })
     } catch (e) {

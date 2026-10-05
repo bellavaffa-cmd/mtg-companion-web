@@ -42,6 +42,7 @@ import { ScanPage } from './pages/ScanPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { SocialProvider } from './social/SocialContext'
 import './social/social.css'
+import { UsageScreens } from './usage/UsageUi'
 
 // Friends, sharing, trades and events load when first opened.
 const FriendsPage = lazy(() => import('./pages/FriendsPage').then((m) => ({ default: m.FriendsPage })))
@@ -66,6 +67,8 @@ export default function App() {
     <SyncProvider>
       <SocialProvider>
       <BrowserRouter basename={import.meta.env.BASE_URL}>
+        {/* Anonymous counts of the screens opened (Settings › Privacy). */}
+        <UsageScreens />
         {/* The Undo bar after a card goes into a deck or binder, on every screen. */}
         <UndoProvider>
         {/* The check before a card goes into a deck, asked wherever it's added from. */}

@@ -1,3 +1,4 @@
+import { countAction } from '../usage/usage'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Dialog } from '../components/Dialog'
@@ -134,6 +135,7 @@ export function NewEventPage() {
       seed: Math.floor(Math.random() * 2 ** 31), createdAt: Date.now(), players,
     })
     saveEvent(t)
+    countAction('event_started')
     navigate(`/play/events/${t.id}`, { replace: true })
   }
 

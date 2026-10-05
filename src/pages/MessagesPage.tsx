@@ -1,3 +1,4 @@
+import { countAction } from '../usage/usage'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TopBar } from '../components/TopBar'
@@ -159,6 +160,7 @@ function Conversation({ overview, other }: { overview: api.Overview; other: stri
     setError(null)
     try {
       const sent = await more.sendMessage(other, body)
+      countAction('message_sent')
       stick.current = true
       setMessages((list) => mergeMessages(list ?? [], [sent]))
       setDraft('')
