@@ -1,0 +1,124 @@
+/* Game night (GameNightPage.tsx). */
+
+.night-intro {
+  margin: 0;
+  font-size: 13px;
+}
+.night-player,
+.night-pod {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--g1);
+  color: var(--t0);
+}
+.night-player-head,
+.night-pod-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.night-player-head b {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+}
+.night-kind {
+  font-size: 11.5px;
+  color: var(--t2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.night-pod-head b {
+  font-size: 15px;
+}
+.night-pod-head span {
+  font-size: 12.5px;
+}
+.night-deck {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.night-deck .input {
+  flex: 1;
+  min-width: 0;
+}
+.night-deck .btn {
+  flex: none;
+}
+.night-commander {
+  font-size: 12.5px;
+  color: var(--t1);
+}
+.night-bracket,
+.night-result,
+.night-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.night-bracket > span,
+.night-result > span {
+  font-size: 12.5px;
+  color: var(--t1);
+  margin-right: 4px;
+}
+.night-bracket .chip {
+  min-width: 36px;
+  justify-content: center;
+}
+.night-guest {
+  display: flex;
+  gap: 8px;
+}
+.night-guest .input {
+  flex: 1;
+  min-width: 0;
+}
+.night-seat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.night-seat-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.night-seat-name b {
+  font-size: 14px;
+}
+.night-seat-name span {
+  font-size: 12.5px;
+  color: var(--t1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+select.input.night-move {
+  width: auto;
+  flex: none;
+  height: 36px;
+  padding-left: 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  background-position: calc(100% - 20px) 15px, calc(100% - 15px) 15px;
+}
+.night-result .icon {
+  color: var(--t2);
+}
+.night-result .icon.won {
+  color: var(--gold);
+}
+.night-saves {
+  font-size: 12.5px;
+}
