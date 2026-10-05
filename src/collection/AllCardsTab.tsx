@@ -34,7 +34,12 @@ import { ExportCollectionDialog } from './CardListDialogs'
 import { useMoney } from '../money/currency'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
 import { cardFactsOf, filterActive, filterCount, filterMatches, NO_COLLECTION_FILTER, type CardFacts, type CollectionFilter } from './cardFilter'
-import { CollectionFilterPanel } from './CollectionFilterPanel'
+import { ActiveFilterChips, CollectionFilterPanel } from './CollectionFilterPanel'
+import {
+  advancedActive, advancedCount, advancedFactsOf, advancedMatches, copyFactsOf, filterChips, NO_ADVANCED_FILTER, removeChip,
+  type AdvancedFacts, type AdvancedFilter,
+} from './advancedFilter'
+import { AdvancedFilterPage } from './AdvancedFilterPage'
 import { useCardViewMode } from '../settings/settings'
 
 
@@ -78,12 +83,29 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
   // Color, type and rarity, as in Search — narrowing the same list the search field does.
   const [cardFilter, setCardFilter] = useState<CollectionFilter>(NO_COLLECTION_FILTER)
   const [filterOpen, setFilterOpen] = useState(false)
-  const filtering = filterActive(cardFilter)
+  // The Advanced filters (a page of their own), on top of the panel's.
+  const [advFilter, setAdvFilter] = useState<AdvancedFilter>(NO_ADVANCED_FILTER)
+  const [advOpen, setAdvOpen] = useState(false)
+  const filtering = filterActive(cardFilter) || advancedActive(advFilter)
+  const filtersOn = filterCount(cardFilter) + advancedCount(advFilter)
   const facts = useMemo(() => {
     const m = new Map<string, CardFacts>()
     if (cardsById) for (const [id, c] of cardsById) m.set(id, cardFactsOf(c))
     return m
   }, [cardsById])
+  const advFacts = useMemo(() => {
+    const m = new Map<string, AdvancedFacts>()
+    if (cardsById) for (const [id, c] of cardsById) m.set(id, advancedFactsOf(c))
+    return m
+  }, [cardsById])
+  const copyFacts = useMemo(() => copyFactsOf(collections, decks), [collections, decks])
+  const ownedBinders = useMemo(() => collections.filter((c) => !isWishlist(c) && c.type !== 'WISHLIST').map((c) => ({ id: c.id, name: c.name })).sort((x, y) => x.name.localeCompare(y.name)), [collections])
+  const ownedSets = useMemo(() => {
+    const m = new Map<string, string>()
+    if (cardsById) for (const c of cards) { const k = cardsById.get(c.scryfallId); if (k?.set) m.set(k.set.toLowerCase(), k.set_name ?? k.set.toUpperCase()) }
+    return [...m].map(([code, name]) => ({ code, name })).sort((x, y) => x.name.localeCompare(y.name))
+  }, [cards, cardsById])
+  const clearFilters = () => { setCardFilter(NO_COLLECTION_FILTER); setAdvFilter(NO_ADVANCED_FILTER) }
   // Opens as Settings → Card Display says; the toggle changes that default.
   const [view, setView] = useCardViewMode('allCards')
   const switchView = () => setView(view === 'list' ? 'grid' : 'list')
@@ -102,6 +124,7 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
     return () => window.clearTimeout(t)
   }, [notice])
 
+  const money = useMoney()
   const q = query.trim().toLowerCase()
   const inSpares = (c: AllCard) => spareIds.has(c.scryfallId)
   // "proxy" reads as a tag of its own, so a search finds the cards standing in for real ones.
@@ -110,10 +133,17 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
     const role = tagsOf(roleTags, c.name)
     return c.proxies > 0 ? [...role, ...mine, 'proxy'] : [...role, ...mine]
   }
-  const shown = cards
-    .filter((c) => matchesNameOrTag(c.name, tagsFor(c), q))
-    .filter((c) => !filtering || filterMatches(cardFilter, facts.get(c.scryfallId)))
+  // The panel's filters and the advanced ones; a card whose data hasn't loaded is left out while either is on.
+  const passes = (c: AllCard, basic: CollectionFilter, adv: AdvancedFilter) =>
+    filterMatches(basic, facts.get(c.scryfallId)) && advancedMatches(adv, advFacts.get(c.scryfallId), copyFacts.get(c.scryfallId), (n) => money.toUsd(n))
+  const named = cards.filter((c) => matchesNameOrTag(c.name, tagsFor(c), q))
+  const shown = named
+    .filter((c) => !filtering || passes(c, cardFilter, advFilter))
     .filter((c) => !sparesOnly || inSpares(c))
+  // Live, for the Advanced page's "Show N cards".
+  const countFor = (basic: CollectionFilter, adv: AdvancedFilter) =>
+    named.filter((c) => passes(c, basic, adv) && (!sparesOnly || inSpares(c))).length
+  const shownValue = shown.reduce((n, c) => n + (dashboard?.prices.get(c.scryfallId) ?? 0) * (c.total - c.proxies), 0)
   const tagHits = q ? [...new Set(shown.filter((c) => !c.name.toLowerCase().includes(q)).flatMap((c) => matchedTags(tagsFor(c), q)))] : []
 
   // Cards picked by pressing and holding (scryfall ids); ones no longer owned drop from the pick.
@@ -170,7 +200,6 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
   const unsorted = collections.find(isUnsorted)
   const unsortedCards = unsorted?.entries.reduce((n, e) => n + e.quantity + e.foilQuantity, 0) ?? 0
   const zoomCard = cards.find((c) => c.scryfallId === zoomId) ?? null
-  const money = useMoney()
 
   if (cards.length === 0) {
     return (
@@ -207,18 +236,45 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <SearchPill value={query} onChange={setQuery} placeholder="Name or tag, e.g. ramp" />
         </div>
-        <IconButton
-          icon="filter_list"
-          label={filtering ? `Filters, ${filterCount(cardFilter)} on` : 'Filters'}
-          className={filtering || filterOpen ? 'on' : ''}
+        <button
+          type="button"
+          className={`ib filter-ib${filtering || filterOpen ? ' on' : ''}`}
+          aria-label={filtering ? `Filters, ${filtersOn} on` : 'Filters'}
+          title={filtering ? `Filters, ${filtersOn} on` : 'Filters'}
           onClick={() => setFilterOpen((o) => !o)}
-        />
+        >
+          <Icon name="filter_list" />
+          {filtersOn > 0 && <span className="filter-badge" aria-hidden>{filtersOn}</span>}
+        </button>
         <IconButton icon={view === 'list' ? 'grid_view' : 'view_list'} label={view === 'list' ? 'Show as a grid' : 'Show as a list'} onClick={switchView} />
       </div>
       {filterOpen && (
         <div className="rise" style={{ maxWidth: size === 'phone' ? undefined : 560 }}>
-          <CollectionFilterPanel filter={cardFilter} onChange={setCardFilter} />
+          <CollectionFilterPanel filter={cardFilter} onChange={setCardFilter} onAdvanced={() => setAdvOpen(true)} onClear={clearFilters} anyOn={filtering} />
         </div>
+      )}
+      {!filterOpen && filtering && (
+        <div style={{ marginTop: 10, maxWidth: size === 'phone' ? undefined : 560 }}>
+          <ActiveFilterChips
+            chips={filterChips(cardFilter, advFilter, {
+              binderName: (id) => collections.find((c) => c.id === id)?.name,
+              formatLocal: (n) => money.formatLocal(n),
+            })}
+            onRemove={(key) => { const next = removeChip(cardFilter, advFilter, key); setCardFilter(next.basic); setAdvFilter(next.advanced) }}
+            onClear={clearFilters}
+          />
+        </div>
+      )}
+      {advOpen && (
+        <AdvancedFilterPage
+          basic={cardFilter}
+          advanced={advFilter}
+          countFor={countFor}
+          binders={ownedBinders}
+          sets={ownedSets}
+          onApply={(basic, adv) => { setCardFilter(basic); setAdvFilter(adv); setAdvOpen(false) }}
+          onClose={() => setAdvOpen(false)}
+        />
       )}
       {(spareCards.length > 0 || decks.length > 0) && (
         <div className="chips" style={{ marginTop: 10 }}>
@@ -247,7 +303,9 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
       <div className="dim search-note">
         {sparesOnly
           ? <>{shown.length} spare {shown.length === 1 ? 'card' : 'cards'} — in your binders, in none of your decks</>
-          : q || filtering
+          : filtering
+            ? <>{shown.length} {shown.length === 1 ? 'card' : 'cards'}{dashboard && ` · ${money.format(shownValue)}`}{tagHits.length > 0 && ` · tag: ${tagHits.slice(0, 2).map(tagLabel).join(', ')}${tagHits.length > 2 ? '…' : ''}`}</>
+          : q
             ? <>{shown.length} of {cards.length} unique match{tagHits.length > 0 && ` · tag: ${tagHits.slice(0, 2).map(tagLabel).join(', ')}${tagHits.length > 2 ? '…' : ''}`}</>
             : <>{cards.reduce((n, c) => n + c.total, 0)} cards · {cards.length} unique (across all binders &amp; decks)</>}
         {tagging && ' · finding tags…'}

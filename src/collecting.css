@@ -473,3 +473,227 @@
   color: var(--gold);
   font-size: 13px;
 }
+
+/* All cards → Advanced filters: a page over the collection (collection/AdvancedFilterPage.tsx), and
+   the chips for the filters on under the search field. Mirrors the Android app's
+   ui/collection/AdvancedFilterScreen.kt. */
+.active-filters .chip[aria-pressed='true'] {
+  background: var(--g2);
+  color: var(--t0);
+}
+.active-filters .chip .mana-symbol {
+  margin-left: -2px;
+}
+.adv-page {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--t0);
+  animation: fade-in 0.15s ease both;
+}
+.adv-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: calc(12px + var(--safe-top)) 16px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.adv-head h1 {
+  flex: 1;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+}
+.adv-body {
+  flex: 1;
+  overflow-y: auto;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-sizing: border-box;
+}
+.adv-query,
+.adv-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--g1);
+}
+.adv-query {
+  gap: 8px;
+  border-radius: 12px;
+}
+.adv-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--t1);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.adv-query-line {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--g2);
+  color: var(--gold-light);
+  font: 600 14px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  word-break: break-word;
+}
+.adv-query a.chip {
+  text-decoration: none;
+}
+.adv-note {
+  font-size: 12px;
+  color: var(--t2);
+}
+.adv-sec-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.adv-sec-h h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+}
+.adv-badge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--g2);
+  color: var(--t1);
+  font-size: 11px;
+  font-weight: 700;
+}
+.adv-seg {
+  display: flex;
+  gap: 6px;
+}
+.adv-seg button {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--g2);
+  color: var(--t1);
+  font: 600 13px var(--ui);
+  cursor: pointer;
+}
+.adv-seg button[aria-pressed='true'] {
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-weight: 700;
+}
+.adv-colors {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.adv-num {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.adv-num-label {
+  width: 96px;
+  flex: none;
+  font-size: 14px;
+  color: var(--t1);
+}
+.adv-num .adv-op {
+  width: 68px;
+  flex: none;
+  font-weight: 700;
+}
+.adv-num .adv-num-input {
+  width: 84px;
+  flex: none;
+}
+.adv-field .field-label {
+  margin-bottom: 6px;
+}
+.adv-set-hits {
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  background: var(--g2);
+  overflow: hidden;
+}
+.adv-set-hit {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--t0);
+  font: 600 14px var(--ui);
+  text-align: left;
+  cursor: pointer;
+}
+.adv-set-hit:hover {
+  background: var(--g3);
+}
+.adv-saved {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.adv-saved-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.adv-saved-name {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--g2);
+  color: var(--t0);
+  font: 700 14px var(--ui);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.adv-foot {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--g1);
+}
+.adv-foot .btn.gold {
+  flex: 1;
+  max-width: 420px;
+}
+.filter-ib {
+  position: relative;
+}
+.filter-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--gold);
+  color: var(--gold-ink);
+  font: 800 11px/18px var(--ui);
+  text-align: center;
+  box-sizing: border-box;
+}

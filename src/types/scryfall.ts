@@ -16,6 +16,13 @@ export interface ScryfallCardFace {
   oracle_text?: string
   mana_cost?: string
   image_uris?: ScryfallImageUris
+  /** A double-faced card keeps these on each face (the Advanced filter reads every face). */
+  colors?: string[]
+  power?: string
+  toughness?: string
+  loyalty?: string
+  artist?: string
+  flavor_text?: string
 }
 
 export interface ScryfallCard {
@@ -57,6 +64,16 @@ export interface ScryfallCard {
   image_uris?: ScryfallImageUris
   card_faces?: ScryfallCardFace[]
   game_changer?: boolean
+  /** On the Reserved List: never to be reprinted. */
+  reserved?: boolean
+  /** Printed with art over the whole card. */
+  full_art?: boolean
+  /** As printed: "3", "*", "1+*". Strings, so a non-number stays as it is. */
+  power?: string
+  toughness?: string
+  loyalty?: string
+  artist?: string
+  flavor_text?: string
   /**
    * Everything printed alongside this card: the tokens it makes, an emblem, the other half of a
    * meld. Scryfall sends it on any card that has one — see decks/tokens.ts.
