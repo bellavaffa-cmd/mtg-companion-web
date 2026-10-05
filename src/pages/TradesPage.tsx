@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
@@ -12,6 +12,8 @@ import { useOverview } from '../social/SocialContext'
 import { appliedByMe, awaitingMyUpdate, cardTotal, shouldMoveCards, tradeChanges, tradeSides, type CollectionChange } from '../social/tradeLogic'
 import { Avatar } from '../social/ui'
 import { SocialGate } from './FriendsPage'
+import * as more from '../social/more'
+import { BlockReportButton, RateTrade } from '../social/MoreUi'
 
 type Filter = 'waiting' | 'sent' | 'done'
 
@@ -33,9 +35,21 @@ export function TradesPage() {
 function TradeList({ overview }: { overview: api.Overview }) {
   const navigate = useNavigate()
   const me = overview.me!.user_id
-  const waiting = overview.trades.filter((t) => (t.status === 'open' && t.to_user === me) || awaitingMyUpdate(t, me))
-  const sent = overview.trades.filter((t) => t.status === 'open' && t.from_user === me)
-  const done = overview.trades.filter((t) => !waiting.includes(t) && !sent.includes(t))
+  const available = more.useSocialMore()
+  // People the user blocked are left out, and the user's thumbs up/down on finished trades shown.
+  const [blocked, setBlocked] = useState<Set<string>>(new Set())
+  const [ratings, setRatings] = useState<Record<string, boolean>>({})
+  useEffect(() => {
+    if (!available) return
+    let cancelled = false
+    more.blockedUsers().then((l) => { if (!cancelled) setBlocked(new Set(l.map((p) => p.user_id))) }).catch(() => {})
+    more.myTradeRatings().then((r) => { if (!cancelled) setRatings(r) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [available, overview])
+  const trades = overview.trades.filter((t) => !blocked.has(t.from_user === me ? t.to_user : t.from_user))
+  const waiting = trades.filter((t) => (t.status === 'open' && t.to_user === me) || awaitingMyUpdate(t, me))
+  const sent = trades.filter((t) => t.status === 'open' && t.from_user === me)
+  const done = trades.filter((t) => !waiting.includes(t) && !sent.includes(t))
   const [filter, setFilter] = useState<Filter>(waiting.length > 0 || sent.length === 0 ? 'waiting' : 'sent')
   const shown = filter === 'waiting' ? waiting : filter === 'sent' ? sent : done
   const friends = overview.friends.filter((f) => f.status === 'accepted')
@@ -58,7 +72,16 @@ function TradeList({ overview }: { overview: api.Overview }) {
         </div>
       ) : (
         <div className="list" style={{ marginTop: 12 }}>
-          {shown.map((t) => <TradeCardView key={t.id} trade={t} overview={overview} />)}
+          {shown.map((t) => (
+            <TradeCardView
+              key={t.id}
+              trade={t}
+              overview={overview}
+              more={!!available}
+              rating={ratings[t.id]}
+              onRated={(positive) => setRatings((r) => ({ ...r, [t.id]: positive }))}
+            />
+          ))}
         </div>
       )}
     </>
@@ -73,7 +96,14 @@ const STATUS: Record<api.TradeStatus, string> = {
   countered: 'Countered',
 }
 
-function TradeCardView({ trade, overview }: { trade: api.Trade; overview: api.Overview }) {
+function TradeCardView({ trade, overview, more: withMore, rating, onRated }: {
+  trade: api.Trade
+  overview: api.Overview
+  /** The server has messages, ratings and blocking (social_more). */
+  more: boolean
+  rating: boolean | undefined
+  onRated: (positive: boolean) => void
+}) {
   const navigate = useNavigate()
   const { refresh } = useOverview()
   const me = overview.me!.user_id
@@ -114,6 +144,10 @@ function TradeCardView({ trade, overview }: { trade: api.Trade; overview: api.Ov
           <div className={`trade-status ${trade.status}`}>{status}</div>
         </div>
         <span className="dim" style={{ fontSize: 12 }}>{new Date(trade.updated_at).toLocaleDateString()}</span>
+        {withMore && overview.friends.some((f) => f.user_id === other && f.status === 'accepted') && (
+          <button type="button" className="ib" aria-label={`Message ${theirName}`} title="Message" onClick={() => navigate(`/messages/${other}`)}><Icon name="chat" /></button>
+        )}
+        <BlockReportButton compact userId={other} name={theirName} item={{ kind: 'trade', id: trade.id }} />
       </div>
 
       <div className="trade-sides">
@@ -144,6 +178,7 @@ function TradeCardView({ trade, overview }: { trade: api.Trade; overview: api.Ov
           <button type="button" className="btn line sm" disabled={busy} onClick={() => void run(() => api.respondTrade(trade.id, 'cancel'))}>Cancel request</button>
         </div>
       )}
+      {withMore && <RateTrade trade={trade} me={me} rating={rating} name={theirName} onRated={onRated} />}
       {awaitingMyUpdate(trade, me) && (
         <div className="trade-actions">
           <button type="button" className="btn gold sm" disabled={busy} onClick={() => setUpdating(true)}><Icon name="inventory_2" aria-hidden />Update my binders</button>

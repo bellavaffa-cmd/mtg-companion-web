@@ -47,6 +47,9 @@ const FriendSharedPage = lazy(() => import('./social/SharedFriends').then((m) =>
 const SharedCollectionPage = lazy(() => import('./pages/SharedItemPage').then((m) => ({ default: m.SharedCollectionPage })))
 const TradesPage = lazy(() => import('./pages/TradesPage').then((m) => ({ default: m.TradesPage })))
 const TradeComposerPage = lazy(() => import('./pages/TradeComposerPage').then((m) => ({ default: m.TradeComposerPage })))
+const MessagesPage = lazy(() => import('./pages/MessagesPage').then((m) => ({ default: m.MessagesPage })))
+const ConversationPage = lazy(() => import('./pages/MessagesPage').then((m) => ({ default: m.ConversationPage })))
+const ForTradePage = lazy(() => import('./pages/ForTradePage').then((m) => ({ default: m.ForTradePage })))
 const AddFriendLinkPage = lazy(() => import('./pages/LinkPages').then((m) => ({ default: m.AddFriendLinkPage })))
 const EventsPage = lazy(() => import('./tournament/EventPages').then((m) => ({ default: m.EventsPage })))
 const NewEventPage = lazy(() => import('./tournament/EventPages').then((m) => ({ default: m.NewEventPage })))
@@ -101,6 +104,9 @@ export default function App() {
             <Route path="/friends/:id" element={<FriendPage />} />
             <Route path="/trades" element={<TradesPage />} />
             <Route path="/trades/new" element={<TradeComposerPage />} />
+            <Route path="/messages" element={<MessagesPage />} />
+            <Route path="/messages/:id" element={<ConversationPage />} />
+            <Route path="/for-trade" element={<ForTradePage />} />
             <Route path="/shared/:owner" element={<FriendSharedPage />} />
             <Route path="/shared/:owner/collection" element={<SharedCollectionPage />} />
             <Route path="/shared/:owner/:kind/:itemId" element={<SharedItemPage />} />

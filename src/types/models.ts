@@ -244,6 +244,11 @@ export interface CollectionEntry {
    * so a binder with no "places" key anywhere was written by an app that doesn't know about places.
    */
   places?: CopyPlace[]
+  /**
+   * Owned binders: how many of these copies the user offers for trade — friends see them (see
+   * social/moreLogic.ts). Never more than the copies; left out when none.
+   */
+  forTrade?: number
 }
 
 // The entry as JSON — locally, in sync and in shared binders — is these fields by name. Keys added
@@ -255,6 +260,7 @@ export interface CollectionEntry {
 //   "language":        "en" | "ja" | "de" | "fr" | "it" | "es" | "pt" | "ru" | "ko" | "zhs" | "zht"
 //   "places":          [{ "placeId": "…", "qty": 2, "foil": true, "section": "Red" }, { "placeId": "…", "qty": 1, "page": 3, "slot": 5 }]
 //                      where the copies are kept (CopyPlace below); "foil", "section", "page" and "slot" left out when not said
+//   "forTrade":        number — owned binders: how many of the copies are for trade (friends can see them)
 // Copies of one printing in different conditions aren't split into entries: the entry says one.
 
 /**

@@ -1,0 +1,159 @@
+/* Blocking and reporting, messages, trade reputation, activity (social/MoreUi.tsx, pages/MessagesPage.tsx). */
+
+.report-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.report-reasons .chip.on {
+  background: var(--gold-soft);
+  color: var(--gold);
+}
+
+.rep-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 12px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.rep-up {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ok);
+}
+
+.rep-up .icon {
+  font-size: 16px;
+}
+
+.rate-trade {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.rate-trade .dim {
+  flex: 1;
+  min-width: 160px;
+}
+
+.rate-trade .ib.on {
+  color: var(--gold);
+  background: var(--gold-soft);
+}
+
+.activity-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--text-primary);
+  text-align: left;
+  border: 0;
+  font: inherit;
+}
+
+.activity-row .person-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.activity-detail {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-when {
+  font-size: 12px;
+}
+
+.activity-art {
+  width: 56px;
+  height: 42px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex: none;
+}
+
+.dm-list .person-main .dim {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dm-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0 12px;
+}
+
+.dm-bubble {
+  max-width: min(78%, 520px);
+  padding: 8px 12px;
+  border-radius: 16px;
+  background: var(--surface);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  align-self: flex-start;
+  line-height: 1.4;
+}
+
+.dm-bubble.mine {
+  align-self: flex-end;
+  background: var(--gold-soft);
+}
+
+.dm-time {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.dm-card {
+  color: var(--gold);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.dm-compose {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  padding: 10px 0 12px;
+  background: var(--bg);
+}
+
+.dm-compose textarea {
+  flex: 1;
+  resize: none;
+  min-height: 42px;
+  max-height: 140px;
+}
+
+.dm-day {
+  align-self: center;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 6px 0 2px;
+}

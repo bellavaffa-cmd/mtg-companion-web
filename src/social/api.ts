@@ -4,6 +4,7 @@
 
 import { accessToken, apiHeaders, OfflineError, restUrl } from '../sync/supabaseAuth'
 import type { PodGame, PodPlayer } from '../decks/podStats'
+import { isMissingFunction } from './moreLogic'
 
 export interface Profile {
   user_id: string
@@ -187,9 +188,21 @@ const MESSAGES: Record<string, string> = {
   not_in_pod: "You're not in that pod any more.",
   bad_players: 'Check the players: 2 to 10, each with a name, and one winner at most.',
   too_many_games: 'This pod has 5,000 games recorded — delete some old ones first.',
+  // supabase/migrations/20261006020000_social_more.sql (see more.ts)
+  unavailable: 'Not available yet.',
+  blocked: "You've blocked them — unblock them in Settings first.",
+  too_many_blocks: "You've blocked a lot of people already.",
+  bad_reason: 'Pick a reason.',
+  note_too_long: 'Keep the note under 1,000 characters.',
+  too_many_reports: "You've sent a lot of reports today — we'll look at those first.",
+  empty_message: 'Write something first.',
+  dm_too_long: 'Keep messages under 2,000 characters.',
+  cant_message: 'You can only message friends.',
+  slow_down: "You're sending messages very fast — wait a minute.",
+  cant_rate: 'You can rate a trade once you’ve updated your binders for it.',
 }
 
-async function call<T>(fn: string, args: Record<string, unknown> = {}, { signedIn = true } = {}): Promise<T> {
+export async function call<T>(fn: string, args: Record<string, unknown> = {}, { signedIn = true } = {}): Promise<T> {
   const token = await accessToken()
   if (signedIn && !token) throw new SocialError('not_signed_in', MESSAGES.not_signed_in)
   let res: Response
@@ -205,6 +218,7 @@ async function call<T>(fn: string, args: Record<string, unknown> = {}, { signedI
   }
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: string; code?: string }
+    if (isMissingFunction(res.status, body.code)) throw new SocialError('unavailable', MESSAGES.unavailable)
     const code = body.message ?? ''
     throw new SocialError(code, MESSAGES[code] ?? `Something went wrong (HTTP ${res.status}).`)
   }
