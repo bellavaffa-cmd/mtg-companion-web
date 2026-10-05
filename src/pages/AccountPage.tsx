@@ -29,6 +29,10 @@ export function AccountPage() {
             <span style={{ flex: 1 }}>Get the Android app: the same account, with notifications and offline card search.</span>
             <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
           </Link>
+          <nav className="settings-links" aria-label="Privacy">
+            <Link to="/privacy">Privacy policy</Link>
+            <Link to="/delete-account">Delete my account</Link>
+          </nav>
         </div>
       </div>
     </>
