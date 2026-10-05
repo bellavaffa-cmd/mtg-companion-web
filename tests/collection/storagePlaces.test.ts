@@ -4,7 +4,7 @@ import {
   canMoveInto, colourSection, copyKey, deletePlace, keepPlacesFromOlderApp, mergeCopyPlaces, mergePlaceLists, moveCopies,
   nextPocket, parentOf, placeAndInside, placeCopies, placeFactsOf, placePath, placeSubtitle, placeTree, placedCopies, placesOf,
   putAway, sectionsOf, cardsIn, splitPlaces, storageSummary, suggestSpot, tidyPlaces, typeSection, undoPutAway, unplacedCopies,
-  whereItIs, withPlaceList, writtenWithoutPlaces, keptInLabel, placeUnplaced,
+  whereItIs, withPlaceList, writtenWithoutPlaces, keptInLabel, placeUnplaced, keptLabel,
 } from '../../src/collection/storagePlaces.ts'
 import { mergeCollection } from '../../src/sync/mergeItems.ts'
 import { normalizeDeck, type Collection, type CollectionEntry, type CopyPlace, type StoragePlace } from '../../src/types/models.ts'
@@ -243,6 +243,7 @@ test('where a printing is kept, short, for beside "In 2 decks and 1 binder"', ()
   ]
   assert.equal(keptInLabel(collections, 'bolt'), 'Red box ×3 · Trade binder ×1')
   assert.equal(keptInLabel(collections, 'ring'), '')
+  assert.equal(keptLabel(entry('bolt', 3, 0, [at('red', 2), at('gone', 1)]), PLACES), 'Red box ×2')
 })
 
 test('giving a card a place: that printing first, the Unsorted pile first, plain before foil, never a lent copy', () => {

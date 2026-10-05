@@ -529,6 +529,16 @@ export function keptInLabel(collections: Collection[], scryfallId: string): stri
   return [...counts].map(([name, n]) => `${name} ×${n}`).join(' · ')
 }
 
+/** Where one entry's copies are kept, short — "Red box ×2 · Trade binder ×1"; '' when none has a place. */
+export function keptLabel(entry: CollectionEntry, places: StoragePlace[]): string {
+  const counts = new Map<string, number>()
+  for (const line of placedCopies(entry)) {
+    const name = places.find((p) => p.id === line.placeId)?.name
+    if (name) counts.set(name, (counts.get(name) ?? 0) + line.qty)
+  }
+  return [...counts].map(([name, n]) => `${name} ×${n}`).join(' · ')
+}
+
 // ---- Sorting rules: where a new card goes ----
 
 /** What a sorting rule needs to know about a card. */

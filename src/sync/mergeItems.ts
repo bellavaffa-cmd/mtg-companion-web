@@ -193,7 +193,8 @@ export function mergeCollection(base: Collection, mineIn: Collection, theirsIn: 
   // than its merged copies.
   const entries = mergeEntries(base.entries, mine.entries, theirs.entries, COLLECTION_COUNTS, minePreferred).map((e) => {
     const id = e.scryfallId
-    if (!b.has(id) || !m.has(id) || !t.has(id)) return tidied(e)
+    // Added on one side: as it came. On both: the other device's places, within the larger count.
+    if (!b.has(id)) return m.has(id) && t.has(id) ? tidied(e) : e
     const places = mergeCopyPlaces(b.get(id)!.places, m.get(id)!.places, t.get(id)!.places)
     if (places === undefined) {
       if (e.places === undefined) return e
