@@ -4811,3 +4811,12 @@ button.tag-chip {
   font-size: 0.875rem;
   color: var(--text-muted);
 }
+
+/* Import with locations (CardListDialogs.tsx, collection/importPlaces.ts). */
+.import-places { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: var(--g2); display: flex; flex-direction: column; gap: 6px; }
+.import-places p { margin: 0; font-size: 0.8125rem; }
+.import-places p.dim { font-size: 0.75rem; }
+.import-place-row { display: flex; align-items: center; gap: 8px; }
+.import-place-row .v { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.import-place-row .n { font-size: 0.8125rem; color: var(--t1); }
+.import-place-row .input { flex: 1.3; min-width: 0; padding-top: 8px; padding-bottom: 8px; }

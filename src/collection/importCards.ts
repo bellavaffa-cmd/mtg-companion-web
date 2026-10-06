@@ -4,6 +4,7 @@
 import { getByFuzzyName, getCollection, OfflineError, type CardIdentifier } from '../api/scryfall'
 import type { ScryfallCard } from '../types/scryfall'
 import type { ListLine } from './cardListText'
+import type { ImportedLocation } from './importPlaces'
 
 export interface ImportedCard {
   card: ScryfallCard
@@ -12,6 +13,8 @@ export interface ImportedCard {
   /** The copies' condition and language, when the list said (a CSV's columns); the first line's wins. */
   condition?: string | null
   language?: string | null
+  /** Where the list said the copies are kept (a CSV's location column, importPlaces.ts), line by line. */
+  locations?: ImportedLocation[]
 }
 
 export interface ImportResult {
@@ -97,6 +100,7 @@ export async function resolveCardList(lines: ListLine[], onProgress: (done: numb
     // One entry describes all its copies, so lines of the same card share the first one's say.
     item.condition = item.condition ?? line.condition ?? null
     item.language = item.language ?? line.language ?? null
+    if (line.location) item.locations = [...(item.locations ?? []), { value: line.location, qty: line.quantity, foil: line.foil }]
     if (line.foil) item.foilQuantity += line.quantity
     else item.quantity += line.quantity
     byCard.set(card.id, item)

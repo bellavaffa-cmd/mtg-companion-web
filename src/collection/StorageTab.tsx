@@ -17,6 +17,7 @@ import {
   canMoveInto, childrenOf, copiesWithin, defaultSections, DEFAULT_POCKETS, PLACE_KIND_LABELS, PLACE_KINDS, placeAndInside, placeSubtitle,
   placeTree, placesOf, savePlace, SORT_RULE_LABELS, SORT_RULES, storageSummary, type StorageSummary,
 } from './storagePlaces'
+import { useUpkeep } from './useUpkeep'
 import './storage.css'
 
 export const PLACE_ICONS: Record<PlaceKind, string> = { BOX: 'inventory_2', BINDER: 'menu_book', DECK_BOX: 'style', SHELF: 'shelves', OTHER: 'category' }
@@ -31,7 +32,8 @@ export function StorageTab() {
   const [editing, setEditing] = useState<StoragePlace | 'new' | null>(null)
   const [choosing, setChoosing] = useState(false)
   const share = summary.total > 0 ? summary.placed / summary.total : 0
-  const putAway = () => (places.length === 0 ? setEditing('new') : setChoosing(true))
+  const putAway = () => (places.length === 0 ? navigate('/collections/setup') : setChoosing(true))
+  const upkeep = useUpkeep()
 
   return (
     <>
@@ -56,8 +58,11 @@ export function StorageTab() {
             className="rise"
             style={rise(3)}
             icon="shelves"
-            text="No places yet. Make one for each box, binder or shelf, and the app remembers where each copy is."
-            actions={[{ label: 'New place', icon: 'add', onClick: () => setEditing('new') }]}
+            text="No places yet. Say roughly what you keep your cards in — binders, boxes, a shelf — and the app makes the places, their labels, and keeps track of where each copy is."
+            actions={[
+              { label: 'Get started', icon: 'inventory_2', onClick: () => navigate('/collections/setup') },
+              { label: 'New place', icon: 'add', onClick: () => setEditing('new') },
+            ]}
           />
         )}
         {childrenOf(places, null).map((top, i) => (
@@ -73,6 +78,12 @@ export function StorageTab() {
           <div className="storage-text"><b>Lent out</b><span>Your loans, and what friends lent you</span></div>
           <span className="storage-n">{count(summary.lent)}</span>
         </button>
+        <div className="place-actions rise" style={rise(6)}>
+          <button type="button" className={upkeep.items.length > 0 ? 'btn soft' : 'btn line'} onClick={() => navigate('/collections/upkeep')}>
+            <Icon name="task_alt" aria-hidden />Upkeep{upkeep.items.length > 0 && <span className="badge-n">{upkeep.items.length}</span>}
+          </button>
+          <button type="button" className="btn line" onClick={() => navigate('/collections/setup')}><Icon name="inventory_2" aria-hidden />Set up storage</button>
+        </div>
         <div className="place-actions rise" style={rise(6)}>
           <button type="button" className="btn line" onClick={() => navigate('/scan?sort')}><Icon name="call_split" aria-hidden />Sort a new pile</button>
           <button type="button" className="btn line" onClick={() => navigate('/collections/value')}><Icon name="payments" aria-hidden />Value by place</button>

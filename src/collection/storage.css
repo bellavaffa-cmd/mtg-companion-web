@@ -448,3 +448,38 @@ button.where-row { cursor: pointer; }
 .hist-foot { font-size: 0.8125rem; margin: 6px 0 0; }
 :root[data-theme="light"] .hist-in { color: #2f8a55; }
 :root[data-theme="light"] .hist-out { color: #b4483a; }
+
+/* Getting started with storage and Upkeep (StorageSetupPage.tsx, UpkeepPage.tsx). */
+.setup { max-width: 560px; display: flex; flex-direction: column; gap: 8px; }
+.setup h2 { margin: 4px 0 0; font-size: 1.25rem; font-weight: 800; }
+.setup p { margin: 0 0 6px; }
+.setup-step { font-size: 0.6875rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold-light); }
+.setup-row { gap: 12px; }
+.setup-detail { align-self: flex-start; padding: 0; font-size: 0.75rem; font-weight: 600; color: var(--gold-light); }
+.setup-stepper { display: flex; align-items: center; gap: 8px; }
+.setup-stepper b { min-width: 1.5em; text-align: center; font-size: 1rem; }
+.setup-stepper .ib { background: var(--g2); width: 36px; height: 36px; }
+.setup-note { font-size: 0.75rem; margin-top: 6px !important; }
+.setup .place-actions .btn { flex: 1; min-height: 48px; }
+.setup .place-actions .btn.gold { flex: 2; }
+.setup-name { display: flex; align-items: center; gap: 10px; }
+.setup-name .input { flex: 1; }
+.upkeep-big { display: flex; align-items: baseline; gap: 8px; }
+.upkeep-big b { font-size: 2.5rem; font-weight: 800; color: var(--gold-light); line-height: 1; }
+.upkeep-big span { font-size: 0.875rem; color: var(--t1); }
+.upkeep-row { gap: 12px; }
+.upkeep-text b { white-space: normal; }
+.upkeep-row .btn { flex: none; min-width: 92px; }
+.badge-n {
+  margin-left: 6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-size: 0.75rem;
+  font-weight: 800;
+  display: inline-grid;
+  place-items: center;
+}

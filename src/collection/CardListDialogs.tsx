@@ -1,5 +1,5 @@
 import { countAction } from '../usage/usage'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Dialog } from '../components/Dialog'
 import { Icon } from '../components/Icon'
 import { PillChip } from '../components/kit'
@@ -8,6 +8,9 @@ import { useSync } from '../sync/SyncContext'
 import { UNSORTED_COLLECTION_ID, type Collection, type CollectionEntry } from '../types/models'
 import { buildCardListCsv, buildCardListText, parseCardList } from './cardListText'
 import { resolveCardList, type ImportResult } from './importCards'
+import { applyImportedPlaces, locationCounts, locationKey, suggestTargets, type LocationCount, type PlaceTarget } from './importPlaces'
+import { placesOf, placeTree } from './storagePlaces'
+import { noteImport } from './upkeepStore'
 
 const fileName = (name: string, ext = 'txt') => `${name.trim().replace(/[^\w\- ]+/g, '').replace(/\s+/g, '-') || 'binder'}.${ext}`
 
@@ -28,6 +31,7 @@ export function ExportCollectionDialog({ collection, onDismiss, title = 'Export 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const { collections } = useSync()
   const csv = format === 'csv'
   const rows = csv ? csvEntries ?? collection.entries : collection.entries
   const needsPrintings = format !== 'simple'
@@ -44,7 +48,7 @@ export function ExportCollectionDialog({ collection, onDismiss, title = 'Export 
   const text = rows.length === 0
     ? ''
     : csv
-      ? buildCardListCsv(rows, printings ?? undefined)
+      ? buildCardListCsv(rows, printings ?? undefined, placesOf(collections))
       : buildCardListText(rows, format === 'exact' ? printings ?? undefined : undefined)
   const ready = !!text && !(needsPrintings && loading)
   const pick = (next: typeof format) => { setFormat(next); setCopied(false) }
@@ -111,15 +115,21 @@ export function ImportCardsDialog({ collection, onDismiss, onCreated, startInNew
   onCreated?: (id: string) => void
   startInNewBinder?: boolean
 }) {
-  const { createCollection, importIntoCollection } = useSync()
+  const { collections, createCollection, importIntoCollection, changeStorage } = useSync()
   const [newBinder, setNewBinder] = useState(startInNewBinder)
   const [text, setText] = useState('')
   const [name, setName] = useState('')
   const [stage, setStage] = useState<Stage>({ kind: 'edit' })
   const [error, setError] = useState<string | null>(null)
   const file = useRef<HTMLInputElement>(null)
-  const parsed = parseCardList(text)
+  const parsed = useMemo(() => parseCardList(text), [text])
   const count = parsed.lines.reduce((n, l) => n + l.quantity, 0)
+  // Import with locations: each value of the list's location column, and where it goes (importPlaces.ts).
+  const places = placesOf(collections)
+  const counts = useMemo(() => locationCounts(parsed.lines), [parsed])
+  const [picked, setPicked] = useState<Map<string, PlaceTarget>>(new Map())
+  const suggested = useMemo(() => suggestTargets(counts, places), [counts, places])
+  const targets = useMemo(() => new Map([...suggested].map(([k, t]) => [k, picked.get(k) ?? t])), [suggested, picked])
 
   const run = async () => {
     setError(null)
@@ -129,6 +139,12 @@ export function ImportCardsDialog({ collection, onDismiss, onCreated, startInNew
       if (result.cards.length > 0) {
         const targetId = collection?.id ?? (newBinder ? createCollection(name.trim() || 'Imported', 'OWNED').id : UNSORTED_COLLECTION_ID)
         importIntoCollection(targetId, result.cards)
+        const placements = result.cards.filter((c) => c.locations?.length).map((c) => ({ scryfallId: c.card.id, locations: c.locations! }))
+        if (placements.length > 0) {
+          const now = Date.now()
+          changeStorage((c) => applyImportedPlaces(c, targetId, placements, targets, parsed.locationColumn, now, () => crypto.randomUUID()))
+        }
+        noteImport(result.cards.reduce((n, c) => n + c.quantity + c.foilQuantity, 0), targetId)
         countAction('cards_imported')
         if (!collection && newBinder) onCreated?.(targetId)
       }
@@ -217,7 +233,52 @@ export function ImportCardsDialog({ collection, onDismiss, onCreated, startInNew
           if (!collection && newBinder && !name.trim()) setName(f.name.replace(/\.[^.]+$/, ''))
         }}
       />
+      {counts.length > 0 && (
+        <ImportPlaces counts={counts} targets={targets} disabled={working} onPick={(key, t) => setPicked((m) => new Map(m).set(key, t))} />
+      )}
       {error && <div className="notice warn" style={{ marginTop: 10 }}>{error}</div>}
     </Dialog>
+  )
+}
+
+/**
+ * Import with locations: each value of the list's location column ("Binder 1", "Box R", blank) with
+ * its copies, and where they go — one of the user's places, a new place, or no place yet.
+ */
+function ImportPlaces({ counts, targets, disabled, onPick }: {
+  counts: LocationCount[]; targets: Map<string, PlaceTarget>; disabled: boolean; onPick: (key: string, t: PlaceTarget) => void
+}) {
+  const { collections } = useSync()
+  const tree = placeTree(placesOf(collections))
+  const valueOf = (t: PlaceTarget | undefined) => (t?.kind === 'place' ? `place:${t.placeId}` : t?.kind === 'new' ? 'new' : 'none')
+  return (
+    <div className="import-places">
+      <b>Import with locations</b>
+      <p className="muted">We found a column that looks like where cards are kept. Match each value to a place.</p>
+      {counts.map((c) => {
+        const key = locationKey(c.value)
+        return (
+          <div key={key || '(blank)'} className="import-place-row">
+            <span className="v">{c.value ? `“${c.value}”` : 'Blank'}</span>
+            <span className="n">{c.copies.toLocaleString('en-GB')}</span>
+            <select
+              className="input"
+              aria-label={`Where ${c.value || 'blank'} goes`}
+              value={valueOf(targets.get(key))}
+              disabled={disabled}
+              onChange={(e) => {
+                const v = e.target.value
+                onPick(key, v === 'new' ? { kind: 'new' } : v === 'none' ? { kind: 'none' } : { kind: 'place', placeId: v.slice('place:'.length) })
+              }}
+            >
+              <option value="none">No place yet</option>
+              {c.value && <option value="new">Make a new place</option>}
+              {tree.map((n) => <option key={n.place.id} value={`place:${n.place.id}`}>{`→ ${' '.repeat(n.depth * 2)}${n.place.name}`}</option>)}
+            </select>
+          </div>
+        )
+      })}
+      <p className="dim">Works with Manabind exports and other apps' CSV files that have a binder, box or location column. Exports now include places too.</p>
+    </div>
   )
 }

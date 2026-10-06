@@ -13,6 +13,9 @@
 // Mirrors the Android app's CardListText.kt.
 
 import { conditionCode, conditionName, languageCode, languageName } from './copyDetails'
+import { locationColumnIn } from './importPlaces'
+import { tidyPlaces } from './storagePlaces'
+import type { CopyPlace, StoragePlace } from '../types/models'
 
 /** One line of a list: how many, which card (by id, printing or name), and whether foil. */
 export interface ListLine {
@@ -32,6 +35,11 @@ export interface ListLine {
   condition?: string | null
   /** From a CSV's Language column, as a Scryfall code; left out when it hasn't one. */
   language?: string | null
+  /**
+   * From a CSV's location column — "Binder 1", "Box R" (see importPlaces.ts); left out when the list
+   * has no such column or the cell is blank.
+   */
+  location?: string | null
 }
 
 export type ListSection = 'main' | 'sideboard' | 'maybeboard'
@@ -43,6 +51,8 @@ export interface ParsedList {
   lines: ListLine[]
   /** Lines that looked like cards but couldn't be read. */
   skipped: string[]
+  /** The header of the column that says where cards are kept, as the file spells it; left out when none. */
+  locationColumn?: string
 }
 
 const MAX_COPIES = 999
@@ -157,6 +167,7 @@ function parseCsv(rows: string[], sep: string): ParsedList {
     id: column(header, COLUMNS.id),
     condition: column(header, COLUMNS.condition),
     language: column(header, COLUMNS.language),
+    location: locationColumnIn(header),
   }
   const lines: ListLine[] = []
   const skipped: string[] = []
@@ -172,14 +183,17 @@ function parseCsv(rows: string[], sep: string): ParsedList {
     const quantity = Math.min(Math.max(Number(get(at.quantity)) || 1, 1), MAX_COPIES)
     const condition = conditionCode(get(at.condition))
     const language = languageCode(get(at.language))
+    const location = get(at.location)
     lines.push({
       quantity, name, set, number: get(at.number) || null, scryfallId: id,
       foil: isFoilValue(get(at.foil)) || FOIL_CONDITION.test(get(at.condition)),
       ...(condition ? { condition } : {}),
       ...(language ? { language } : {}),
+      ...(location ? { location } : {}),
     })
   }
-  return { lines, skipped }
+  const locationColumn = at.location >= 0 ? csvCells(rows[0], sep)[at.location] : undefined
+  return locationColumn ? { lines, skipped, locationColumn } : { lines, skipped }
 }
 
 function looksLikeCsv(firstRow: string, sep: string): boolean {
@@ -232,6 +246,7 @@ export interface ListEntry {
   foilQuantity: number
   condition?: string | null
   language?: string | null
+  places?: CopyPlace[]
 }
 
 /**
@@ -253,16 +268,22 @@ export function buildCardListText(entries: ListEntry[], printings?: Map<string, 
 /** A CSV cell, quoted when it has to be. */
 const csvCell = (value: string) => (/[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value)
 
-/** The header buildCardListCsv writes — Moxfield's own column names, which the others read too. */
-export const CARD_LIST_CSV_HEADER = 'Count,Name,Edition,Collector Number,Foil,Condition,Language,Scryfall ID'
+/**
+ * The header buildCardListCsv writes — Moxfield's own column names, which the others read too, and
+ * "Place": where the copies are kept, which an import here reads back (importPlaces.ts).
+ */
+export const CARD_LIST_CSV_HEADER = 'Count,Name,Edition,Collector Number,Foil,Condition,Language,Scryfall ID,Place'
 
 /**
- * The entries as a CSV collection file: one row per card and finish (foils on their own row, "foil"
- * in the Foil column), with the copies' condition and language in words ("Near Mint", "Japanese")
- * when they've been set. [printings] (scryfallId → set code and collector number) fills Edition and
- * Collector Number. Reads back in with parseCardList, here and in other apps.
+ * The entries as a CSV collection file: one row per card, finish and place (foils on their own row,
+ * "foil" in the Foil column; copies in two places two rows, those with no place a row with a blank
+ * Place), with the copies' condition and language in words ("Near Mint", "Japanese") when they've
+ * been set. [printings] (scryfallId → set code and collector number) fills Edition and Collector
+ * Number; [places] (the user's storage places) names each row's place. Reads back in with
+ * parseCardList, here and in other apps.
  */
-export function buildCardListCsv(entries: ListEntry[], printings?: Map<string, { set: string; number: string }>): string {
+export function buildCardListCsv(entries: ListEntry[], printings?: Map<string, { set: string; number: string }>, places: StoragePlace[] = []): string {
+  const names = new Map(places.map((p) => [p.id, p.name]))
   const rows: string[] = [CARD_LIST_CSV_HEADER]
   const byName = [...entries].sort((a, b) => {
     const x = a.name.toLowerCase()
@@ -271,7 +292,7 @@ export function buildCardListCsv(entries: ListEntry[], printings?: Map<string, {
   })
   for (const e of byName) {
     const p = printings?.get(e.scryfallId)
-    const row = (count: number, foil: boolean) => [
+    const row = (count: number, foil: boolean, place: string) => [
       String(count),
       e.name,
       p?.set.toLowerCase() ?? '',
@@ -280,9 +301,27 @@ export function buildCardListCsv(entries: ListEntry[], printings?: Map<string, {
       e.condition ? conditionName(e.condition) : '',
       e.language ? languageName(e.language) : '',
       e.scryfallId,
+      place,
     ].map(csvCell).join(',')
-    if (e.quantity > 0) rows.push(row(e.quantity, false))
-    if (e.foilQuantity > 0) rows.push(row(e.foilQuantity, true))
+    const lines = tidyPlaces(e, e.places ?? [])
+    for (const foil of [false, true]) {
+      let left = foil ? e.foilQuantity : e.quantity
+      if (left <= 0) continue
+      const byPlace = new Map<string, number>()
+      for (const line of lines) {
+        if (!!line.foil !== foil) continue
+        const name = names.get(line.placeId)
+        if (name === undefined) continue
+        byPlace.set(name, (byPlace.get(name) ?? 0) + line.qty)
+      }
+      for (const [name, n] of byPlace) {
+        const take = Math.min(n, left)
+        if (take <= 0) continue
+        rows.push(row(take, foil, name))
+        left -= take
+      }
+      if (left > 0) rows.push(row(left, foil, ''))
+    }
   }
   return rows.join('\n')
 }

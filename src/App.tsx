@@ -22,6 +22,8 @@ import { LendPage } from './pages/LendPage'
 import { CopyHistoryPage } from './pages/CopyHistoryPage'
 import { ValueByPlacePage } from './pages/ValueByPlacePage'
 import { SpacePage } from './pages/SpacePage'
+import { StorageSetupPage } from './pages/StorageSetupPage'
+import { UpkeepPage } from './pages/UpkeepPage'
 import { SellPage } from './pages/SellPage'
 import { CopyPhotoPage } from './pages/CopyPhotoPage'
 import { DecksPage } from './pages/DecksPage'
@@ -100,6 +102,8 @@ export default function App() {
             <Route path="/collections/labels" element={<PlaceLabelPage />} />
             <Route path="/collections/value" element={<ValueByPlacePage />} />
             <Route path="/collections/space" element={<SpacePage />} />
+            <Route path="/collections/setup" element={<StorageSetupPage />} />
+            <Route path="/collections/upkeep" element={<UpkeepPage />} />
             <Route path="/collections/sell" element={<SellPage />} />
             <Route path="/collections/photos" element={<CopyPhotoPage />} />
             <Route path="/loans" element={<LoansPage />} />

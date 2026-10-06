@@ -131,8 +131,9 @@ test('Dragon Shield CSV: the sep= line is passed over and run-together condition
     'Binder,1,0,Counterspell,MH2,Modern Horizons 2,267,LightPlayed,Normal,German,1.00,2024-03-01,0.8,0.9,1.0',
   ].join('\r\n')
   assert.deepEqual(parseCardList(csv).lines, [
-    { ...line(2, 'Arcane Signet', 'cmr', '297', true), condition: 'NM', language: 'en' },
-    { ...line(1, 'Counterspell', 'mh2', '267'), condition: 'LP', language: 'de' },
+    // Its Folder Name says where they're kept (importPlaces.ts).
+    { ...line(2, 'Arcane Signet', 'cmr', '297', true), condition: 'NM', language: 'en', location: 'Binder' },
+    { ...line(1, 'Counterspell', 'mh2', '267'), condition: 'LP', language: 'de', location: 'Binder' },
   ])
   // Excel in much of Europe separates with semicolons and says so the same way.
   const semi = 'sep=;\nQuantity;Card Name;Set Code;Card Number;Printing\n1;Sol Ring;CMR;472;Normal'

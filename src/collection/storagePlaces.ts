@@ -28,7 +28,7 @@ export const SORT_RULE_LABELS: Record<SortRule, string> = {
   COLOUR: 'By colour, then A–Z', SET: 'By set, then number', TYPE: 'By type, then A–Z', NAME: 'A–Z',
 }
 /** The same, inside a line: "Bulk · by colour, then A–Z". */
-const SORT_RULE_SHORT: Record<SortRule, string> = {
+export const SORT_RULE_SHORT: Record<SortRule, string> = {
   COLOUR: 'by colour, then A–Z', SET: 'by set, then number', TYPE: 'by type, then A–Z', NAME: 'A–Z',
 }
 /** A binder's pockets per page unless it says otherwise. */

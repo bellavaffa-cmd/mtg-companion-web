@@ -12,6 +12,8 @@ export interface ListProgress {
   ticked: string[]
   /** The put-back list's choice: "ORIGIN" (where they came from) or "RULE". */
   mode?: string
+  /** A pull list: when its first row was ticked, for Upkeep's "started Tuesday" (upkeep.ts). */
+  startedAt?: number
 }
 
 function read(key: string): ListProgress {
@@ -21,6 +23,7 @@ function read(key: string): ListProgress {
     return {
       ticked: Array.isArray(parsed?.ticked) ? parsed.ticked.filter((k): k is string => typeof k === 'string') : [],
       ...(typeof parsed?.mode === 'string' ? { mode: parsed.mode } : {}),
+      ...(typeof parsed?.startedAt === 'number' ? { startedAt: parsed.startedAt } : {}),
     }
   } catch {
     return { ticked: [] }
@@ -35,7 +38,28 @@ function write(key: string, progress: ListProgress | null) {
 }
 
 export const loadPullProgress = (deckId: string) => read(PULL_KEY + deckId)
-export const savePullProgress = (deckId: string, p: ListProgress | null) => write(PULL_KEY + deckId, p)
+export function savePullProgress(deckId: string, p: ListProgress | null) {
+  // When the list was started: kept while something stays ticked, set at the first tick.
+  const ticking = !!p && p.ticked.length > 0
+  const before = ticking ? read(PULL_KEY + deckId) : null
+  const startedAt = ticking ? (before && before.ticked.length > 0 ? before.startedAt : undefined) ?? p!.startedAt ?? Date.now() : undefined
+  write(PULL_KEY + deckId, p && startedAt ? { ...p, startedAt } : p)
+}
+
+/** The decks' pull lists with something ticked in this browser, and since when (upkeep.ts). */
+export function pullsUnderway(): { deckId: string; ticked: string[]; startedAt?: number }[] {
+  const out: { deckId: string; ticked: string[]; startedAt?: number }[] = []
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (!key?.startsWith(PULL_KEY)) continue
+      const deckId = key.slice(PULL_KEY.length)
+      const p = read(key)
+      if (p.ticked.length > 0) out.push({ deckId, ticked: p.ticked, ...(p.startedAt ? { startedAt: p.startedAt } : {}) })
+    }
+  } catch { /* storage unavailable: none */ }
+  return out
+}
 export const loadPutBackProgress = (deckId: string) => read(PUT_BACK_KEY + deckId)
 export const savePutBackProgress = (deckId: string, p: ListProgress | null) => write(PUT_BACK_KEY + deckId, p)
 
