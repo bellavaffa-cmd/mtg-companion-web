@@ -99,7 +99,7 @@ const byTime = (a: DeckHistoryEntry, b: DeckHistoryEntry) => a.at - b.at || cmp(
 export const sortedHistory = (history: DeckHistoryEntry[]) => [...history].sort(byTime)
 
 /** The deck's list: card name -> copies (commanders included), and its commanders. */
-export function listOf(deck: Deck): ListState {
+export function listStateOf(deck: Deck): ListState {
   const cards: Record<string, number> = {}
   for (const c of deck.cards) cards[c.name] = (cards[c.name] ?? 0) + c.quantity
   return { cards, commanders: [deck.commander?.name, deck.partnerCommander?.name].filter((n): n is string => !!n) }
@@ -258,8 +258,8 @@ const valueOf = (ctx: HistoryContext, deck: Deck | undefined) => (deck && ctx.va
  * first, so there's something to go back to.
  */
 export function withHistory(before: Deck | undefined, after: Deck, ctx: HistoryContext): Deck {
-  const afterState = listOf(after)
-  const beforeState = before ? listOf(before) : EMPTY_LIST
+  const afterState = listStateOf(after)
+  const beforeState = before ? listStateOf(before) : EMPTY_LIST
   if (sameState(beforeState, afterState) || recordedAlready(before, after)) return after
   const now = ctx.now
   let hist = sortedHistory(after.history ?? historyFromVersions(before?.versions ?? after.versions))
@@ -311,7 +311,7 @@ export function withHistory(before: Deck | undefined, after: Deck, ctx: HistoryC
 /** [deck] with its list as it is now saved as a named version. */
 export function withNamedVersion(deck: Deck, name: string, note: string, ctx: HistoryContext): Deck {
   let hist = historyOf(deck)
-  const state = listOf(deck)
+  const state = listStateOf(deck)
   const lastAt = hist.length > 0 ? hist[hist.length - 1].at : -Infinity
   const synced = hist.length > 0 ? catchUp(statesThrough(hist), state, Math.max(ctx.now - 1, lastAt + 1), ctx) : null
   if (synced) hist = [...hist, synced]
@@ -329,8 +329,8 @@ export function withNamedVersion(deck: Deck, name: string, note: string, ctx: Hi
  */
 export function withRestore(before: Deck, after: Deck, toAt: number, ctx: HistoryContext): Deck {
   let hist = historyOf(before)
-  const beforeState = listOf(before)
-  const afterState = listOf(after)
+  const beforeState = listStateOf(before)
+  const afterState = listStateOf(after)
   const lastAt = hist.length > 0 ? hist[hist.length - 1].at : -Infinity
   const synced = hist.length > 0 ? catchUp(statesThrough(hist), beforeState, Math.max(ctx.now - 1, lastAt + 1), ctx) : null
   if (synced) hist = [...hist, synced]

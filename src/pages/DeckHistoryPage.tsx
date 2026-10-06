@@ -9,7 +9,7 @@ import { getCollection } from '../api/scryfall'
 import { knownCards } from '../collection/cardData'
 import { entryFromCard } from '../decks/newDeck'
 import {
-  cardCount, dayText, entryTitle, historyItems, historyOf, linesText, listOf, recordLine, restoreList, sourceText, stateAt,
+  cardCount, dayText, entryTitle, historyItems, historyOf, linesText, listStateOf, recordLine, restoreList, sourceText, stateAt,
   versionDiff, wholeList, withNamedVersion, withRestore, type HistoryItem, type HistoryLine,
 } from '../decks/deckHistory'
 import { historyContext, historyHere } from '../decks/historyDevice'
@@ -44,7 +44,7 @@ export function DeckHistoryPage() {
       </>
     )
   }
-  const total = cardCount(listOf(deck))
+  const total = cardCount(listStateOf(deck))
   const save = () => {
     if (!name.trim()) return
     changeDecksAndStorage((cols, ds) => ({ collections: cols, decks: ds.map((d) => (d.id === deck.id ? withNamedVersion(d, name, note, historyContext()) : d)) }))
@@ -210,7 +210,7 @@ export function DeckVersionPage() {
   const history = useMemo(() => (deck ? historyOf(deck) : []), [deck])
   const entry = history.find((e) => e.id === entryId)
   const then = useMemo(() => (entry ? stateAt(history, entry.id) : null), [history, entry])
-  const nowState = useMemo(() => (deck ? listOf(deck) : null), [deck])
+  const nowState = useMemo(() => (deck ? listStateOf(deck) : null), [deck])
   const diff = then && nowState ? versionDiff(then, nowState) : { gone: [], added: [] }
   const fetched = useCardsByName(then ? Object.keys(then.cards).filter((n) => !nowState?.cards[n]) : [])
 

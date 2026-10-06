@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   COALESCE_MS, MAX_ENTRIES, SNAPSHOT_EVERY, capHistory, diffStates, historyFromVersions, historyItems, keepHistoryFromOlderApp,
-  linesText, listOf, mergeHistory, recordLine, restoreList, sortedHistory, sourceText, stateAt, statesThrough, versionDiff,
+  linesText, listStateOf, mergeHistory, recordLine, restoreList, sortedHistory, sourceText, stateAt, statesThrough, versionDiff,
   withHistory, withNamedVersion, withRestore, type DeckHistoryEntry, type HistoryContext,
 } from '../../src/decks/deckHistory.ts'
 import { mergeDeck } from '../../src/sync/mergeItems.ts'
@@ -88,7 +88,7 @@ test('the list at any point is rebuilt from the nearest whole list', () => {
   assert.ok(h.filter((e) => e.list).length >= 3)
   assert.ok(h.filter((e) => e.list).length <= 4)
   const states = statesThrough(h)
-  assert.deepEqual(states[states.length - 1], listOf(d))
+  assert.deepEqual(states[states.length - 1], listStateOf(d))
   const at5 = stateAt(h, h[5].id)!
   assert.deepEqual(Object.keys(at5.cards).sort(), ['A', 'X0', 'X1', 'X2', 'X3', 'X4'])
   assert.equal(stateAt(h, 'nope'), null)
@@ -114,7 +114,7 @@ test('a list changed by an app with no history becomes one synced entry before t
   const h = sortedHistory(d.history!)
   assert.equal(h.at(-2)!.kind, 'synced')
   assert.deepEqual(h.at(-2)!.cut, [{ n: 'A', q: 1 }])
-  assert.deepEqual(statesThrough(h).at(-1), listOf(d))
+  assert.deepEqual(statesThrough(h).at(-1), listStateOf(d))
 })
 
 test('the value before and after is kept when known', () => {
@@ -171,7 +171,7 @@ test('the cap keeps the last entries and every named version, and the list can s
   const h = d.history!
   assert.equal(h.filter((e) => e.kind !== 'named').length, MAX_ENTRIES)
   assert.equal(h.filter((e) => e.kind === 'named').length, 1)
-  assert.deepEqual(statesThrough(sortedHistory(h)).at(-1), listOf(d))
+  assert.deepEqual(statesThrough(sortedHistory(h)).at(-1), listStateOf(d))
   // The first entry kept after the dropped ones carries the whole list.
   const firstPlain = h.find((e) => e.kind !== 'named')!
   assert.ok(firstPlain.list)
