@@ -18,6 +18,7 @@ import {
   placeTree, placesOf, savePlace, SORT_RULE_LABELS, SORT_RULES, storageSummary, type StorageSummary,
 } from './storagePlaces'
 import { useUpkeep } from './useUpkeep'
+import { gearOf, gearSummary } from './gear'
 import './storage.css'
 
 export const PLACE_ICONS: Record<PlaceKind, string> = { BOX: 'inventory_2', BINDER: 'menu_book', DECK_BOX: 'style', SHELF: 'shelves', OTHER: 'category' }
@@ -34,6 +35,7 @@ export function StorageTab() {
   const share = summary.total > 0 ? summary.placed / summary.total : 0
   const putAway = () => (places.length === 0 ? navigate('/collections/setup') : setChoosing(true))
   const upkeep = useUpkeep()
+  const gearLine = useMemo(() => gearSummary(gearOf(collections), decks), [collections, decks])
 
   return (
     <>
@@ -77,6 +79,11 @@ export function StorageTab() {
           <Icon name="handshake" className="storage-icon" />
           <div className="storage-text"><b>Lent out</b><span>Your loans, and what friends lent you</span></div>
           <span className="storage-n">{count(summary.lent)}</span>
+        </button>
+        <button type="button" className="storage-row storage-card press rise" style={rise(5)} onClick={() => navigate('/collections/gear')}>
+          <Icon name="backpack" className="storage-icon" />
+          <div className="storage-text"><b>Gear</b><span>{gearLine}</span></div>
+          <Icon name="chevron_right" aria-hidden />
         </button>
         <button type="button" className="storage-row storage-card press rise" style={rise(5)} onClick={() => navigate('/collections/household')}>
           <Icon name="shelves" className="storage-icon" />

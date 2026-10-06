@@ -66,6 +66,7 @@ export function PlayPage() {
             <PlayTile icon="leaderboard" title="Playgroup" status={playgroupStatus(stats.games, stats.nemesis?.name ?? null)} onClick={() => navigate('/play/playgroup')} />
             <PlayTile icon="emoji_events" title="Events" status={eventsStatus(running, events.length)} onClick={() => navigate('/play/events')} />
           </div>
+          <PlayRow icon="backpack" title="Pack your bag" subtitle="For a game night or an event: decks, tokens, trades and what to give back" onClick={() => navigate('/play/pack')} />
 
           <SectionHeader
             title="Recent games"

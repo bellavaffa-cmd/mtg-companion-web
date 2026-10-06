@@ -1,0 +1,20 @@
+/* Pack your bag (pages/PackPage.tsx) and Gear (pages/GearPage.tsx). */
+.bag-page { padding-bottom: 96px; }
+.bag-section h2 { margin: 0; font-size: 0.9375rem; font-weight: 800; }
+.bag-line { display: flex; align-items: center; gap: 10px; min-height: 36px; font-size: 0.875rem; cursor: pointer; }
+.bag-line input[type='checkbox'] { width: 22px; height: 22px; margin: 0; accent-color: var(--gold); flex: none; }
+.bag-title { flex: 1; min-width: 0; }
+.bag-detail { color: var(--t1); text-align: right; }
+.bag-detail.warn { color: var(--warn); }
+.bag-home { margin: 0 0 10px; font-weight: 700; }
+.bag-bar {
+  position: sticky; bottom: 0; display: flex; gap: 8px; padding: 12px 16px 20px; max-width: 592px;
+  background: var(--bg, #0c0d11); border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.bag-bar .btn { height: 48px; }
+.bag-all { flex: 1; }
+.gear-row-h { display: flex; justify-content: space-between; gap: 10px; font-size: 0.9375rem; font-weight: 700; }
+.gear-row-h .warn { color: var(--warn); }
+.gear-row-line { font-size: 0.75rem; color: var(--t1); }
+.gear-needs h2 { margin: 0; font-size: 0.9375rem; font-weight: 800; }
+.gear-needs p { margin: 0; font-size: 0.875rem; line-height: 1.45; }

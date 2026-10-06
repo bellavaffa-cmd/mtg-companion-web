@@ -16,6 +16,7 @@ import { keepForSaleFromOlderApp } from '../collection/selling'
 import { keepAlertOptionsFromOlderApp } from '../collection/wishlistTargets'
 import { keepCameFromFromOlderApp } from '../collection/pullList'
 import { keepLoansFromOlderApp } from '../collection/loans'
+import { keepGearFromOlderApp } from '../collection/gear'
 import { keepDeckExtrasFromOlderApp } from '../decks/deckExtras'
 import { keepHistoryFromOlderApp } from '../decks/deckHistory'
 import { syncable } from '../onboarding/onboarding'
@@ -408,7 +409,7 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
         : row.kind === 'deck'
           ? { ...mine, cards: [], considering: [], sideboard: [], tags: [], gameResults: [], versions: [], cameFrom: undefined }
           // The places too: each device's own, kept as additions rather than the cloud's replacing them.
-          : { ...mine, entries: [], storagePlaces: undefined, loans: undefined }
+          : { ...mine, entries: [], storagePlaces: undefined, loans: undefined, gear: undefined }
       const merged = row.kind === 'deck'
         ? mergeDeck(base as Deck, mine as Deck, JSON.parse(theirJson) as Deck, (localEdit ?? 0) > row.edited_ms)
         : mergeCollection(base as Collection, mine as Collection, JSON.parse(theirJson) as Collection, (localEdit ?? 0) > row.edited_ms)
@@ -431,11 +432,12 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
     // saved without when it was last checked (StoragePlace.lastChecked, collection/placeCheck.ts), and
     // for the Unsorted pile saved without its loans (Collection.loans, collection/loans.ts), and for places
     // saved without their size (collection/boxSpace.ts) and cards without their copies to sell
-    // (collection/selling.ts), and wishlist targets without their options (collection/wishlistTargets.ts).
+    // (collection/selling.ts), and wishlist targets without their options (collection/wishlistTargets.ts),
+    // and the Unsorted pile saved without its gear (collection/gear.ts).
     const healed = mineJson === undefined
       ? theirs
       : row.kind === 'collection'
-        ? keepAlertOptionsFromOlderApp(JSON.parse(mineJson) as Collection, keepForSaleFromOlderApp(JSON.parse(mineJson) as Collection, keepPlaceSizes(JSON.parse(mineJson) as Collection, keepLoansFromOlderApp(JSON.parse(mineJson) as Collection, keepLastChecked(JSON.parse(mineJson) as Collection, keepPlacesFromOlderApp(JSON.parse(mineJson) as Collection, theirs as Collection))))))
+        ? keepGearFromOlderApp(JSON.parse(mineJson) as Collection, keepAlertOptionsFromOlderApp(JSON.parse(mineJson) as Collection, keepForSaleFromOlderApp(JSON.parse(mineJson) as Collection, keepPlaceSizes(JSON.parse(mineJson) as Collection, keepLoansFromOlderApp(JSON.parse(mineJson) as Collection, keepLastChecked(JSON.parse(mineJson) as Collection, keepPlacesFromOlderApp(JSON.parse(mineJson) as Collection, theirs as Collection)))))))
         // ...and its primer, folder, archive flag, companion and categories (decks/deckExtras.ts).
         // ...and its history (decks/deckHistory.ts).
         : keepHistoryFromOlderApp(JSON.parse(mineJson) as Deck, keepDeckExtrasFromOlderApp(JSON.parse(mineJson) as Deck, keepCameFromFromOlderApp(JSON.parse(mineJson) as Deck, theirs as Deck)))
@@ -654,7 +656,7 @@ export function applyRescue(library: Library, rescue: Rescue): Library {
           ? JSON.parse(kept.base)
           : isDeck
             ? { ...mine, cards: [], considering: [], sideboard: [], tags: [], gameResults: [], versions: [], cameFrom: undefined }
-            : { ...mine, entries: [], storagePlaces: undefined, loans: undefined }
+            : { ...mine, entries: [], storagePlaces: undefined, loans: undefined, gear: undefined }
         next = isDeck
           ? mergeDeck(base as Deck, mine as Deck, current as Deck, true)
           : mergeCollection(base as Collection, mine as Collection, current as Collection, true)

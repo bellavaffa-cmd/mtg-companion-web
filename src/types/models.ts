@@ -407,6 +407,32 @@ export interface Collection {
    * no "loans" key was saved by an app that doesn't know about loans.
    */
   loans?: Loan[]
+  /**
+   * The Unsorted pile only: the user's gear — sleeves, deck boxes, tokens, dice, playmats (see
+   * collection/gear.ts). Rides along with the pile like [loans] and merges item by item. Left out until
+   * the first item; then kept, as [] once none are left.
+   */
+  gear?: GearItem[]
+}
+
+/** What a piece of gear is. */
+export type GearKind = 'SLEEVES' | 'INNER_SLEEVES' | 'DECK_BOX' | 'TOKENS' | 'DICE' | 'PLAYMAT' | 'OTHER'
+
+/**
+ * A piece of gear (collection/gear.ts). [count]: sleeves left, tokens of that name, dice… (1 for a
+ * deck box). [usedBy]: the decks, binders or places a pack of sleeves is on. [holds]: the deck (or
+ * binder) a deck box holds. [placeId]: where it's kept. The Android app's GearItem, field for field.
+ */
+export interface GearItem {
+  id: string
+  kind: GearKind
+  name: string
+  count: number
+  usedBy?: string[]
+  holds?: string
+  placeId?: string
+  note?: string
+  createdAt: number
 }
 
 // The pile's "loans" as JSON — locally and in sync:

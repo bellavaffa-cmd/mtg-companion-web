@@ -378,6 +378,35 @@ export function syncScenarios(cas: boolean) {
     }
   })
 
+  // Gear rides on the Unsorted pile too (Collection.gear, collection/gear.ts): an older app's save of
+  // the pile keeps it, and two devices' gear merges item by item.
+  const sleeves = { id: 'G1', kind: 'SLEEVES' as const, name: 'Black matte sleeves', count: 38, usedBy: ['d1'], createdAt: 1 }
+  test("an older app's save of the pile doesn't lose the gear", async () => {
+    sim.reset('A', 'B')
+    sim.setLibrary('A', { decks: [], collections: [{ ...unsorted([card('x', 2)], [redBox]), gear: [sleeves] }] })
+    await sim.settle('A', 'B')
+    sim.setLibrary('B', { decks: [], collections: [unsorted([card('x', 2)], [{ ...redBox, name: 'Red box, top' }])] })
+    await sim.pass('B')
+    await sim.settle('A')
+    const a = sim.library('A').collections[0]
+    assert.deepEqual(a.gear, [sleeves])
+    assert.equal(a.storagePlaces?.[0].name, 'Red box, top')
+    assert.deepEqual((sim.collectionRow('unsorted')!.data as { gear?: unknown }).gear, [sleeves])
+  })
+
+  test('gear added on one device and changed on another keeps both', async () => {
+    sim.reset('A', 'B')
+    sim.setLibrary('A', { decks: [], collections: [{ ...unsorted([card('x', 2)], [redBox]), gear: [sleeves] }] })
+    await sim.settle('A', 'B')
+    sim.setLibrary('A', { decks: [], collections: [{ ...unsorted([card('x', 2)], [redBox]), gear: [{ ...sleeves, count: 20 }] }] })
+    const box = { id: 'G2', kind: 'DECK_BOX' as const, name: 'Red', count: 1, holds: 'd1', createdAt: 2 }
+    sim.setLibrary('B', { decks: [], collections: [{ ...unsorted([card('x', 2)], [redBox]), gear: [sleeves, box] }] })
+    await sim.settle('A', 'B', 'A')
+    for (const d of ['A', 'B']) {
+      assert.deepEqual(sim.library(d).collections[0].gear!.map((g) => `${g.id} ${g.count}`), ['G1 20', 'G2 1'])
+    }
+  })
+
   test('copies given places on two devices at once keep both', async () => {
     sim.reset('A', 'B')
     sim.setLibrary('A', { decks: [], collections: [unsorted([card('x', 3)], [redBox])] })
