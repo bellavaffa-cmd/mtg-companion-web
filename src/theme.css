@@ -4306,6 +4306,13 @@ button.tag-chip {
   text-overflow: ellipsis;
 }
 
+/* A search result's price, under its name in the grid. */
+.card-cell-price {
+  font-size: 0.75rem;
+  color: var(--t1);
+  font-variant-numeric: tabular-nums;
+}
+
 /* The card a mouse is resting on, shown big beside it (components/CardHoverPreview.tsx). Mouse
    only, and never takes the pointer, so it can't get in the way of a click. */
 .card-hover-preview {

@@ -20,6 +20,7 @@ const VIEW_SURFACES: { surface: CardViewSurface; label: string }[] = [
   { surface: 'binder', label: 'Binder cards' },
   { surface: 'deck', label: 'Deck cards' },
   { surface: 'allCards', label: 'All Cards' },
+  { surface: 'search', label: 'Search results' },
 ]
 
 /**

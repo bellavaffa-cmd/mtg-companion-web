@@ -9,7 +9,7 @@ export type AccentTheme = 'GOLD' | 'SAPPHIRE' | 'AMETHYST' | 'RUBY' | 'EMERALD'
 /** How a screen lays out its cards: a detailed row, or a compact grid of card art. */
 export type CardViewMode = 'list' | 'grid'
 /** The screens with a list/grid choice on the web. */
-export type CardViewSurface = 'binder' | 'deck' | 'allCards'
+export type CardViewSurface = 'binder' | 'deck' | 'allCards' | 'search'
 
 export const BRIGHTNESS_DEFAULT: AppBrightness = 'DARK'
 export const ACCENT_DEFAULT: AccentTheme = 'GOLD'
@@ -38,6 +38,8 @@ export const KEYS = {
     allCards: 'mtgweb_all_cards_view',
     deck: 'mtgweb_deck_cards_view',
     binder: 'mtgweb_binder_cards_view',
+    // The Search tab's results (the Android app's search_view_mode).
+    search: 'mtgweb_search_cards_view',
   } satisfies Record<CardViewSurface, string>,
 }
 

@@ -11,7 +11,7 @@ import { EmptyState } from './EmptyState'
 import { useLongPress } from './useLongPress'
 import { CardZoomModal, zoomSteps } from './CardZoomModal'
 import { buyCardUrl } from '../api/buy'
-import { ArtImage, PillChip, SearchPill, toArtCrop } from './kit'
+import { ArtImage, IconButton, PillChip, SearchPill, toArtCrop } from './kit'
 import { SearchFiltersPanel } from './SearchFiltersPanel'
 import { buildScryfallQuery, DEFAULT_SORT, NO_FILTERS, type SearchFilters, type SearchSort } from '../search/filters'
 import { canBeFoil, onlyFoil } from '../collection/addTo'
@@ -19,6 +19,7 @@ import { appendPage } from '../search/pages'
 import { useSync } from '../sync/SyncContext'
 import { cardSources, sourcesLabel, type HeldIn } from '../collection/cardSources'
 import { keptInLabel } from '../collection/storagePlaces'
+import { useCardViewMode } from '../settings/settings'
 
 interface Props {
   /** Inside a deck or binder: adding goes straight there (the page shows the Undo bar). Omitted on
@@ -57,6 +58,10 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
   const [zoomCard, setZoomCard] = useState<ScryfallCard | null>(null)
   const [sheetCard, setSheetCard] = useState<ScryfallCard | null>(null)
   const [filters, setFilters] = useState<SearchFilters>(NO_FILTERS)
+  // List or grid, on the Search tab only (inside a deck or binder the rows' Add buttons matter more).
+  // Remembered, and the same choice as Settings › Card Display › Search results.
+  const [savedView, setView] = useCardViewMode('search')
+  const view = filterable ? savedView : 'list'
   const [sort, setSort] = useState<SearchSort>(DEFAULT_SORT)
   const [filtersOpen, setFiltersOpen] = useState(false)
   // What's actually sent to Scryfall: the typed query plus the filters, like the phone app.
@@ -128,7 +133,20 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
 
   return (
     <div>
-      <SearchPill value={query} onChange={setQuery} placeholder={placeholder} autoFocus={autoFocus} />
+      {filterable ? (
+        <div className="row" style={{ gap: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <SearchPill value={query} onChange={setQuery} placeholder={placeholder} autoFocus={autoFocus} />
+          </div>
+          <IconButton
+            icon={view === 'list' ? 'grid_view' : 'view_list'}
+            label={view === 'list' ? 'Show as a grid' : 'Show as a list'}
+            onClick={() => setView(view === 'list' ? 'grid' : 'list')}
+          />
+        </div>
+      ) : (
+        <SearchPill value={query} onChange={setQuery} placeholder={placeholder} autoFocus={autoFocus} />
+      )}
       {filterable && (
         <SearchFiltersPanel
           filters={filters}
@@ -154,11 +172,19 @@ export function CardSearchResults({ onAdd, placeholder = 'Search Scryfall, e.g. 
       {!loading && !error && effective.trim() && cards.length === 0 && (
         <EmptyState icon="search_off" text="No cards match. Check the spelling, or try fewer filters." actions={[{ label: 'Clear search', onClick: () => setQuery('') }]} />
       )}
-      <div className={`list${wide ? ' wide-list' : ''}`} style={{ marginTop: 12 }}>
-        {cards.map((card) => (
-          <ResultRow key={card.id} card={card} held={held.get(card.id)} onZoom={() => setZoomCard(card)} onMore={() => setSheetCard(card)} onAdd={onAdd ? () => add(card) : undefined} />
-        ))}
-      </div>
+      {view === 'grid' ? (
+        <div className="card-grid" style={{ marginTop: 12 }}>
+          {cards.map((card) => (
+            <ResultTile key={card.id} card={card} held={held.get(card.id)} onZoom={() => setZoomCard(card)} onMore={() => setSheetCard(card)} />
+          ))}
+        </div>
+      ) : (
+        <div className={`list${wide ? ' wide-list' : ''}`} style={{ marginTop: 12 }}>
+          {cards.map((card) => (
+            <ResultRow key={card.id} card={card} held={held.get(card.id)} onZoom={() => setZoomCard(card)} onMore={() => setSheetCard(card)} onAdd={onAdd ? () => add(card) : undefined} />
+          ))}
+        </div>
+      )}
       {!loading && !error && hasMore && (
         <div style={{ marginTop: 12, textAlign: 'center' }}>
           {moreError && <div className="muted" style={{ color: 'var(--error)', marginBottom: 8 }}>{moreError}</div>}
@@ -258,6 +284,26 @@ function ResultRow({ card, held, onZoom, onMore, onAdd }: { card: ScryfallCard; 
           <Icon name="more_vert" style={{ fontSize: 20 }} />
         </button>
       )}
+    </div>
+  )
+}
+
+/** A result as a card in the grid: tap to look at it, hold for Add to…; its price, and how many you own. */
+function ResultTile({ card, held, onZoom, onMore }: { card: ScryfallCard; held?: HeldIn[]; onZoom: () => void; onMore: () => void }) {
+  const money = useMoney()
+  const longPress = useLongPress({ onLongPress: onMore, onClick: onZoom })
+  const image = displayImageUrl(card)
+  const owned = (held ?? []).reduce((n, h) => n + h.quantity, 0)
+  const price = card.prices?.usd ? money.formatPrice(card.prices.usd) : ''
+  return (
+    <div className="card-cell press" {...longPress}>
+      <div className="card-cell-img">
+        {image ? <img src={image} alt={card.name} loading="lazy" /> : <ArtImage src={null} seed={card.name} colors={card.color_identity} />}
+        {owned > 0 && <span className="card-cell-count" title={held?.map((h) => `${h.name} ×${h.quantity}`).join(', ')}><span aria-hidden="true">×</span>{owned}<span className="sr-only"> owned</span></span>}
+        {hasFlipSides(card) && <span className="flip-badge"><Icon name="autorenew" /></span>}
+      </div>
+      <div className="card-cell-name" aria-hidden={image ? true : undefined}>{card.name}</div>
+      {price && <div className="card-cell-price">{price}</div>}
     </div>
   )
 }
