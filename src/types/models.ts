@@ -255,8 +255,15 @@ export interface CollectionEntry {
   backImageUrl?: string | null
   /** Cached from cardTags() at add-time — see DeckCardEntry.tags. */
   tags?: string[]
-  /** Wishlists: tell the user when this card's price (USD, non-foil) is at or under this. */
+  /** Wishlists: tell the user when this card's price (USD, non-foil) is at or under this — its target. */
   priceAlert?: number | null
+  /**
+   * Wishlists: any printing of the card counts for [priceAlert] — the cheapest is checked (see
+   * collection/wishlistTargets.ts). Left out until a target is set with it; then true or false.
+   */
+  alertAnyPrinting?: boolean
+  /** Wishlists: only a foil copy will do — [priceAlert] is checked against the foil price. Left out and kept as [alertAnyPrinting]. */
+  alertFoilOnly?: boolean
   /**
    * The user's own words about this copy — "proxy", "signed", "borrowed from Sam". They belong to
    * the copy, not to the card, so they follow it from a binder into a deck and back; every entry
@@ -302,6 +309,8 @@ export interface CollectionEntry {
 // there's nothing to say; see collection/copyDetails.ts):
 //   "priceAlert":      number, USD — wishlists: notify when the price is at or below it
 //   "priceAlertAbove": number, USD — owned binders: notify when the price is at or above it
+//   "alertAnyPrinting": boolean — wishlists: any printing counts for "priceAlert" (the cheapest is checked)
+//   "alertFoilOnly":   boolean — wishlists: "priceAlert" is checked against the foil price
 //   "condition":       "NM" | "LP" | "MP" | "HP" | "DMG" — for every copy in the entry
 //   "language":        "en" | "ja" | "de" | "fr" | "it" | "es" | "pt" | "ru" | "ko" | "zhs" | "zht"
 //   "places":          [{ "placeId": "…", "qty": 2, "foil": true, "section": "Red" }, { "placeId": "…", "qty": 1, "page": 3, "slot": 5 }]

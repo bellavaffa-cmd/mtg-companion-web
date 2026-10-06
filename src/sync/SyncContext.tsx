@@ -35,6 +35,7 @@ import { takeCopies } from '../collection/addTo'
 import { splitPlaces } from '../collection/storagePlaces'
 import { changeBetween, isNoChange, undoChange } from './undo'
 import { withCopiesOf, withCopyDetails, withOptional } from '../collection/copyDetails'
+import { withTarget } from '../collection/wishlistTargets'
 
 /** What a user-requested sync ended with. */
 export type RefreshResult =
@@ -225,8 +226,10 @@ interface SyncContextValue {
   /** Removes several cards from a binder in one change. */
   removeEntriesFromCollection: (collectionId: string, scryfallIds: string[]) => void
   setEntryQuantities: (collectionId: string, scryfallId: string, quantity: number, foilQuantity: number) => void
-  /** A wishlist card's price alert (USD); null turns it off. */
-  setEntryPriceAlert: (collectionId: string, scryfallId: string, usd: number | null) => void
+  /** A wishlist card's price alert — its target (USD); null turns it off. [options]: which prices count (collection/wishlistTargets.ts). */
+  setEntryPriceAlert: (collectionId: string, scryfallId: string, usd: number | null, options?: { anyPrinting: boolean; foilOnly: boolean }) => void
+  /** Several wishlist cards' targets in one change (scryfallId → USD): "Set targets for all…". */
+  setEntryPriceAlerts: (collectionId: string, targets: Map<string, number>, options: { anyPrinting: boolean; foilOnly: boolean }) => void
   /** An owned card's "tell me when it rises to" alert (USD); null turns it off. */
   setEntryPriceAlertAbove: (collectionId: string, scryfallId: string, usd: number | null) => void
   /** The condition and language of a binder card's copies (see collection/copyDetails.ts); null leaves one unsaid. */
@@ -1372,11 +1375,24 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   )
 
   const setEntryPriceAlert = useCallback(
-    (collectionId: string, scryfallId: string, usd: number | null) => {
+    (collectionId: string, scryfallId: string, usd: number | null, options?: { anyPrinting: boolean; foilOnly: boolean }) => {
       updateLibrary((lib) =>
         mapCollection(lib, collectionId, (collection) => ({
           ...collection,
-          entries: collection.entries.map((e) => (e.scryfallId === scryfallId ? withOptional(e, 'priceAlert', usd) : e)),
+          entries: collection.entries.map((e) => (e.scryfallId === scryfallId ? withTarget(e, usd, options) : e)),
+        })),
+      )
+    },
+    [updateLibrary, mapCollection],
+  )
+
+  const setEntryPriceAlerts = useCallback(
+    (collectionId: string, targets: Map<string, number>, options: { anyPrinting: boolean; foilOnly: boolean }) => {
+      if (targets.size === 0) return
+      updateLibrary((lib) =>
+        mapCollection(lib, collectionId, (collection) => ({
+          ...collection,
+          entries: collection.entries.map((e) => (targets.has(e.scryfallId) ? withTarget(e, targets.get(e.scryfallId)!, options) : e)),
         })),
       )
     },
@@ -1485,6 +1501,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       changePrintingEverywhere,
       setEntryQuantities,
       setEntryPriceAlert,
+      setEntryPriceAlerts,
       setEntryPriceAlertAbove,
       setEntryCopyDetails,
       changeCollections,
@@ -1506,7 +1523,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       signInWithToken, syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setReplaceable, setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, setCardTags, addGameResult,
       addCardsToDeck, stopConsidering, considerIntoDeck, moveToConsidering, swapConsidered, importIntoDeck, addCardToSideboard, setSideboardQuantity, moveToSideboard, moveToMain, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
-      setEntryQuantities, setEntryPriceAlert, setEntryPriceAlertAbove, setEntryCopyDetails, changeCollections, changeStorage, changeDecksAndStorage, importIntoCollection, moveEntries, recordUndo, removeEntriesFromCollection,
+      setEntryQuantities, setEntryPriceAlert, setEntryPriceAlerts, setEntryPriceAlertAbove, setEntryCopyDetails, changeCollections, changeStorage, changeDecksAndStorage, importIntoCollection, moveEntries, recordUndo, removeEntriesFromCollection,
     ],
   )
 

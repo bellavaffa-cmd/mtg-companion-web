@@ -697,3 +697,151 @@
   text-align: center;
   box-sizing: border-box;
 }
+
+/* A binder row's words: the name and badges, and on the Wishlist the target line under them. */
+.cbody {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+}
+
+/* The Wishlist's price targets (collection/WishlistTargetsUi.tsx). */
+.wishlist-total {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.75rem;
+  color: var(--gold);
+  white-space: nowrap;
+}
+.under-price {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--gold) 14%, var(--g0));
+}
+.under-price-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gold);
+}
+.under-price-head h2 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  color: var(--t0);
+}
+.under-price-line {
+  font-size: 0.875rem;
+}
+.under-price-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.target-count {
+  margin-top: 14px;
+  letter-spacing: 0.06em;
+}
+.target-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.target-line {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  color: var(--t1);
+}
+.target-line.hit,
+.target-price.hit {
+  color: var(--gold);
+}
+.target-price {
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+.wishlist-foot {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  max-width: 480px;
+}
+.wishlist-foot .btn {
+  flex: 1;
+}
+.target-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+.target-now {
+  font-size: 0.8125rem;
+}
+.target-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--t1);
+}
+.target-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 52px;
+  padding: 0 14px;
+  border-radius: 14px;
+  background: var(--g0);
+  box-shadow: inset 0 0 0 1px var(--gold);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.75rem;
+  color: var(--t1);
+}
+.target-field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--t0);
+  font: inherit;
+  outline: none;
+}
+.target-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.target-check input {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  accent-color: var(--gold);
+}
+.target-note {
+  margin: 0;
+  font-size: 0.75rem;
+}
+.target-actions {
+  display: flex;
+  gap: 8px;
+}
+.target-actions .btn.gold {
+  flex: 1;
+}

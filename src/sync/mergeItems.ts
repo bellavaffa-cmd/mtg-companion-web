@@ -33,6 +33,7 @@ import type { Collection, CollectionEntry, Deck, DeckCardEntry, GameResult } fro
 import { canonicalJson } from './canonicalJson'
 import { keepPlaceSizes, keepPlacesFromOlderApp, mergeCopyPlaces, mergePlaceLists, tidied } from '../collection/storagePlaces'
 import { keepForSaleFromOlderApp } from '../collection/selling'
+import { keepAlertOptionsFromOlderApp } from '../collection/wishlistTargets'
 import { keepCameFromFromOlderApp, mergeCameFrom } from '../collection/pullList'
 import { keepLoansFromOlderApp, mergeLoans } from '../collection/loans'
 import { keepDeckExtrasFromOlderApp, mergeDeckExtras } from '../decks/deckExtras'
@@ -216,8 +217,9 @@ export function mergeCollection(base: Collection, mineIn: Collection, theirsIn: 
   // A side saved by an app that doesn't know about places left them as they were.
   // ...and one that doesn't know about loans left those as they were.
   // ...and one that doesn't know about place sizes or copies to sell left those as they were.
-  const mine = keepForSaleFromOlderApp(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, mineIn))))
-  const theirs = keepForSaleFromOlderApp(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, theirsIn))))
+  // ...and one that doesn't know about a wishlist target's options left those as they were.
+  const mine = keepAlertOptionsFromOlderApp(base, keepForSaleFromOlderApp(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, mineIn)))))
+  const theirs = keepAlertOptionsFromOlderApp(base, keepForSaleFromOlderApp(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, theirsIn)))))
   const placesIn = (list: CollectionEntry[]) => new Map(list.map((e) => [e.scryfallId, e]))
   const [b, m, t] = [placesIn(base.entries), placesIn(mine.entries), placesIn(theirs.entries)]
   // Each card's places line by line (one added on both sides keeps the other device's), then no more

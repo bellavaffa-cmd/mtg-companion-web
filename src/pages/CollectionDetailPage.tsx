@@ -25,7 +25,10 @@ import { Dialog } from '../components/Dialog'
 import { isUnsorted, type CollectionEntry } from '../types/models'
 import { decksConsidering, isWishlist } from '../collection/wishlist'
 import { buyCardUrl, buyListUrl } from '../api/buy'
-import { askForNotifications, usePrices } from '../collection/priceAlerts'
+import { askForNotifications, readGotIt, usePriceAlertHits, usePricePairs, writeGotIt } from '../collection/priceAlerts'
+import { alertPrice, alertWatches, priceKey } from '../collection/priceAlertRules'
+import { gotItKept, targetCount, targetsForAll, underYourPrice, wishlistTotal, withGotIt } from '../collection/wishlistTargets'
+import { SetTargetsForAllDialog, TargetLineText, TargetSheet, UnderYourPriceBox } from '../collection/WishlistTargetsUi'
 import { useMoney } from '../money/currency'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
 import { useCardViewMode } from '../settings/settings'
@@ -38,7 +41,7 @@ export function CollectionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const back = useBack('/collections?tab=binders')
   const {
-    collections, decks, setEntryQuantities, setEntryPriceAlert, setEntryPriceAlertAbove, setEntryCopyDetails, removeEntryFromCollection, removeEntriesFromCollection, moveEntries,
+    collections, decks, setEntryQuantities, setEntryPriceAlert, setEntryPriceAlerts, setEntryPriceAlertAbove, setEntryCopyDetails, removeEntryFromCollection, removeEntriesFromCollection, moveEntries,
     notInterested, wantAgain, changeEntryPrinting, setCardTags, addCardToDeck, addCardsToDeck, recordUndo,
   } = useSync()
   const addCardTo = useAddCardTo()
@@ -49,15 +52,36 @@ export function CollectionDetailPage() {
   const collection = collections.find((c) => c.id === id)
   // A wishlist shows what each card costs now, and can watch for it to drop.
   const wishlist = collection?.type === 'WISHLIST'
-  const prices = usePrices(collection?.entries ?? [], wishlist)
+  const pricePairs = usePricePairs(collection?.entries ?? [], wishlist)
+  // The alerts as checked — a target any printing of which counts is checked against the cheapest.
+  const alerts = usePriceAlertHits(collections)
+  const prices = useMemo(() => {
+    if (!pricePairs) return undefined
+    const out = new Map([...pricePairs].map(([id, [plain]]) => [id, plain]))
+    // A card with a target shows the price its target is checked against.
+    if (wishlist && collection && alerts.prices) {
+      for (const w of alertWatches([collection])) {
+        const p = alerts.prices.get(priceKey(w))
+        if (p) out.set(w.entry.scryfallId, alertPrice(w, p[0], p[1]))
+      }
+    }
+    return out
+  }, [pricePairs, alerts.prices, wishlist, collection])
+  // "Got it" on the Under your price box, kept in this browser: card → its price then.
+  const [gotIt, setGotIt] = useState<Record<string, number>>(readGotIt)
+  const underHere = wishlist && alerts.allHits ? alerts.allHits.filter((h) => h.watch.collectionId === collection?.id) : undefined
+  useEffect(() => {
+    if (!underHere) return
+    const kept = gotItKept(gotIt, underHere)
+    if (kept !== gotIt) { setGotIt(kept); writeGotIt(kept) }
+  }, [underHere, gotIt])
+  const [settingAll, setSettingAll] = useState(false)
   // Prices show — and alerts are typed — in the chosen currency; they're kept in US dollars.
   const money = useMoney()
   const formatUsd = (v: number) => money.format(v)
-  const decimals = money.currency.decimals ?? 2
   // What each card does: found by the search, shown in the zoom.
   const { tags: roleTags, loading: tagging } = useRoleTags(collection?.entries.map((e) => e.name) ?? [])
   const [alerting, setAlerting] = useState<CollectionEntry | null>(null)
-  const [alertText, setAlertText] = useState('')
   const [zoomId, setZoomId] = useState<string | null>(null)
   const [sheet, setSheet] = useState<CollectionEntry | null>(null)
   const [filter, setFilter] = useState('')
@@ -98,6 +122,9 @@ export function CollectionDetailPage() {
   }
 
   const zoomEntry = collection.entries.find((e) => e.scryfallId === zoomId) ?? null
+  // The Wishlist: what it all costs, and the cards under their target — less any "Got it" said to.
+  const total = wishlist && prices ? wishlistTotal(collection.entries, prices) : null
+  const under = underHere ? underYourPrice(underHere, gotIt) : []
   const cards = collection.entries.reduce((s, e) => s + e.quantity, 0)
   const foils = collection.entries.reduce((s, e) => s + e.foilQuantity, 0)
   const q = filter.trim().toLowerCase()
@@ -217,6 +244,7 @@ export function CollectionDetailPage() {
             </div>
         )}
       </div>
+      {wishlist && <div className="eyebrow target-count">{targetCount(collection.entries).toUpperCase()}</div>}
       {view === 'grid' ? (
         <div className="card-grid" style={{ marginTop: 14 }}>
           {shown.map((entry) => (
@@ -244,6 +272,7 @@ export function CollectionDetailPage() {
             onZoom={() => setZoomId(entry.scryfallId)}
             onMore={() => setSheet(entry)}
             price={wishlist ? prices?.get(entry.scryfallId) : undefined}
+            onTarget={wishlist ? () => setAlerting(entry) : undefined}
             considering={entry.auto ? decksConsidering(decks, entry.name).join(', ') || undefined : undefined}
             onIncrement={() => setQty(entry, entry.quantity + 1, entry.foilQuantity)}
             onDecrement={() => setQty(entry, entry.quantity - 1, entry.foilQuantity)}
@@ -251,6 +280,21 @@ export function CollectionDetailPage() {
         ))}
         {shown.length === 0 && <div className="empty-state">Nothing in this binder matches “{filter}”.</div>}
       </div>
+      )}
+      {wishlist && (
+        <div className="wishlist-foot">
+          <button type="button" className="btn line" onClick={() => setSettingAll(true)}>Set targets for all…</button>
+          <button
+            type="button"
+            className="btn gold"
+            onClick={() => {
+              const url = buyListUrl(collection.entries.map((e) => ({ name: e.name, quantity: e.quantity })))
+              if (url) window.open(url, '_blank', 'noopener,noreferrer')
+            }}
+          >
+            Buy these cards
+          </button>
+        </div>
       )}
     </>
   )
@@ -286,7 +330,11 @@ export function CollectionDetailPage() {
       <div className="content-scroll">
         <div className="binder-head rise" style={rise(0)}>
           <div className="eyebrow">{unsorted ? 'Not in a binder yet' : collection.type === 'WISHLIST' ? 'Wishlist' : 'Binder'}</div>
-          <h1>{collection.name}</h1>
+          <div className="row" style={{ alignItems: 'baseline', gap: 12 }}>
+            <h1 style={{ flex: 1, minWidth: 0 }}>{collection.name}</h1>
+            {/* What the Wishlist would cost today. */}
+            {wishlist && total != null && <span className="wishlist-total" aria-label={`All of it: ${formatUsd(total)}`}>{money.format(total, true)}</span>}
+          </div>
         </div>
         {collection.sample && <SamplesBar style={{ marginTop: 10 }} />}
         {isWishlist(collection) && (collection.notWanted ?? []).length > 0 && (
@@ -307,6 +355,11 @@ export function CollectionDetailPage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+        {wishlist && under.length > 0 && (
+          <div style={{ marginTop: 12, maxWidth: 720 }}>
+            <UnderYourPriceBox hits={under} onGotIt={() => { const next = withGotIt(gotIt, under); setGotIt(next); writeGotIt(next) }} />
           </div>
         )}
         {isWishlist(collection) && (
@@ -343,14 +396,10 @@ export function CollectionDetailPage() {
             { label: 'View card', icon: 'visibility', onClick: () => setZoomId(sheet.scryfallId) },
             ...(wishlist
               ? [{
-                  label: 'Price alert',
+                  label: 'Price target',
                   icon: sheet.priceAlert ? 'notifications_active' : 'notifications',
-                  detail: sheet.priceAlert ? `When it's ${formatUsd(sheet.priceAlert)} or less` : 'Hear when it gets cheaper',
-                  onClick: () => {
-                    const now = prices?.get(sheet.scryfallId)
-                    setAlertText(sheet.priceAlert ? money.toLocal(sheet.priceAlert).toFixed(decimals) : now ? (money.toLocal(now) * 0.9).toFixed(decimals) : '')
-                    setAlerting(sheet)
-                  },
+                  detail: sheet.priceAlert ? `Alert me under ${formatUsd(sheet.priceAlert)}` : "Tell me when it's cheaper",
+                  onClick: () => setAlerting(sheet),
                 }]
               : []),
             { label: 'Add a foil copy', icon: 'auto_awesome', tone: 'gold', onClick: () => setQty(sheet, sheet.quantity, sheet.foilQuantity + 1) },
@@ -457,45 +506,27 @@ export function CollectionDetailPage() {
       )}
 
       {alerting && (
-        <Dialog
-          title={`Price alert · ${alerting.name}`}
-          onDismiss={() => setAlerting(null)}
-          actions={
-            <>
-              {alerting.priceAlert ? (
-                <button type="button" className="btn line" onClick={() => { setEntryPriceAlert(collection.id, alerting.scryfallId, null); setAlerting(null) }}>Turn off</button>
-              ) : (
-                <button type="button" className="btn line" onClick={() => setAlerting(null)}>Cancel</button>
-              )}
-              <button
-                type="button"
-                className="btn gold"
-                disabled={!(Number(alertText) > 0)}
-                onClick={() => {
-                  setEntryPriceAlert(collection.id, alerting.scryfallId, Math.round(money.toUsd(Number(alertText)) * 10_000) / 10_000)
-                  askForNotifications()
-                  setAlerting(null)
-                }}
-              >
-                Save
-              </button>
-            </>
-          }
-        >
-          <p className="muted" style={{ marginTop: 0 }}>
-            {prices?.get(alerting.scryfallId) != null ? `It's ${formatUsd(prices.get(alerting.scryfallId)!)} now. ` : ''}
-            Tell me when it's this much or less ({money.currency.code}, non-foil):
-          </p>
-          <input
-            className="input"
-            inputMode="decimal"
-            value={alertText}
-            onChange={(e) => setAlertText(e.target.value.replace(/[^0-9.]/g, ''))}
-            aria-label={`Alert price in ${money.currency.code}`}
-            autoFocus
-          />
-          <p className="dim" style={{ marginBottom: 0 }}>Checked when you open the app. The Android app can also send a notification.</p>
-        </Dialog>
+        <TargetSheet
+          entry={alerting}
+          now={pricePairs?.get(alerting.scryfallId)}
+          onSave={(usd, options) => {
+            setEntryPriceAlert(collection.id, alerting.scryfallId, usd, options)
+            if (usd != null) askForNotifications()
+            setAlerting(null)
+          }}
+          onClose={() => setAlerting(null)}
+        />
+      )}
+      {settingAll && (
+        <SetTargetsForAllDialog
+          count={(percent) => targetsForAll(collection.entries, prices ?? new Map(), percent).size}
+          onSet={(percent) => {
+            setEntryPriceAlerts(collection.id, targetsForAll(collection.entries, prices ?? new Map(), percent), { anyPrinting: true, foilOnly: false })
+            askForNotifications()
+            setSettingAll(false)
+          }}
+          onClose={() => setSettingAll(false)}
+        />
       )}
 
       {listDialog === 'import' && <ImportCardsDialog collection={collection} onDismiss={() => setListDialog(null)} />}
@@ -552,9 +583,11 @@ export function CollectionDetailPage() {
 }
 
 function EntryRow({
-  entry, selecting, selected, price, considering, onToggle, onZoom, onMore, onIncrement, onDecrement,
+  entry, selecting, selected, price, considering, onTarget, onToggle, onZoom, onMore, onIncrement, onDecrement,
 }: {
   entry: CollectionEntry
+  /** Wishlists: opens the card's target sheet; the row then says how far off its target it is. */
+  onTarget?: () => void
   /** The Wishlist: the decks considering a card it has because of them. */
   considering?: string
   /** Wishlists: today's price (null: none), undefined elsewhere or while loading. */
@@ -578,21 +611,29 @@ function EntryRow({
         <ArtImage className="thumb" src={toArtCrop(entry.imageUrl)} seed={entry.name} />
         {entry.backImageUrl && <span className="flip-badge"><Icon name="autorenew" /></span>}
       </div>
-      <div className="cmain" {...longPress}>
-        <div className="cname">{entry.name}</div>
-        <div className="cmeta">
-          {entry.foilQuantity > 0 && <span className="badge gold"><Icon name="auto_awesome" />{entry.foilQuantity} foil</span>}
-          {/* The copies' condition and language, only when the user has said. */}
-          {copyBadges(entry).map((b) => <CopyBadge key={b} text={b} title={b === entry.condition ? conditionName(b) : languageName(entry.language ?? '')} />)}
-          {entry.priceAlertAbove ? <Icon name="notifications_active" className="copy-alert-bell" aria-label="Price alert set" /> : null}
-          {(price != null || entry.priceAlert) && (
-            <span className={`price-tag${price != null && entry.priceAlert && price <= entry.priceAlert ? ' hit' : ''}`}>
-              {price != null && formatUsd(price)}
-              {entry.priceAlert ? <><Icon name={price != null && price <= entry.priceAlert ? 'notifications_active' : 'notifications'} aria-hidden />{formatUsd(entry.priceAlert)}</> : null}
-            </span>
-          )}
-          {considering && <span className="dim considering">Considering in {considering}</span>}
+      <div className="cbody">
+        <div className="cmain" {...longPress}>
+          <div className="cname">{entry.name}</div>
+          <div className="cmeta">
+            {entry.foilQuantity > 0 && <span className="badge gold"><Icon name="auto_awesome" />{entry.foilQuantity} foil</span>}
+            {/* The copies' condition and language, only when the user has said. */}
+            {copyBadges(entry).map((b) => <CopyBadge key={b} text={b} title={b === entry.condition ? conditionName(b) : languageName(entry.language ?? '')} />)}
+            {entry.priceAlertAbove ? <Icon name="notifications_active" className="copy-alert-bell" aria-label="Price alert set" /> : null}
+            {!onTarget && (price != null || entry.priceAlert) && (
+              <span className={`price-tag${price != null && entry.priceAlert && price <= entry.priceAlert ? ' hit' : ''}`}>
+                {price != null && formatUsd(price)}
+                {entry.priceAlert ? <><Icon name={price != null && price <= entry.priceAlert ? 'notifications_active' : 'notifications'} aria-hidden />{formatUsd(entry.priceAlert)}</> : null}
+              </span>
+            )}
+            {considering && <span className="dim considering">Considering in {considering}</span>}
+          </div>
         </div>
+        {onTarget && (
+          <button type="button" className="target-row" onClick={onTarget}>
+            <TargetLineText entry={entry} price={price} />
+            {price != null && <b className={`target-price${entry.priceAlert && price <= entry.priceAlert ? ' hit' : ''}`}>{formatUsd(price)}</b>}
+          </button>
+        )}
       </div>
       <div className="qty">
         <button type="button" onClick={onDecrement} aria-label={`One fewer ${entry.name}`}>−</button>

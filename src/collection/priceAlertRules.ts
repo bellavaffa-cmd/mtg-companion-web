@@ -1,7 +1,9 @@
 // When a price alert goes off. Two kinds, one per binder kind:
 //  - a wishlist card's priceAlert: tell me when it's at or BELOW this (to buy it);
 //  - an owned card's priceAlertAbove: tell me when it rises to or ABOVE this (to sell or trade it).
-// Both are US dollars. A wishlist alert is checked against the non-foil price; a rise alert against
+// Both are US dollars. A wishlist alert is checked against the non-foil price (the foil price when
+// it's "Foil only", and the cheapest printing's when "Any printing counts" — see wishlistTargets.ts,
+// which also says what the Wishlist shows about them); a rise alert against
 // the non-foil price too, unless every copy in the entry is foil, when it's the foil price. Kept
 // apart from priceAlerts.ts (the check and the notification) so it can be tested on its own.
 // Mirrors the Android app's data/PriceAlertRules.kt.
@@ -16,6 +18,12 @@ export interface AlertWatch { collectionId: string; entry: CollectionEntry; dire
 /** Where the check remembers what it last told about this watch. */
 export const memoryKey = (w: AlertWatch) => (w.direction === 'ABOVE' ? `above:${w.entry.scryfallId}` : w.entry.scryfallId)
 
+/**
+ * Where a watch's prices are in a price map: under the card's printing, or — when any printing
+ * counts — under "any:" and the printing, the cheapest printing's prices (see wishlistTargets.ts).
+ */
+export const priceKey = (w: AlertWatch) => (w.direction === 'BELOW' && w.entry.alertAnyPrinting ? `any:${w.entry.scryfallId}` : w.entry.scryfallId)
+
 /** Every alert set: wishlist cards' "at or below" and owned binder cards' "at or above". */
 export function alertWatches(collections: Collection[]): AlertWatch[] {
   return collections.flatMap((c) => c.entries.flatMap((entry): AlertWatch[] => {
@@ -27,6 +35,8 @@ export function alertWatches(collections: Collection[]): AlertWatch[] {
 /** The price a watch is checked against, from the card's non-foil and foil prices (US dollars). */
 export function alertPrice(w: AlertWatch, usd: number | null, usdFoil: number | null): number | null {
   if (w.direction === 'ABOVE' && w.entry.quantity <= 0 && w.entry.foilQuantity > 0) return usdFoil ?? usd
+  // "Foil only": a plain copy at that price won't do.
+  if (w.direction === 'BELOW' && w.entry.alertFoilOnly) return usdFoil
   return usd
 }
 
@@ -55,10 +65,10 @@ export function alertStep(w: AlertWatch, price: number, told: number | null): Al
 /** A watch that has crossed its line, at [price] — for the notification and Home's list. */
 export interface AlertHit { watch: AlertWatch; price: number }
 
-/** The watches that are past their line now, by [prices] (scryfallId → non-foil, foil US dollars). */
+/** The watches that are past their line now, by [prices] (priceKey → non-foil, foil US dollars). */
 export function alertHits(watches: AlertWatch[], prices: Map<string, [number | null, number | null]>): AlertHit[] {
   return watches.flatMap((w) => {
-    const p = prices.get(w.entry.scryfallId)
+    const p = prices.get(priceKey(w))
     if (!p) return []
     const price = alertPrice(w, p[0], p[1])
     return price != null && crossed(w, price) ? [{ watch: w, price }] : []

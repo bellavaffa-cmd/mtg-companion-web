@@ -13,6 +13,7 @@ import { canonicalJson } from './canonicalJson'
 import { saveToStorage } from './storage'
 import { keepLastChecked, keepPlaceSizes, keepPlacesFromOlderApp } from '../collection/storagePlaces'
 import { keepForSaleFromOlderApp } from '../collection/selling'
+import { keepAlertOptionsFromOlderApp } from '../collection/wishlistTargets'
 import { keepCameFromFromOlderApp } from '../collection/pullList'
 import { keepLoansFromOlderApp } from '../collection/loans'
 import { keepDeckExtrasFromOlderApp } from '../decks/deckExtras'
@@ -429,11 +430,11 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
     // saved without when it was last checked (StoragePlace.lastChecked, collection/placeCheck.ts), and
     // for the Unsorted pile saved without its loans (Collection.loans, collection/loans.ts), and for places
     // saved without their size (collection/boxSpace.ts) and cards without their copies to sell
-    // (collection/selling.ts).
+    // (collection/selling.ts), and wishlist targets without their options (collection/wishlistTargets.ts).
     const healed = mineJson === undefined
       ? theirs
       : row.kind === 'collection'
-        ? keepForSaleFromOlderApp(JSON.parse(mineJson) as Collection, keepPlaceSizes(JSON.parse(mineJson) as Collection, keepLoansFromOlderApp(JSON.parse(mineJson) as Collection, keepLastChecked(JSON.parse(mineJson) as Collection, keepPlacesFromOlderApp(JSON.parse(mineJson) as Collection, theirs as Collection)))))
+        ? keepAlertOptionsFromOlderApp(JSON.parse(mineJson) as Collection, keepForSaleFromOlderApp(JSON.parse(mineJson) as Collection, keepPlaceSizes(JSON.parse(mineJson) as Collection, keepLoansFromOlderApp(JSON.parse(mineJson) as Collection, keepLastChecked(JSON.parse(mineJson) as Collection, keepPlacesFromOlderApp(JSON.parse(mineJson) as Collection, theirs as Collection))))))
         // ...and its primer, folder, archive flag, companion and categories (decks/deckExtras.ts).
         : keepDeckExtrasFromOlderApp(JSON.parse(mineJson) as Deck, keepCameFromFromOlderApp(JSON.parse(mineJson) as Deck, theirs as Deck))
     if (healed !== theirs) {

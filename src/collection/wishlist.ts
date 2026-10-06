@@ -27,6 +27,10 @@ export function withWishlist(collections: Collection[], decks: Deck[]): Collecti
   const others = collections.filter((c) => c.type === 'WISHLIST' && !isWishlist(c))
   const existing = collections.find(isWishlist)
   let entries: CollectionEntry[] = existing?.entries ?? []
+  const alertOptionsOf = (e: CollectionEntry) => ({
+    ...(e.alertAnyPrinting !== undefined ? { alertAnyPrinting: e.alertAnyPrinting } : {}),
+    ...(e.alertFoilOnly !== undefined ? { alertFoilOnly: e.alertFoilOnly } : {}),
+  })
   for (const entry of others.flatMap((c) => c.entries)) {
     const i = entries.findIndex((e) => e.scryfallId === entry.scryfallId)
     if (i < 0) {
@@ -38,6 +42,8 @@ export function withWishlist(collections: Collection[], decks: Deck[]): Collecti
         quantity: had.quantity + entry.quantity,
         foilQuantity: had.foilQuantity + entry.foilQuantity,
         priceAlert: had.priceAlert ?? entry.priceAlert ?? null,
+        // The target's options go with the target kept.
+        ...(had.priceAlert == null && entry.priceAlert != null ? alertOptionsOf(entry) : {}),
         auto: false,
       })
     }
