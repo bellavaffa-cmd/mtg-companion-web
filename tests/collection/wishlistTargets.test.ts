@@ -1,10 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  cheapestPrinting, gotItKept, keepAlertOptionsFromOlderApp, sameCard, shortPrice, targetCount, targetFromPercent, targetLine,
+  cheapestPrinting, gotItKept, keepAlertOptionsFromOlderApp, shortPrice, targetCount, targetFromPercent, targetLine,
   targetsForAll, underYourPrice, weekDrop, wishlistTotal, withGotIt, withTarget, yearLow,
 } from '../../src/collection/wishlistTargets.ts'
 import { alertHits, alertPrice, alertStep, alertWatches, priceKey } from '../../src/collection/priceAlertRules.ts'
+import { sameCard } from '../../src/scan/sight.ts'
 import { mergeCollection } from '../../src/sync/mergeItems.ts'
 import type { PriceTrack } from '../../src/collection/cardPriceHistory.ts'
 import type { Collection, CollectionEntry } from '../../src/types/models.ts'

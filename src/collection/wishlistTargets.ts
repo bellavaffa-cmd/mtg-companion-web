@@ -13,6 +13,8 @@
 import type { Collection, CollectionEntry } from '../types/models'
 import { alertStep, memoryKey, type AlertHit } from './priceAlertRules'
 import { priceSeries, type PriceTrack } from './cardPriceHistory'
+// The scanner's own rule for the same card: either face of a double-faced card counts.
+import { sameCard } from '../scan/sight'
 
 /** The chips under the target: so much off today's price. */
 export const TARGET_PERCENTS = [10, 20]
@@ -26,20 +28,6 @@ export function targetFromPercent(now: number | null | undefined, percent: numbe
 
 /** One printing's name and prices (US dollars), for "Any printing counts". */
 export interface PrintingPrice { name: string; usd: number | null; usdFoil: number | null }
-
-const nameKey = (name: string) => name.trim().toLowerCase()
-
-/**
- * Whether a printing called [printing] is the card [wanted]: the same name, whatever the case — or,
- * for a two-faced card known by its front face, that face ("Delver of Secrets" is "Delver of
- * Secrets // Insectile Aberration").
- */
-export function sameCard(wanted: string, printing: string): boolean {
-  const w = nameKey(wanted)
-  const p = nameKey(printing)
-  if (w === '' || p === '') return false
-  return w === p || p.split(' // ')[0] === w || w.split(' // ')[0] === p
-}
 
 /**
  * The cheapest non-foil and foil prices among [printings] that are the card [name] (each on its
