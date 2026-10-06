@@ -27,6 +27,8 @@
 //  - A deck's primer, folder, archive flag and companion go to whoever changed them; each category's
 //    target the same, one by one; a card's categories merge like its tags. A deck saved by an app that
 //    doesn't know them leaves them as they were (decks/deckExtras.ts).
+//  - A deck's history (decks/deckHistory.ts) is every entry from both sides, once by id, the newer
+//    copy of one both have; a deck saved by an app that doesn't know it leaves it as it was.
 // The Android app merges the same way — see data/supabase/ItemMerge.kt.
 
 import type { Collection, CollectionEntry, Deck, DeckCardEntry, GameResult } from '../types/models'
@@ -37,6 +39,7 @@ import { keepAlertOptionsFromOlderApp } from '../collection/wishlistTargets'
 import { keepCameFromFromOlderApp, mergeCameFrom } from '../collection/pullList'
 import { keepLoansFromOlderApp, mergeLoans } from '../collection/loans'
 import { keepDeckExtrasFromOlderApp, mergeDeckExtras } from '../decks/deckExtras'
+import { keepHistoryFromOlderApp, mergeHistory } from '../decks/deckHistory'
 // The phone keeps this many saved versions of a deck (DeckRepository.MAX_VERSIONS).
 import { MAX_VERSIONS } from '../decks/versions'
 
@@ -177,8 +180,10 @@ const COLLECTION_COUNTS: EntryRules<CollectionEntry> = { counts: ['quantity', 'f
 export function mergeDeck(base: Deck, mineIn: Deck, theirsIn: Deck, minePreferred: boolean): Deck {
   // A side saved by an app that doesn't know where the deck's copies came from left that as it was.
   // ...and the same for its primer, folder, archive flag, companion and categories.
-  const mine = keepDeckExtrasFromOlderApp(base, keepCameFromFromOlderApp(base, mineIn))
-  const theirs = keepDeckExtrasFromOlderApp(base, keepCameFromFromOlderApp(base, theirsIn))
+  // ...and its history (decks/deckHistory.ts).
+  const mine = keepHistoryFromOlderApp(base, keepDeckExtrasFromOlderApp(base, keepCameFromFromOlderApp(base, mineIn)))
+  const theirs = keepHistoryFromOlderApp(base, keepDeckExtrasFromOlderApp(base, keepCameFromFromOlderApp(base, theirsIn)))
+  const history = mergeHistory(mine.history, theirs.history)
   const cameFrom = mergeCameFrom(base.cameFrom, mine.cameFrom, theirs.cameFrom)
   // The phone's deck has two fields this app doesn't show but must not drop or diverge on.
   const asPhone = (deck: Deck) => deck as Deck & { considering?: DeckCardEntry[]; versions?: { id: string; savedAt: number }[] }
@@ -192,7 +197,7 @@ export function mergeDeck(base: Deck, mineIn: Deck, theirsIn: Deck, minePreferre
     .sort((a, b) => a.savedAt - b.savedAt)
     .slice(-MAX_VERSIONS)
   const {
-    cameFrom: _theirs, description: _d, folder: _f, archived: _a, companion: _c, categoryTargets: _t, ...theirsRest
+    cameFrom: _theirs, history: _h, description: _d, folder: _f, archived: _a, companion: _c, categoryTargets: _t, ...theirsRest
   } = theirs
   return {
     ...theirsRest,
@@ -201,6 +206,7 @@ export function mergeDeck(base: Deck, mineIn: Deck, theirsIn: Deck, minePreferre
     ...(considering.length > 0 || asPhone(theirs).considering ? { considering } : {}),
     ...(sideboard.length > 0 || theirs.sideboard ? { sideboard } : {}),
     ...(versions.length > 0 ? { versions } : {}),
+    ...(history !== undefined ? { history } : {}),
     name: pick(base.name, mine.name, theirs.name, minePreferred),
     gameMode: pick(base.gameMode, mine.gameMode, theirs.gameMode, minePreferred),
     ownership: pick(base.ownership, mine.ownership, theirs.ownership, minePreferred),

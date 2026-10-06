@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { createSim, sortedCards } from './harness.ts'
+import { withHistory } from '../../src/decks/deckHistory.ts'
 
 export function syncScenarios(cas: boolean) {
   const sim = createSim(cas)
@@ -436,6 +437,38 @@ export function syncScenarios(cas: boolean) {
     assert.deepEqual(a.categoryTargets, { Ramp: 10 })
     assert.deepEqual(a.cards[0].categories, ['Ramp'])
     assert.equal((sim.row('d1')!.data as { folder?: unknown }).folder, 'Cube')
+  })
+
+  // The deck history (decks/deckHistory.ts) rides in the deck's JSON too: two devices' entries end up
+  // on both, once each, and an older app's save leaves it as it was.
+  test("both devices' history entries end up on both, once each; an older app's save keeps them", async () => {
+    const card = (name: string) => ({ scryfallId: name, name, imageUrl: null, quantity: 1, canBeCommander: false, typeLine: null, partnerAbility: null })
+    const deckOf = (names: string[], extra: object = {}) =>
+      ({ id: 'd1', name: 'Meren', commander: null, partnerCommander: null, cards: names.map(card),
+        gameMode: 'COMMANDER', createdAt: 1, tags: [], gameResults: [], ownership: 'VIRTUAL', ...extra }) as unknown as cs.Library['decks'][number]
+    let id = 0
+    const ctx = (now: number, dev: string) => ({ now, from: 'web' as const, dev, newId: () => `h${++id}` })
+    sim.reset('A', 'B')
+    const start = withHistory(deckOf(['x']), deckOf(['x', 'y']), ctx(1_000, 'a'))
+    sim.setLibrary('A', { decks: [start], collections: [] })
+    await sim.settle('A', 'B')
+    sim.setLibrary('A', { decks: [withHistory(start, { ...start, cards: [...start.cards, card('z')] }, ctx(2_000_000, 'a'))], collections: [] })
+    await sim.pass('A')
+    sim.setLibrary('B', { decks: [withHistory(start, { ...start, cards: [...start.cards, card('w')] }, ctx(2_100_000, 'b'))], collections: [] })
+    await sim.settle('B', 'A')
+    const a = sim.library('A').decks[0]
+    const b = sim.library('B').decks[0]
+    assert.deepEqual(a.history, b.history)
+    assert.equal(a.history!.length, 4)
+    assert.equal(new Set(a.history!.map((e) => e.id)).size, 4)
+    // B is an older app now: it saves the deck without the history.
+    const { history: _h, ...older } = { ...b, name: 'Meren of Clan Nel Toth' }
+    sim.setLibrary('B', { decks: [older as cs.Library['decks'][number]], collections: [] })
+    await sim.pass('B')
+    await sim.settle('A')
+    assert.equal(sim.library('A').decks[0].name, 'Meren of Clan Nel Toth')
+    assert.deepEqual(sim.library('A').decks[0].history, a.history)
+    assert.equal((sim.row('d1')!.data as { history?: unknown[] }).history!.length, 4)
   })
 
   test('whose library is it', () => {
