@@ -1,6 +1,9 @@
 import { countAction } from '../usage/usage'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { withVersion } from '../decks/versions'
+import { withHistory } from '../decks/deckHistory'
+import { historyContext } from '../decks/historyDevice'
+import { knownCards } from '../collection/cardData'
 import { collectionWithTags, deckWithTags, keepUserTags, ledgerWith, tidyTags } from '../collection/userTags'
 import type { ReactNode } from 'react'
 import type {
@@ -286,10 +289,21 @@ function withUnsorted(lib: Library, collectionId: string): Library {
 const withStandingCollections = (collections: Collection[], decks: Deck[]): Collection[] =>
   withUnsortedPile(withWishlist(collections, decks))
 
-/** [after] with a version recorded on every deck whose list differs from [before]'s. */
+/**
+ * [after] with a version recorded on every deck whose list differs from [before]'s, and the change in
+ * its history (decks/deckHistory.ts). Samples are never synced, so they keep no history.
+ */
 function withVersions(before: Library, after: Library): Library {
   const was = new Map(before.decks.map((d) => [d.id, d]))
-  return { ...after, decks: after.decks.map((d) => (was.get(d.id) === d ? d : withVersion(was.get(d.id), d))) }
+  const ctx = historyContext()
+  return {
+    ...after,
+    decks: after.decks.map((d) => {
+      const prior = was.get(d.id)
+      if (prior === d) return d
+      return withVersion(prior, d.sample ? d : withHistory(prior, d, ctx))
+    }),
+  }
 }
 
 export function SyncProvider({ children }: { children: ReactNode }) {
@@ -820,6 +834,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       // the card is added either way (testing/sideboard scenarios are legitimate).
       const deck = library.decks.find((d) => d.id === deckId)
       const warning = deck ? duplicateWarning(deck, card, quantity) : null
+      // Its price is known now, for the value before and after in the deck's history.
+      knownCards.set(card.id, card)
       updateLibrary((lib) => {
         const next = mapDeck(lib, deckId, (d) => {
           const existing = d.cards.find((c) => c.scryfallId === card.id)

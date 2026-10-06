@@ -3,6 +3,7 @@
 // See MtgCompanionApp/app/src/main/java/com/mtgcompanion/app/data/{DeckModels,CollectionModels,SyncModels}.kt
 
 import type { ScryfallCard } from './scryfall'
+import type { DeckHistoryEntry } from '../decks/deckHistory'
 
 export interface DeckCardEntry {
   scryfallId: string
@@ -136,6 +137,12 @@ export interface Deck {
   considering?: DeckCardEntry[]
   /** Saved versions of the list, oldest first, capped (decks/versions.ts). */
   versions?: DeckVersion[]
+  /**
+   * What changed in the list, when and where, and the versions saved by name — oldest first, capped
+   * (decks/deckHistory.ts). Left out until the list first changes; a deck saved without it was saved
+   * by an app from before it, and gets this device's back. The Android app's Deck.history.
+   */
+  history?: DeckHistoryEntry[]
   /**
    * The sideboard, for formats that have one (decks/sideboard.ts). Like [considering] it's kept out of
    * [cards], so it never counts toward size, curve, price or combos — only the legality check looks at

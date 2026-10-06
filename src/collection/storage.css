@@ -432,3 +432,19 @@ button.where-row { cursor: pointer; }
 .friend-want-actions { display: flex; gap: 8px; }
 .friend-want-actions .btn { flex: 1; }
 .friend-want-note { margin: 0; font-size: 0.75rem; color: var(--t2); }
+
+/* A deck's history and an earlier version of it (DeckHistoryPage.tsx) */
+.hist-card { gap: 8px; }
+.hist-card .dim, .hist-version .dim { color: var(--t1); font-size: 0.8125rem; }
+.hist-lines { display: flex; flex-direction: column; gap: 3px; font-size: 0.8125rem; }
+.hist-in { color: #7fc59a; }
+.hist-out { color: #e08a7a; }
+.hist-note { font-size: 0.8125rem; white-space: pre-wrap; }
+.hist-open { align-self: flex-start; padding: 0; font-size: 0.8125rem; font-weight: 700; }
+.hist-version { max-width: 560px; display: flex; flex-direction: column; gap: 10px; }
+.hist-section { margin-top: 6px; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.06em; color: var(--t1); }
+.hist-row { display: flex; align-items: baseline; gap: 10px; font-size: 0.875rem; min-height: 28px; }
+.hist-row .nm { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.hist-foot { font-size: 0.8125rem; margin: 6px 0 0; }
+:root[data-theme="light"] .hist-in { color: #2f8a55; }
+:root[data-theme="light"] .hist-out { color: #b4483a; }

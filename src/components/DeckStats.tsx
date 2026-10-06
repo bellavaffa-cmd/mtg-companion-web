@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { getCardsByIds } from '../api/scryfall'
+import { knownCards } from '../collection/cardData'
 import { displayManaCost, type ScryfallCard } from '../types/scryfall'
 import type { Deck, DeckCardEntry } from '../types/models'
 import { COMMANDER_TARGETS, ROLE_TAGS, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
@@ -75,7 +76,11 @@ export function useDeckCardData(deck: Deck | undefined): DeckCardData {
     }
     let cancelled = false
     getCardsByIds(ids)
-      .then((cards) => { if (!cancelled) setCardsById(new Map(cards.map((c) => [c.id, c]))) })
+      .then((cards) => {
+        // Kept for the visit too, so the deck history can note the value before and after a change.
+        for (const c of cards) knownCards.set(c.id, c)
+        if (!cancelled) setCardsById(new Map(cards.map((c) => [c.id, c])))
+      })
       .catch(() => { if (!cancelled) setCardsById(null) })
     return () => { cancelled = true }
     // idKey, not `ids`: a fresh array every render would restart the fetch forever.

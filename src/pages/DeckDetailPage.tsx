@@ -880,6 +880,7 @@ export function DeckDetailPage() {
             { label: 'Share with friends', icon: 'group', detail: 'View only — friends, pods or a link', onClick: () => setSharing(true) },
             { label: 'Playtest', icon: 'playing_cards', detail: 'Mulligan, play or draw, then turns', onClick: () => setGoldfish(true) },
             { label: 'Compare with…', icon: 'compare_arrows', detail: 'Another deck or a saved version', onClick: () => setComparePicking(true) },
+            { label: 'History', icon: 'history', detail: 'Every change to the list, and versions saved by name', onClick: () => navigate(`/decks/${deck.id}/history`) },
             // Building it from storage, and taking it apart again (collection/pullList.ts).
             ...(!holdsCards(deck)
               ? [{ label: 'Build this deck', icon: 'inventory_2', detail: 'A pull list: its cards, place by place', onClick: () => navigate(`/decks/${deck.id}/pull`) }]

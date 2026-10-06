@@ -16,6 +16,7 @@ import { keepForSaleFromOlderApp } from '../collection/selling'
 import { keepCameFromFromOlderApp } from '../collection/pullList'
 import { keepLoansFromOlderApp } from '../collection/loans'
 import { keepDeckExtrasFromOlderApp } from '../decks/deckExtras'
+import { keepHistoryFromOlderApp } from '../decks/deckHistory'
 import { syncable } from '../onboarding/onboarding'
 
 const STATE_KEY = 'mtgweb_cloud_state'
@@ -435,7 +436,8 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
       : row.kind === 'collection'
         ? keepForSaleFromOlderApp(JSON.parse(mineJson) as Collection, keepPlaceSizes(JSON.parse(mineJson) as Collection, keepLoansFromOlderApp(JSON.parse(mineJson) as Collection, keepLastChecked(JSON.parse(mineJson) as Collection, keepPlacesFromOlderApp(JSON.parse(mineJson) as Collection, theirs as Collection)))))
         // ...and its primer, folder, archive flag, companion and categories (decks/deckExtras.ts).
-        : keepDeckExtrasFromOlderApp(JSON.parse(mineJson) as Deck, keepCameFromFromOlderApp(JSON.parse(mineJson) as Deck, theirs as Deck))
+        // ...and its history (decks/deckHistory.ts).
+        : keepHistoryFromOlderApp(JSON.parse(mineJson) as Deck, keepDeckExtrasFromOlderApp(JSON.parse(mineJson) as Deck, keepCameFromFromOlderApp(JSON.parse(mineJson) as Deck, theirs as Deck)))
     if (healed !== theirs) {
       const healedJson = canonicalJson(healed)
       if (healedJson !== mineJson) remoteChanges.set(key, healed)

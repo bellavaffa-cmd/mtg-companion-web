@@ -16,6 +16,7 @@ import { CheckResultsPage } from './pages/CheckResultsPage'
 import { PlaceLabelPage, PlaceLinkPage } from './pages/PlaceLabelPage'
 import { PullListPage } from './pages/PullListPage'
 import { PutBackPage } from './pages/PutBackPage'
+import { DeckHistoryPage, DeckVersionPage } from './pages/DeckHistoryPage'
 import { LoansPage } from './pages/LoansPage'
 import { LendPage } from './pages/LendPage'
 import { CopyHistoryPage } from './pages/CopyHistoryPage'
@@ -111,6 +112,8 @@ export default function App() {
             <Route path="/decks/:id" element={<DeckDetailPage />} />
             <Route path="/decks/:id/pull" element={<PullListPage />} />
             <Route path="/decks/:id/put-back" element={<PutBackPage />} />
+            <Route path="/decks/:id/history" element={<DeckHistoryPage />} />
+            <Route path="/decks/:id/history/:entry" element={<DeckVersionPage />} />
             <Route path="/precons" element={<PreconsPage />} />
             <Route path="/rules" element={<RulesPage />} />
             <Route path="/play" element={<PlayPage />} />
