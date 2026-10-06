@@ -158,7 +158,7 @@ export function ApproveLoginPage() {
 
   return (
     <>
-      <TopBar title="Sign in on the web" onBack={back} />
+      <TopBar title="Sign in another device" onBack={back} />
       <div className="content-scroll">
         <div className="narrow-width">
           <div className="link-card rise" style={rise(0)}>
