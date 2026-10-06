@@ -59,6 +59,7 @@ const FriendSharedPage = lazy(() => import('./social/SharedFriends').then((m) =>
 const SharedCollectionPage = lazy(() => import('./pages/SharedItemPage').then((m) => ({ default: m.SharedCollectionPage })))
 const TradesPage = lazy(() => import('./pages/TradesPage').then((m) => ({ default: m.TradesPage })))
 const TradeComposerPage = lazy(() => import('./pages/TradeComposerPage').then((m) => ({ default: m.TradeComposerPage })))
+const PageScanPage = lazy(() => import('./pages/PageScanPage').then((m) => ({ default: m.PageScanPage })))
 const MessagesPage = lazy(() => import('./pages/MessagesPage').then((m) => ({ default: m.MessagesPage })))
 const ConversationPage = lazy(() => import('./pages/MessagesPage').then((m) => ({ default: m.ConversationPage })))
 const ForTradePage = lazy(() => import('./pages/ForTradePage').then((m) => ({ default: m.ForTradePage })))
@@ -93,6 +94,7 @@ export default function App() {
             <Route path="/collections/place/:id" element={<PlacePage />} />
             <Route path="/collections/place/:id/label" element={<PlaceLabelPage />} />
             <Route path="/collections/place/:id/fit" element={<BinderFitPage />} />
+            <Route path="/collections/place/:id/scan-page" element={<PageScanPage />} />
             <Route path="/collections/place/:id/check" element={<CheckResultsPage />} />
             <Route path="/collections/labels" element={<PlaceLabelPage />} />
             <Route path="/collections/value" element={<ValueByPlacePage />} />

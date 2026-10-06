@@ -22,6 +22,7 @@ import { useCopyHistory } from '../collection/copyHistoryStore'
 import { MoveList } from './CopyHistoryPage'
 import { lastPileAdded, planSplit, spaceOf, splitBox, withSize } from '../collection/boxSpace'
 import { SizeDialog, SpaceCard, SplitSection } from '../collection/SpaceParts'
+import { FriendsWantSection } from '../social/FriendsWantSection'
 import '../collection/storage.css'
 import '../collection/loans.css'
 
@@ -83,6 +84,12 @@ export function PlacePage() {
       return sum + price * c.line.qty
     }, 0)
     : null
+  // A copy's price, for Friends want these.
+  const priceOf = (c: PlacedCard): number | null => {
+    const card = data?.get(c.entry.scryfallId)
+    const price = Number(c.line.foil ? card?.prices?.usd_foil ?? card?.prices?.usd : card?.prices?.usd ?? card?.prices?.usd_foil)
+    return card && price > 0 ? price : null
+  }
   const copies = copiesWithin(summary, places, place.id)
   const inside = childrenOf(places, place.id)
   const sections = sectionsOf(place, cards)
@@ -197,6 +204,13 @@ export function PlacePage() {
             {listView
               ? <div className="place-pages"><BinderList place={place} cards={cards} onCard={openCard} /></div>
               : <BinderPagesView place={place} collections={collections} data={data} page={page} onPage={setPage} />}
+            {!listView && (
+              <div className="place-pages">
+                <button type="button" className="btn line block" onClick={() => navigate(`/collections/place/${place.id}/scan-page?page=${Math.min(Math.max(1, page), binder.pages.length + 1)}`)}>
+                  <Icon name="document_scanner" aria-hidden />Scan this page
+                </button>
+              </div>
+            )}
             {!listView && binder.loose.length > 0 && (
               <div className="place-pages">
                 <CardGroup title="Not in a pocket yet" cards={binder.loose} isOpen onToggle={() => {}} onCard={openCard} />
@@ -228,6 +242,7 @@ export function PlacePage() {
             {cards.length === 0 && sections.length === 0 && inside.length === 0 && <div className="dim">Nothing here yet. Put cards away to fill it.</div>}
           </div>
         )}
+        {binder && cards.length > 0 && <FriendsWantSection cards={cards} priceOf={priceOf} />}
         {recent.length > 0 && (
           <div className="recent-moves">
             <h3>Recent moves</h3>

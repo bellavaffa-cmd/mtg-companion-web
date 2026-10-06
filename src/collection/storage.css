@@ -375,3 +375,60 @@ button.where-row { cursor: pointer; }
 .check-row .where { font-size: 0.75rem; color: var(--t1); text-align: right; }
 .check-actions { display: flex; gap: 8px; }
 .check-actions .btn { flex: 1; min-height: 40px; }
+
+/* Scanning a whole binder page (PageScanPage.tsx) */
+.page-scan { max-width: 560px; }
+.page-scan-view { height: min(66vh, 620px); }
+.page-scan-guide {
+  height: 92%;
+  max-width: 92%;
+  display: grid;
+  gap: 2px;
+  border: 2px solid var(--gold);
+  border-radius: 10px;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.35);
+}
+.page-scan-guide span { border: 1px dashed rgba(230, 180, 94, 0.6); border-radius: 4px; }
+.page-scan-msg { margin: 12px 4px; font-size: 0.8125rem; color: var(--t1); }
+.page-scan-msg.warn { color: var(--warn); }
+.page-scan-grid { padding: 12px; border-radius: 20px; background: var(--g1); display: grid; gap: 8px; }
+.page-cell {
+  aspect-ratio: 63 / 88;
+  border-radius: 6px;
+  border: 0;
+  background: var(--g3);
+  padding: 4px;
+  display: flex;
+  align-items: flex-end;
+  text-align: left;
+  font: 700 0.625rem var(--ui);
+  cursor: pointer;
+  overflow: hidden;
+}
+.page-cell span { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.page-cell.read { box-shadow: inset 0 0 0 2px var(--ok); color: var(--ok); }
+.page-cell.choose { box-shadow: inset 0 0 0 2px var(--warn); color: var(--warn); }
+.page-cell.empty { background: none; border: 2px dashed var(--line); align-items: center; justify-content: center; font-weight: 400; color: var(--t2); }
+.page-scan-summary, .page-scan-diff { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: var(--g1); display: flex; flex-direction: column; gap: 4px; }
+.page-scan-summary b { font-size: 0.9375rem; }
+.page-scan-summary span, .page-scan-diff span { font-size: 0.8125rem; color: var(--t1); }
+.page-scan-summary .done { color: var(--gold-light); }
+.page-scan-actions { margin-top: 12px; display: flex; gap: 8px; }
+.page-scan-actions .btn { flex: 1; }
+.page-scan-bottom { margin-top: 16px; }
+.page-choose { display: flex; flex-direction: column; gap: 6px; }
+
+/* Friends want these, on a binder (FriendsWantSection.tsx) */
+.friends-want { max-width: 560px; margin-top: 18px; display: flex; flex-direction: column; gap: 10px; }
+.friends-want h3 { margin: 0; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--t1); }
+.friend-want { padding: 12px 14px; border-radius: 14px; background: var(--g1); display: flex; flex-direction: column; gap: 8px; }
+.friend-want-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.friend-want-h h4 { margin: 0; font-size: 0.9375rem; font-weight: 800; }
+.friend-want-h span { font-size: 0.75rem; color: var(--t1); }
+.friend-want-card { display: flex; align-items: center; gap: 10px; font-size: 0.875rem; }
+.friend-want-card .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.friend-want-card .where { color: var(--t1); }
+.friend-want-has { font-size: 0.8125rem; color: var(--t1); }
+.friend-want-actions { display: flex; gap: 8px; }
+.friend-want-actions .btn { flex: 1; }
+.friend-want-note { margin: 0; font-size: 0.75rem; color: var(--t2); }
