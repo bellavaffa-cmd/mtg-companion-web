@@ -15,6 +15,8 @@ import {
   type MovePulledResult, type PullRow,
 } from '../collection/pullList'
 import { loadPullProgress, savePullProgress, setOpenPullDeck } from '../collection/pullProgress'
+import { householdBorrow, householdError, useShelves } from '../social/household'
+import { borrowCards, pullAsks, shelfLoanId, type AskGroup } from '../social/householdLogic'
 import '../collection/storage.css'
 
 type View = 'place' | 'az'
@@ -29,7 +31,7 @@ type View = 'place' | 'az'
 export function PullListPage() {
   const { id = '' } = useParams<{ id: string }>()
   const [params, setParams] = useSearchParams()
-  const { decks, collections, changeDecksAndStorage } = useSync()
+  const { decks, collections, changeDecksAndStorage, account } = useSync()
   const navigate = useNavigate()
   const back = useBack(`/decks/${id}`)
   const money = useMoney()
@@ -55,7 +57,31 @@ export function PullListPage() {
     return () => window.removeEventListener('focus', onShow)
   }, [id])
 
-  const missingRows = list?.groups.filter((g) => g.kind === 'missing').flatMap((g) => g.rows) ?? []
+  const notOwned = useMemo(() => list?.groups.filter((g) => g.kind === 'missing').flatMap((g) => g.rows) ?? [], [list])
+  // Sharing storage at home: what the people at home keep in the shared places covers some of what
+  // isn't owned — "ask Alex" (social/householdLogic.ts). Nothing changes without a household.
+  const { shelves, reload: reloadShelves } = useShelves()
+  const me = account?.userId ?? ''
+  const asks = useMemo(() => pullAsks(notOwned.map((r) => ({ name: r.name, scryfallId: r.scryfallId, qty: r.qty })), shelves, me), [notOwned, shelves, me])
+  const missingRows = notOwned.flatMap((r) => {
+    const left = asks.stillMissing.find((m) => m.name === r.name)
+    return left ? [{ ...r, qty: left.qty }] : []
+  })
+  const toBuy = missingRows.reduce((n, r) => n + r.qty, 0)
+  const [borrowing, setBorrowing] = useState<AskGroup | null>(null)
+  const [borrowNote, setBorrowNote] = useState<string | null>(null)
+  const borrow = async (g: AskGroup) => {
+    setBorrowing(null)
+    try {
+      const cards = borrowCards(g)
+      await householdBorrow(g.householdId, g.userId, shelfLoanId(), cards)
+      const n = cards.reduce((s, c) => s + c.qty, 0)
+      setBorrowNote(`${n} ${n === 1 ? 'card' : 'cards'} borrowed from ${g.name}. They show under Loans.`)
+      await reloadShelves()
+    } catch (e) {
+      setBorrowNote(householdError(e))
+    }
+  }
   const prices = useCardData(missingRows.map((r) => r.scryfallId))
 
   if (!deck || !list) {
@@ -130,7 +156,7 @@ export function PullListPage() {
             <div className="storage-progress">
               <div className="pull-progress-h">
                 <b>{pulled} of {list.total} pulled</b>
-                <span>{list.places} {list.places === 1 ? 'place' : 'places'}{list.toBuy > 0 ? ` · ${list.toBuy} to buy` : ''}</span>
+                <span>{list.places} {list.places === 1 ? 'place' : 'places'}{toBuy > 0 ? ` · ${toBuy} to buy` : ''}</span>
               </div>
               <div className="storage-bar"><div style={{ width: `${list.total ? Math.round((pulled / list.total) * 100) : 0}%` }} /></div>
             </div>
@@ -166,11 +192,38 @@ export function PullListPage() {
               })}
               {filterPlace && groups.length === 0 && <div className="dim">Nothing on this list is kept in {filterPlace.name}.</div>}
 
+              {!filterPlace && asks.groups.map((g) => {
+                const open = g.rows.filter((r) => !r.borrowed).reduce((n, r) => n + r.qty, 0)
+                return (
+                  <section key={`${g.householdId}|${g.userId}`} className="pull-group ask">
+                    <div className="pull-group-h">
+                      <h2>{g.title}</h2>
+                      <span>{g.rows.reduce((n, r) => n + r.qty, 0)} · on the shared shelf</span>
+                    </div>
+                    {g.rows.map((r) => (
+                      <div key={r.key} className={`pull-row${r.borrowed ? ' done' : ''}`}>
+                        <Icon name={r.borrowed ? 'handshake' : 'front_hand'} aria-hidden />
+                        <span className="nm">{r.name}{r.qty > 1 ? ` ×${r.qty}` : ''}</span>
+                        <span className="hint ask">{r.hint}</span>
+                      </div>
+                    ))}
+                    {open > 0 && (
+                      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+                        <button type="button" className="btn line sm" onClick={() => setBorrowing(g)}>
+                          <Icon name="handshake" aria-hidden />Borrow from {g.name}
+                        </button>
+                      </div>
+                    )}
+                  </section>
+                )
+              })}
+              {!filterPlace && borrowNote && <div className="dim">{borrowNote}</div>}
+
               {!filterPlace && missingRows.length > 0 && (
                 <section className="pull-group">
                   <div className="pull-group-h">
                     <h2>Not owned</h2>
-                    <span>{list.toBuy}{cost !== null && cost > 0 ? ` · ${money.format(cost)}` : ''}</span>
+                    <span>{toBuy}{cost !== null && cost > 0 ? ` · ${money.format(cost)}` : ''}</span>
                   </div>
                   <div className="dim">{missingRows.map((r) => (r.qty > 1 ? `${r.name} ×${r.qty}` : r.name)).join(', ')}</div>
                   <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -220,6 +273,23 @@ export function PullListPage() {
           </Dialog>
         )
       })()}
+
+      {borrowing && (
+        <Dialog
+          title={`Borrow from ${borrowing.name}?`}
+          onDismiss={() => setBorrowing(null)}
+          actions={
+            <>
+              <button type="button" className="btn line" onClick={() => setBorrowing(null)}>Not now</button>
+              <button type="button" className="btn gold" onClick={() => void borrow(borrowing)}>Borrow</button>
+            </>
+          }
+        >
+          <p className="muted" style={{ margin: 0 }}>
+            {borrowCards(borrowing).map((c) => (c.qty > 1 ? `${c.name} ×${c.qty}` : c.name)).join(', ')}. Ask {borrowing.name} first: this records them as borrowed from {borrowing.name}, so they show under Loans until they go back. {borrowing.name}'s cards stay {borrowing.name}'s.
+          </p>
+        </Dialog>
+      )}
 
       {moving && (
         <Dialog

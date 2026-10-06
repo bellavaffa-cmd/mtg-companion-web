@@ -23,7 +23,11 @@ import { MoveList } from './CopyHistoryPage'
 import { lastPileAdded, planSplit, spaceOf, splitBox, withSize } from '../collection/boxSpace'
 import { SizeDialog, SpaceCard, SplitSection } from '../collection/SpaceParts'
 import { FriendsWantSection } from '../social/FriendsWantSection'
+import { householdError, shareHouseholdPlace, useHouseholds } from '../social/household'
+import { andList, householdOfPlace, membersOf } from '../social/householdLogic'
+import type { StoragePlace } from '../types/models'
 import '../collection/storage.css'
+import '../social/household.css'
 import '../collection/loans.css'
 
 /**
@@ -66,6 +70,9 @@ export function PlacePage() {
   const history = useCopyHistory()
   const recent = useMemo(() => movesOfPlace(history, placeAndInside(places, id), 10), [history, places, id])
   const page = Number(params.get('page')) || 1
+  // Sharing storage at home (social/household.ts): the household this place is shared in, if any.
+  const homes = useHouseholds()
+  const [shareError, setShareError] = useState<string | null>(null)
   const setPage = (n: number) => setParams((ps) => { const next = new URLSearchParams(ps); next.set('page', String(n)); return next }, { replace: true })
 
   if (!place) {
@@ -168,6 +175,7 @@ export function PlacePage() {
           </button>
           <button type="button" className="btn line" onClick={() => navigate(`/collections/place/${place.id}/label`)}><Icon name="qr_code_2" aria-hidden />Label</button>
         </div>
+        <HomeShareLine place={place} homes={homes} error={shareError} onError={setShareError} />
         {place.sortRule && place.kind !== 'BINDER' && (
           <p className="place-rule">Sorted {SORT_RULE_LABELS[place.sortRule].charAt(0).toLowerCase() + SORT_RULE_LABELS[place.sortRule].slice(1)}. New cards get a section by this rule.</p>
         )}
@@ -378,6 +386,42 @@ function CardGroup({ title, count, cards, isOpen, onToggle, onCard }: {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Sharing storage at home, from a place: "Shared with Alex · Shared shelf" when it's shared in a
+ * household (opens it), or "Share at home" when the user has one and this place isn't in it yet.
+ * Nothing when households aren't there (signed out, or the server doesn't have them yet).
+ */
+function HomeShareLine({ place, homes, error, onError }: {
+  place: StoragePlace; homes: ReturnType<typeof useHouseholds>; error: string | null; onError: (e: string | null) => void
+}) {
+  const navigate = useNavigate()
+  const { account } = useSync()
+  const me = account?.userId ?? ''
+  if (homes.state.kind !== 'ready' || homes.state.data.households.length === 0) return null
+  const all = homes.state.data.households
+  const h = householdOfPlace(all, place.id)
+  if (h) {
+    const others = membersOf(h, me).filter((m) => m.profile!.user_id !== me).map((m) => m.profile!.display_name)
+    return (
+      <button type="button" className="storage-row storage-card press" style={{ marginTop: 12 }} onClick={() => navigate(`/collections/household/${h.id}`)}>
+        <Icon name="shelves" className="storage-icon gold" />
+        <div className="storage-text"><b>{others.length > 0 ? `Shared with ${andList(others)}` : 'Shared at home'}</b><span>{h.name} · each of you still owns your own cards</span></div>
+        <Icon name="chevron_right" aria-hidden />
+      </button>
+    )
+  }
+  const share = async () => {
+    onError(null)
+    try { await shareHouseholdPlace(all[0].id, place); await homes.reload() } catch (e) { onError(householdError(e)) }
+  }
+  return (
+    <div className="place-actions" style={{ marginTop: 12 }}>
+      <button type="button" className="btn line" onClick={() => void share()}><Icon name="shelves" aria-hidden />Share at home · {all[0].name}</button>
+      {error && <span className="hh-error">{error}</span>}
     </div>
   )
 }

@@ -73,6 +73,11 @@ export function StorageTab() {
           <div className="storage-text"><b>Lent out</b><span>Your loans, and what friends lent you</span></div>
           <span className="storage-n">{count(summary.lent)}</span>
         </button>
+        <button type="button" className="storage-row storage-card press rise" style={rise(5)} onClick={() => navigate('/collections/household')}>
+          <Icon name="shelves" className="storage-icon" />
+          <div className="storage-text"><b>Sharing storage at home</b><span>Keep cards on the same shelf as someone you live with</span></div>
+          <Icon name="chevron_right" aria-hidden />
+        </button>
         <div className="place-actions rise" style={rise(6)}>
           <button type="button" className="btn line" onClick={() => navigate('/scan?sort')}><Icon name="call_split" aria-hidden />Sort a new pile</button>
           <button type="button" className="btn line" onClick={() => navigate('/collections/value')}><Icon name="payments" aria-hidden />Value by place</button>

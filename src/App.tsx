@@ -53,6 +53,7 @@ import './social/social.css'
 import { UsageScreens } from './usage/UsageUi'
 
 // Friends, sharing, trades and events load when first opened.
+const HouseholdPage = lazy(() => import('./pages/HouseholdPage').then((m) => ({ default: m.HouseholdPage })))
 const FriendsPage = lazy(() => import('./pages/FriendsPage').then((m) => ({ default: m.FriendsPage })))
 const FriendPage = lazy(() => import('./pages/FriendPage').then((m) => ({ default: m.FriendPage })))
 const SharedItemPage = lazy(() => import('./pages/SharedItemPage').then((m) => ({ default: m.SharedItemPage })))
@@ -102,6 +103,8 @@ export default function App() {
             <Route path="/collections/space" element={<SpacePage />} />
             <Route path="/collections/sell" element={<SellPage />} />
             <Route path="/collections/photos" element={<CopyPhotoPage />} />
+            <Route path="/collections/household" element={<HouseholdPage />} />
+            <Route path="/collections/household/:id" element={<HouseholdPage />} />
             <Route path="/loans" element={<LoansPage />} />
             <Route path="/loans/lend" element={<LendPage />} />
             <Route path="/history" element={<CopyHistoryPage />} />

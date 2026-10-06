@@ -1,3 +1,5 @@
+import { useHouseholds } from '../social/household'
+import { HouseholdInvites } from '../social/HouseholdInvites'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { TopBar } from '../components/TopBar'
@@ -136,6 +138,8 @@ function PeopleTab({ overview, onShowQr }: { overview: api.Overview; onShowQr: (
     .filter((f) => f.status === 'accepted')
     .sort((a, b) => (person(a.user_id)?.display_name ?? '').localeCompare(person(b.user_id)?.display_name ?? ''))
   const sharers = [...new Set(overview.shared_with_me.map((s) => s.owner))]
+  // Invitations to share storage at home (social/household.ts); nothing shows before the server has them.
+  const households = useHouseholds()
 
   return (
     <>
@@ -149,6 +153,16 @@ function PeopleTab({ overview, onShowQr }: { overview: api.Overview; onShowQr: (
               <RequestRow key={f.user_id} profile={person(f.user_id)} userId={f.user_id} onDone={refresh} />
             ))}
           </div>
+        </>
+      )}
+
+      {households.state.kind === 'ready' && households.state.data.invites.length > 0 && (
+        <>
+          <SectionHeader title="Sharing storage at home" />
+          <HouseholdInvites
+            invites={households.state.data.invites}
+            onDone={async (accepted) => { await households.reload(); if (accepted) navigate(`/collections/household/${accepted}`) }}
+          />
         </>
       )}
 

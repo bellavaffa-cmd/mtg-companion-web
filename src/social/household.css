@@ -1,0 +1,24 @@
+/* Sharing storage at home (HouseholdPage.tsx): the approved mockup's look. */
+.hh-page { padding-bottom: 96px; }
+.hh-intro { font-size: 0.875rem; color: var(--t1); line-height: 1.45; margin: 0; }
+.hh-people { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
+.hh-person { flex: 1; min-width: 120px; padding: 12px; border-radius: 14px; background: var(--g1); display: flex; flex-direction: column; gap: 2px; }
+.hh-person .who { font-size: 0.8125rem; color: var(--t1); }
+.hh-person .n { font-family: var(--num); font-size: 1.75rem; line-height: 1.1; }
+.hh-person .sub { font-size: 0.75rem; color: var(--t1); }
+.hh-places { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.hh-place { border-radius: 14px; background: var(--g1); }
+.hh-place-row { width: 100%; padding: 12px 14px; border: 0; background: none; color: inherit; font: inherit; text-align: left; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.hh-place-row .t { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.hh-place-row b { font-size: 0.875rem; font-weight: 700; }
+.hh-place-row .t span { font-size: 0.75rem; color: var(--t1); }
+.hh-place-body { padding: 0 14px 12px; display: flex; flex-direction: column; gap: 6px; }
+.hh-place-body h3 { margin: 6px 0 0; font-size: 0.8125rem; color: var(--t1); font-weight: 700; }
+.hh-card { font-size: 0.875rem; display: flex; justify-content: space-between; gap: 10px; }
+.hh-card .dim { color: var(--t2); }
+.hh-note { margin-top: 14px; padding: 14px; border-radius: 16px; background: var(--g1); display: flex; flex-direction: column; gap: 8px; }
+.hh-note h2 { margin: 0; font-size: 0.9375rem; font-weight: 800; }
+.hh-note div { font-size: 0.875rem; color: var(--t0); line-height: 1.45; opacity: 0.9; }
+.hh-row-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.hh-bar .btn { flex: 1; }
+.hh-error { color: var(--error); font-size: 0.8125rem; }
