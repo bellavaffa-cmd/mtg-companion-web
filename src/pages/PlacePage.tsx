@@ -10,7 +10,7 @@ import { useCardData } from '../collection/cardData'
 import { PLACE_ICONS, PlaceDialog } from '../collection/StorageTab'
 import {
   cardsIn, childrenOf, copiesWithin, deletePlace, pagesOf, parentsOf, placeAndInside, placeSubtitle, placesOf, pocketsOf,
-  sectionsOf, SORT_RULE_LABELS, storageSummary, type PlacedCard,
+  savePlace, sectionsOf, SORT_RULE_LABELS, storageSummary, type PlacedCard,
 } from '../collection/storagePlaces'
 import { BinderList, BinderPagesView } from '../collection/BinderPagesView'
 import { binderPockets, closeGapsMoves, fitSteps, looseCopies, relocate, undoMoves, type PocketMove } from '../collection/binderPages'
@@ -20,6 +20,8 @@ import { useUndoBar } from '../components/useUndoBar'
 import { movesOfPlace } from '../collection/copyHistory'
 import { useCopyHistory } from '../collection/copyHistoryStore'
 import { MoveList } from './CopyHistoryPage'
+import { lastPileAdded, planSplit, spaceOf, splitBox, withSize } from '../collection/boxSpace'
+import { SizeDialog, SpaceCard, SplitSection } from '../collection/SpaceParts'
 import '../collection/storage.css'
 import '../collection/loans.css'
 
@@ -57,6 +59,8 @@ export function PlacePage() {
   const [listView, setListView] = useState(false)
   const [checking, setChecking] = useState(false)
   const [closing, setClosing] = useState<PocketMove[] | null>(null)
+  const [sizing, setSizing] = useState(false)
+  const [splitting, setSplitting] = useState(false)
   const showUndo = useUndoBar()
   const history = useCopyHistory()
   const recent = useMemo(() => movesOfPlace(history, placeAndInside(places, id), 10), [history, places, id])
@@ -94,6 +98,20 @@ export function PlacePage() {
   const waiting = binder ? looseCopies(place, cards).length : 0
   const sectionNames = sections.flatMap((s) => (s.name !== null ? [s.name] : []))
   const going = loadCheck(place.id)
+  // How full it is, when it has a size (collection/boxSpace.ts).
+  const space = spaceOf(place, collections)
+  const plan = splitting ? planSplit(place, cards) : null
+  const split = () => {
+    const newId = crypto.randomUUID()
+    const now = Date.now()
+    changeStorage((c) => {
+      const p = placesOf(c).find((x) => x.id === place.id)
+      const fresh = p ? planSplit(p, cardsIn(c, p.id)) : null
+      return fresh ? splitBox(c, place.id, fresh, newId, now) : c
+    })
+    setSplitting(false)
+    navigate(`/collections/place/${newId}/label`)
+  }
   const startCheck = (section: string | null, fresh: boolean) => {
     if (fresh) { clearCheck(); saveCheck({ placeId: place.id, section, scans: [] }) }
     navigate(`/scan?check=${encodeURIComponent(place.id)}`)
@@ -121,6 +139,19 @@ export function PlacePage() {
           <StatFigure value={value} label="value" format={(v) => money.format(v)} />
           <StatFigure value={third.value} label={third.label} />
         </div>
+        {space && (
+          <div className="space-list rise" style={{ ...rise(2), marginTop: 12 }}>
+            <SpaceCard
+              place={place}
+              space={space}
+              lastPile={lastPileAdded(history, place.id)}
+              open
+              canSplit={place.kind !== 'BINDER' && planSplit(place, cards) !== null}
+              onSplit={() => setSplitting(true)}
+              onSize={() => setSizing(true)}
+            />
+          </div>
+        )}
         <div className="place-actions rise" style={rise(2)}>
           <button type="button" className="btn gold" onClick={() => navigate(`/scan?putAway=${encodeURIComponent(place.id)}`)}>
             <Icon name="document_scanner" aria-hidden />Put cards away
@@ -212,6 +243,7 @@ export function PlacePage() {
           actions={[
             { label: 'Change place', icon: 'edit', detail: 'Its name, what it is, where it sits', onClick: () => setEditing(true) },
             { label: 'New place inside', icon: 'add', detail: `A box or binder in ${place.name}`, onClick: () => setAdding(true) },
+            { label: 'Change size', icon: 'inventory_2', detail: place.kind === 'BINDER' ? 'Its pages, for how full it is' : 'The cards it holds, for how full it is', onClick: () => setSizing(true) },
             { label: 'Lend cards from here', icon: 'handshake', detail: 'Tick the cards, then who has them', onClick: () => navigate(`/loans/lend?place=${encodeURIComponent(place.id)}`) },
             { label: 'Delete place', icon: 'delete', tone: 'danger', detail: 'Its cards stay in your collection, with no place', onClick: () => setDeleting(true) },
           ]}
@@ -263,6 +295,30 @@ export function PlacePage() {
               </div>
             </>
           )}
+        </Dialog>
+      )}
+      {sizing && (
+        <SizeDialog
+          place={place}
+          onDismiss={() => setSizing(false)}
+          onSave={(n) => {
+            changeStorage((c) => { const p = placesOf(c).find((x) => x.id === place.id); return p ? savePlace(c, withSize(p, n)) : c })
+            setSizing(false)
+          }}
+        />
+      )}
+      {plan && (
+        <Dialog
+          title={`Split ${place.name}?`}
+          onDismiss={() => setSplitting(false)}
+          actions={
+            <>
+              <button type="button" className="btn line" onClick={() => setSplitting(false)}>Cancel</button>
+              <button type="button" className="btn gold" onClick={split}>Split and print new label</button>
+            </>
+          }
+        >
+          <SplitSection place={place} plan={plan} places={places} />
         </Dialog>
       )}
       {editing && <PlaceDialog place={place} onDismiss={() => setEditing(false)} />}

@@ -77,6 +77,10 @@ export function StorageTab() {
           <button type="button" className="btn line" onClick={() => navigate('/scan?sort')}><Icon name="call_split" aria-hidden />Sort a new pile</button>
           <button type="button" className="btn line" onClick={() => navigate('/collections/value')}><Icon name="payments" aria-hidden />Value by place</button>
         </div>
+        <div className="place-actions rise" style={rise(6)}>
+          <button type="button" className="btn line" onClick={() => navigate('/collections/space')}><Icon name="inventory_2" aria-hidden />Space</button>
+          <button type="button" className="btn line" onClick={() => navigate('/collections/sell')}><Icon name="sell" aria-hidden />To sell</button>
+        </div>
       </div>
 
       {editing && <PlaceDialog place={editing === 'new' ? null : editing} onDismiss={() => setEditing(null)} />}
@@ -164,8 +168,10 @@ export function PlaceDialog({ place, parentId, onDismiss, onSaved }: {
       // A box's sorting rule, or a binder's order (collection/binderPages.ts).
       ...((kind === 'BOX' || kind === 'BINDER') && rule ? { sortRule: rule } : {}),
       createdAt: place?.createdAt ?? Date.now(),
-      // When it was last checked (collection/placeCheck.ts) isn't changed here.
+      // When it was last checked (collection/placeCheck.ts) isn't changed here, nor its size (Change size, boxSpace.ts).
       ...(place?.lastChecked ? { lastChecked: place.lastChecked } : {}),
+      ...(place?.capacity !== undefined ? { capacity: place.capacity } : {}),
+      ...(place?.pages !== undefined ? { pages: place.pages } : {}),
     }
     changeStorage((c) => savePlace(c, next))
     if (!place) countAction('place_created')

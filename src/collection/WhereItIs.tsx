@@ -14,6 +14,7 @@ import { PLACE_ICONS, PlacePicker } from './StorageTab'
 import { cardFactsOf, moveCopies, placeTree, placesOf, placeUnplaced, suggestSpot, whereItIs, type WhereLine } from './storagePlaces'
 import { movedMove, putAwayMove } from './copyHistory'
 import { recordMoves } from './copyHistoryStore'
+import { sellCountsByName, setForSaleByName } from './selling'
 import './storage.css'
 
 const ICONS: Record<WhereLine['kind'], string> = { place: 'inventory_2', deck: 'style', lent: 'handshake', none: 'error' }
@@ -25,7 +26,10 @@ export function WhereItIs({ name, card }: { name: string; card: ScryfallCard | n
   const { lines, total } = useMemo(() => whereItIs(collections, decks, name), [collections, decks, name])
   const [giving, setGiving] = useState(false)
   const [moving, setMoving] = useState(false)
+  const [selling, setSelling] = useState(false)
   if (total === 0) return null
+  // Selling (selling.ts) and photos of a copy (copyPhotos.ts): binder copies only.
+  const sale = sellCountsByName(collections, name)
   const unplaced = lines.find((l) => l.kind === 'none')?.qty ?? 0
   const placeLines = lines.filter((l): l is Extract<WhereLine, { kind: 'place' }> => l.kind === 'place')
 
@@ -69,9 +73,16 @@ export function WhereItIs({ name, card }: { name: string; card: ScryfallCard | n
           </button>
           <button type="button" className="btn line" onClick={() => navigate(`/history?card=${encodeURIComponent(name)}`)}><Icon name="history" aria-hidden />History</button>
         </div>
+        {sale.copies > 0 && (
+          <div className="where-actions">
+            <button type="button" className="btn line" onClick={() => setSelling(true)}><Icon name="sell" aria-hidden />{sale.toSell > 0 ? `To sell: ${sale.toSell}` : 'Sell…'}</button>
+            <button type="button" className="btn line" onClick={() => navigate(`/collections/photos?card=${encodeURIComponent(name)}`)}><Icon name="photo_camera" aria-hidden />Photos</button>
+          </div>
+        )}
       </div>
       {giving && <PlacePicker title={`Give ${name} a place`} onPick={give} onClose={() => setGiving(false)} />}
       {moving && <MoveCopyDialog name={name} card={card} lines={placeLines} unplaced={unplaced} onDismiss={() => setMoving(false)} />}
+      {selling && <SellDialog name={name} copies={sale.copies} toSell={sale.toSell} onDismiss={() => setSelling(false)} />}
     </div>
   )
 }
@@ -137,6 +148,32 @@ function MoveCopyDialog({ name, card, lines, unplaced, onDismiss }: {
           </div>
         </>
       )}
+    </Dialog>
+  )
+}
+
+/** Sell…: how many of the card's copies go on the To sell list (setForSaleByName, selling.ts). */
+function SellDialog({ name, copies, toSell, onDismiss }: { name: string; copies: number; toSell: number; onDismiss: () => void }) {
+  const { changeStorage } = useSync()
+  const [count, setCount] = useState(Math.min(copies, Math.max(1, toSell)))
+  return (
+    <Dialog
+      title={`Sell ${name}`}
+      onDismiss={onDismiss}
+      actions={
+        <>
+          <button type="button" className="btn line" onClick={onDismiss}>Cancel</button>
+          <button type="button" className="btn gold" onClick={() => { changeStorage((c) => setForSaleByName(c, name, count)); onDismiss() }}>Save</button>
+        </>
+      }
+    >
+      <p className="muted" style={{ margin: '0 0 10px' }}>Copies go on the Storage tab's To sell list, with where they are.</p>
+      <div className="field-label">Copies to sell</div>
+      <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+        <button type="button" className="ib" aria-label="One fewer" disabled={count <= 0} onClick={() => setCount((n) => Math.max(0, n - 1))}><Icon name="remove" /></button>
+        <b>{count} of {copies}</b>
+        <button type="button" className="ib" aria-label="One more" disabled={count >= copies} onClick={() => setCount((n) => Math.min(copies, n + 1))}><Icon name="add" /></button>
+      </div>
     </Dialog>
   )
 }

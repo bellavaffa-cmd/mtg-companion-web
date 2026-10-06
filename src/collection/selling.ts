@@ -18,7 +18,7 @@ import { languageName } from './copyDetails'
 import { namesDecksUse } from './spares'
 import { realCopiesOf } from './unsorted'
 import { unitPrice } from './valueByPlace'
-import { lentTag, placesOf, splitPlaces, withPlaces } from './storagePlaces'
+import { lentTag, placesOf, sameCardName, splitPlaces, withPlaces } from './storagePlaces'
 
 /** A printing's facts for selling: set, number and prices (US dollars, and Cardmarket's euros; null: none). */
 export interface SellPrinting { set: string; number: string; usd: number | null; usdFoil: number | null; eur?: number | null }
@@ -198,6 +198,40 @@ export function markUnusedToSell(collections: Collection[], decks: Deck[], over:
 /** [collections] with [row]'s copies no longer to sell. */
 export const unmarkToSell = (collections: Collection[], row: SellRow): Collection[] =>
   collections.map((c) => (c.id !== row.collectionId ? c : { ...c, entries: c.entries.map((e) => (e.scryfallId === row.scryfallId ? withForSale(e, 0) : e)) }))
+
+/** Copies owned of the card called [name] in the binders and the Unsorted pile, and how many of them are to sell. */
+export function sellCountsByName(collections: Collection[], name: string): { copies: number; toSell: number } {
+  let copies = 0
+  let toSell = 0
+  for (const c of owned(collections)) {
+    for (const e of c.entries) {
+      if (!sameCardName(e.name, name)) continue
+      copies += copiesOf(e)
+      toSell += forSaleOf(e)
+    }
+  }
+  return { copies, toSell }
+}
+
+/**
+ * [collections] with [n] copies of the card called [name] to sell — "Sell…" on a card's Where it is:
+ * the entries filled in order (the Unsorted pile's first, then the binders'), the rest with none.
+ */
+export function setForSaleByName(collections: Collection[], name: string, n: number): Collection[] {
+  let left = Math.max(0, n)
+  const marks = new Map<string, number>()
+  const mine = owned(collections)
+  for (const c of [...mine.filter(isUnsorted), ...mine.filter((x) => !isUnsorted(x))]) {
+    for (const e of c.entries) {
+      if (!sameCardName(e.name, name)) continue
+      const take = Math.min(left, copiesOf(e))
+      if (take === 0 && e.forSale === undefined) continue
+      marks.set(`${c.id}|${e.scryfallId}`, take)
+      left -= take
+    }
+  }
+  return withMarks(collections, marks)
+}
 
 // ---- Sold ----
 

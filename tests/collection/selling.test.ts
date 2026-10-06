@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   cardmarketCondition, cardmarketCsv, forSaleOf, keepForSaleFromOlderApp, markSold, markSparesToSell, markUnusedToSell, sellRows, sellRowTitle,
-  sellRowUsd, sellSplit, sellTotalUsd, tcgplayerMassEntry, withForSale, type SellPrinting,
+  sellCountsByName, sellRowUsd, sellSplit, sellTotalUsd, setForSaleByName, tcgplayerMassEntry, withForSale, type SellPrinting,
 } from '../../src/collection/selling.ts'
 import { sellPullList } from '../../src/collection/pullList.ts'
 import { cardsIn } from '../../src/collection/storagePlaces.ts'
@@ -148,4 +148,16 @@ test('an entry saved by an older app keeps its copies to sell', () => {
   // One no longer to sell (0) stays so.
   const cleared = { ...pile, entries: pile.entries.map((e) => (e.forSale !== undefined ? { ...e, forSale: 0 } : e)) }
   assert.equal(keepForSaleFromOlderApp(pile, cleared), cleared)
+})
+
+test('selling some copies of a card from its page', () => {
+  assert.deepEqual(sellCountsByName(COLS, 'Lightning Bolt'), { copies: 7, toSell: 0 })
+  const after = setForSaleByName(COLS, 'lightning bolt', 6)
+  // The Unsorted pile's five first, then the binder's.
+  assert.equal(after[0].entries.find((e) => e.scryfallId === 'bolt')!.forSale, 5)
+  assert.equal(after[1].entries[0].forSale, 1)
+  assert.deepEqual(sellCountsByName(after, 'Lightning Bolt'), { copies: 7, toSell: 6 })
+  const fewer = setForSaleByName(after, 'Lightning Bolt', 2)
+  assert.equal(fewer[0].entries.find((e) => e.scryfallId === 'bolt')!.forSale, 2)
+  assert.equal(fewer[1].entries[0].forSale, 0)
 })

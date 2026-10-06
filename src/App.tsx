@@ -20,6 +20,9 @@ import { LoansPage } from './pages/LoansPage'
 import { LendPage } from './pages/LendPage'
 import { CopyHistoryPage } from './pages/CopyHistoryPage'
 import { ValueByPlacePage } from './pages/ValueByPlacePage'
+import { SpacePage } from './pages/SpacePage'
+import { SellPage } from './pages/SellPage'
+import { CopyPhotoPage } from './pages/CopyPhotoPage'
 import { DecksPage } from './pages/DecksPage'
 import { PreconsPage } from './pages/PreconsPage'
 import { NewDeckPage } from './pages/NewDeckPage'
@@ -93,6 +96,9 @@ export default function App() {
             <Route path="/collections/place/:id/check" element={<CheckResultsPage />} />
             <Route path="/collections/labels" element={<PlaceLabelPage />} />
             <Route path="/collections/value" element={<ValueByPlacePage />} />
+            <Route path="/collections/space" element={<SpacePage />} />
+            <Route path="/collections/sell" element={<SellPage />} />
+            <Route path="/collections/photos" element={<CopyPhotoPage />} />
             <Route path="/loans" element={<LoansPage />} />
             <Route path="/loans/lend" element={<LendPage />} />
             <Route path="/history" element={<CopyHistoryPage />} />

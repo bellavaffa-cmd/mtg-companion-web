@@ -1,0 +1,55 @@
+/* Box space, To sell and Photos of your copy (SpacePage.tsx, SellPage.tsx, CopyPhotoPage.tsx). */
+.space-list { max-width: 560px; display: flex; flex-direction: column; gap: 8px; }
+.space-card { padding: 12px 14px; border-radius: 14px; background: var(--g1); display: flex; flex-direction: column; gap: 8px; text-align: left; border: 0; color: inherit; font: inherit; }
+.space-card.full.open { box-shadow: inset 0 0 0 1px rgba(255, 138, 76, 0.5); }
+.space-h { display: flex; justify-content: space-between; gap: 10px; font-size: 0.875rem; }
+.space-h b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.space-h span { color: var(--t1); flex: none; }
+.space-card.full .space-h span { color: #ff8a4c; font-weight: 700; }
+.space-bar { height: 10px; border-radius: 5px; background: var(--g2); overflow: hidden; }
+.space-bar > div { height: 100%; border-radius: 5px; background: var(--gold); }
+.space-card.full .space-bar > div { background: #ff8a4c; }
+.space-room { font-size: 0.8125rem; color: var(--t0, #d9d6cd); }
+.space-actions { display: flex; gap: 8px; }
+.space-actions .btn { flex: 1; min-height: 40px; }
+.split-box { max-width: 560px; margin-top: 16px; padding: 14px; border-radius: 16px; background: var(--g1); display: flex; flex-direction: column; gap: 10px; }
+.split-box h2 { margin: 0; font-size: 0.9375rem; font-weight: 800; }
+.split-line { display: flex; gap: 10px; font-size: 0.875rem; }
+.split-line > :first-child { flex: 1; }
+.split-line > :last-child { color: var(--t1); text-align: right; }
+.split-line.new > :first-child { color: var(--gold-light); font-weight: 700; }
+.space-warn { padding: 8px 12px; border-radius: 12px; background: rgba(243, 182, 74, 0.12); color: var(--warn); font-size: 0.8125rem; font-weight: 700; }
+
+.sell-page { padding-bottom: 96px; }
+.sell-total { font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: var(--gold); }
+.sell-rows { max-width: 560px; margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.sell-row { padding: 8px 6px 8px 14px; border-radius: 14px; background: var(--g1); display: flex; align-items: center; gap: 10px; font-size: 0.875rem; }
+.sell-row input { width: 22px; height: 22px; margin: 0; accent-color: var(--gold); flex: none; }
+.sell-row .what { flex: 1; min-width: 0; display: flex; flex-direction: column; text-align: left; background: none; border: 0; color: inherit; font: inherit; padding: 0; cursor: pointer; }
+.sell-row .what b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sell-row .what span { font-size: 0.75rem; color: var(--t1); }
+.sell-row .price { font-weight: 700; flex: none; }
+.sell-list-them { max-width: 560px; margin-top: 14px; padding: 14px; border-radius: 16px; background: var(--g1); display: flex; flex-direction: column; gap: 10px; }
+.sell-list-them h2 { margin: 0; font-size: 0.9375rem; font-weight: 800; }
+.sell-list-them .row { display: flex; gap: 8px; }
+.sell-list-them .row .btn { flex: 1; min-height: 40px; }
+
+.photo-page { max-width: 560px; }
+.photo-copies { margin-bottom: 12px; }
+.photo-tiles { display: flex; gap: 10px; }
+.photo-tile { flex: 1; aspect-ratio: 63 / 88; border-radius: 10px; background: #2b2e38; position: relative; overflow: hidden; border: 0; padding: 0; cursor: pointer; color: var(--t1); font: inherit; }
+.photo-tile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.photo-tile .tag { position: absolute; left: 8px; bottom: 8px; padding: 2px 8px; border-radius: 8px; background: rgba(12, 13, 17, 0.8); color: #f1eee6; font-size: 12px; font-weight: 700; }
+.photo-details { margin-top: 14px; padding: 14px; border-radius: 16px; background: var(--g1); display: flex; flex-direction: column; gap: 10px; }
+.photo-details > div { display: flex; justify-content: space-between; gap: 10px; font-size: 0.875rem; }
+.photo-details > div > span:first-child { color: var(--t1); }
+.photo-details > div > span:last-child { font-weight: 700; text-align: right; }
+.photo-details .gold { color: var(--gold); }
+.photo-actions { display: flex; gap: 8px; margin-top: 12px; }
+.photo-actions .btn { flex: 1; min-height: 44px; }
+.photo-ask { margin-top: 14px; padding: 14px; border-radius: 16px; background: var(--g1); display: flex; flex-direction: column; gap: 6px; }
+
+@media print {
+  .value-print .shot { break-inside: avoid; margin-bottom: 10pt; }
+  .value-print .shot img { width: 55mm; margin: 4pt 6pt 0 0; border: 0.3mm solid #ccc; }
+}

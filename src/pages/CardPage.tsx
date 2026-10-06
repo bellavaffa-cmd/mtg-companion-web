@@ -17,6 +17,9 @@ import { sourcesForName } from '../collection/cardSources'
 import { canBeFoil, onlyFoil } from '../collection/addTo'
 import { PriceHistoryPanel } from '../collection/PriceHistoryPanel'
 import { WhereItIs } from '../collection/WhereItIs'
+import { Dialog } from '../components/Dialog'
+import { askForPhotos } from '../collection/copyPhotos'
+import { loadCopyPhotos } from '../collection/copyPhotoStore'
 import {
   backImageUrl, biggerImageUrl, canBeCommander, cardTags, displayImageUrl, displayManaCost, displayOracleText, largeImageUrl, type ScryfallCard,
 } from '../types/scryfall'
@@ -58,6 +61,8 @@ export function CardPage() {
   const [similar, setSimilar] = useState<ScryfallCard[] | null | undefined>(undefined)
   // The card the Add to… sheet is for (this one, or one opened from a list) and which list it starts on.
   const [adding, setAdding] = useState<{ card: ScryfallCard; kind?: 'deck' | 'binder' } | null>(null)
+  // A card just added that's worth over the "ask for photos" setting (collection/copyPhotos.ts): its name.
+  const [askPhotos, setAskPhotos] = useState<string | null>(null)
   // A tile opened up close: an EDHREC card (by name — looked up on Scryfall) or a similar card.
   const [zoom, setZoom] = useState<ScryfallCard | null>(null)
   const [opening, setOpening] = useState<string | null>(null)
@@ -357,9 +362,32 @@ export function CardPage() {
           foil={canBeFoil(adding.card) ? { on: onlyFoil(adding.card) } : null}
           sideboard
           printing={adding.card}
-          onPick={(target) => addCardTo(adding.card, target)}
+          onPick={(target) => {
+            void addCardTo(adding.card, target)
+            // A dear card into a binder (not the Wishlist): offer to photograph the copy (collection/copyPhotos.ts).
+            if (target.kind !== 'binder') return
+            const printing = target.printing ?? adding.card
+            const n = (v: string | null | undefined) => (v && Number.isFinite(Number(v)) ? Number(v) : null)
+            const usd = target.foil ? n(printing.prices?.usd_foil) ?? n(printing.prices?.usd) : n(printing.prices?.usd) ?? n(printing.prices?.usd_foil)
+            const wishlist = collections.find((c) => c.id === target.id)?.type === 'WISHLIST'
+            void loadCopyPhotos().then((p) => { if (!wishlist && askForPhotos(usd, p.askOver)) setAskPhotos(printing.name) })
+          }}
           onClose={() => setAdding(null)}
         />
+      )}
+      {askPhotos && (
+        <Dialog
+          title="Photograph your copy?"
+          onDismiss={() => setAskPhotos(null)}
+          actions={
+            <>
+              <button type="button" className="btn line" onClick={() => setAskPhotos(null)}>Not now</button>
+              <button type="button" className="btn gold" onClick={() => { const n = askPhotos; setAskPhotos(null); navigate(`/collections/photos?card=${encodeURIComponent(n)}`) }}>Take photos</button>
+            </>
+          }
+        >
+          <p className="muted" style={{ margin: 0 }}>{askPhotos} is worth more than your photo setting. Photos of the front and back stay on this device and go in the Value by place report.</p>
+        </Dialog>
       )}
     </>
   )

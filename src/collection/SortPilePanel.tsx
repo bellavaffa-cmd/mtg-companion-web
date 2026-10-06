@@ -9,11 +9,13 @@ import { useMoney } from '../money/currency'
 import { Icon } from '../components/Icon'
 import { Dialog } from '../components/Dialog'
 import { placeTree, placesOf } from './storagePlaces'
+import { overflowLine, overflows, pileAdds } from './boxSpace'
 import {
   BY_RULE, defaultPiles, MAX_PILES, MIN_PILES, PILE_KINDS, pileDestination, pileGoesTo, pileTallies, pileTitle, type PileKind, type PileRule, type SortSession,
 } from './sortPiles'
 import { PILE_COLOURS, savePiles } from './sortSession'
 import './loans.css'
+import './inventory.css'
 
 const KIND_LABELS: Record<PileKind, string> = {
   VALUE: 'Rares and mythics worth over…',
@@ -74,6 +76,10 @@ export function SortPilePanel({ session, onChange, onDone }: { session: SortSess
         })}
       </div>
 
+      {/* Places these piles would overflow (boxSpace.ts). */}
+      {overflows(collections, pileAdds(collections, session)).map((o) => (
+        <div key={o.placeId} className="space-warn" role="status" style={{ marginTop: 8 }}>{overflowLine(o)}</div>
+      ))}
       <div className="putaway-head">
         <span>{session.scans.length} {session.scans.length === 1 ? 'card' : 'cards'} sorted</span>
         {last && <button type="button" className="link" onClick={() => onChange({ ...session, scans: session.scans.slice(0, -1) })}>Undo last</button>}

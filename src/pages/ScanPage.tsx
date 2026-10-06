@@ -37,6 +37,8 @@ import { pullList, putBackList, rowToTick } from '../collection/pullList'
 import { loadPullProgress, loadPutBackProgress, tickRow } from '../collection/pullProgress'
 import { reconcile, type CheckScan } from '../collection/placeCheck'
 import { loadCheck, saveCheck, type CheckSession } from '../collection/checkSession'
+import { nearlyFull, overflowLine, roomLine, spaceOf, spaceRoom } from '../collection/boxSpace'
+import '../collection/inventory.css'
 import { looseCopies } from '../collection/binderPages'
 import { cardsIn, placePath } from '../collection/storagePlaces'
 import { fileEveryPile, nextPile, ownedCounts, wantedByDecks, type FiledPiles, type SortScan, type SortSession } from '../collection/sortPiles'
@@ -924,6 +926,15 @@ export function ScanPage() {
         </form>
 
         {sortMode && sort && <SortPilePanel session={sort} onChange={setSort} onDone={fileSort} />}
+        {target && (() => {
+          // A place with a size that's full, or nearly (collection/boxSpace.ts).
+          const space = spaceOf(target, collections)
+          if (!space) return null
+          const warning = spaceRoom(space) <= 0
+            ? overflowLine({ placeId: target.id, name: target.name, adding: 1, room: spaceRoom(space) })
+            : nearlyFull(space) ? `${target.name}: ${roomLine(space).charAt(0).toLowerCase()}${roomLine(space).slice(1)}` : null
+          return warning ? <div className="space-warn" role="status" style={{ marginTop: 8 }}>{warning}</div> : null
+        })()}
         {target && session[0] && (() => {
           const last = session[0]
           return (
