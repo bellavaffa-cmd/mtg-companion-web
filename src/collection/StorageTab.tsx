@@ -18,6 +18,8 @@ import {
   placeTree, placesOf, savePlace, SORT_RULE_LABELS, SORT_RULES, storageSummary, type StorageSummary,
 } from './storagePlaces'
 import { useUpkeep } from './useUpkeep'
+import { sealedOf, sealedTotalUsd } from './sealed'
+import { useMoney } from '../money/currency'
 import './storage.css'
 
 export const PLACE_ICONS: Record<PlaceKind, string> = { BOX: 'inventory_2', BINDER: 'menu_book', DECK_BOX: 'style', SHELF: 'shelves', OTHER: 'category' }
@@ -34,6 +36,8 @@ export function StorageTab() {
   const share = summary.total > 0 ? summary.placed / summary.total : 0
   const putAway = () => (places.length === 0 ? navigate('/collections/setup') : setChoosing(true))
   const upkeep = useUpkeep()
+  const money = useMoney()
+  const sealed = sealedOf(collections)
 
   return (
     <>
@@ -77,6 +81,11 @@ export function StorageTab() {
           <Icon name="handshake" className="storage-icon" />
           <div className="storage-text"><b>Lent out</b><span>Your loans, and what friends lent you</span></div>
           <span className="storage-n">{count(summary.lent)}</span>
+        </button>
+        <button type="button" className="storage-row storage-card press rise" style={rise(5)} onClick={() => navigate('/collections/sealed')}>
+          <Icon name="inventory_2" className="storage-icon" />
+          <div className="storage-text"><b>Sealed</b><span>{sealed.length > 0 ? `${count(sealed.reduce((n, p) => n + p.count, 0))} sealed · ${money.format(sealedTotalUsd(sealed), true)}` : 'Booster boxes, bundles and precons'}</span></div>
+          <span className="storage-n">{count(sealed.reduce((n, p) => n + p.count, 0))}</span>
         </button>
         <button type="button" className="storage-row storage-card press rise" style={rise(5)} onClick={() => navigate('/collections/household')}>
           <Icon name="shelves" className="storage-icon" />

@@ -25,6 +25,8 @@ import { SpacePage } from './pages/SpacePage'
 import { StorageSetupPage } from './pages/StorageSetupPage'
 import { UpkeepPage } from './pages/UpkeepPage'
 import { SellPage } from './pages/SellPage'
+import { SealedPage } from './pages/SealedPage'
+import { GradedPage } from './pages/GradedPage'
 import { CopyPhotoPage } from './pages/CopyPhotoPage'
 import { DecksPage } from './pages/DecksPage'
 import { PreconsPage } from './pages/PreconsPage'
@@ -106,6 +108,8 @@ export default function App() {
             <Route path="/collections/setup" element={<StorageSetupPage />} />
             <Route path="/collections/upkeep" element={<UpkeepPage />} />
             <Route path="/collections/sell" element={<SellPage />} />
+            <Route path="/collections/sealed" element={<SealedPage />} />
+            <Route path="/collections/graded" element={<GradedPage />} />
             <Route path="/collections/photos" element={<CopyPhotoPage />} />
             <Route path="/collections/household" element={<HouseholdPage />} />
             <Route path="/collections/household/:id" element={<HouseholdPage />} />

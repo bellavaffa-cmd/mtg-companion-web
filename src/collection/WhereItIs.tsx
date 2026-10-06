@@ -15,7 +15,10 @@ import { cardFactsOf, moveCopies, placeTree, placesOf, placeUnplaced, suggestSpo
 import { movedMove, putAwayMove } from './copyHistory'
 import { recordMoves } from './copyHistoryStore'
 import { sellCountsByName, setForSaleByName } from './selling'
+import { gradedWhere } from './graded'
+import { useMoney } from '../money/currency'
 import './storage.css'
+import './inventory.css'
 
 const ICONS: Record<WhereLine['kind'], string> = { place: 'inventory_2', deck: 'style', lent: 'handshake', none: 'error' }
 
@@ -27,7 +30,10 @@ export function WhereItIs({ name, card }: { name: string; card: ScryfallCard | n
   const [giving, setGiving] = useState(false)
   const [moving, setMoving] = useState(false)
   const [selling, setSelling] = useState(false)
-  if (total === 0) return null
+  const money = useMoney()
+  // Graded copies (graded.ts): kept apart from the raw ones, each with its slab and value.
+  const graded = useMemo(() => gradedWhere(collections, name), [collections, name])
+  if (total === 0 && graded.length === 0) return null
   // Selling (selling.ts) and photos of a copy (copyPhotos.ts): binder copies only.
   const sale = sellCountsByName(collections, name)
   const unplaced = lines.find((l) => l.kind === 'none')?.qty ?? 0
@@ -43,7 +49,7 @@ export function WhereItIs({ name, card }: { name: string; card: ScryfallCard | n
 
   return (
     <div className="panel">
-      <div className="p-h"><h3>Where it is</h3><span className="dim">{total} {total === 1 ? 'copy' : 'copies'}</span></div>
+      <div className="p-h"><h3>Where it is</h3><span className="dim">{total} {total === 1 ? 'copy' : 'copies'}{graded.length > 0 ? ` · ${graded.length} graded` : ''}</span></div>
       <div className="where-list">
         {lines.map((l, i) => {
           const icon = l.kind === 'place' ? PLACE_ICONS[places.find((p) => p.id === l.placeId)?.kind ?? 'OTHER'] : ICONS[l.kind]
@@ -61,6 +67,13 @@ export function WhereItIs({ name, card }: { name: string; card: ScryfallCard | n
             ? <button key={i} type="button" className="where-row press" onClick={go}>{body}</button>
             : <div key={i} className={`where-row${l.kind === 'none' ? ' none' : ''}`}>{body}</div>
         })}
+        {graded.map((g) => (
+          <button key={g.id} type="button" className="where-row press" onClick={() => navigate(`/collections/graded?id=${encodeURIComponent(g.id)}`)}>
+            <Icon name="verified" />
+            <div className="storage-text"><b>{g.title}<span className="graded-tag">Graded</span></b><span>{g.detail}</span></div>
+            <b>{g.valueUsd !== null ? money.format(g.valueUsd, true) : '×1'}</b>
+          </button>
+        ))}
         {places.length > 0 && (placeLines.length > 0 || unplaced > 0) && (
           <div className="where-actions">
             <button type="button" className="btn soft" onClick={() => setMoving(true)}>Move a copy</button>
@@ -72,6 +85,9 @@ export function WhereItIs({ name, card }: { name: string; card: ScryfallCard | n
             <Icon name="handshake" aria-hidden />Lend
           </button>
           <button type="button" className="btn line" onClick={() => navigate(`/history?card=${encodeURIComponent(name)}`)}><Icon name="history" aria-hidden />History</button>
+        </div>
+        <div className="where-actions">
+          <button type="button" className="btn line" onClick={() => navigate(`/collections/graded?card=${encodeURIComponent(name)}`)}><Icon name="verified" aria-hidden />Mark a copy as graded</button>
         </div>
         {sale.copies > 0 && (
           <div className="where-actions">

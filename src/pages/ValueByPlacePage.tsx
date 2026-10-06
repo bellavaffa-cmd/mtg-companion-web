@@ -5,7 +5,8 @@ import { Icon } from '../components/Icon'
 import { PageHeader, rise, useBack } from '../components/kit'
 import { useCardData } from '../collection/cardData'
 import { lentCopies } from '../collection/storagePlaces'
-import { valueCsv, valueGroups, valueRows, type PrintingFacts } from '../collection/valueByPlace'
+import { finishOf, valueCsv, valueGroups, valueRows, type PrintingFacts } from '../collection/valueByPlace'
+import { gradedOf } from '../collection/graded'
 import { boughtLabel, photoDayLabel, photosForReport, type CopyPhoto } from '../collection/copyPhotos'
 import { useCopyPhotos, usePhotoUrl } from '../collection/copyPhotoStore'
 import { dayOf } from '../collection/copyHistoryStore'
@@ -13,6 +14,9 @@ import '../collection/loans.css'
 import '../collection/inventory.css'
 
 const count = (n: number) => n.toLocaleString('en-GB')
+/** "12 copies", "12 copies · 2 sealed", "1 sealed". */
+const holding = (copies: number, sealed: number) =>
+  [copies > 0 || sealed === 0 ? `${count(copies)} ${copies === 1 ? 'copy' : 'copies'}` : '', sealed > 0 ? `${count(sealed)} sealed` : ''].filter(Boolean).join(' · ')
 
 /**
  * Value by place: everything owned in total, and place by place as bars — binders and boxes, the deck
@@ -29,6 +33,7 @@ export function ValueByPlacePage() {
     for (const c of collections) if (c.type !== 'WISHLIST') for (const e of c.entries) out.add(e.scryfallId)
     for (const d of decks) for (const e of d.cards) out.add(e.scryfallId)
     for (const l of lentCopies(collections, decks)) out.add(l.card.scryfallId)
+    for (const g of gradedOf(collections)) out.add(g.scryfallId)
     return [...out]
   }, [collections, decks])
   const data = useCardData(ids)
@@ -64,7 +69,7 @@ export function ValueByPlacePage() {
         <div className="value-total rise" style={rise(1)}>
           <span className="dim">Everything you own</span>
           <span className="big">{data ? money.format(v.usd, true) : '…'}</span>
-          <span className="dim">{count(v.copies)} {v.copies === 1 ? 'copy' : 'copies'} · prices from today</span>
+          <span className="dim">{holding(v.copies, v.sealed)} · prices from today{v.sealed > 0 || rows.some((r) => r.label === 'Graded') ? ', graded and sealed at the value you entered' : ''}</span>
         </div>
         <div className="value-bars">
           {v.groups.map((g, i) => (
@@ -74,7 +79,7 @@ export function ValueByPlacePage() {
                 <b>{money.format(g.usd, true)}</b>
               </div>
               <div className="storage-bar"><div className={g.kind === 'none' ? 'grey' : ''} style={{ width: `${Math.round((g.usd / max) * 100)}%` }} /></div>
-              <span className="dim" style={{ fontSize: 12 }}>{count(g.copies)} {g.copies === 1 ? 'copy' : 'copies'}</span>
+              <span className="dim" style={{ fontSize: 12 }}>{holding(g.copies, g.sealed)}</span>
             </div>
           ))}
           {v.groups.length === 0 && <div className="empty-state"><Icon name="payments" /><div>Nothing owned yet.</div></div>}
@@ -98,7 +103,7 @@ export function ValueByPlacePage() {
             <tbody>
               {[...rows].sort((a, b) => a.where.localeCompare(b.where) || a.name.localeCompare(b.name)).map((r, i) => (
                 <tr key={i}>
-                  <td>{r.name}</td><td>{[r.set, r.number].filter(Boolean).join(' ')}</td><td>{r.foil ? 'Foil' : ''}</td><td>{r.qty}</td>
+                  <td>{r.name}</td><td>{[r.set, r.number].filter(Boolean).join(' ')}</td><td>{r.label ? finishOf(r) : r.foil ? 'Foil' : ''}</td><td>{r.qty}</td>
                   <td>{r.where}</td><td>{r.spot}</td>
                   <td>{r.unitUsd === null ? '' : money.format(r.unitUsd)}</td><td>{r.unitUsd === null ? '' : money.format(r.unitUsd * r.qty)}</td>
                 </tr>

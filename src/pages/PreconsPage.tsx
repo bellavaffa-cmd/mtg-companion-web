@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { listCommanderPrecons, preconContents, type PreconContents, type PreconInfo } from '../api/mtgjson'
-import { getCardsByIds } from '../api/scryfall'
+import { listCommanderPrecons, type PreconContents, type PreconInfo } from '../api/mtgjson'
+import { contentsOf, importPreconDeck } from '../decks/preconImport'
 import { Icon } from './../components/Icon'
 import { PageHeader, SearchPill, TYPE_GROUPS, TYPE_PLURALS, primaryTypeOf, rise, useBack } from '../components/kit'
 import { Dialog } from '../components/Dialog'
 import { useSync } from '../sync/SyncContext'
-import type { DeckCardEntry } from '../types/models'
-import { backImageUrl, canBeCommander, cardTags, displayImageUrl, partnerAbility } from '../types/scryfall'
 
 const year = (releaseDate: string | null) => releaseDate?.slice(0, 4) ?? ''
 
@@ -43,34 +41,7 @@ export function PreconsPage() {
     setImporting(precon.fileName)
     setError(null)
     try {
-      const contents = await contentsOf(precon)
-      const all = [...contents.commander, ...contents.cards]
-      const ids = [...new Set(all.map((c) => c.scryfallId).filter((id): id is string => !!id))]
-      if (ids.length === 0) throw new Error("Couldn't resolve any cards for this precon.")
-      // Strict: a batch that fails would otherwise make a deck that's quietly missing cards.
-      const byId = new Map((await getCardsByIds(ids, true)).map((card) => [card.id, card]))
-      const entries: DeckCardEntry[] = []
-      for (const entry of all) {
-        const card = entry.scryfallId ? byId.get(entry.scryfallId) : undefined
-        if (!card) continue
-        entries.push({
-          scryfallId: card.id,
-          name: card.name,
-          imageUrl: displayImageUrl(card),
-          quantity: entry.quantity,
-          canBeCommander: canBeCommander(card),
-          typeLine: card.type_line ?? null,
-          partnerAbility: partnerAbility(card),
-          backImageUrl: backImageUrl(card),
-          tags: cardTags(card),
-        })
-      }
-      if (entries.length === 0) throw new Error("None of this precon's cards could be found on Scryfall.")
-      // MTGJSON lists two commanders for a partner precon — set both when they're there.
-      const commanders = contents.commander
-        .map((c) => entries.find((e) => e.scryfallId === c.scryfallId))
-        .filter((e): e is DeckCardEntry => !!e)
-      const deck = createDeckWithCards(precon.name, entries, commanders[0] ?? null, commanders[1] ?? null)
+      const deck = await importPreconDeck(precon.fileName, precon.name, createDeckWithCards)
       setViewing(null)
       navigate(`/decks/${deck.id}`)
     } catch (e) {
@@ -150,7 +121,7 @@ function PreconContentsDialog({ precon, importing, onImport, onDismiss }: { prec
   const [contents, setContents] = useState<PreconContents | null | undefined>(undefined)
   useEffect(() => {
     let cancelled = false
-    contentsOf(precon)
+    contentsOf(precon.fileName)
       .then((c) => { if (!cancelled) setContents(c) })
       .catch(() => { if (!cancelled) setContents(null) })
     return () => { cancelled = true }
@@ -195,16 +166,4 @@ function PreconContentsDialog({ precon, importing, onImport, onDismiss }: { prec
       </div>
     </Dialog>
   )
-}
-
-/** A precon's decklist, fetched once per visit: the preview and the import share it. */
-const contentsCache = new Map<string, Promise<PreconContents>>()
-function contentsOf(precon: PreconInfo): Promise<PreconContents> {
-  let found = contentsCache.get(precon.fileName)
-  if (!found) {
-    found = preconContents(precon.fileName)
-    found.catch(() => contentsCache.delete(precon.fileName))
-    contentsCache.set(precon.fileName, found)
-  }
-  return found
 }

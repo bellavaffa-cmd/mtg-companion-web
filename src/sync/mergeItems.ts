@@ -24,6 +24,9 @@
 //  - The loans (on the Unsorted pile, see collection/loans.ts) merge loan by loan, their cards card by
 //    card, and the copies back only go up; a pile saved by an app that doesn't know about loans leaves
 //    them as they were.
+//  - Sealed product and graded copies (on the Unsorted pile, see collection/sealed.ts and graded.ts)
+//    merge product by product and slab by slab; a sealed product's count adds up like a card's. A pile
+//    saved by an app that doesn't know about them leaves them as they were.
 //  - A deck's primer, folder, archive flag and companion go to whoever changed them; each category's
 //    target the same, one by one; a card's categories merge like its tags. A deck saved by an app that
 //    doesn't know them leaves them as they were (decks/deckExtras.ts).
@@ -38,6 +41,8 @@ import { keepForSaleFromOlderApp } from '../collection/selling'
 import { keepAlertOptionsFromOlderApp } from '../collection/wishlistTargets'
 import { keepCameFromFromOlderApp, mergeCameFrom } from '../collection/pullList'
 import { keepLoansFromOlderApp, mergeLoans } from '../collection/loans'
+import { keepSealedFromOlderApp, mergeSealed } from '../collection/sealed'
+import { keepGradedFromOlderApp, mergeGraded } from '../collection/graded'
 import { keepDeckExtrasFromOlderApp, mergeDeckExtras } from '../decks/deckExtras'
 import { keepHistoryFromOlderApp, mergeHistory } from '../decks/deckHistory'
 // The phone keeps this many saved versions of a deck (DeckRepository.MAX_VERSIONS).
@@ -224,8 +229,9 @@ export function mergeCollection(base: Collection, mineIn: Collection, theirsIn: 
   // ...and one that doesn't know about loans left those as they were.
   // ...and one that doesn't know about place sizes or copies to sell left those as they were.
   // ...and one that doesn't know about a wishlist target's options left those as they were.
-  const mine = keepAlertOptionsFromOlderApp(base, keepForSaleFromOlderApp(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, mineIn)))))
-  const theirs = keepAlertOptionsFromOlderApp(base, keepForSaleFromOlderApp(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, theirsIn)))))
+  // ...and one that doesn't know about sealed product or graded copies left those as they were.
+  const mine = keepGradedFromOlderApp(base, keepSealedFromOlderApp(base, keepAlertOptionsFromOlderApp(base, keepForSaleFromOlderApp(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, mineIn)))))))
+  const theirs = keepGradedFromOlderApp(base, keepSealedFromOlderApp(base, keepAlertOptionsFromOlderApp(base, keepForSaleFromOlderApp(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, theirsIn)))))))
   const placesIn = (list: CollectionEntry[]) => new Map(list.map((e) => [e.scryfallId, e]))
   const [b, m, t] = [placesIn(base.entries), placesIn(mine.entries), placesIn(theirs.entries)]
   // Each card's places line by line (one added on both sides keeps the other device's), then no more
@@ -244,11 +250,15 @@ export function mergeCollection(base: Collection, mineIn: Collection, theirsIn: 
   })
   const storagePlaces = mergePlaceLists(base.storagePlaces, mine.storagePlaces, theirs.storagePlaces, minePreferred)
   const loans = mergeLoans(base.loans, mine.loans, theirs.loans, minePreferred)
-  const { storagePlaces: _theirs, loans: _theirLoans, ...rest } = theirs
+  const sealed = mergeSealed(base.sealed, mine.sealed, theirs.sealed, minePreferred)
+  const graded = mergeGraded(base.graded, mine.graded, theirs.graded, minePreferred)
+  const { storagePlaces: _theirs, loans: _theirLoans, sealed: _theirSealed, graded: _theirGraded, ...rest } = theirs
   return {
     ...rest,
     ...(storagePlaces !== undefined ? { storagePlaces } : {}),
     ...(loans !== undefined ? { loans } : {}),
+    ...(sealed !== undefined ? { sealed } : {}),
+    ...(graded !== undefined ? { graded } : {}),
     name: pick(base.name, mine.name, theirs.name, minePreferred),
     type: pick(base.type, mine.type, theirs.type, minePreferred),
     createdAt: Math.min(mine.createdAt, theirs.createdAt),

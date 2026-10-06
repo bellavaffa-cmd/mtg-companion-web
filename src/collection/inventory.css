@@ -53,3 +53,40 @@
   .value-print .shot { break-inside: avoid; margin-bottom: 10pt; }
   .value-print .shot img { width: 55mm; margin: 4pt 6pt 0 0; border: 0.3mm solid #ccc; }
 }
+
+/* Sealed product (SealedPage.tsx) */
+.sealed-page { padding-bottom: 96px; max-width: 560px; }
+.sealed-rows { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.sealed-row { width: 100%; padding: 12px 14px; border: 0; border-radius: 14px; background: var(--g1); color: inherit; font: inherit; text-align: left; display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.sealed-thumb { width: 52px; height: 52px; flex: none; border-radius: 8px; background: var(--g3); display: flex; align-items: center; justify-content: center; color: var(--t1); }
+.sealed-row .what { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sealed-row .what b { font-size: 0.9375rem; overflow: hidden; text-overflow: ellipsis; }
+.sealed-row .what span { font-size: 0.75rem; color: var(--t1); }
+.sealed-row .worth { flex: none; display: flex; flex-direction: column; align-items: flex-end; }
+.sealed-row .worth span { font-size: 0.75rem; color: var(--t1); }
+.sealed-row .worth .up { color: var(--ok); }
+.sealed-row .worth .down { color: var(--cut); }
+.sealed-why { font-size: 0.875rem; color: var(--t1); line-height: 1.45; }
+.sealed-options { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
+.sealed-option { padding: 10px 12px; border: 0; border-radius: 12px; background: var(--g2); color: inherit; font: inherit; text-align: left; display: flex; flex-direction: column; gap: 2px; cursor: pointer; }
+.sealed-option span { font-size: 0.75rem; color: var(--t1); }
+
+/* A graded copy (GradedPage.tsx) */
+.graded-page { max-width: 560px; padding-bottom: 96px; }
+.graded-slab { width: 190px; margin: 0 auto; padding: 10px; border-radius: 12px; background: var(--g2); box-shadow: inset 0 0 0 2px var(--g3); display: flex; flex-direction: column; gap: 8px; }
+.graded-slab-label { padding: 6px 8px; border-radius: 6px; background: var(--gold); color: var(--gold-ink); display: flex; justify-content: space-between; align-items: center; }
+.graded-slab-label span:first-child { font-size: 12px; font-weight: 800; }
+.graded-slab-label span:last-child { font-family: var(--num); font-size: 26px; line-height: 1; }
+.graded-slab-art { aspect-ratio: 63 / 88; border-radius: 6px; background: var(--g3); overflow: hidden; }
+.graded-slab-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.graded-form { margin-top: 14px; padding: 14px; border-radius: 16px; background: var(--g1); display: flex; flex-direction: column; gap: 10px; }
+.graded-companies { display: flex; gap: 8px; }
+.graded-companies button { flex: 1; height: 36px; border: 0; border-radius: 10px; background: var(--g2); color: var(--t1); font: 600 13px var(--ui); cursor: pointer; }
+.graded-companies button[aria-pressed='true'] { background: var(--gold); color: var(--gold-ink); font-weight: 700; }
+.graded-field { display: flex; align-items: center; gap: 8px; }
+.graded-field label { width: 96px; flex: none; font-size: 14px; color: var(--t1); }
+.graded-field .input, .graded-field select { flex: 1; min-width: 0; }
+.graded-note { font-size: 12px; color: var(--t1); line-height: 1.45; }
+.graded-where { padding: 12px 0 0; display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.graded-where span:first-child { color: var(--t1); }
+.graded-tag { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 6px; background: var(--gold-soft); color: var(--gold-light); font-size: 11px; font-weight: 700; vertical-align: 1px; }

@@ -3,6 +3,8 @@
 // spreadsheet (CSV) or a printed report, for insurance or a move.
 //
 // Prices are Scryfall's, in US dollars; the CSV converts them to the user's currency (money/currency.ts).
+// Graded copies (graded.ts) and sealed product (sealed.ts) count at the value the user entered — card
+// prices are for raw copies, and no app has prices for sealed product — with a "Graded" or "Sealed" label.
 //
 // Pure, so it can be tested. Mirrors the Android app's data/ValueByPlace.kt rule for rule, with the same
 // tests (tests/collection/valueByPlace.test.ts ↔ ValueByPlaceTest.kt).
@@ -10,6 +12,8 @@
 import type { Collection, Deck } from '../types/models'
 import { realCopiesOf } from './unsorted'
 import { conditionName, languageName } from './copyDetails'
+import { gradedOf, gradeLabel } from './graded'
+import { sealedOf } from './sealed'
 import {
   lentByEntry, lentCopies, lentFromDeck, lentOf, lentTag, parentsOf, placedCopies, placePath, placesOf, pocketLabel, withPlaces, unplacedCopies,
 } from './storagePlaces'
@@ -38,6 +42,10 @@ export interface ValueRow {
   spot: string
   /** One copy's price in US dollars; null when there's none. */
   unitUsd: number | null
+  /** A graded copy (its value the one entered) or sealed product; left out for a raw copy. */
+  label?: 'Graded' | 'Sealed'
+  /** A graded copy's slab: "PSA 10". */
+  grade?: string
 }
 
 /** One copy's price: a foil's foil price (or else the plain one), a plain copy's plain price (or else the foil one). */
@@ -100,17 +108,45 @@ export function valueRows(collections: Collection[], decks: Deck[], facts: (scry
       kind: 'lent', group: 'lent', where: `Lent out › ${l.loan.to}`, spot: '',
     })
   }
+  // Graded copies and sealed product, at the value entered; in their place, or with no place yet.
+  const spotOf = (placeId: string | undefined) => (placeId && known.has(placeId)
+    ? { kind: 'place' as const, group: placeId, where: placePath(places, placeId) }
+    : { kind: 'none' as const, group: 'none', where: 'No place yet' })
+  for (const g of gradedOf(collections)) {
+    const p = facts(g.scryfallId)
+    rows.push({
+      name: g.name, scryfallId: g.scryfallId, set: p?.set.toUpperCase() ?? '', number: p?.number ?? '', foil: !!g.foil, condition: '', language: '',
+      qty: 1, ...spotOf(g.placeId), spot: g.placeId && known.has(g.placeId) ? g.section ?? '' : '', unitUsd: g.valueUsd ?? null, label: 'Graded', grade: gradeLabel(g),
+    })
+  }
+  for (const s of sealedOf(collections)) {
+    if (s.count <= 0) continue
+    rows.push({
+      name: s.name, scryfallId: '', set: s.setCode?.toUpperCase() ?? '', number: '', foil: false, condition: '', language: '',
+      qty: s.count, ...spotOf(s.placeId), spot: '', unitUsd: s.valueUsd ?? null, label: 'Sealed',
+    })
+  }
   return rows
 }
 
+/** A row's finish, as the spreadsheet and the report say it: "Foil", "Normal", "Graded PSA 10", "Sealed". */
+export const finishOf = (r: ValueRow): string =>
+  r.label === 'Sealed' ? 'Sealed' : r.label === 'Graded' ? [`Graded ${r.grade ?? ''}`.trim(), r.foil ? 'foil' : ''].filter(Boolean).join(', ') : r.foil ? 'Foil' : 'Normal'
+
 /** One bar on the page: a place (its name, and the places it's in), the deck boxes, lent out or no place. */
-export interface ValueGroup { key: string; kind: ValueKind; label: string; detail: string; usd: number; copies: number }
+export interface ValueGroup {
+  key: string; kind: ValueKind; label: string; detail: string; usd: number
+  /** Cards in it, graded copies too. */
+  copies: number
+  /** Sealed products in it (each box, bundle or precon). */
+  sealed: number
+}
 
 /**
  * The rows added up: the total, and a group per place holding copies, the deck boxes, lent out and no
  * place yet — the most valuable first, no place yet last.
  */
-export function valueGroups(rows: ValueRow[], collections: Collection[]): { groups: ValueGroup[]; usd: number; copies: number } {
+export function valueGroups(rows: ValueRow[], collections: Collection[]): { groups: ValueGroup[]; usd: number; copies: number; sealed: number } {
   const places = placesOf(collections)
   const groups = new Map<string, ValueGroup>()
   for (const r of rows) {
@@ -121,12 +157,13 @@ export function valueGroups(rows: ValueRow[], collections: Collection[]): { grou
         key: r.group, kind: r.kind,
         label: place?.name ?? (r.kind === 'decks' ? 'Deck boxes' : r.kind === 'lent' ? 'Lent out' : 'No place yet'),
         detail: place ? parentsOf(places, place.id).map((p) => p.name).join(' › ') : '',
-        usd: 0, copies: 0,
+        usd: 0, copies: 0, sealed: 0,
       }
       groups.set(r.group, g)
     }
     g.usd += (r.unitUsd ?? 0) * r.qty
-    g.copies += r.qty
+    if (r.label === 'Sealed') g.sealed += r.qty
+    else g.copies += r.qty
   }
   const all = [...groups.values()]
   const order = (a: ValueGroup, b: ValueGroup) => b.usd - a.usd || b.copies - a.copies || a.label.localeCompare(b.label)
@@ -134,6 +171,7 @@ export function valueGroups(rows: ValueRow[], collections: Collection[]): { grou
     groups: [...all.filter((g) => g.kind !== 'none').sort(order), ...all.filter((g) => g.kind === 'none')],
     usd: all.reduce((n, g) => n + g.usd, 0),
     copies: all.reduce((n, g) => n + g.copies, 0),
+    sealed: all.reduce((n, g) => n + g.sealed, 0),
   }
 }
 
@@ -154,7 +192,7 @@ export function valueCsv(rows: ValueRow[], money: CsvMoney): string {
   const sorted = [...rows].sort((a, b) => cmp(a.where, b.where) || cmp(a.spot, b.spot) || cmp(a.name, b.name) || Number(a.foil) - Number(b.foil))
   for (const r of sorted) {
     out.push([
-      r.name, r.set, r.number, r.foil ? 'Foil' : 'Normal', r.condition, r.language, String(r.qty), r.where, r.spot,
+      r.name, r.set, r.number, finishOf(r), r.condition, r.language, String(r.qty), r.where, r.spot,
       r.unitUsd === null ? '' : amount(r.unitUsd), r.unitUsd === null ? '' : amount(r.unitUsd * r.qty),
     ].map(cell).join(','))
   }

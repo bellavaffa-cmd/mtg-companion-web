@@ -407,6 +407,78 @@ export interface Collection {
    * no "loans" key was saved by an app that doesn't know about loans.
    */
   loans?: Loan[]
+  /**
+   * The Unsorted pile only: sealed product the user keeps — booster boxes, bundles, precons (see
+   * collection/sealed.ts). Rides along with the pile like [loans], merged product by product. Left
+   * out until the first one; then kept, as [] once none are left — so a pile with no "sealed" key was
+   * saved by an app that doesn't know about sealed product.
+   */
+  sealed?: SealedProduct[]
+  /**
+   * The Unsorted pile only: graded copies — slabs, kept apart from raw copies (see
+   * collection/graded.ts). Rides along like [sealed], merged slab by slab; left out and kept the same way.
+   */
+  graded?: GradedCard[]
+}
+
+// The pile's "sealed" and "graded" as JSON — locally and in sync, the Android app's exactly:
+//   "sealed": [{ "id": "…", "name": "Duskmourn Play Booster Box", "kind": "PLAY_BOX", "setCode": "dsk", "count": 2,
+//                "placeId": "…", "paidUsd": 210, "valueUsd": 238, "valueAt": 1790000000000, "createdAt": 1790000000000 },
+//              { "id": "…", "name": "Precon: Blame Game", "kind": "PRECON", "preconFile": "BlameGame_DSC", "count": 1 }]
+//   "graded": [{ "id": "…", "scryfallId": "…", "name": "Sheoldred, the Apocalypse", "imageUrl": "…", "foil": true,
+//                "company": "PSA", "companyName": "…", "grade": "10", "cert": "…", "valueUsd": 450, "placeId": "…",
+//                "section": "Slabs", "collectionId": "…", "createdAt": 1790000000000 }]
+// Optional keys are left out when not said. Values are what the user entered, in US dollars: no app
+// has prices for sealed product or graded copies.
+
+/** What a sealed product is. */
+export type SealedKind = 'PLAY_BOX' | 'COLLECTOR_BOX' | 'SET_BOX' | 'DRAFT_BOX' | 'BUNDLE' | 'PRECON' | 'OTHER'
+
+/**
+ * Sealed product the user keeps: [count] of one product in one place ([placeId]). [paidUsd] and
+ * [valueUsd] are each, in US dollars, as the user entered them ([valueAt]: when the value was last
+ * entered). A precon names its MTGJSON deck ([preconFile]) so opening it makes the deck. The Android
+ * app's SealedProduct, field for field.
+ */
+export interface SealedProduct {
+  id: string
+  name: string
+  kind: SealedKind
+  setCode?: string
+  preconFile?: string
+  count: number
+  placeId?: string
+  paidUsd?: number
+  valueUsd?: number
+  valueAt?: number
+  createdAt: number
+}
+
+/** Who graded a copy. */
+export type GradingCompany = 'PSA' | 'BGS' | 'CGC' | 'OTHER'
+
+/**
+ * One graded copy (a slab), kept apart from the raw copies: it isn't in any binder's counts, so it
+ * never fills a deck slot or counts as a spare. [grade] as the slab says it ("10", "9.5"); [cert]: its
+ * cert number; [valueUsd]: what the user says it's worth (card prices are for ungraded copies); where
+ * it is ([placeId], [section]); [collectionId]: the binder the copy came from, to go back to if it's
+ * cracked out. [companyName]: who, when [company] is OTHER. The Android app's GradedCard, field for field.
+ */
+export interface GradedCard {
+  id: string
+  scryfallId: string
+  name: string
+  imageUrl?: string
+  foil?: boolean
+  company: GradingCompany
+  companyName?: string
+  grade: string
+  cert?: string
+  valueUsd?: number
+  placeId?: string
+  section?: string
+  collectionId?: string
+  createdAt: number
 }
 
 // The pile's "loans" as JSON — locally and in sync:
