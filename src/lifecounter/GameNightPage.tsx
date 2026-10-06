@@ -108,7 +108,7 @@ export function GameNightPage() {
 
   return (
     <>
-      <TopBar title="Game night" onBack={back} />
+      <TopBar title="Game night" onBack={back} actions={<button type="button" className="btn line sm" onClick={() => navigate('/play/pack')}><Icon name="backpack" aria-hidden />Pack your bag</button>} />
       <div className="content-scroll">
         <div className="play night">
           <p className="muted night-intro rise" style={rise(0)}>

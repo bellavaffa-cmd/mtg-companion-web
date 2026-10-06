@@ -20,6 +20,7 @@ import {
 import { useUpkeep } from './useUpkeep'
 import { sealedOf, sealedTotalUsd } from './sealed'
 import { useMoney } from '../money/currency'
+import { gearOf, gearSummary } from './gear'
 import './storage.css'
 
 export const PLACE_ICONS: Record<PlaceKind, string> = { BOX: 'inventory_2', BINDER: 'menu_book', DECK_BOX: 'style', SHELF: 'shelves', OTHER: 'category' }
@@ -38,6 +39,7 @@ export function StorageTab() {
   const upkeep = useUpkeep()
   const money = useMoney()
   const sealed = sealedOf(collections)
+  const gearLine = useMemo(() => gearSummary(gearOf(collections), decks), [collections, decks])
 
   return (
     <>
@@ -86,6 +88,11 @@ export function StorageTab() {
           <Icon name="inventory_2" className="storage-icon" />
           <div className="storage-text"><b>Sealed</b><span>{sealed.length > 0 ? `${count(sealed.reduce((n, p) => n + p.count, 0))} sealed · ${money.format(sealedTotalUsd(sealed), true)}` : 'Booster boxes, bundles and precons'}</span></div>
           <span className="storage-n">{count(sealed.reduce((n, p) => n + p.count, 0))}</span>
+        </button>
+        <button type="button" className="storage-row storage-card press rise" style={rise(5)} onClick={() => navigate('/collections/gear')}>
+          <Icon name="backpack" className="storage-icon" />
+          <div className="storage-text"><b>Gear</b><span>{gearLine}</span></div>
+          <Icon name="chevron_right" aria-hidden />
         </button>
         <button type="button" className="storage-row storage-card press rise" style={rise(5)} onClick={() => navigate('/collections/household')}>
           <Icon name="shelves" className="storage-icon" />

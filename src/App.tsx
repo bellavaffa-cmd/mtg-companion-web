@@ -74,6 +74,9 @@ const EventsPage = lazy(() => import('./tournament/EventPages').then((m) => ({ d
 const NewEventPage = lazy(() => import('./tournament/EventPages').then((m) => ({ default: m.NewEventPage })))
 const EventPage = lazy(() => import('./tournament/EventPages').then((m) => ({ default: m.EventPage })))
 const JoinSeatPage = lazy(() => import('./pages/LinkPages').then((m) => ({ default: m.JoinSeatPage })))
+const GearPage = lazy(() => import('./pages/GearPage').then((m) => ({ default: m.GearPage })))
+const PackListPage = lazy(() => import('./pages/PackPage').then((m) => ({ default: m.PackListPage })))
+const PackPage = lazy(() => import('./pages/PackPage').then((m) => ({ default: m.PackPage })))
 const ApproveLoginPage = lazy(() => import('./pages/LinkPages').then((m) => ({ default: m.ApproveLoginPage })))
 
 export default function App() {
@@ -110,6 +113,7 @@ export default function App() {
             <Route path="/collections/sell" element={<SellPage />} />
             <Route path="/collections/sealed" element={<SealedPage />} />
             <Route path="/collections/graded" element={<GradedPage />} />
+            <Route path="/collections/gear" element={<GearPage />} />
             <Route path="/collections/photos" element={<CopyPhotoPage />} />
             <Route path="/collections/household" element={<HouseholdPage />} />
             <Route path="/collections/household/:id" element={<HouseholdPage />} />
@@ -133,6 +137,8 @@ export default function App() {
             <Route path="/play/events/new" element={<NewEventPage />} />
             <Route path="/play/events/:id" element={<EventPage />} />
             <Route path="/play/night" element={<GameNightPage />} />
+            <Route path="/play/pack" element={<PackListPage />} />
+            <Route path="/play/pack/:id" element={<PackPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/card/:name" element={<CardPage />} />
             <Route path="/scan" element={<ScanPage />} />

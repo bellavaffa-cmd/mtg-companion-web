@@ -6,6 +6,7 @@ import { CardZoomModal } from './CardZoomModal'
 import { ArtImage } from './kit'
 import { PanelHead } from './StatsFold'
 import { useTokenArt } from './useTokenArt'
+import { DeckNeedsLine } from '../collection/DeckNeedsLine'
 
 /**
  * What to put in the box besides the deck. Tokens are read off the cards themselves (decks/tokens.ts)
@@ -24,6 +25,7 @@ export function TokensPanel({ deck, cardsById }: { deck: Deck; cardsById: Map<st
       <div className="panel">
         <PanelHead title="Tokens" />
         <div className="dim">Nothing in this deck makes a token.</div>
+        <DeckNeedsLine deck={deck} tokens={[]} heading />
       </div>
     )
   }
@@ -60,6 +62,7 @@ export function TokensPanel({ deck, cardsById }: { deck: Deck; cardsById: Map<st
       <div className="dim" style={{ marginTop: 10 }}>
         Read off the cards themselves. A number is how many cards in the deck make that token — not how many you need.
       </div>
+      <DeckNeedsLine deck={deck} tokens={tokens.filter((t) => !t.isEmblem).map((t) => t.name)} heading />
 
       {zoom && (
         <CardZoomModal
