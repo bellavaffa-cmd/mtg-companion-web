@@ -81,6 +81,24 @@ export function gatherInto(collections: Collection[], toId: string, ids: Set<str
   })
 }
 
+/**
+ * What gathering [ids] into [toId] will do: how many cards move from other binders, how many are
+ * only in decks (All cards lists those too, but gathering leaves them there), and how many the
+ * binder has already. Said by the confirmation instead of the size of the selection.
+ */
+export function gatherCounts(collections: Collection[], toId: string, ids: Iterable<string>): { moving: number; deckOnly: number; there: number } {
+  const owned = collections.filter(owns)
+  const already = new Set((owned.find((c) => c.id === toId)?.entries ?? []).map((e) => e.scryfallId))
+  const elsewhere = new Set(owned.filter((c) => c.id !== toId).flatMap((c) => c.entries.map((e) => e.scryfallId)))
+  let moving = 0, deckOnly = 0, there = 0
+  for (const id of ids) {
+    if (elsewhere.has(id)) moving++
+    else if (already.has(id)) there++
+    else deckOnly++
+  }
+  return { moving, deckOnly, there }
+}
+
 /** [collections] with the cards [ids] gone from every owned binder; wishlists keep theirs. */
 export function removeEverywhere(collections: Collection[], ids: Set<string>): Collection[] {
   return collections.map((c) => (owns(c) && c.entries.some((e) => ids.has(e.scryfallId)) ? { ...c, entries: c.entries.filter((e) => !ids.has(e.scryfallId)) } : c))

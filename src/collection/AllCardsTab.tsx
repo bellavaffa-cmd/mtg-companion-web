@@ -27,7 +27,7 @@ import { getCardsByIds } from '../api/scryfall'
 import { buyCardUrl } from '../api/buy'
 import { isUnsorted, type Collection } from '../types/models'
 import { isWishlist } from './wishlist'
-import { allCardsOf, copiesInBinders, csvExportEntries, dashboardOf, exportEntries, type AllCard, type CollectionDashboard } from './allCards'
+import { allCardsOf, copiesInBinders, gatherCounts, csvExportEntries, dashboardOf, exportEntries, type AllCard, type CollectionDashboard } from './allCards'
 import { spares } from './spares'
 import { spreadThin } from './spreadThin'
 import { TradeOfferSheet } from '../social/TradeOffer'
@@ -177,8 +177,18 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
     const label = pickedLabel
     done()
     if (target.kind === 'binder') {
+      // Deck-only cards stay in their decks, so say what actually moved (tester report, build 19).
+      const { moving, deckOnly, there } = gatherCounts(collections, target.id, ids)
       const undo = recordUndo(() => gatherIntoBinder(ids, target.id))
-      showUndo(undo ? { message: doneMessage('move', label, target.name), undo } : { message: `${target.name} already has ${ids.length === 1 ? 'it' : 'them'}` })
+      const notes = [
+        deckOnly > 0 ? `${deckOnly} ${deckOnly === 1 ? 'is' : 'are'} only in decks and stayed there.` : '',
+        there > 0 && moving < ids.length ? `${there} ${there === 1 ? 'was' : 'were'} already there.` : '',
+      ].filter(Boolean).join(' ')
+      const head = moving === ids.length ? doneMessage('move', label, target.name)
+        : moving === 0 ? `Nothing moved to ${target.name}`
+        : `Moved ${moving} ${moving === 1 ? 'card' : 'cards'} to ${target.name}`
+      const message = notes ? `${head}. ${notes}` : head
+      showUndo(undo ? { message, undo } : { message })
       return
     }
     const have = ids.flatMap((id) => (known.has(id) ? [known.get(id)!] : []))
