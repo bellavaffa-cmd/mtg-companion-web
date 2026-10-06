@@ -81,7 +81,7 @@ export function DeleteAccountPage() {
 
               <h2>Can't sign in any more?</h2>
               <p>
-                If you no longer have access to the email address, contact us through <a href={CONTACT.href} target="_blank" rel="noreferrer">{CONTACT.label}</a>.
+                If you no longer have access to the email address, email <a href={CONTACT.href}>{CONTACT.label}</a>.
                 Don't post your email address publicly; we'll arrange a private way to confirm the account is yours.
               </p>
               <p className="dim">See the <Link to="/privacy">privacy policy</Link> for what Manabind stores.</p>

@@ -93,7 +93,7 @@ export function PrivacyPage() {
           <h2>Your rights</h2>
           <p>
             You can see your data in the app, export your decks and binders, correct it, and delete it as above. For anything
-            else — including questions about this policy — contact us through <a href={CONTACT.href} target="_blank" rel="noreferrer">{CONTACT.label}</a>.
+            else — including questions about this policy — email <a href={CONTACT.href}>{CONTACT.label}</a>.
           </p>
 
           <p className="dim">
