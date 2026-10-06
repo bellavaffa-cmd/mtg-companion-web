@@ -17,6 +17,8 @@
 //    the storage places themselves (on the Unsorted pile) place by place — see
 //    collection/storagePlaces.ts. A binder saved by an app that doesn't know about places leaves them
 //    as they were. When a place was last checked (collection/placeCheck.ts) merges to the later check.
+//    A place's size (collection/boxSpace.ts) and a card's copies to sell (collection/selling.ts) go to
+//    whoever changed them; one saved by an app that doesn't know about them leaves them as they were.
 //  - Where a deck's copies came from (its "cameFrom", see collection/pullList.ts) merges card by card
 //    the same way; a deck saved by an app that doesn't know about it leaves it as it was.
 //  - The loans (on the Unsorted pile, see collection/loans.ts) merge loan by loan, their cards card by
@@ -29,7 +31,8 @@
 
 import type { Collection, CollectionEntry, Deck, DeckCardEntry, GameResult } from '../types/models'
 import { canonicalJson } from './canonicalJson'
-import { keepPlacesFromOlderApp, mergeCopyPlaces, mergePlaceLists, tidied } from '../collection/storagePlaces'
+import { keepPlaceSizes, keepPlacesFromOlderApp, mergeCopyPlaces, mergePlaceLists, tidied } from '../collection/storagePlaces'
+import { keepForSaleFromOlderApp } from '../collection/selling'
 import { keepCameFromFromOlderApp, mergeCameFrom } from '../collection/pullList'
 import { keepLoansFromOlderApp, mergeLoans } from '../collection/loans'
 import { keepDeckExtrasFromOlderApp, mergeDeckExtras } from '../decks/deckExtras'
@@ -212,8 +215,9 @@ export function mergeDeck(base: Deck, mineIn: Deck, theirsIn: Deck, minePreferre
 export function mergeCollection(base: Collection, mineIn: Collection, theirsIn: Collection, minePreferred: boolean): Collection {
   // A side saved by an app that doesn't know about places left them as they were.
   // ...and one that doesn't know about loans left those as they were.
-  const mine = keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, mineIn))
-  const theirs = keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, theirsIn))
+  // ...and one that doesn't know about place sizes or copies to sell left those as they were.
+  const mine = keepForSaleFromOlderApp(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, mineIn))))
+  const theirs = keepForSaleFromOlderApp(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, theirsIn))))
   const placesIn = (list: CollectionEntry[]) => new Map(list.map((e) => [e.scryfallId, e]))
   const [b, m, t] = [placesIn(base.entries), placesIn(mine.entries), placesIn(theirs.entries)]
   // Each card's places line by line (one added on both sides keeps the other device's), then no more

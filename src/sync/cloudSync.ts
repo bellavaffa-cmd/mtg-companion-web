@@ -11,7 +11,8 @@ import { normalizeDeck } from '../types/models'
 import { apiHeaders, OfflineError, restUrl } from './supabaseAuth'
 import { canonicalJson } from './canonicalJson'
 import { saveToStorage } from './storage'
-import { keepLastChecked, keepPlacesFromOlderApp } from '../collection/storagePlaces'
+import { keepLastChecked, keepPlaceSizes, keepPlacesFromOlderApp } from '../collection/storagePlaces'
+import { keepForSaleFromOlderApp } from '../collection/selling'
 import { keepCameFromFromOlderApp } from '../collection/pullList'
 import { keepLoansFromOlderApp } from '../collection/loans'
 import { keepDeckExtrasFromOlderApp } from '../decks/deckExtras'
@@ -426,11 +427,13 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
     // device's are kept and pushed back, rather than the older app's save clearing them everywhere.
     // The same for a deck saved without where its copies came from (Deck.cameFrom), and for a place
     // saved without when it was last checked (StoragePlace.lastChecked, collection/placeCheck.ts), and
-    // for the Unsorted pile saved without its loans (Collection.loans, collection/loans.ts).
+    // for the Unsorted pile saved without its loans (Collection.loans, collection/loans.ts), and for places
+    // saved without their size (collection/boxSpace.ts) and cards without their copies to sell
+    // (collection/selling.ts).
     const healed = mineJson === undefined
       ? theirs
       : row.kind === 'collection'
-        ? keepLoansFromOlderApp(JSON.parse(mineJson) as Collection, keepLastChecked(JSON.parse(mineJson) as Collection, keepPlacesFromOlderApp(JSON.parse(mineJson) as Collection, theirs as Collection)))
+        ? keepForSaleFromOlderApp(JSON.parse(mineJson) as Collection, keepPlaceSizes(JSON.parse(mineJson) as Collection, keepLoansFromOlderApp(JSON.parse(mineJson) as Collection, keepLastChecked(JSON.parse(mineJson) as Collection, keepPlacesFromOlderApp(JSON.parse(mineJson) as Collection, theirs as Collection)))))
         // ...and its primer, folder, archive flag, companion and categories (decks/deckExtras.ts).
         : keepDeckExtrasFromOlderApp(JSON.parse(mineJson) as Deck, keepCameFromFromOlderApp(JSON.parse(mineJson) as Deck, theirs as Deck))
     if (healed !== theirs) {

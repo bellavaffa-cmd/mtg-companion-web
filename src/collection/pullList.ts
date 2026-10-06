@@ -28,6 +28,7 @@ import { proxyCopies } from '../decks/proxies'
 import { isBasicLand } from '../decks/missing'
 import { buildCardListText } from './cardListText'
 import { intoPile, pileEntryOf, withUnsortedPile } from './unsorted'
+import { sellRows } from './selling'
 import {
   copyKey, copyPlace, lentByEntry, lentCopies, lentFromDeck, lentOf, lentTag, mergeCopyPlaces, moveCopies, parentsOf, placeAndInside, placeCopies, placedCopies, placesOf,
   placeTree, pocketLabel, positionHint, ruleSection, sameCardName, suggestSpot, tidied, unplacedCopies, withPlaces,
@@ -308,6 +309,63 @@ export function pullList(deck: Deck, collections: Collection[], decks: Deck[]): 
 function knownOnly(e: CollectionEntry, known: Map<string, StoragePlace>): CollectionEntry {
   const lines = placedCopies(e)
   return lines.every((l) => known.has(l.placeId)) ? e : withPlaces(e, lines.filter((l) => known.has(l.placeId)))
+}
+
+/**
+ * The To sell list (collection/selling.ts) as a pull list: each row's copies at the spot they're kept,
+ * grouped in walking order as a deck's are, then the ones with no place yet. Ticked off the same way;
+ * the row keys stay the same while the list does.
+ */
+export function sellPullList(collections: Collection[]): PullList {
+  const places = placesOf(collections)
+  const byId = new Map(places.map((p) => [p.id, p]))
+  const groups = new Map<string, PullGroup>()
+  const collectionName = (id: string) => collections.find((c) => c.id === id)?.name ?? 'a binder'
+  for (const row of sellRows(collections)) {
+    const facts: CardFacts = { name: row.name }
+    for (const line of row.lines) {
+      const head = placeGroup(places, line.placeId, line.section)
+      let g = groups.get(head.key)
+      if (!g) {
+        g = { ...head, kind: 'place', placeId: line.placeId, ...(line.section ? { section: line.section } : {}), rows: [] }
+        groups.set(head.key, g)
+      }
+      const spot = spotHint(byId.get(line.placeId), line, facts)
+      const hint = [spot, line.foil ? 'foil' : null].filter(Boolean).join(' · ') || null
+      g.rows.push({
+        key: `sell:${row.key}:${copyKey(line)}`, name: row.name, scryfallId: row.scryfallId, qty: line.qty,
+        source: { kind: 'place', collectionId: row.collectionId, scryfallId: row.scryfallId, line }, hint, where: [g.title, hint].filter(Boolean).join(' · '),
+      })
+    }
+    if (row.loose > 0) {
+      let g = groups.get('loose')
+      if (!g) {
+        g = { key: 'loose', kind: 'loose', title: 'No place yet', detail: 'Owned, not put away', placeId: null, rows: [] }
+        groups.set('loose', g)
+      }
+      const hint = `In ${collectionName(row.collectionId)}`
+      g.rows.push({ key: `sell:${row.key}:loose`, name: row.name, scryfallId: row.scryfallId, qty: row.loose, source: { kind: 'loose', collectionId: row.collectionId, scryfallId: row.scryfallId, foil: false }, hint, where: hint })
+    }
+  }
+  const all = [...groups.values()]
+  for (const g of all) {
+    if (g.kind === 'place') {
+      g.rows.sort((a, b) => {
+        const la = a.source.kind === 'place' ? a.source.line : null
+        const lb = b.source.kind === 'place' ? b.source.line : null
+        return compareInPlace({ name: a.name, page: la?.page, slot: la?.slot }, { name: b.name, page: lb?.page, slot: lb?.slot })
+      })
+    } else {
+      g.rows.sort((a, b) => byText(nameKey(a.name), nameKey(b.name)))
+    }
+  }
+  const inPlaces = sortPlaceGroups(all.filter((g) => g.kind === 'place'), places)
+  return {
+    groups: [...inPlaces, ...all.filter((g) => g.kind === 'loose')],
+    total: all.reduce((n, g) => n + g.rows.reduce((m, r) => m + r.qty, 0), 0),
+    toBuy: 0,
+    places: new Set(inPlaces.map((g) => g.placeId)).size,
+  }
 }
 
 /** Every row of the list that can be pulled (not the cards not owned), A–Z. */

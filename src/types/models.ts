@@ -288,6 +288,13 @@ export interface CollectionEntry {
    * social/moreLogic.ts). Never more than the copies; left out when none.
    */
   forTrade?: number
+  /**
+   * Owned binders: how many of these copies the user means to sell (see collection/selling.ts). Never
+   * more than the copies. Left out until the entry is first marked to sell; then kept, as 0 once none
+   * are — so an entry with no "forSale" on a device that had one was saved by an app that doesn't know
+   * about selling, and keepForSaleFromOlderApp puts it back.
+   */
+  forSale?: number
 }
 
 // The entry as JSON — locally, in sync and in shared binders — is these fields by name. Keys added
@@ -300,6 +307,7 @@ export interface CollectionEntry {
 //   "places":          [{ "placeId": "…", "qty": 2, "foil": true, "section": "Red" }, { "placeId": "…", "qty": 1, "page": 3, "slot": 5 }]
 //                      where the copies are kept (CopyPlace below); "foil", "section", "page" and "slot" left out when not said
 //   "forTrade":        number — owned binders: how many of the copies are for trade (friends can see them)
+//   "forSale":         number — owned binders: how many of the copies are to sell (0 once none are; collection/selling.ts)
 // Copies of one printing in different conditions aren't split into entries: the entry says one.
 
 /**
@@ -347,6 +355,14 @@ export interface StoragePlace {
    * and a place saved by an app that doesn't know it keeps it.
    */
   lastChecked?: number
+  /**
+   * How many cards a box (or any place but a binder) holds, for how full it is (collection/boxSpace.ts).
+   * Left out until a size is set; 0 once it's taken off — so a place with no "capacity" on a device that
+   * had one was saved by an app that doesn't know about sizes (keepPlaceSizes).
+   */
+  capacity?: number
+  /** A binder's pages: its size is pages × pockets per page. Left out and 0 as [capacity]. */
+  pages?: number
 }
 
 export interface Collection {

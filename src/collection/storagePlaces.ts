@@ -68,6 +68,9 @@ export function storagePlace(p: StoragePlace): StoragePlace {
     ...(p.sortRule && SORT_RULES.includes(p.sortRule) ? { sortRule: p.sortRule } : {}),
     createdAt: p.createdAt,
     ...(p.lastChecked && p.lastChecked > 0 ? { lastChecked: p.lastChecked } : {}),
+    // A size taken off stays as 0, so an older app's save can be told from it (keepPlaceSizes).
+    ...(typeof p.capacity === 'number' ? { capacity: Math.max(0, p.capacity) } : {}),
+    ...(typeof p.pages === 'number' ? { pages: Math.max(0, p.pages) } : {}),
   }
 }
 
@@ -1013,6 +1016,8 @@ export function mergePlaceLists(base: StoragePlace[] | undefined, mine: StorageP
       createdAt: Math.min(mp!.createdAt, tp!.createdAt),
       // Only ever moves on, so the later check wins — and a side that dropped it didn't clear it.
       lastChecked: Math.max(bp.lastChecked ?? 0, mp!.lastChecked ?? 0, tp!.lastChecked ?? 0) || undefined,
+      capacity: pick(bp.capacity, mp!.capacity, tp!.capacity, minePreferred),
+      pages: pick(bp.pages, mp!.pages, tp!.pages, minePreferred),
     }))
   }
   return out
@@ -1029,6 +1034,29 @@ export function keepLastChecked(source: Collection, theirs: Collection): Collect
   return {
     ...theirs,
     storagePlaces: theirs.storagePlaces.map((p) => ((mine.get(p.id) ?? 0) > (p.lastChecked ?? 0) ? { ...p, lastChecked: mine.get(p.id)! } : p)),
+  }
+}
+
+/**
+ * [theirs] with each place's size ("capacity", a binder's "pages") put back where [source] has one and
+ * [theirs] doesn't say — a place saved by an app that doesn't know about sizes comes without them. A
+ * size taken off is kept as 0, so it isn't put back. The same object when nothing changes.
+ */
+export function keepPlaceSizes(source: Collection, theirs: Collection): Collection {
+  if (!theirs.storagePlaces || !source.storagePlaces) return theirs
+  const mine = new Map(source.storagePlaces.map((p) => [p.id, p]))
+  const lost = (p: StoragePlace) => {
+    const m = mine.get(p.id)
+    return !!m && ((p.capacity === undefined && m.capacity !== undefined) || (p.pages === undefined && m.pages !== undefined))
+  }
+  if (!theirs.storagePlaces.some(lost)) return theirs
+  return {
+    ...theirs,
+    storagePlaces: theirs.storagePlaces.map((p) => {
+      if (!lost(p)) return p
+      const m = mine.get(p.id)!
+      return { ...p, ...(p.capacity === undefined && m.capacity !== undefined ? { capacity: m.capacity } : {}), ...(p.pages === undefined && m.pages !== undefined ? { pages: m.pages } : {}) }
+    }),
   }
 }
 
