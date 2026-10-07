@@ -837,3 +837,146 @@
   margin: 6px 0;
   line-height: 1.45;
 }
+
+/* ---- The Friends tab (friendsHub.ts, FriendsHubUi.tsx) ---- */
+
+.friends-head-acts {
+  display: flex;
+  gap: 6px;
+}
+.friends-tabs {
+  margin-bottom: 14px;
+}
+.pods-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.pod-card {
+  flex: 1 0 150px;
+  max-width: 240px;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--g1);
+  color: var(--t0);
+  text-align: left;
+}
+.pod-card b {
+  font-size: 0.875rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pod-card span {
+  font-size: 0.75rem;
+  color: var(--t1);
+}
+.friend-action {
+  flex: none;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--t1);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.friend-action.trade {
+  color: var(--gold);
+}
+.trade-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--g1);
+  color: var(--t0);
+  text-align: left;
+}
+.trade-line-main {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.trade-line-main b {
+  font-size: 0.875rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trade-line-main .dim,
+.trade-line-end {
+  font-size: 0.75rem;
+}
+.trade-line-end {
+  flex: none;
+}
+.trade-none {
+  margin: 0 0 8px;
+  font-size: 0.8125rem;
+}
+.wants-card {
+  display: grid;
+  gap: 2px;
+  padding: 8px 14px 10px;
+  border-radius: 14px;
+  background: var(--g1);
+}
+.wants-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--t0);
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+}
+.wants-who {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wants-where {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wants-offers {
+  justify-self: start;
+  min-height: 44px;
+  font-weight: 700;
+}
+.moved-note {
+  margin: 14px 0 0;
+  font-size: 0.75rem;
+}
+.person-open {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}

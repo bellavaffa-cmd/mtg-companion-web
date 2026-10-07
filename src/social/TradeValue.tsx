@@ -38,7 +38,7 @@ function useTradePrices(cards: TradeCard[]): PriceBook | null | undefined {
 
 // The trade matches, asked once a minute at most: every trade on the Trades page shares one answer.
 let matchesAsked: { at: number; answer: Promise<more.TradeMatch[]> } | null = null
-function tradeMatchesCached(): Promise<more.TradeMatch[]> {
+export function tradeMatchesCached(): Promise<more.TradeMatch[]> {
   if (!matchesAsked || Date.now() - matchesAsked.at > 60_000) {
     matchesAsked = { at: Date.now(), answer: more.tradeMatches().catch(() => { matchesAsked = null; return [] }) }
   }

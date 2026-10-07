@@ -6,7 +6,7 @@ import { Icon } from '../components/Icon'
 import { EmptyState } from '../components/EmptyState'
 import { useBack } from '../components/kit'
 import type * as api from '../social/api'
-import { useOverview } from '../social/SocialContext'
+import { useOverview, useSocial } from '../social/SocialContext'
 import { Avatar, handle } from '../social/ui'
 import * as more from '../social/more'
 import { MESSAGE_MAX, mergeMessages, previewLine, timeAgo, type DirectMessage } from '../social/moreLogic'
@@ -32,7 +32,7 @@ export function MessagesPage() {
   )
 }
 
-/** Every conversation — on this page and on Friends' Messages tab. */
+/** Every conversation — on this page and on Friends' Chats tab (pod chats above it, friendsSlots.tsx). */
 export function ConversationList({ overview }: { overview: api.Overview }) {
   const navigate = useNavigate()
   const available = more.useSocialMore()
@@ -40,11 +40,13 @@ export function ConversationList({ overview }: { overview: api.Overview }) {
   const [list, setList] = useState<more.Conversation[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
+  // The Friends tab's badge follows what's unread here.
+  const { setUnread } = useSocial()
   const load = useCallback(() => {
     more.listConversations()
-      .then((l) => { setList(l); setError(null); setNow(Date.now()) })
+      .then((l) => { setList(l); setError(null); setNow(Date.now()); setUnread(l.reduce((n, c) => n + c.unread, 0)) })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Something went wrong.'))
-  }, [])
+  }, [setUnread])
   useEffect(() => { if (available) load() }, [available, load])
   more.useDirectMessages(() => load(), load, !!available)
 
