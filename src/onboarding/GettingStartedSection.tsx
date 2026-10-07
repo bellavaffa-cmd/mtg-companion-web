@@ -20,6 +20,12 @@ export function GettingStartedSection() {
         <span className="banner-text" style={{ flex: 1 }}>Open the welcome steps</span>
         <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
       </Link>
+      {/* The What's new tour over the Collection's home (whatsNew.ts), again. */}
+      <Link to="/collections?tour" className="banner press" style={{ textDecoration: 'none', marginBottom: 0 }}>
+        <Icon name="tour" />
+        <span className="banner-text" style={{ flex: 1 }}>What's new tour</span>
+        <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
+      </Link>
       <SampleOption samples={samples} has={facts.samples} />
     </section>
   )

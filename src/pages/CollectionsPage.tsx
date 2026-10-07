@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { Icon } from '../components/Icon'
 import { Dialog } from '../components/Dialog'
 import { ActionSheet } from '../components/ActionSheet'
 import { useLongPress } from '../components/useLongPress'
-import { ArtImage, IconButton, PageHeader, SegmentedTabs, StatFigure, rise, toArtCrop, useLayoutSize } from '../components/kit'
+import { ArtImage, IconButton, PageHeader, SegmentedTabs, StatFigure, rise, toArtCrop, useBack, useLayoutSize } from '../components/kit'
 import { SharedFriendsView } from '../social/SharedFriends'
 import { isUnsorted, type Collection } from '../types/models'
 import { isWishlist } from '../collection/wishlist'
@@ -16,17 +16,31 @@ import { AllCardsTab } from '../collection/AllCardsTab'
 import { SetsTab } from '../collection/SetsTab'
 import { StorageTab } from '../collection/StorageTab'
 import { EmptyState } from '../components/EmptyState'
+import { CollectionHome } from '../collection/CollectionHome'
+import { useCollectionValue } from '../collection/valueHistory'
+import { placesOf } from '../collection/storagePlaces'
+import { useMoney } from '../money/currency'
+import { WhatsNewTour } from '../onboarding/WhatsNewTour'
+import { markTourSeen, tourSeen } from '../onboarding/whatsNewStore'
+import { shouldShowTour, tourSteps } from '../onboarding/whatsNew'
 import '../onboarding/onboarding.css'
 
 export function CollectionsPage() {
-  const { collections, deleteCollection, accountsAvailable } = useSync()
-  // All cards (first, like the Android app), your binders, where the cards are kept (Storage), your
-  // sets — how much of each you have — or (with accounts) what friends share with you.
+  const { collections, decks, deleteCollection, accountsAvailable } = useSync()
+  // The Collection opens on its home (CollectionHome.tsx): its tiles open the tabs — All cards (first,
+  // like the Android app), your binders, where the cards are kept (Storage), your sets — how much of
+  // each you have — or (with accounts) what friends share with you — at ?tab=….
   const [params, setParams] = useSearchParams()
   const tabs = accountsAvailable ? ['all', 'binders', 'storage', 'sets', 'shared'] : ['all', 'binders', 'storage', 'sets']
-  const tab = tabs.includes(params.get('tab') ?? '') ? params.get('tab')! : 'all'
+  const home = !tabs.includes(params.get('tab') ?? '')
+  const tab = home ? 'all' : params.get('tab')!
   const sharedTab = tab === 'shared'
   const navigate = useNavigate()
+  const back = useBack('/collections')
+  const money = useMoney()
+  const value = useCollectionValue(collections)
+  // The What's new tour, once on this device (onboarding/whatsNew.ts), or asked for from Settings (?tour).
+  const [touring, setTouring] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [sheet, setSheet] = useState<Collection | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Collection | null>(null)
@@ -47,11 +61,24 @@ export function CollectionsPage() {
   const wishlist = collections.find(isWishlist)
   const shown = wishlist ? [wishlist, ...binders] : binders
 
+  const askedForTour = params.has('tour')
+  useEffect(() => {
+    if (!home) return
+    if (askedForTour || shouldShowTour(tourSeen(), { cards: ownedCards, decks: decks.length })) {
+      markTourSeen()
+      setTouring(true)
+      if (askedForTour) setParams({}, { replace: true })
+    }
+  }, [home, askedForTour, ownedCards, decks.length, setParams])
+
   return (
     <>
       <PageHeader
         title="Collection"
-        actions={wide
+        onBack={home ? undefined : back}
+        actions={home
+          ? (value ? <span className="chome-value-h" aria-label={`Collection value ${money.format(value.usd, true)}`}>{money.format(value.usd, true)}</span> : undefined)
+          : wide
           ? (
             <>
               <button type="button" className="btn line" onClick={() => setSharingAll(true)}><Icon name="group_add" />Share</button>
@@ -68,11 +95,12 @@ export function CollectionsPage() {
           )}
       />
       <div className={`content-scroll${wide ? '' : ' with-nav'}`}>
+        {home ? <CollectionHome onImport={() => setImporting('new')} /> : <>
         <div className="rise" style={{ ...rise(0), marginBottom: 14, maxWidth: 560 }}>
           <SegmentedTabs
             labels={accountsAvailable ? ['All cards', 'Binders', 'Storage', 'Sets', 'Shared'] : ['All cards', 'Binders', 'Storage', 'Sets']}
             selected={tabs.indexOf(tab)}
-            onSelect={(i) => setParams(i === 0 ? {} : { tab: tabs[i] }, { replace: true })}
+            onSelect={(i) => setParams({ tab: tabs[i] }, { replace: true })}
           />
         </div>
         {sharedTab ? <SharedFriendsView /> : tab === 'storage' ? <StorageTab /> : tab === 'sets' ? <SetsTab /> : tab === 'all' ? <AllCardsTab onImport={() => setImporting('new')} /> : binders.length === 0 && unsortedCards === 0 && !wishlist?.entries.length ? (
@@ -123,7 +151,16 @@ export function CollectionsPage() {
             <TagBindersSection />
           </>
         )}
+        </>}
       </div>
+
+      {touring && home && (
+        <WhatsNewTour
+          steps={tourSteps(placesOf(collections).length > 0)}
+          onAction={(action) => navigate(action === 'find' ? '/collections/find' : '/collections/setup')}
+          onClose={() => setTouring(false)}
+        />
+      )}
 
       {sheet && (
         <ActionSheet

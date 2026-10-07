@@ -1,0 +1,151 @@
+/* The Collection's home (CollectionHome.tsx), Find anything (FindAnythingPage.tsx) and the What's new
+   tour's spotlight (onboarding/WhatsNewTour.tsx). */
+
+.chome { max-width: 560px; display: flex; flex-direction: column; gap: 12px; }
+.chome-value-h { font-family: var(--num); font-size: 1.625rem; color: var(--gold); line-height: 1; }
+
+.chome-find {
+  height: 48px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--g1);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--t2);
+  font: inherit;
+  font-size: 0.9375rem;
+  text-align: left;
+  cursor: pointer;
+}
+.chome-find .icon { color: var(--t1); }
+
+.chome-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.chome-tile {
+  padding: 14px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--g1);
+  color: var(--t0);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+.chome-tile b { font-size: 0.9375rem; font-weight: 800; }
+.chome-tile span { font-size: 0.75rem; color: var(--t1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.chome-tile-icon { color: var(--gold); font-size: 20px; margin-bottom: 2px; }
+
+.chome-todo { display: flex; flex-direction: column; gap: 8px; }
+.chome-head { display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px; }
+.chome-head h2 { margin: 0; font-size: 0.9375rem; font-weight: 800; }
+.chome-head .link { font-size: 0.8125rem; font-weight: 600; color: var(--gold); background: none; border: 0; padding: 0; cursor: pointer; }
+.chome-row {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--g1);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 36px;
+}
+.chome-row > span { flex: 1; font-size: 0.875rem; min-width: 0; }
+
+.chome-quick { display: flex; gap: 8px; }
+.chome-quick .btn { flex: 1; justify-content: center; min-width: 0; padding-left: 8px; padding-right: 8px; }
+
+/* Find anything */
+.find-bar { display: flex; align-items: center; gap: 10px; max-width: 560px; }
+.find-field {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 14px;
+  border-radius: 14px;
+  background: var(--g1);
+  box-shadow: inset 0 0 0 2px var(--gold);
+  min-width: 0;
+}
+.find-field input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--t0); font: inherit; font-size: 1rem; font-weight: 600; outline: none; }
+.find-cancel { font-size: 0.875rem; font-weight: 600; color: var(--gold); background: none; border: 0; padding: 8px 0; cursor: pointer; }
+.find-results { max-width: 560px; display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+.find-section { display: flex; flex-direction: column; gap: 8px; }
+.find-section > h2 { margin: 0; font-size: 0.75rem; font-weight: 700; color: var(--t1); letter-spacing: 0.04em; text-transform: uppercase; }
+.find-card {
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--g1);
+  color: var(--t0);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+.find-card-top { display: flex; align-items: center; gap: 10px; }
+.find-card-top img, .find-card-top .find-thumb { width: 30px; height: 42px; border-radius: 4px; background: var(--g3); object-fit: cover; flex: none; }
+.find-card-top b { flex: 1; font-size: 0.9375rem; font-weight: 700; min-width: 0; }
+.find-card-top > span { font-size: 0.8125rem; color: var(--t1); }
+.find-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.find-chip { padding: 4px 10px; border-radius: 12px; background: var(--g2); font-size: 0.75rem; color: var(--t0); }
+.find-chip.lent { background: var(--gold-soft); color: var(--gold-light); }
+.find-row {
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--g1);
+  color: var(--t0);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+.find-row b { flex: 1; font-size: 0.9375rem; font-weight: 700; min-width: 0; }
+.find-row > span { font-size: 0.8125rem; color: var(--t1); text-align: right; }
+.find-row.plain b { font-weight: 500; }
+
+/* What's new tour */
+.tour-scrim { position: fixed; inset: 0; z-index: 90; }
+.tour-spot {
+  position: fixed;
+  z-index: 91;
+  border-radius: 16px;
+  box-shadow: 0 0 0 3px var(--gold), 0 0 0 9999px rgba(5, 6, 8, 0.62);
+  pointer-events: none;
+  transition: top 0.25s var(--out, ease), left 0.25s var(--out, ease), width 0.25s var(--out, ease), height 0.25s var(--out, ease);
+}
+.tour-card {
+  position: fixed;
+  z-index: 92;
+  left: 16px;
+  right: 16px;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 18px;
+  border-radius: 18px;
+  background: var(--g2);
+  color: var(--t0);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+.tour-eyebrow { font-size: 0.75rem; font-weight: 700; color: var(--gold); letter-spacing: 0.06em; text-transform: uppercase; }
+.tour-title { margin: 0; font-size: 1.25rem; font-weight: 800; }
+.tour-body { margin: 0; font-size: 0.875rem; color: var(--t1); line-height: 1.45; }
+.tour-buttons { display: flex; gap: 8px; padding-top: 4px; align-items: center; flex-wrap: wrap; }
+.tour-buttons .grow { flex: 1; }
+.tour-skip { background: none; border: 0; color: var(--t1); font: inherit; font-weight: 600; font-size: 0.875rem; padding: 10px 4px; cursor: pointer; }

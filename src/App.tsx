@@ -24,6 +24,7 @@ import { ValueByPlacePage } from './pages/ValueByPlacePage'
 import { SpacePage } from './pages/SpacePage'
 import { StorageSetupPage } from './pages/StorageSetupPage'
 import { UpkeepPage } from './pages/UpkeepPage'
+import { FindAnythingPage } from './pages/FindAnythingPage'
 import { SellPage } from './pages/SellPage'
 import { SealedPage } from './pages/SealedPage'
 import { GradedPage } from './pages/GradedPage'
@@ -97,6 +98,7 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/" element={<HomePage />} />
             <Route path="/collections" element={<CollectionsPage />} />
+            <Route path="/collections/find" element={<FindAnythingPage />} />
             <Route path="/collections/:id" element={<CollectionDetailPage />} />
             <Route path="/collections/tag/:tagId" element={<TagBinderPage />} />
             <Route path="/collections/set/:code" element={<SetCardsPage />} />
