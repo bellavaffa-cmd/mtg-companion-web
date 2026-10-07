@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon'
 import { PricesPanel } from '../components/PricesPanel'
 import { BlockedPeople } from '../social/MoreUi'
 import { PrivacySection } from '../usage/UsageUi'
+import { ActivityPrivacy } from '../social/ActivityPrivacy'
 import { useUsageEnabled } from '../usage/usage'
 import { GettingStartedSection } from '../onboarding/GettingStartedSection'
 import { DataAndSpeedSection } from '../settings/DataAndSpeedSection'
@@ -122,7 +123,7 @@ export function SettingsSectionPage() {
           {found.id === 'prices' && <PricesPanel heading={false} />}
           {found.id === 'data' && <DataAndSpeedSection />}
           {found.id === 'blocked' && <BlockedPeople />}
-          {found.id === 'privacy' && <PrivacySection />}
+          {found.id === 'privacy' && <><PrivacySection /><ActivityPrivacy /></>}
           {found.id === 'getting-started' && <GettingStartedSection />}
         </div>
       </div>

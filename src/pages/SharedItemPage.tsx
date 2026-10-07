@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { TopBar } from '../components/TopBar'
 import { BlockReportButton } from '../social/MoreUi'
 import { Icon } from '../components/Icon'
 import { CardZoomModal, zoomSteps } from '../components/CardZoomModal'
-import { ArtImage, SearchPill, SectionHeader, StatFigure, TYPE_GROUPS, TYPE_PLURALS, primaryTypeOf, rise, toArtCrop, useBack } from '../components/kit'
+import { ArtImage, SearchPill, SectionHeader, SegmentedTabs, StatFigure, TYPE_GROUPS, TYPE_PLURALS, primaryTypeOf, rise, toArtCrop, useBack } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
 import { GAME_MODE_LABELS, normalizeDeck, type Collection, type CollectionEntry, type Deck, type DeckCardEntry, type GameMode } from '../types/models'
 import * as api from '../social/api'
@@ -14,6 +14,9 @@ import { Avatar, handle } from '../social/ui'
 import { useNameTagSearch } from '../tags/useNameTagSearch'
 import { PrimerText, useDeckChange } from '../components/DeckExtras'
 import { tidyDescription } from '../decks/primer'
+import { DeckComments } from '../social/DeckComments'
+import { useActivityComments } from '../social/activity'
+import { commentsTabLabel } from '../social/activityLogic'
 
 type Loaded = { state: 'loading' } | { state: 'missing' } | { state: 'error'; message: string } | { state: 'ok'; item: api.SharedItem }
 
@@ -68,7 +71,7 @@ export function SharedItemPage() {
         )}
         {loaded.state === 'ok' && (
           loaded.item.kind === 'deck'
-            ? <SharedDeck item={loaded.item} />
+            ? <SharedDeck item={loaded.item} withComments={!byLink && !!account} />
             : <SharedBinder item={loaded.item} canTrade={!byLink && !!account} ownerId={params.owner ?? ''} />
         )}
       </div>
@@ -85,8 +88,14 @@ function OwnerLine({ owner }: { owner: api.Profile }) {
   )
 }
 
-function SharedDeck({ item }: { item: api.SharedItem }) {
+function SharedDeck({ item, withComments }: { item: api.SharedItem; withComments: boolean }) {
   const navigate = useNavigate()
+  // Cards, and Comments (DeckComments.tsx) for friends it's shared with — and its owner.
+  const commentsReady = useActivityComments()
+  const [params, setParams] = useSearchParams()
+  const [commentCount, setCommentCount] = useState(0)
+  const tabs = withComments && commentsReady
+  const onComments = tabs && params.get('tab') === 'comments'
   const { account, createDeckWithCards, setGameMode } = useSync()
   const deck = normalizeDeck({ ...(item.data as Partial<Deck>), id: String(item.data.id ?? ''), name: String(item.data.name ?? 'Deck') })
   const { one: changeDeck } = useDeckChange()
@@ -126,6 +135,26 @@ function SharedDeck({ item }: { item: api.SharedItem }) {
         <StatFigure value={count} label="Cards" />
         <StatFigure value={deck.cards.length} label="Unique" />
       </div>
+      {tabs && (
+        <div style={{ marginTop: 14, maxWidth: 480 }}>
+          <SegmentedTabs
+            labels={['Cards', commentsTabLabel(commentCount)]}
+            selected={onComments ? 1 : 0}
+            onSelect={(i) => setParams(i === 1 ? { tab: 'comments' } : {}, { replace: true })}
+          />
+        </div>
+      )}
+      {tabs && (
+        <div hidden={!onComments}>
+          <DeckComments
+            owner={item.owner}
+            deckId={deck.id}
+            deckCards={[deck.commander, deck.partnerCommander, ...deck.cards].filter((c): c is DeckCardEntry => !!c).map((c) => ({ name: c.name, imageUrl: c.imageUrl }))}
+            onCount={setCommentCount}
+          />
+        </div>
+      )}
+      {!onComments && <>
       {account && (
         copied ? (
           <button type="button" className="banner press" style={{ marginTop: 12 }} onClick={() => navigate(`/decks/${copied}`)}>
@@ -161,6 +190,7 @@ function SharedDeck({ item }: { item: api.SharedItem }) {
       ))}
       {deck.cards.length === 0 && <div className="empty-state">This deck has no cards yet.</div>}
       {deck.cards.length > 0 && search.shown.length === 0 && <div className="empty-state">No cards match “{query}”.</div>}
+      </>}
       {zoom && (
         <CardZoomModal
           imageUrl={zoom.imageUrl}

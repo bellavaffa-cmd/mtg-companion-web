@@ -157,3 +157,204 @@
   color: var(--text-dim);
   margin: 6px 0 2px;
 }
+
+/* The Activity tab's items (social/ActivityFeed.tsx). */
+.activity-card {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.activity-trophy {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 18px;
+  background: var(--gold-soft);
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.activity-trophy .icon {
+  font-size: 18px;
+}
+
+.activity-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.activity-text {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+.activity-sub {
+  font-size: 0.75rem;
+}
+
+.activity-action {
+  padding: 0;
+  min-height: 24px;
+  border: 0;
+  background: none;
+  color: var(--gold);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.activity-action:hover {
+  color: var(--gold-light);
+}
+
+.activity-note {
+  padding: 12px 2px;
+  font-size: 0.75rem;
+}
+
+.selling-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.selling-row .thumb {
+  width: 48px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex: none;
+}
+
+.selling-row .person-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+/* Comments on a shared deck (social/DeckComments.tsx). */
+.comment-card {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.comment-card.reply {
+  margin-left: 24px;
+  background: var(--surface2);
+}
+
+.comment-card.hidden-comment {
+  opacity: 0.6;
+}
+
+.comment-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.comment-head > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.comment-head b {
+  color: var(--text-primary);
+}
+
+.comment-body {
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.comment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+.comment-composer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 0 14px;
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.comment-composer input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  border-radius: 22px;
+  border: 0;
+  background: var(--surface);
+  color: var(--text-primary);
+  padding: 0 16px;
+  font: 500 0.875rem var(--ui);
+}
+
+.comment-composer .on-card {
+  height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--surface);
+  color: var(--gold);
+  font: 700 0.8125rem var(--ui);
+}
+
+.comment-composer .send {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--gold);
+  color: var(--gold-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.comment-composer .send:disabled {
+  opacity: 0.5;
+}
+
+.comment-chips {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.comment-pick-list {
+  max-height: 50vh;
+  overflow-y: auto;
+}
