@@ -14,6 +14,7 @@ import {
 } from '../decks/podStats'
 import { runningSeason, type LeagueRules, type Season } from '../decks/league'
 import { LeagueSection } from './LeagueView'
+import { PodNightAndChat } from '../social/PodNightAndChat'
 import { GAME_MODE_LABELS, GAME_MODES, type Deck, type GameMode } from '../types/models'
 
 // A pod's shared games on the Playgroup page: the group's table, commanders, nemeses and latest
@@ -90,6 +91,8 @@ export function PodView({ pod, me }: { pod: api.Pod; me: api.Profile }) {
         </div>
         <button type="button" className="btn gold" onClick={() => setRecording(true)}><Icon name="add" aria-hidden />Record a game</button>
       </div>
+      {/* For now the way into the pod's chat and game nights; the lead wires them into Friends and Play. */}
+      <PodNightAndChat podId={pod.id} />
 
       {games && (
         <LeagueSection
