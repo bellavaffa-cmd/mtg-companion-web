@@ -3,6 +3,7 @@ import { useSync } from '../sync/SyncContext'
 import * as api from './api'
 import { refreshPush } from './push'
 import { socialMoreAvailable, unreadMessages } from './more'
+import { nightsAvailable, unreadPodMessages } from './nights'
 
 interface SocialValue {
   /** Null until loaded (or while signed out). */
@@ -13,6 +14,9 @@ interface SocialValue {
   unread: number
   /** The Friends page tells the badge what it just read. */
   setUnread: (n: number) => void
+  /** Unread pod chat messages (nights.ts), counted with [unread] on the Friends badge and Chats tab. */
+  podUnread: number
+  setPodUnread: (n: number) => void
   loading: boolean
   /** Why the last load failed, when it did. */
   error: string | null
@@ -39,6 +43,8 @@ export function SocialProvider({ children }: { children: ReactNode }) {
   const [inbox, setInbox] = useState<api.Inbox>(NO_INBOX)
   const [unread, setUnreadState] = useState(0)
   const setUnread = useCallback((n: number) => setUnreadState(Math.max(0, n)), [])
+  const [podUnread, setPodUnreadState] = useState(0)
+  const setPodUnread = useCallback((n: number) => setPodUnreadState(Math.max(0, n)), [])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Answers for an account that has since signed out must not land.
@@ -49,6 +55,7 @@ export function SocialProvider({ children }: { children: ReactNode }) {
     setOverview(null)
     setInbox(NO_INBOX)
     setUnreadState(0)
+    setPodUnreadState(0)
     setError(null)
     // A browser already getting notifications keeps its address current, for whoever is signed in.
     if (userId) void refreshPush().catch(() => {})
@@ -88,6 +95,10 @@ export function SocialProvider({ children }: { children: ReactNode }) {
         .then((ok) => (ok ? unreadMessages() : 0))
         .then((n) => { if (!stopped && current.current === userId) setUnreadState(Math.max(0, n)) })
         .catch(() => {})
+      nightsAvailable()
+        .then((ok) => (ok ? unreadPodMessages() : 0))
+        .then((n) => { if (!stopped && current.current === userId) setPodUnreadState(Math.max(0, n)) })
+        .catch(() => {})
     }
     check()
     const timer = window.setInterval(check, INBOX_POLL_MS)
@@ -102,8 +113,8 @@ export function SocialProvider({ children }: { children: ReactNode }) {
   const person = useCallback((id: string) => (overview?.me?.user_id === id ? overview.me : overview?.people[id] ?? null), [overview])
 
   const value = useMemo(
-    () => ({ overview, inbox, unread, setUnread, loading, error, refresh, person }),
-    [overview, inbox, unread, setUnread, loading, error, refresh, person],
+    () => ({ overview, inbox, unread, setUnread, podUnread, setPodUnread, loading, error, refresh, person }),
+    [overview, inbox, unread, setUnread, podUnread, setPodUnread, loading, error, refresh, person],
   )
   return <SocialContext.Provider value={value}>{children}</SocialContext.Provider>
 }

@@ -82,16 +82,39 @@ export function usePodLeagues(pods: api.Pod[], me: string): Record<string, PodLe
 }
 
 /** Your pods, side by side: each pod's name and "5 people · Season 2 · you're 2nd". */
-export function PodsRow({ pods, leagues, onOpen }: { pods: api.Pod[]; leagues: Record<string, PodLeague>; onOpen: (pod: api.Pod) => void }) {
+export function PodsRow({ pods, leagues, onOpen, onPlan, onEdit }: {
+  pods: api.Pod[]
+  leagues: Record<string, PodLeague>
+  onOpen: (pod: api.Pod) => void
+  /** Plan a game night for the pod, under its line (when given). */
+  onPlan?: (pod: api.Pod) => void
+  /** The pod's members to edit, under its line (when given). */
+  onEdit?: (pod: api.Pod) => void
+}) {
   return (
     <div className="pods-row">
       {pods.map((pod) => {
         const league = leagues[pod.id]
+        const line = league ? podLine(pod.members.length, league.season, league.rank) : peopleLine(pod.members.length)
+        if (!onPlan && !onEdit) {
+          return (
+            <button key={pod.id} type="button" className="pod-card press" onClick={() => onOpen(pod)}>
+              <b>{pod.name}</b>
+              <span>{line}</span>
+            </button>
+          )
+        }
         return (
-          <button key={pod.id} type="button" className="pod-card press" onClick={() => onOpen(pod)}>
-            <b>{pod.name}</b>
-            <span>{league ? podLine(pod.members.length, league.season, league.rank) : peopleLine(pod.members.length)}</span>
-          </button>
+          <div key={pod.id} className="pod-card with-links">
+            <button type="button" className="pod-card-open press" onClick={() => onOpen(pod)}>
+              <b>{pod.name}</b>
+              <span>{line}</span>
+            </button>
+            <span className="pod-card-links">
+              {onPlan && <button type="button" className="link" onClick={() => onPlan(pod)}>Plan a game night</button>}
+              {onEdit && <button type="button" className="link muted-link" onClick={() => onEdit(pod)}>Members</button>}
+            </span>
+          </div>
         )
       })}
     </div>

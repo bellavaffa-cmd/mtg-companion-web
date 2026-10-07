@@ -875,6 +875,31 @@
   font-size: 0.75rem;
   color: var(--t1);
 }
+/* A pod card that opens the pod's chat, with Plan a game night and Members under it. */
+.pod-card-open {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+.pod-card-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+.pod-card-links .link {
+  min-height: 32px;
+  padding: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.pod-card-links .muted-link {
+  color: var(--t1);
+}
 .friend-action {
   flex: none;
   min-height: 44px;

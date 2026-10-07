@@ -13,7 +13,7 @@ import * as api from '../social/api'
 import { Avatar } from '../social/ui'
 import { BlockReportButton, MessageText } from '../social/MoreUi'
 import { communityRules } from '../social/communityRules'
-import { CHAT_UNAVAILABLE, markPodRead, podChats, podMessages, sendPodMessage, sharePodMessage, useGameNights, useNightsAvailable, usePodLive } from '../social/nights'
+import { CHAT_UNAVAILABLE, markPodRead, podMessages, sendPodMessage, sharePodMessage, useGameNights, useNightsAvailable, usePodLive } from '../social/nights'
 import {
   chatCardLine, chatItems, leagueLabel, membersLine, mergePodMessages, nightDay, nightTime, podPreview, POD_MESSAGE_MAX, tableLine, upcomingNights,
   type NightInvite, type PodChat, type PodMessage, type PodMessageRef,
@@ -23,8 +23,8 @@ import '../social/nights.css'
 
 // A pod's group chat (the Chats mockup): messages with who sent them and when, league results and
 // game night invites inline (tap Going? to answer), sharing a game night, a deck or a card, and
-// block or report from a sender's name. At /pods/:id/chat. PodChatRows lists every pod's chat for
-// the Chats list. The Android app's PodChatScreen.kt.
+// block or report from a sender's name. At /pods/:id/chat. PodChatRow (with social/podChats.ts's usePodChats)
+// gives every pod's chat to the Chats list. The Android app's PodChatScreen.kt.
 
 export function PodChatPage() {
   const { id = '' } = useParams<{ id: string }>()
@@ -278,37 +278,17 @@ function ShareDialog({ nights, onShare, onPlan, onDismiss }: { nights: NightInvi
   )
 }
 
-/**
- * Every pod's chat as rows for the Chats list — name, last message, unread count — newest first.
- * Shows nothing until the server has pod chat. [onUnread]: the total, for a badge.
- */
-export function PodChatRows({ onUnread }: { onUnread?: (n: number) => void }) {
+/** One pod's chat as a row of the Chats list: name, last message and when, unread count. */
+export function PodChatRow({ chat, me, now }: { chat: PodChat; me: string; now: number }) {
   const navigate = useNavigate()
-  const available = useNightsAvailable()
-  const { account } = useSync()
-  const me = account?.userId ?? ''
-  const [chats, setChats] = useState<PodChat[] | null>(null)
-  const report = useRef(onUnread)
-  useEffect(() => { report.current = onUnread })
-  const load = useCallback(() => {
-    podChats().then((c) => { setChats(c); report.current?.(c.reduce((n, x) => n + x.unread, 0)) }).catch(() => {})
-  }, [])
-  useEffect(() => { if (available) load() }, [available, load])
-  usePodLive({ onMessage: load, onReconnect: load }, !!available)
-  const [now] = useState(() => Date.now())
-  if (!available || !chats || chats.length === 0) return null
   return (
-    <div className="list dm-list">
-      {chats.map((c) => (
-        <button key={c.podId} type="button" className="person-row press" onClick={() => navigate(`/pods/${c.podId}/chat`)}>
-          <span className="avatar" style={{ width: 44, height: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} aria-hidden><Icon name="groups" /></span>
-          <span className="person-main">
-            <span className="person-name">{c.name}</span>
-            <span className="dim">{podPreview(c.last, me)}{c.last ? ` · ${timeAgo(c.last.createdAt, now)}` : ''}</span>
-          </span>
-          {c.unread > 0 && <span className="count-badge">{c.unread}</span>}
-        </button>
-      ))}
-    </div>
+    <button type="button" className="person-row press" onClick={() => navigate(`/pods/${chat.podId}/chat`)}>
+      <span className="avatar" style={{ width: 44, height: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }} aria-hidden><Icon name="groups" /></span>
+      <span className="person-main">
+        <span className="person-name">{chat.name}</span>
+        <span className="dim">{podPreview(chat.last, me)}{chat.last ? ` · ${timeAgo(chat.last.createdAt, now)}` : ''}</span>
+      </span>
+      {chat.unread > 0 && <span className="count-badge">{chat.unread}</span>}
+    </button>
   )
 }

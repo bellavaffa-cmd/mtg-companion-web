@@ -16,13 +16,13 @@ import { RECENT_SHOWN, eventsStatus, gameNightStatus, lastPlayersLine, playgroup
 import { rememberedSeat, remotePath } from './seat'
 import { chartSeats, useTableGames, type TableGame } from './tableGames'
 import { MOVED_TO_FRIENDS } from '../social/friendsHub'
-import { NextGameNightCard } from '../social/friendsSlots'
+import { NextGameNightCard } from '../social/NextGameNightCard'
 import './play.css'
 
 /**
  * The Play tab — just the table now (people, chats and trades live on the Friends tab, and a small
  * note says so). Start a game here (the table it starts with, and who played last), the next game
- * night (friendsSlots.tsx's NextGameNightCard — nothing when there's none), join someone else's
+ * night (NextGameNightCard.tsx, its Play variant — nothing when there's none), join someone else's
  * table with your phone as the remote for your seat, or go back to the seat you're in. At the table:
  * Game night, Playgroup, Events and Pack your bag, each with a line on where it stands. Recent games,
  * each opening its life chart. Rules sits in the header. The Android app's twin is
@@ -58,7 +58,7 @@ export function PlayPage() {
             <b>Start a game</b>
             <span>{startGameLine(players, startingLifeFor(settings, players))}{lastPlayers ? ` · ${lastPlayers}` : ''}</span>
           </button>
-          <NextGameNightCard onOpen={() => navigate('/play/night')} />
+          <NextGameNightCard variant="play" />
           {seat && (
             <PlayRow icon="event_seat" title={`Back to seat ${seat.seat}`} subtitle="You're still at a table — open your remote" highlight onClick={() => navigate(remotePath(seat))} />
           )}

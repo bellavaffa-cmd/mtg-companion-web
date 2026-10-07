@@ -19,7 +19,8 @@ import { ConversationList } from './MessagesPage'
 import { TradeInboxList } from './TradesPage'
 import { FRIEND_ACTION_LABELS, friendContext, lentTo } from '../social/friendsHub'
 import { PodsRow, usePodLeagues, useWantsFromYou, WantsFromYouCard } from '../social/FriendsHubUi'
-import { ActivityExtras, NextGameNightCard, PodChats } from '../social/friendsSlots'
+import { NextGameNightCard } from '../social/NextGameNightCard'
+import { useNightsAvailable } from '../social/nights'
 import { loanPeople } from '../collection/loans'
 import { loansOf } from '../collection/storagePlaces'
 import { todayDay } from '../decks/league'
@@ -115,7 +116,9 @@ export function SocialGate({ children }: { children: (overview: api.Overview) =>
 }
 
 function FriendsContent({ overview }: { overview: api.Overview }) {
-  const { inbox, unread, setUnread } = useOverview()
+  const { inbox, unread: dmUnread, podUnread, setUnread } = useOverview()
+  // Pod chats' unread messages count in "Chats · N" and the badge too.
+  const unread = dmUnread + podUnread
   // The tab, or the user's own profile; kept in the address so Back and links land on the right one.
   const [params, setParams] = useSearchParams()
   // Chats and Activity need the server's social_more functions.
@@ -144,21 +147,11 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
         />
       </div>
       {tab === 'people' && <PeopleTab overview={overview} />}
-      {tab === 'messages' && (
-        <>
-          {/* Pod chats (friendsSlots.tsx) above the direct messages; the pod chat work decides where a pod opens. */}
-          <PodChats overview={overview} onOpenPod={() => {}} />
-          <ConversationList overview={overview} />
-        </>
-      )}
+      {/* Direct messages and pod chats in one list, newest first. */}
+      {tab === 'messages' && <ConversationList overview={overview} podChats />}
       {tab === 'trades' && <TradesTab overview={overview} more={!!more} />}
-      {tab === 'activity' && (
-        <>
-          {/* New kinds of activity go in ActivityExtras (friendsSlots.tsx), above friends' feed. */}
-          <ActivityExtras overview={overview} />
-          <ActivityList />
-        </>
-      )}
+      {/* Friends' feed with its new kinds (ActivityFeed): each item opens where it's about. */}
+      {tab === 'activity' && <ActivityList />}
     </>
   )
 }
@@ -189,13 +182,15 @@ function PeopleTab({ overview }: { overview: api.Overview }) {
   const loans = useMemo(() => loansOf(collections), [collections])
   const dues = useMemo(() => loanPeople(loans, todayDay(), []), [loans])
   const leagues = usePodLeagues(overview.pods, me.user_id)
+  // Pod chat and game nights (supabase/migrations/20261006070000_game_nights_chat.sql).
+  const podChat = useNightsAvailable() === true
   const startTrade = (m: TradeMatch) =>
     navigate(`/trades/new?to=${m.friend}`, { state: { want: m.they_have.map(matchAsTrade), give: m.they_want.map(matchAsTrade) } })
 
   return (
     <>
-      {/* The next game night (friendsSlots.tsx): nothing until there's one to show. */}
-      <NextGameNightCard onOpen={() => navigate('/play/night')} />
+      {/* The next game night (NextGameNightCard.tsx): nothing until there's one to show; opens its invite. */}
+      <NextGameNightCard />
 
       {incoming.length > 0 && (
         <>
@@ -222,7 +217,19 @@ function PeopleTab({ overview }: { overview: api.Overview }) {
       {overview.pods.length === 0 ? (
         <div className="notice">A pod is a group of friends — your playgroup. Share a deck with a whole pod at once.</div>
       ) : (
-        <PodsRow pods={overview.pods} leagues={leagues} onOpen={(pod) => setPodDialog(pod)} />
+        // A pod opens its chat once the server has pod chat (before that, its members to edit as
+        // before); each card also offers Plan a game night, and Members.
+        podChat ? (
+          <PodsRow
+            pods={overview.pods}
+            leagues={leagues}
+            onOpen={(pod) => navigate(`/pods/${pod.id}/chat`)}
+            onPlan={(pod) => navigate(`/play/nights/new?pod=${pod.id}`)}
+            onEdit={(pod) => setPodDialog(pod)}
+          />
+        ) : (
+          <PodsRow pods={overview.pods} leagues={leagues} onOpen={(pod) => setPodDialog(pod)} />
+        )
       )}
 
       <SectionHeader title={`Friends${friends.length ? ` · ${friends.length}` : ''}`} />

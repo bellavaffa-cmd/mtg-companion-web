@@ -18,8 +18,8 @@ export const NAV_TABS = [
 
 /** The Friends tab's badge: friend requests, trades waiting on the user and unread messages. */
 export function useFriendsBadge(): number {
-  const { inbox, unread } = useSocial()
-  return friendsBadge(inbox.friend_requests, unread, inbox.trades)
+  const { inbox, unread, podUnread } = useSocial()
+  return friendsBadge(inbox.friend_requests, unread + podUnread, inbox.trades)
 }
 
 /** The gold count on Friends, wherever it's linked from the navigation. */

@@ -13,6 +13,9 @@ import { MESSAGE_MAX, mergeMessages, previewLine, timeAgo, type DirectMessage } 
 import { BlockReportButton, MessageText } from '../social/MoreUi'
 import { SocialGate } from './FriendsPage'
 import { communityRules } from '../social/communityRules'
+import { mergeChatRows } from '../social/nightsLogic'
+import { usePodChats } from '../social/podChats'
+import { PodChatRow } from './PodChatPage'
 
 // Direct messages between friends: the list of conversations (/messages) and one conversation
 // (/messages/<friend id>). The Android app's twin is ui/social/MessagesScreen.kt.
@@ -32,8 +35,12 @@ export function MessagesPage() {
   )
 }
 
-/** Every conversation — on this page and on Friends' Chats tab (pod chats above it, friendsSlots.tsx). */
-export function ConversationList({ overview }: { overview: api.Overview }) {
+/**
+ * Every conversation — on this page and on Friends' Chats tab, where [podChats] also lists the user's
+ * pod chats (PodChatPage.tsx), merged with the direct messages by when each last had a message
+ * (mergeChatRows).
+ */
+export function ConversationList({ overview, podChats = false }: { overview: api.Overview; podChats?: boolean }) {
   const navigate = useNavigate()
   const available = more.useSocialMore()
   const me = overview.me!.user_id
@@ -49,6 +56,7 @@ export function ConversationList({ overview }: { overview: api.Overview }) {
   }, [setUnread])
   useEffect(() => { if (available) load() }, [available, load])
   more.useDirectMessages(() => load(), load, !!available)
+  const pods = usePodChats(podChats) ?? []
 
   if (available === false) return <div className="empty-state"><Icon name="chat" />Not available yet.</div>
   if (error && !list) return <div className="empty-state"><Icon name="cloud_off" />{error}<button type="button" className="btn line" onClick={load}>Try again</button></div>
@@ -57,20 +65,31 @@ export function ConversationList({ overview }: { overview: api.Overview }) {
   const friends = overview.friends.filter((f) => f.status === 'accepted' && !list.some((c) => c.other.user_id === f.user_id))
   return (
     <>
-      {list.length === 0 && (friends.length > 0
+      {list.length === 0 && pods.length === 0 && (friends.length > 0
         ? <EmptyState icon="chat" text="No messages yet. Pick a friend below to start a conversation." />
         : <EmptyState icon="chat" text="No messages yet. Add a friend, then start a conversation with them here." actions={[{ label: 'Add a friend', icon: 'person_add', to: '/friends' }]} />)}
       <div className="list dm-list">
-        {list.map((c) => (
-          <button key={c.id} type="button" className="person-row press" onClick={() => navigate(`/messages/${c.other.user_id}`)}>
-            <Avatar profile={c.other} size={44} />
-            <span className="person-main">
-              <span className="person-name">{c.other.display_name}</span>
-              <span className="dim">{previewLine(c.last, me)}{c.last ? ` · ${timeAgo(c.last.created_at, now)}` : ''}</span>
-            </span>
-            {c.unread > 0 && <span className="count-badge">{c.unread}</span>}
-          </button>
-        ))}
+        {mergeChatRows(
+          list.map((c) => ({ kind: 'dm' as const, id: c.id, at: c.last?.created_at ?? null, unread: c.unread })),
+          pods.map((p) => ({ kind: 'pod' as const, id: p.podId, at: p.last?.createdAt ?? null, unread: p.unread })),
+        ).map((r) => {
+          if (r.kind === 'pod') {
+            const p = pods.find((x) => x.podId === r.id)
+            return p ? <PodChatRow key={`pod-${p.podId}`} chat={p} me={me} now={now} /> : null
+          }
+          const c = list.find((x) => x.id === r.id)
+          if (!c) return null
+          return (
+            <button key={c.id} type="button" className="person-row press" onClick={() => navigate(`/messages/${c.other.user_id}`)}>
+              <Avatar profile={c.other} size={44} />
+              <span className="person-main">
+                <span className="person-name">{c.other.display_name}</span>
+                <span className="dim">{previewLine(c.last, me)}{c.last ? ` · ${timeAgo(c.last.created_at, now)}` : ''}</span>
+              </span>
+              {c.unread > 0 && <span className="count-badge">{c.unread}</span>}
+            </button>
+          )
+        })}
       </div>
       {friends.length > 0 && (
         <>
