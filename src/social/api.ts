@@ -208,6 +208,16 @@ const MESSAGES: Record<string, string> = {
   bad_season: 'Check the season: a name, the day it starts, and points from 0 to 10.',
   too_many_seasons: 'This pod has 100 seasons already.',
   cant_rate: "You can rate a trade once you've updated your binders for it.",
+  // supabase/migrations/20261006070000_game_nights_chat.sql (nights.ts)
+  bad_night: 'Check the night: a day and time within a year, and where (up to 80 characters).',
+  too_many_guests: 'Ask up to 20 friends from outside the pod.',
+  too_many_nights: 'This pod has a lot of game nights planned already.',
+  no_such_night: "That game night isn't there any more.",
+  not_organiser: "Only whoever planned the night, or the pod's owner, can change it.",
+  night_cancelled: 'That game night was called off.',
+  night_over: 'That game night is over.',
+  bad_answer: 'Pick Going, Maybe or Can’t.',
+  bad_share: "That can't be shared here.",
 }
 
 export async function call<T>(fn: string, args: Record<string, unknown> = {}, { signedIn = true } = {}): Promise<T> {

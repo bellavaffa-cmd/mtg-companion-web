@@ -1,0 +1,158 @@
+/* Game night invites and pod chat (NextGameNightCard, GameNightInvitePage, PodChatPage). */
+
+.gn-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--gold-soft);
+  color: var(--t0);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.gn-card-play { background: var(--surface); }
+.gn-card-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.gn-card-main b { font-size: 0.9375rem; }
+.gn-card-sub { font-size: 0.8125rem; color: var(--t1); }
+.gn-card-open { font-size: 0.8125rem; font-weight: 700; color: var(--gold); }
+.gn-tile {
+  flex: none;
+  width: 48px;
+  height: 52px;
+  border-radius: 12px;
+  background: var(--gold);
+  color: var(--gold-ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.gn-tile span { font-size: 0.6875rem; font-weight: 800; }
+.gn-tile b { font-size: 1.5rem; font-weight: 800; margin-top: 2px; }
+.gn-going {
+  flex: none;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-weight: 800;
+  font-size: 0.8125rem;
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  cursor: pointer;
+}
+
+/* The invite */
+.gn-page { display: flex; flex-direction: column; gap: 14px; padding-bottom: 96px; }
+.gn-head {
+  padding: 16px;
+  border-radius: 18px;
+  background: var(--gold-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gn-when { font-size: 2rem; line-height: 1.05; font-weight: 800; color: var(--gold); letter-spacing: 0.01em; }
+.gn-where { font-size: 1rem; font-weight: 700; }
+.gn-meta { font-size: 0.8125rem; color: var(--t1); }
+.gn-note { font-size: 0.875rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.gn-off { color: var(--error); font-weight: 700; }
+.gn-rsvp { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: var(--surface); }
+.gn-rsvp button {
+  flex: 1;
+  height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--t0);
+  font: 600 0.875rem/1 inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+.gn-rsvp button[aria-pressed='true'] { background: var(--gold); color: var(--gold-ink); font-weight: 800; }
+.gn-rsvp button:disabled { opacity: 0.6; cursor: default; }
+.gn-label { font-size: 0.75rem; color: var(--t1); font-weight: 700; letter-spacing: 0.06em; margin-top: 2px; }
+.gn-who { display: flex; flex-direction: column; gap: 6px; font-size: 0.875rem; }
+.gn-who-row { display: flex; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--surface); }
+.gn-who-row > span:first-child { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.gn-tone-going { color: var(--ok); }
+.gn-tone-maybe { color: var(--gold); }
+.gn-tone-cant { color: var(--error); }
+.gn-tone-none { color: var(--t1); }
+.gn-ready { padding: 14px; border-radius: 16px; background: var(--surface); display: flex; flex-direction: column; gap: 8px; }
+.gn-ready h2 { margin: 0; font-size: 0.9375rem; font-weight: 800; }
+.gn-ready .link { text-align: left; font-weight: 700; font-size: 0.875rem; }
+.gn-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 8px;
+  padding: 12px 0 16px;
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+}
+.gn-bar .grow { flex: 1; }
+.gn-form { display: flex; flex-direction: column; gap: 6px; }
+.gn-form .field-label { margin-top: 10px; }
+
+/* Pod chat */
+.pc-head-sub { font-size: 0.75rem; color: var(--t1); }
+.pc-thread { display: flex; flex-direction: column; gap: 8px; padding: 8px 0 12px; }
+.pc-day { align-self: center; font-size: 0.75rem; color: var(--t1); padding: 6px 0 2px; }
+.pc-msg { max-width: min(78%, 520px); display: flex; flex-direction: column; gap: 3px; align-self: flex-start; }
+.pc-msg.mine { align-self: flex-end; }
+.pc-name { font-size: 0.75rem; color: var(--t1); }
+.pc-bubble {
+  padding: 10px 14px;
+  border-radius: 16px 16px 16px 4px;
+  background: var(--surface2, var(--surface));
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.pc-msg.mine .pc-bubble { border-radius: 16px 16px 4px 16px; background: var(--gold); color: var(--gold-ink); font-weight: 600; }
+.pc-msg.mine .pc-bubble a { color: inherit; }
+.pc-time { font-size: 0.6875rem; color: var(--t2); }
+.pc-msg.mine .pc-time { align-self: flex-end; }
+.pc-league {
+  align-self: stretch;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid rgba(230, 180, 94, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pc-league-label { font-size: 0.6875rem; font-weight: 800; color: var(--gold); letter-spacing: 0.06em; }
+.pc-league-table { font-size: 0.75rem; color: var(--t1); }
+.pc-system { align-self: center; font-size: 0.8125rem; color: var(--t1); text-align: center; }
+.pc-night {
+  align-self: stretch;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--gold-soft);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pc-night-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pc-night-main b { font-size: 0.875rem; }
+.pc-night-main span { font-size: 0.75rem; color: var(--t1); }
+.pc-share { display: flex; flex-direction: column; gap: 2px; }
+.pc-share small { font-size: 0.6875rem; letter-spacing: 0.06em; font-weight: 800; opacity: 0.8; }
+.pc-compose { position: sticky; bottom: 0; display: flex; gap: 8px; align-items: flex-end; padding: 10px 0 14px; background: var(--bg); border-top: 1px solid var(--line); }
+.pc-compose textarea { flex: 1; resize: none; min-height: 44px; max-height: 140px; border-radius: 22px; }
+.pc-round { flex: none; width: 44px; height: 44px; border-radius: 22px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.pc-pick { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow: auto; }
+.pc-pick button { text-align: left; }
+.pc-row-name { display: flex; align-items: center; gap: 6px; }
+.pc-thread .link-like { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+.pc-name.link-like { color: var(--t1); font-size: 0.75rem; }

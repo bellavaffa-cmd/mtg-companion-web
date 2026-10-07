@@ -120,11 +120,20 @@ self.addEventListener('push', (event) => {
       renotify: Boolean(data.tag),
       icon: new URL('icon-192.png', scope).href,
       badge: new URL('icon-192.png', scope).href,
-      // Friends, on the tab the notification is about (src/social/friendsTabs.ts).
-      data: { url: new URL(data.open === 'trades' ? 'friends?tab=trades' : data.open === 'messages' ? 'friends?tab=messages' : 'friends', scope).href },
+      // Friends, on the tab the notification is about (src/social/friendsTabs.ts); a game night
+      // ("night:<id>") or a pod's chat ("pod:<id>") opens that (notificationPath in src/social/nightsLogic.ts).
+      data: { url: new URL(nightPath(data.open) ?? (data.open === 'trades' ? 'friends?tab=trades' : data.open === 'messages' ? 'friends?tab=messages' : 'friends'), scope).href },
     }),
   )
 })
+
+/** As notificationPath in src/social/nightsLogic.ts. */
+function nightPath(open) {
+  if (typeof open !== 'string') return null
+  if (open.startsWith('night:')) return `play/nights/${encodeURIComponent(open.slice(6))}`
+  if (open.startsWith('pod:')) return `pods/${encodeURIComponent(open.slice(4))}/chat`
+  return null
+}
 
 // A tap opens the screen it's about: in a tab of the app that's already open if there is one.
 self.addEventListener('notificationclick', (event) => {
