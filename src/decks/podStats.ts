@@ -16,6 +16,10 @@ export interface PodPlayer {
   commander: string | null
   deck: string | null
   result: PodResult
+  /** Where they finished (1 = won, 2 = second…), when it was recorded. For league points (league.ts). */
+  place?: number | null
+  /** Whether they knocked out the first player of the game. */
+  firstBlood?: boolean
 }
 
 export interface PodGame {
@@ -175,7 +179,7 @@ export function deckResultOf(
  * Checks a game before recording it: answers what's wrong, in words for the screen, or null.
  * The server checks the same (2–10 players, names 1–40 characters, at most one winner).
  */
-export function podGameProblem(players: Pick<PodPlayer, 'userId' | 'name' | 'result'>[]): string | null {
+export function podGameProblem(players: Pick<PodPlayer, 'userId' | 'name' | 'result' | 'firstBlood'>[]): string | null {
   if (players.length < 2) return 'Pick at least two players.'
   if (players.length > 10) return 'A game holds up to 10 players.'
   if (players.some((p) => !p.name.trim())) return 'Every guest needs a name.'
@@ -183,5 +187,6 @@ export function podGameProblem(players: Pick<PodPlayer, 'userId' | 'name' | 'res
   const keys = players.map(playerKey)
   if (new Set(keys).size !== keys.length) return 'Someone is in the game twice.'
   if (players.filter((p) => p.result === 'WIN').length > 1) return 'Only one player can win.'
+  if (players.filter((p) => p.firstBlood).length > 1) return 'Only one player can draw first blood.'
   return null
 }
