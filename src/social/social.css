@@ -758,7 +758,7 @@
 .trade-value .tv-note {
   font-size: 0.7812rem;
 }
-/* The balance bar: the user's side (gold) against theirs, the middle marked. */
+/* The balance bar: the user's side (the accent) against theirs, the middle marked. */
 .trade-value .tv-bar {
   position: relative;
   display: flex;
@@ -769,7 +769,7 @@
   background: var(--g3);
 }
 .trade-value .tv-bar-get {
-  background: var(--gold);
+  background: var(--accent);
   transition: width 0.3s var(--out);
 }
 .trade-value .tv-bar-give {
