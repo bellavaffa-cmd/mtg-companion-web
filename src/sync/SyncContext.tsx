@@ -705,9 +705,13 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     setLibraryBackup(null)
   }, [])
 
+  // Not an edit of the decks' lists, so no version or history entry of its own (the backup's history
+  // comes with it) — as on the phone. Synced like any other change.
   const restoreBackup = useCallback((backup: BackupFile, mode: RestoreMode) => {
-    updateLibrary((lib) => restoreLibrary(lib, backup, mode))
-  }, [updateLibrary])
+    adoptStoredLibrary()
+    commitLibrary(keepUserTags(restoreLibrary(libraryRef.current, backup, mode)))
+    scheduleSync()
+  }, [adoptStoredLibrary, commitLibrary, scheduleSync])
 
   const restoreLibraryBackup = useCallback(() => {
     const raw = localStorage.getItem(LIBRARY_BACKUP_KEY)
