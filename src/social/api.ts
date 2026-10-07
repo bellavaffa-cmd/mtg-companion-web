@@ -4,6 +4,7 @@
 
 import { accessToken, apiHeaders, OfflineError, restUrl } from '../sync/supabaseAuth'
 import type { PodGame, PodPlayer } from '../decks/podStats'
+import { parseSeasons, rulesJson, standingsJson, type LeagueRules, type LeagueStanding, type Season } from '../decks/league'
 import { isMissingFunction } from './moreLogic'
 
 export interface Profile {
@@ -200,6 +201,12 @@ const MESSAGES: Record<string, string> = {
   dm_too_long: 'Keep messages under 2,000 characters.',
   cant_message: 'You can only message friends.',
   slow_down: "You're sending messages very fast — wait a minute.",
+  // supabase/migrations/20261006060000_pod_seasons.sql (league.ts)
+  season_running: 'This pod already has a season running — end it first.',
+  season_over: 'That season has ended.',
+  not_season_owner: "Only whoever started the season, or the pod's owner, can change it.",
+  bad_season: 'Check the season: a name, the day it starts, and points from 0 to 10.',
+  too_many_seasons: 'This pod has 100 seasons already.',
   cant_rate: "You can rate a trade once you've updated your binders for it.",
 }
 
@@ -352,6 +359,24 @@ export const recordPodGame = (
 export const podGames = (podId: string, limit = 1000) => call<PodGame[]>('pod_games', { p_pod: podId, p_limit: limit }).then((g) => g ?? [])
 /** Whoever recorded a game, or the pod's owner, deletes it. */
 export const deletePodGame = (gameId: string) => call<void>('delete_pod_game', { p_game: gameId })
+
+// ---- A pod's league seasons (supabase/migrations/20261006060000_pod_seasons.sql) ----
+// Until that migration is applied these throw SocialError('unavailable'), and the pages say
+// "Leagues aren't available yet" (league.ts, LeagueView.tsx).
+
+/** A pod's seasons, newest first. */
+export const podSeasons = (podId: string): Promise<Season[]> => call<unknown>('pod_seasons', { p_pod: podId }).then(parseSeasons)
+
+export interface SeasonFields { name: string; startsOn: string; endsOn: string | null; maxNights: number | null; rules: LeagueRules }
+const seasonArgs = (f: SeasonFields) => ({
+  p_name: f.name.trim(), p_starts_on: f.startsOn, p_ends_on: f.endsOn, p_max_nights: f.maxNights, p_rules: rulesJson(f.rules),
+})
+/** Starts a season in a pod; answers its id. Days are "YYYY-MM-DD". */
+export const createPodSeason = (podId: string, f: SeasonFields) => call<string>('create_pod_season', { p_pod: podId, ...seasonArgs(f) })
+export const updatePodSeason = (seasonId: string, f: SeasonFields) => call<void>('update_pod_season', { p_season: seasonId, ...seasonArgs(f) })
+/** Ends a season, keeping its final table and champion as they are now. */
+export const endPodSeason = (seasonId: string, endedAt: number, champion: string | null, standings: LeagueStanding[]) =>
+  call<void>('end_pod_season', { p_season: seasonId, p_ended_at: new Date(endedAt).toISOString(), p_champion: champion, p_standings: standingsJson(standings) })
 
 // ---- Sharing ----
 

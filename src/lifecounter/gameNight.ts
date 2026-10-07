@@ -4,6 +4,7 @@
 // the Android app's ui/lifecounter/GameNight.kt — same JSON keys, same numbers.
 
 import type { GameResult } from '../types/models'
+import type { PodPlayer } from '../decks/podStats'
 import { TABLE_LAYOUTS, playerCount } from './tableLayouts'
 
 /** Commander pods of 3–4, or 1v1 pairs. */
@@ -372,4 +373,30 @@ export function nightResultOf(nightId: string, pod: NightPod, players: NightPlay
 /** A fresh night, or [from]'s players (with what they played) on a new night. */
 export function newNight(id: string, now: number, from?: GameNight | null): GameNight {
   return { id, createdAt: now, format: from?.format ?? 'COMMANDER', seed: 0, players: from?.players ?? [], pods: [] }
+}
+
+// ---- Sending the night's results to a pod's league (league.ts) ----
+
+/**
+ * [pod]'s game as a pod game (podStats.ts) for the league: the user by [me] (their account), friends
+ * by account, guests by name; [result]'s winner WIN and everyone else LOSS, or a draw when nobody
+ * was left standing. Null while there's no result, or fewer than two players. It's sent under
+ * [nightResultId], so sending again (or from another device) updates the same game.
+ */
+export function nightPodPlayers(
+  pod: Pick<NightPod, 'playerIds'>,
+  players: NightPlayer[],
+  result: { winnerId: string | null; fromTable: boolean } | null | undefined,
+  me: string,
+): PodPlayer[] | null {
+  if (!result) return null
+  const seated = pod.playerIds.map((id) => players.find((p) => p.id === id)).filter((p): p is NightPlayer => !!p)
+  if (seated.length < 2) return null
+  return seated.map((p) => ({
+    userId: p.kind === 'ME' ? me : p.kind === 'FRIEND' ? p.userId ?? null : null,
+    name: p.name.trim().slice(0, 40),
+    commander: p.commander?.trim().slice(0, 120) || null,
+    deck: p.deck?.trim().slice(0, 80) || null,
+    result: result.winnerId == null ? 'DRAW' : result.winnerId === p.id ? 'WIN' : 'LOSS',
+  }))
 }

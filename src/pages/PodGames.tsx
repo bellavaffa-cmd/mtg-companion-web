@@ -12,6 +12,8 @@ import {
   canDeletePodGame, deckResultOf, podGameProblem, podStats,
   type CommanderRecord, type PodGame, type PodPlayer, type PodResult,
 } from '../decks/podStats'
+import { runningSeason, type LeagueRules, type Season } from '../decks/league'
+import { LeagueSection } from './LeagueView'
 import { GAME_MODE_LABELS, GAME_MODES, type Deck, type GameMode } from '../types/models'
 
 // A pod's shared games on the Playgroup page: the group's table, commanders, nemeses and latest
@@ -31,9 +33,31 @@ export function PodView({ pod, me }: { pod: api.Pod; me: api.Profile }) {
   const [loading, setLoading] = useState(false)
   const [recording, setRecording] = useState(false)
   const [deleting, setDeleting] = useState<PodGame | null>(null)
+  // The pod's league seasons (LeagueView.tsx): null while loading.
+  const [seasons, setSeasons] = useState<Season[] | null>(null)
+  const [leagueUnavailable, setLeagueUnavailable] = useState(false)
+  const [leagueError, setLeagueError] = useState<string | null>(null)
   // Answers for a pod that's no longer shown must not land.
   const current = useRef(pod.id)
   current.current = pod.id
+
+  const loadSeasons = useCallback(async () => {
+    const id = pod.id
+    try {
+      const s = await api.podSeasons(id)
+      if (current.current === id) { setSeasons(s); setLeagueError(null) }
+    } catch (e) {
+      if (current.current !== id) return
+      if (e instanceof api.SocialError && e.code === 'unavailable') setLeagueUnavailable(true)
+      else setLeagueError(e instanceof Error ? e.message : 'Something went wrong.')
+    }
+  }, [pod.id])
+  useEffect(() => {
+    setSeasons(null)
+    setLeagueUnavailable(false)
+    setLeagueError(null)
+    void loadSeasons()
+  }, [loadSeasons])
 
   const load = useCallback(async () => {
     const id = pod.id
@@ -66,6 +90,19 @@ export function PodView({ pod, me }: { pod: api.Pod; me: api.Profile }) {
         </div>
         <button type="button" className="btn gold" onClick={() => setRecording(true)}><Icon name="add" aria-hidden />Record a game</button>
       </div>
+
+      {games && (
+        <LeagueSection
+          pod={pod}
+          me={me}
+          games={games}
+          seasons={seasons}
+          unavailable={leagueUnavailable}
+          loadError={leagueError}
+          nameOf={nameOf}
+          onChanged={() => void loadSeasons()}
+        />
+      )}
 
       {!games ? (
         error ? (
@@ -135,6 +172,7 @@ export function PodView({ pod, me }: { pod: api.Pod; me: api.Profile }) {
         <RecordGameDialog
           pod={pod}
           me={me}
+          league={seasons ? runningSeason(seasons)?.rules ?? null : null}
           onRecorded={() => { setRecording(false); void load() }}
           onDismiss={() => setRecording(false)}
         />
@@ -235,7 +273,11 @@ interface Seat {
 
 const DRAW = 'draw'
 
-function RecordGameDialog({ pod, me, onRecorded, onDismiss }: { pod: api.Pod; me: api.Profile; onRecorded: () => void; onDismiss: () => void }) {
+/**
+ * Recording a game. [league]: the running season's rules — when they give points for second place
+ * or first blood, those can be picked.
+ */
+function RecordGameDialog({ pod, me, league, onRecorded, onDismiss }: { pod: api.Pod; me: api.Profile; league: LeagueRules | null; onRecorded: () => void; onDismiss: () => void }) {
   const { decks, addGameResult } = useSync()
   const people = usePeople()
   const memberName = (id: string) => (id === me.user_id ? me.display_name : people(id)?.display_name ?? 'Someone')
@@ -244,6 +286,9 @@ function RecordGameDialog({ pod, me, onRecorded, onDismiss }: { pod: api.Pod; me
   const [guest, setGuest] = useState('')
   // A seat's id, or DRAW.
   const [winner, setWinner] = useState('')
+  // Seat ids, or '' for nobody.
+  const [second, setSecond] = useState('')
+  const [firstBlood, setFirstBlood] = useState('')
   const [format, setFormat] = useState<GameMode>('COMMANDER')
   const [turns, setTurns] = useState('')
   const [minutes, setMinutes] = useState('')
@@ -263,6 +308,8 @@ function RecordGameDialog({ pod, me, onRecorded, onDismiss }: { pod: api.Pod; me
     if (seat) {
       setSeats((list) => list.filter((s) => s.id !== seat.id))
       if (winner === seat.id) setWinner('')
+      if (second === seat.id) setSecond('')
+      if (firstBlood === seat.id) setFirstBlood('')
     } else {
       setSeats((list) => [...list, seatOf(userId, memberName(userId))])
     }
@@ -291,6 +338,8 @@ function RecordGameDialog({ pod, me, onRecorded, onDismiss }: { pod: api.Pod; me
       commander: s.commander.trim() || null,
       deck: s.deck.trim() || null,
       result: result(s),
+      place: winner === DRAW ? null : winner === s.id ? (second ? 1 : null) : second === s.id ? 2 : null,
+      firstBlood: firstBlood === s.id,
     }))
     const problem = !winner ? 'Pick who won, or Draw.' : podGameProblem(players)
     if (problem) { setError(problem); return }
@@ -347,7 +396,13 @@ function RecordGameDialog({ pod, me, onRecorded, onDismiss }: { pod: api.Pod; me
         <div key={s.id} className="panel" style={{ marginTop: 10, padding: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <b style={{ flex: 1, minWidth: 0 }}>{s.name}{s.userId === me.user_id ? ' (you)' : s.userId ? '' : ' · guest'}</b>
-            <button type="button" className="btn line sm" aria-label={`Remove ${s.name}`} onClick={() => (s.userId ? toggleMember(s.userId) : setSeats((list) => list.filter((x) => x.id !== s.id)))}><Icon name="close" aria-hidden /></button>
+            <button type="button" className="btn line sm" aria-label={`Remove ${s.name}`} onClick={() => {
+              if (s.userId) { toggleMember(s.userId); return }
+              setSeats((list) => list.filter((x) => x.id !== s.id))
+              if (winner === s.id) setWinner('')
+              if (second === s.id) setSecond('')
+              if (firstBlood === s.id) setFirstBlood('')
+            }}><Icon name="close" aria-hidden /></button>
           </div>
           {s.userId === me.user_id ? (
             <select className="input" aria-label="Your deck" value={s.deckId ?? ''} onChange={(e) => pickDeck(s, e.target.value)}>
@@ -362,11 +417,31 @@ function RecordGameDialog({ pod, me, onRecorded, onDismiss }: { pod: api.Pod; me
       ))}
 
       <label className="field-label" htmlFor="pod-winner" style={{ display: 'block', marginTop: 14 }}>Who won</label>
-      <select id="pod-winner" className="input" value={winner} onChange={(e) => setWinner(e.target.value)}>
+      <select id="pod-winner" className="input" value={winner} onChange={(e) => { setWinner(e.target.value); if (second === e.target.value) setSecond('') }}>
         <option value="" disabled>Pick the winner</option>
         {seats.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         <option value={DRAW}>Draw</option>
       </select>
+
+      {/* Only asked for while the pod's running season gives points for them. */}
+      {league && league.second > 0 && winner && winner !== DRAW && (
+        <>
+          <label className="field-label" htmlFor="pod-second" style={{ display: 'block', marginTop: 14 }}>Second place (optional)</label>
+          <select id="pod-second" className="input" value={second} onChange={(e) => setSecond(e.target.value)}>
+            <option value="">Not recorded</option>
+            {seats.filter((s) => s.id !== winner).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </>
+      )}
+      {league && league.firstBlood > 0 && (
+        <>
+          <label className="field-label" htmlFor="pod-first-blood" style={{ display: 'block', marginTop: 14 }}>First blood (optional)</label>
+          <select id="pod-first-blood" className="input" value={firstBlood} onChange={(e) => setFirstBlood(e.target.value)}>
+            <option value="">Not recorded</option>
+            {seats.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </>
+      )}
 
       <label className="field-label" htmlFor="pod-format" style={{ display: 'block', marginTop: 14 }}>Format</label>
       <select id="pod-format" className="input" value={format} onChange={(e) => setFormat(e.target.value as GameMode)}>

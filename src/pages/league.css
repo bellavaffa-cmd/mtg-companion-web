@@ -1,0 +1,119 @@
+/* League mode on a pod's Playgroup page (LeagueView.tsx). */
+
+.league-status {
+  font-size: 0.8125rem;
+  color: var(--t1);
+}
+.league-status.on {
+  color: var(--gold);
+}
+.league-rules {
+  margin: 2px 0 10px;
+  font-size: 0.75rem;
+  color: var(--t2);
+}
+.league-champion {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 10px;
+  font-weight: 700;
+  color: var(--gold);
+}
+.league-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  table-layout: fixed;
+}
+.league-table th {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--t2);
+  text-align: left;
+  padding: 0 0 4px;
+}
+.league-table td {
+  padding: 3px 0;
+  color: var(--t1);
+  white-space: nowrap;
+}
+.league-table .rank {
+  width: 22px;
+  color: var(--t2);
+}
+.league-table .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--t0);
+}
+.league-table tr.first .name {
+  font-weight: 700;
+  color: var(--gold);
+}
+.league-table .pts {
+  width: 38px;
+  font-family: var(--num);
+  font-size: 1.0625rem;
+  color: var(--t0);
+}
+.league-table .n {
+  width: 30px;
+}
+.league-table .rate {
+  width: 46px;
+}
+.league-table .streak {
+  width: 50px;
+}
+.league-table .streak.up {
+  color: var(--gold);
+}
+.league-link {
+  background: none;
+  border: 0;
+  padding: 10px 0 4px;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--gold);
+  cursor: pointer;
+}
+.league-night {
+  padding: 4px 0;
+}
+.league-past {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 6px 0;
+  font: inherit;
+  color: var(--t0);
+  cursor: pointer;
+}
+.league-past .dim,
+.league-past .won {
+  display: block;
+  font-size: 0.8125rem;
+}
+.league-past .won {
+  color: var(--gold);
+}
+.league-rule {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+.league-rule span {
+  flex: 1;
+}
+.league-rule b {
+  width: 22px;
+  text-align: center;
+  font-family: var(--num);
+  font-weight: 400;
+  font-size: 1.0625rem;
+}

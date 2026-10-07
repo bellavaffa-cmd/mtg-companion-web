@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Icon } from '../components/Icon'
 import { TopBar } from '../components/TopBar'
@@ -7,7 +7,7 @@ import { useSync } from '../sync/SyncContext'
 import { useOverview } from '../social/SocialContext'
 import type { Deck } from '../types/models'
 import {
-  deckFitsFormat, movePlayer, newSeed, nextSuggestion, nightResultId, nightResultOf, pairingsOf, playerKey, podPower, podWinner, repeatsIn,
+  deckFitsFormat, movePlayer, newSeed, nightPodPlayers, nextSuggestion, nightResultId, nightResultOf, pairingsOf, playerKey, podPower, podWinner, repeatsIn,
   suggestedDecks, tableSeedOf, unseated, withPods, withoutPlayer,
   type DeckChoice, type GameNight, type NightPlayer, type NightPod,
 } from './gameNight'
@@ -17,6 +17,8 @@ import './play.css'
 import './gameNight.css'
 import { activeDecks } from '../decks/deckFolders'
 import { TradeMatchesTonight } from '../social/TradeMatchesTonight'
+import * as api from '../social/api'
+import { leaguePodFor, rulesSummary, runningSeason, todayDay, type Season } from '../decks/league'
 
 /**
  * Game night: who's here and what they're playing, fair pods by power bracket (not last night's
@@ -117,6 +119,7 @@ export function GameNightPage() {
           <p className="muted night-intro rise" style={rise(0)}>
             Who's here and what they're playing, split into fair pods by power bracket. Start a pod's game on the life counter; your result saves to your deck.
           </p>
+          <NightLeagueCard night={night} pods={overview?.me ? overview.pods : []} me={overview?.me?.user_id ?? null} tableGames={tableGames} />
           <SegmentedTabs labels={['Commander', '1v1']} selected={night.format === 'DUEL' ? 1 : 0} onSelect={(i) => setFormat(i === 1 ? 'DUEL' : 'COMMANDER')} />
 
           <SectionHeader title={`Who's here · ${night.players.length}`} action={night.pods.length > 0 ? 'New night' : undefined} onAction={startNewNight} />
@@ -185,6 +188,102 @@ export function GameNightPage() {
         </div>
       </div>
     </>
+  )
+}
+
+/** A pod of the user's with a season on today. */
+interface NightLeague { pod: api.Pod; season: Season }
+
+/**
+ * "This counts for Season 2": the pod whose league tonight's games go to — the one with most of
+ * tonight's players — and sending each pod's result there as a pod game (under nightResultId, so
+ * sending again, or from another device, updates the same game). Shows nothing while there's no
+ * season on, or leagues aren't available yet. The Android app's LeagueCard (GameNightScreen.kt).
+ */
+function NightLeagueCard({ night, pods, me, tableGames }: { night: GameNight; pods: api.Pod[]; me: string | null; tableGames: ReturnType<typeof useTableGames> }) {
+  const [leagues, setLeagues] = useState<NightLeague[]>([])
+  const [chosen, setChosen] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
+  const [note, setNote] = useState<string | null>(null)
+  const podIds = pods.map((p) => p.id).join(',')
+
+  useEffect(() => {
+    let live = true
+    void (async () => {
+      const today = todayDay()
+      const found: NightLeague[] = []
+      for (const pod of pods) {
+        let seasons: Season[]
+        try {
+          seasons = await api.podSeasons(pod.id)
+        } catch (e) {
+          if (e instanceof api.SocialError && e.code === 'unavailable') break
+          continue
+        }
+        const s = runningSeason(seasons)
+        if (s && s.startsOn <= today && (s.endsOn == null || s.endsOn >= today)) found.push({ pod, season: s })
+      }
+      if (live) setLeagues(found)
+    })()
+    return () => { live = false }
+    // The pods' ids decide; the list itself is a new array on every overview refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [podIds])
+
+  if (!me || leagues.length === 0) return null
+  const nightUsers = new Set(night.players.flatMap((p) => (p.kind === 'ME' ? [me] : p.userId ? [p.userId] : [])))
+  const best = leaguePodFor(leagues.map((l) => [l.pod.id, l.pod.members]), nightUsers)
+  const league = leagues.find((l) => l.pod.id === chosen) ?? leagues.find((l) => l.pod.id === best)
+  if (!league) return null
+
+  const send = async () => {
+    setSending(true)
+    setNote(null)
+    let sent = 0
+    let problem: string | null = null
+    for (const pod of night.pods) {
+      const players = nightPodPlayers(pod, night.players, podWinner(pod, night.players, tableGames), me)
+      if (!players) continue
+      try {
+        await api.recordPodGame(league.pod.id, nightResultId(night.id, pod.id), {
+          playedAt: pod.startedAt ?? night.createdAt,
+          format: night.format === 'COMMANDER' ? 'COMMANDER' : '',
+          turns: null,
+          minutes: null,
+          players,
+        })
+        sent++
+      } catch (e) {
+        problem = e instanceof Error ? e.message : 'Something went wrong.'
+        break
+      }
+    }
+    setNote(problem ?? (sent === 0 ? "No results yet — pick each pod's winner first." : `Sent ${sent === 1 ? '1 game' : `${sent} games`} to ${league.season.name} in ${league.pod.name}.`))
+    setSending(false)
+  }
+
+  return (
+    <div className="night-pod rise" style={rise(1)}>
+      <div className="night-pod-head">
+        <Icon name="emoji_events" aria-hidden style={{ color: 'var(--gold)' }} />
+        <b>This counts for {league.season.name}</b>
+      </div>
+      <span className="muted">{league.pod.name} · {rulesSummary(league.season.rules)}</span>
+      {leagues.length > 1 && (
+        <div className="chips wrap">
+          {leagues.map((l) => (
+            <button key={l.pod.id} type="button" className="chip on-g2" aria-pressed={l.pod.id === league.pod.id} onClick={() => setChosen(l.pod.id)}>{l.pod.name}</button>
+          ))}
+        </div>
+      )}
+      {night.pods.length > 0 && (
+        <>
+          <button type="button" className="btn line" disabled={sending} onClick={() => void send()}>{sending ? 'Sending…' : 'Send results to the league'}</button>
+          <span className="muted night-saves">Each pod's winner goes to {league.pod.name}'s games and its league table. Sending again updates them.</span>
+        </>
+      )}
+      {note && <span role="status" style={{ color: 'var(--gold-light)' }}>{note}</span>}
+    </div>
   )
 }
 
