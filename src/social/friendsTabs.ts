@@ -1,5 +1,6 @@
-// The Friends page's tabs: People, Messages, Trades and Activity — Messages and Activity only when
-// the server has the social_more functions. Which tab a link (?tab=…) or a tapped notification
+// The Friends tab's tabs: People, Chats, Trades and Activity — Chats and Activity only when the
+// server has the social_more functions. Chats keeps the key "messages", which notifications and links
+// already use; "chats" opens it too. Which tab a link (?tab=…) or a tapped notification
 // ("friends" / "trades" / "messages") opens, and the counts on each. Pure, so it's tested. The
 // Android app's twin is data/social/FriendsTabs.kt (tests: FriendsTabsTest.kt /
 // tests/social/friendsTabs.test.ts).
@@ -8,7 +9,7 @@ export type FriendsTab = 'people' | 'messages' | 'trades' | 'activity'
 
 export const FRIENDS_TAB_LABELS: Record<FriendsTab, string> = {
   people: 'People',
-  messages: 'Messages',
+  messages: 'Chats',
   trades: 'Trades',
   activity: 'Activity',
 }
@@ -22,7 +23,7 @@ export const friendsTabs = (more: boolean | null | undefined): FriendsTab[] =>
  * "requests", or Messages/Activity without social_more — is People.
  */
 export function friendsTabFor(asked: string | null | undefined, more: boolean | null | undefined): FriendsTab {
-  const tab = asked === 'trades' || asked === 'messages' || asked === 'activity' ? asked : 'people'
+  const tab: FriendsTab = asked === 'chats' ? 'messages' : asked === 'trades' || asked === 'messages' || asked === 'activity' ? asked : 'people'
   return friendsTabs(more).includes(tab) ? tab : 'people'
 }
 
@@ -41,3 +42,7 @@ export function friendsTabCounts(tabs: FriendsTab[], waiting: FriendsWaiting): R
 
 /** The address of a tab: People is plain /friends. */
 export const friendsTabPath = (tab: FriendsTab) => (tab === 'people' ? '/friends' : `/friends?tab=${tab}`)
+
+/** A tab's label with what waits on it: "Chats · 3", or plain "Activity". */
+export const friendsTabLabel = (tab: FriendsTab, count: number): string =>
+  count > 0 ? `${FRIENDS_TAB_LABELS[tab]} · ${count}` : FRIENDS_TAB_LABELS[tab]

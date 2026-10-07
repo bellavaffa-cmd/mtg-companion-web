@@ -1,48 +1,75 @@
 import { useHouseholds } from '../social/household'
 import { HouseholdInvites } from '../social/HouseholdInvites'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
 import { Dialog } from '../components/Dialog'
-import { ArtImage, IconButton, SectionHeader, SegmentedTabs, rise, toArtCrop, useBack } from '../components/kit'
+import { ArtImage, IconButton, PageHeader, SectionHeader, SegmentedTabs, rise, toArtCrop, useLayoutSize } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
 import * as api from '../social/api'
-import { useOverview } from '../social/SocialContext'
+import { useOverview, useSocial } from '../social/SocialContext'
 import { ProfileEditor } from '../social/ProfileEditor'
 import { NotificationsPanel } from '../social/NotificationsPanel'
 import { Avatar, handle, QrCode } from '../social/ui'
-import { useSocialMore, unreadMessages } from '../social/more'
-import { ActivityList, TradeMatchesSection } from '../social/MoreUi'
-import { FRIENDS_TAB_LABELS, friendsTabCounts, friendsTabFor, friendsTabs } from '../social/friendsTabs'
+import { matchAsTrade, useSocialMore, unreadMessages, type TradeMatch } from '../social/more'
+import { ActivityList } from '../social/MoreUi'
+import { friendsTabCounts, friendsTabFor, friendsTabLabel, friendsTabs } from '../social/friendsTabs'
 import { ConversationList } from './MessagesPage'
-import { TradeList } from './TradesPage'
+import { TradeInboxList } from './TradesPage'
+import { FRIEND_ACTION_LABELS, friendContext, lentTo } from '../social/friendsHub'
+import { PodsRow, usePodLeagues, useWantsFromYou, WantsFromYouCard } from '../social/FriendsHubUi'
+import { ActivityExtras, NextGameNightCard, PodChats } from '../social/friendsSlots'
+import { loanPeople } from '../collection/loans'
+import { loansOf } from '../collection/storagePlaces'
+import { todayDay } from '../decks/league'
+import { useMoney } from '../money/currency'
 
 /**
- * Friends, in four tabs (friendsTabs.ts): People — adding friends, requests, friends, pods and
- * what's shared with you; Messages; Trades — trades, cards for trade, trade matches and loans; and
- * Activity. Messages and Activity need the server's social_more functions. The user's own profile
- * and QR code open from the header. The tab is kept in the address (?tab=…), so links, Back and
- * tapped notifications (pwa/sw.template.js) land on the right one. The Android app's twin is
+ * Friends, a tab of the bottom bar, in four tabs (friendsTabs.ts): People — the next game night,
+ * your pods with their league, friends each with a line of context and a quick action, requests and
+ * the way to what's shared; Chats (direct messages, pod chats above them); Trades — the trade inbox:
+ * Your turn, Waiting on them, What friends want from you and Done; and Activity. Chats and Activity
+ * need the server's social_more functions. Adding a friend, scanning a QR code and the user's own
+ * profile open from the header. The tab is kept in the address (?tab=…), so links, Back and tapped
+ * notifications (pwa/sw.template.js) land on the right one. The Android app's twin is
  * ui/social/FriendsScreen.kt.
  */
 export function FriendsPage() {
-  const back = useBack('/')
+  const navigate = useNavigate()
+  const wide = useLayoutSize() !== 'phone'
   const [params, setParams] = useSearchParams()
   const { account } = useSync()
+  const { refresh } = useSocial()
   const profile = params.get('tab') === 'profile'
+  const [adding, setAdding] = useState(false)
   return (
     <>
-      <TopBar
-        title={profile ? 'Your profile' : 'Friends'}
-        onBack={back}
-        actions={account && !profile ? <IconButton icon="account_circle" label="Your profile and QR code" onClick={() => setParams({ tab: 'profile' })} /> : undefined}
-      />
-      <div className="content-scroll">
+      {profile ? (
+        <TopBar title="Your profile" onBack={() => setParams({}, { replace: true })} />
+      ) : (
+        // A tab of the bar: no back button of its own.
+        <PageHeader
+          title="Friends"
+          actions={account ? (
+            <span className="friends-head-acts">
+              <IconButton icon="person_add" label="Add a friend" onClick={() => setAdding(true)} />
+              <IconButton icon="qr_code_scanner" label="Scan a QR code" onClick={() => navigate('/scan')} />
+              <IconButton icon="account_circle" label="Your profile and QR code" onClick={() => setParams({ tab: 'profile' })} />
+            </span>
+          ) : undefined}
+        />
+      )}
+      <div className={`content-scroll${wide || profile ? '' : ' with-nav'}`}>
         <div className="narrow-width">
           <SocialGate>{(overview) => <FriendsContent overview={overview} />}</SocialGate>
         </div>
       </div>
+      {adding && (
+        <Dialog title="Add a friend" onDismiss={() => setAdding(false)} actions={<button type="button" className="btn line" onClick={() => setAdding(false)}>Close</button>}>
+          <AddFriend onAdded={refresh} onShowQr={() => { setAdding(false); setParams({ tab: 'profile' }) }} />
+        </Dialog>
+      )}
     </>
   )
 }
@@ -88,47 +115,63 @@ export function SocialGate({ children }: { children: (overview: api.Overview) =>
 }
 
 function FriendsContent({ overview }: { overview: api.Overview }) {
-  const { inbox } = useOverview()
-  const me = overview.me!
+  const { inbox, unread, setUnread } = useOverview()
   // The tab, or the user's own profile; kept in the address so Back and links land on the right one.
   const [params, setParams] = useSearchParams()
-  // Messages and Activity need the server's social_more functions.
+  // Chats and Activity need the server's social_more functions.
   const more = useSocialMore()
-  const [unread, setUnread] = useState(0)
   useEffect(() => {
     if (!more) return
     let cancelled = false
     unreadMessages().then((n) => { if (!cancelled) setUnread(n) }).catch(() => {})
     return () => { cancelled = true }
-  }, [more, overview])
+  }, [more, overview, setUnread])
 
-  if (params.get('tab') === 'profile') return <ProfileTab me={me} />
+  if (params.get('tab') === 'profile') return <ProfileTab me={overview.me!} />
 
   const tabs = friendsTabs(more)
   const tab = friendsTabFor(params.get('tab'), more)
   const requests = overview.friends.filter((f) => f.status === 'pending' && f.incoming).length
+  // The counts go in the labels: "Chats · 3", "Trades · 2".
+  const counts = friendsTabCounts(tabs, { requests, unread, trades: inbox.trades })
   return (
     <>
-      <div className="rise" style={{ ...rise(0), marginBottom: 14 }}>
+      <div className="rise friends-tabs" style={rise(0)}>
         <SegmentedTabs
-          labels={tabs.map((t) => FRIENDS_TAB_LABELS[t])}
+          labels={tabs.map((t, i) => friendsTabLabel(t, counts[i] ?? 0))}
           selected={tabs.indexOf(tab)}
-          counts={friendsTabCounts(tabs, { requests, unread, trades: inbox.trades })}
           onSelect={(i) => setParams(tabs[i] === 'people' ? {} : { tab: tabs[i] }, { replace: true })}
         />
       </div>
-      {tab === 'people' && <PeopleTab overview={overview} onShowQr={() => setParams({ tab: 'profile' })} />}
-      {tab === 'messages' && <ConversationList overview={overview} />}
+      {tab === 'people' && <PeopleTab overview={overview} />}
+      {tab === 'messages' && (
+        <>
+          {/* Pod chats (friendsSlots.tsx) above the direct messages; the pod chat work decides where a pod opens. */}
+          <PodChats overview={overview} onOpenPod={() => {}} />
+          <ConversationList overview={overview} />
+        </>
+      )}
       {tab === 'trades' && <TradesTab overview={overview} more={!!more} />}
-      {tab === 'activity' && <ActivityList />}
+      {tab === 'activity' && (
+        <>
+          {/* New kinds of activity go in ActivityExtras (friendsSlots.tsx), above friends' feed. */}
+          <ActivityExtras overview={overview} />
+          <ActivityList />
+        </>
+      )}
     </>
   )
 }
 
-/** People: adding a friend, requests, friends, requests you sent, pods, and the way to what's shared. */
-function PeopleTab({ overview, onShowQr }: { overview: api.Overview; onShowQr: () => void }) {
+/**
+ * People: the next game night, Your pods, friend requests, friends — each with one line of context
+ * and a quick action (friendsHub.ts's friendContext) — requests the user sent, and what's shared.
+ */
+function PeopleTab({ overview }: { overview: api.Overview }) {
   const navigate = useNavigate()
   const { refresh } = useOverview()
+  const { collections } = useSync()
+  const money = useMoney()
   const me = overview.me!
   const [podDialog, setPodDialog] = useState<api.Pod | 'new' | null>(null)
   const person = (id: string) => overview.people[id] ?? null
@@ -140,10 +183,19 @@ function PeopleTab({ overview, onShowQr }: { overview: api.Overview; onShowQr: (
   const sharers = [...new Set(overview.shared_with_me.map((s) => s.owner))]
   // Invitations to share storage at home (social/household.ts); nothing shows before the server has them.
   const households = useHouseholds()
+  const homes = households.state.kind === 'ready' ? households.state.data.households : []
+  // Each friend's line: what they want of the user's, what they have on loan, a shelf shared at home.
+  const wants = useWantsFromYou(overview)
+  const loans = useMemo(() => loansOf(collections), [collections])
+  const dues = useMemo(() => loanPeople(loans, todayDay(), []), [loans])
+  const leagues = usePodLeagues(overview.pods, me.user_id)
+  const startTrade = (m: TradeMatch) =>
+    navigate(`/trades/new?to=${m.friend}`, { state: { want: m.they_have.map(matchAsTrade), give: m.they_want.map(matchAsTrade) } })
 
   return (
     <>
-      <AddFriend onAdded={refresh} onShowQr={onShowQr} />
+      {/* The next game night (friendsSlots.tsx): nothing until there's one to show. */}
+      <NextGameNightCard onOpen={() => navigate('/play/night')} />
 
       {incoming.length > 0 && (
         <>
@@ -166,6 +218,13 @@ function PeopleTab({ overview, onShowQr }: { overview: api.Overview; onShowQr: (
         </>
       )}
 
+      <SectionHeader title="Your pods" action="New pod" onAction={() => setPodDialog('new')} />
+      {overview.pods.length === 0 ? (
+        <div className="notice">A pod is a group of friends — your playgroup. Share a deck with a whole pod at once.</div>
+      ) : (
+        <PodsRow pods={overview.pods} leagues={leagues} onOpen={(pod) => setPodDialog(pod)} />
+      )}
+
       <SectionHeader title={`Friends${friends.length ? ` · ${friends.length}` : ''}`} />
       {friends.length === 0 ? (
         <div className="notice">No friends yet. Add someone by their username, or let them scan your QR code.</div>
@@ -174,15 +233,42 @@ function PeopleTab({ overview, onShowQr }: { overview: api.Overview; onShowQr: (
           {friends.map((f, i) => {
             const p = person(f.user_id)
             const shares = overview.shared_with_me.filter((s) => s.owner === f.user_id).length
+            const want = wants.find((w) => w.friend === f.user_id)
+            const home = homes.find((h) => h.members.some((m) => m.status === 'member' && m.profile?.user_id === f.user_id))
+            const context = friendContext(
+              want?.cards ?? 0,
+              want?.value != null ? money.format(want.value, true) : null,
+              lentTo(loans, f.user_id),
+              dues.find((d) => d.friendId === f.user_id)?.label ?? null,
+              !!home,
+            )
+            const detail = context?.line ?? (shares > 0 ? `Shares ${shares} with you` : p ? handle(p) : '')
             return (
-              <button key={f.user_id} type="button" className="person-row press rise" style={rise(Math.min(i, 8))} onClick={() => navigate(`/friends/${f.user_id}`)}>
-                <Avatar profile={p} size={44} />
-                <span className="person-main">
-                  <span className="person-name">{p?.display_name ?? 'Someone'}</span>
-                  <span className="dim">{p ? handle(p) : ''}{shares > 0 ? ` · shares ${shares}` : ''}</span>
-                </span>
-                <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
-              </button>
+              <div key={f.user_id} className="person-row rise" style={rise(Math.min(i, 8))}>
+                <button type="button" className="person-open press" onClick={() => navigate(`/friends/${f.user_id}`)}>
+                  <Avatar profile={p} size={44} />
+                  <span className="person-main">
+                    <span className="person-name">{p?.display_name ?? 'Someone'}</span>
+                    <span className="dim">{detail}</span>
+                  </span>
+                </button>
+                {context ? (
+                  <button
+                    type="button"
+                    className={`friend-action ${context.action}`}
+                    aria-label={`${FRIEND_ACTION_LABELS[context.action]} — ${p?.display_name ?? 'friend'}`}
+                    onClick={() => {
+                      if (context.action === 'trade' && want) startTrade(want.match)
+                      else if (context.action === 'loan') navigate('/loans')
+                      else if (context.action === 'home' && home) navigate(`/collections/household/${home.id}`)
+                    }}
+                  >
+                    {FRIEND_ACTION_LABELS[context.action]}
+                  </button>
+                ) : (
+                  <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
+                )}
+              </div>
             )
           })}
         </div>
@@ -209,26 +295,6 @@ function PeopleTab({ overview, onShowQr }: { overview: api.Overview; onShowQr: (
         </>
       )}
 
-      <SectionHeader title="Pods" action="New pod" onAction={() => setPodDialog('new')} />
-      {overview.pods.length === 0 ? (
-        <div className="notice">A pod is a group of friends — your playgroup. Share a deck with a whole pod at once.</div>
-      ) : (
-        <div className="list">
-          {overview.pods.map((pod) => (
-            <button key={pod.id} type="button" className="person-row press" onClick={() => setPodDialog(pod)}>
-              <span className="avatar-stack">
-                {pod.members.slice(0, 3).map((m) => <Avatar key={m} profile={m === me.user_id ? me : person(m)} size={30} />)}
-              </span>
-              <span className="person-main">
-                <span className="person-name">{pod.name}</span>
-                <span className="dim">{pod.members.length} {pod.members.length === 1 ? 'person' : 'people'}{pod.owner === me.user_id ? '' : ` · ${person(pod.owner)?.display_name ?? ''}’s pod`}</span>
-              </span>
-              <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* What friends share lives on the Collection page's Shared view; this is the way there. */}
       <SectionHeader title="Shared with you" />
       <button type="button" className="person-row press" onClick={() => navigate('/collections?tab=shared')}>
@@ -248,7 +314,10 @@ function PeopleTab({ overview, onShowQr }: { overview: api.Overview; onShowQr: (
   )
 }
 
-/** Trades: the way to your cards for trade and to loans, the trades themselves, and trade matches. */
+/**
+ * Trades: the trade inbox (TradesPage.tsx's TradeInboxList) — Your turn, Waiting on them, What
+ * friends want from you and Done — then the way to your cards for trade and to loans.
+ */
 function TradesTab({ overview, more }: { overview: api.Overview; more: boolean }) {
   const navigate = useNavigate()
   // What friends have lent the user (supabase/migrations/20261006010000_loans.sql) — nothing if the
@@ -257,25 +326,37 @@ function TradesTab({ overview, more }: { overview: api.Overview; more: boolean }
   useEffect(() => {
     api.myBorrowedLoans().then((l) => setBorrowed(l.reduce((n, x) => n + x.cards.reduce((m, c) => m + c.qty, 0), 0))).catch(() => {})
   }, [])
+  const wants = useWantsFromYou(overview)
   return (
-    <>
-      <div className="friends-links">
-        {more && (
-          <button type="button" className="banner press rise" style={rise(1)} onClick={() => navigate('/for-trade')}>
-            <Icon name="sell" />
-            <span style={{ flex: 1 }}>Your cards for trade</span>
+    <TradeInboxList
+      overview={overview}
+      wants={wants.length > 0 && (
+        <>
+          <SectionHeader title="What friends want from you" />
+          <WantsFromYouCard
+            overview={overview}
+            wants={wants}
+            onOpen={(m) => navigate(`/trades/new?to=${m.friend}`, { state: { want: m.they_have.map(matchAsTrade), give: m.they_want.map(matchAsTrade) } })}
+          />
+        </>
+      )}
+      footer={(
+        <div className="friends-links" style={{ marginTop: 18 }}>
+          {more && (
+            <button type="button" className="banner press" onClick={() => navigate('/for-trade')}>
+              <Icon name="sell" />
+              <span style={{ flex: 1 }}>Your cards for trade</span>
+              <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
+            </button>
+          )}
+          <button type="button" className="banner press" onClick={() => navigate('/loans?tab=borrowed')}>
+            <Icon name="handshake" />
+            <span style={{ flex: 1 }}>{borrowed > 0 ? `Borrowed / Lent · ${borrowed} ${borrowed === 1 ? 'card' : 'cards'} borrowed` : 'Borrowed / Lent'}</span>
             <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
           </button>
-        )}
-        <button type="button" className="banner press rise" style={rise(1)} onClick={() => navigate('/loans?tab=borrowed')}>
-          <Icon name="handshake" />
-          <span style={{ flex: 1 }}>{borrowed > 0 ? `Borrowed / Lent · ${borrowed} ${borrowed === 1 ? 'card' : 'cards'} borrowed` : 'Borrowed / Lent'}</span>
-          <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
-        </button>
-      </div>
-      <TradeList overview={overview} />
-      <TradeMatchesSection overview={overview} />
-    </>
+        </div>
+      )}
+    />
   )
 }
 

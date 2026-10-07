@@ -15,14 +15,18 @@ import { layoutById, playerCount } from './tableLayouts'
 import { RECENT_SHOWN, eventsStatus, gameNightStatus, lastPlayersLine, playgroupStatus, startGameLine } from './playHub'
 import { rememberedSeat, remotePath } from './seat'
 import { chartSeats, useTableGames, type TableGame } from './tableGames'
+import { MOVED_TO_FRIENDS } from '../social/friendsHub'
+import { NextGameNightCard } from '../social/friendsSlots'
 import './play.css'
 
 /**
- * The Play tab, in three parts. Play now: start a game here (the table it starts with, and who
- * played last), join someone else's table with your phone as the remote for your seat, or go back
- * to the seat you're in. Your group: Game night, Playgroup and Events, each with a line on where it
- * stands. Recent games, each opening its life chart. Rules sits in the header. The Android app's
- * twin is ui/lifecounter/PlayScreen.kt; the status lines are playHub.ts (PlayHub.kt).
+ * The Play tab — just the table now (people, chats and trades live on the Friends tab, and a small
+ * note says so). Start a game here (the table it starts with, and who played last), the next game
+ * night (friendsSlots.tsx's NextGameNightCard — nothing when there's none), join someone else's
+ * table with your phone as the remote for your seat, or go back to the seat you're in. At the table:
+ * Game night, Playgroup, Events and Pack your bag, each with a line on where it stands. Recent games,
+ * each opening its life chart. Rules sits in the header. The Android app's twin is
+ * ui/lifecounter/PlayScreen.kt; the status lines are playHub.ts (PlayHub.kt).
  */
 export function PlayPage() {
   const navigate = useNavigate()
@@ -48,25 +52,25 @@ export function PlayPage() {
       <PageHeader title="Play" actions={<IconButton icon="menu_book" label="Rules" onClick={() => navigate('/rules')} />} />
       <div className={`content-scroll${wide ? '' : ' with-nav'}`}>
         <div className="play">
-          <SectionHeader title="Play now" />
           <button type="button" className="play-start press rise" style={rise(1)} onClick={() => navigate('/life')}>
             {/* The life counter's own colour blocks, so the button looks like what it opens. */}
             <span className="play-seats" aria-hidden><i /><i /><i /><i /></span>
             <b>Start a game</b>
             <span>{startGameLine(players, startingLifeFor(settings, players))}{lastPlayers ? ` · ${lastPlayers}` : ''}</span>
           </button>
+          <NextGameNightCard onOpen={() => navigate('/play/night')} />
           {seat && (
             <PlayRow icon="event_seat" title={`Back to seat ${seat.seat}`} subtitle="You're still at a table — open your remote" highlight onClick={() => navigate(remotePath(seat))} />
           )}
           <PlayRow icon="qr_code_scanner" title="Join a table" subtitle="Scan a seat's QR code: your phone becomes your remote" onClick={() => navigate('/scan')} />
 
-          <SectionHeader title="Your group" />
-          <div className="play-tiles">
+          <SectionHeader title="At the table" />
+          <div className="play-tiles two">
             <PlayTile icon="groups" title="Game night" status={nightLine} onClick={() => navigate('/play/night')} />
             <PlayTile icon="leaderboard" title="Playgroup" status={playgroupStatus(stats.games, stats.nemesis?.name ?? null)} onClick={() => navigate('/play/playgroup')} />
             <PlayTile icon="emoji_events" title="Events" status={eventsStatus(running, events.length)} onClick={() => navigate('/play/events')} />
+            <PlayTile icon="backpack" title="Pack your bag" status="Decks, tokens, trades" onClick={() => navigate('/play/pack')} />
           </div>
-          <PlayRow icon="backpack" title="Pack your bag" subtitle="For a game night or an event: decks, tokens, trades and what to give back" onClick={() => navigate('/play/pack')} />
 
           <SectionHeader
             title="Recent games"
@@ -75,6 +79,7 @@ export function PlayPage() {
           />
           {games.length === 0 && <p className="muted play-empty">Games played on this device's life counter show up here.</p>}
           {shown.map((g, i) => <RecentGameRow key={g.id} game={g} index={i} />)}
+          <p className="muted moved-note">{MOVED_TO_FRIENDS}</p>
         </div>
       </div>
     </>
@@ -91,7 +96,7 @@ function PlayRow({ icon, title, subtitle, highlight, onClick }: { icon: string; 
   )
 }
 
-/** One of Your group's three: an icon, its name and a line on where it stands. */
+/** One of At the table's four: an icon, its name and a line on where it stands. */
 function PlayTile({ icon, title, status, onClick }: { icon: string; title: string; status: string; onClick: () => void }) {
   return (
     <button type="button" className="play-tile press rise" style={rise(3)} onClick={onClick}>

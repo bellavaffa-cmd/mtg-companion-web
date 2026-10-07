@@ -1970,6 +1970,38 @@ button.cmain {
   transform: scale(0.88);
 }
 
+/* Six tabs share the phone bar: each at least 48px wide, the pill narrower, a long label (or a large
+   font) shortened to one line. Friends carries a small gold count on its pill. */
+.tabbar .nav-tab {
+  min-width: 48px;
+  overflow: hidden;
+}
+.tabbar .nav-tab .pill {
+  width: min(48px, 100%);
+  position: relative;
+}
+.tabbar .nav-label {
+  max-width: 100%;
+  padding: 0 2px;
+  font-size: 0.625rem;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.tabbar .count-badge {
+  position: absolute;
+  top: -5px;
+  right: -4px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
+  font-size: 0.625rem;
+  margin: 0;
+  box-shadow: 0 0 0 2px var(--g1);
+}
+
 /* ---- Action sheet ---- */
 
 .scrim {

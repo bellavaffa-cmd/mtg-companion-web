@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { TopBar } from '../components/TopBar'
 import { Icon } from '../components/Icon'
 import { Dialog } from '../components/Dialog'
-import { PillChip, rise, useBack } from '../components/kit'
+import { SectionHeader, useBack } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
 import * as api from '../social/api'
 import { TradeCardList } from '../social/CardPicker'
@@ -15,10 +15,9 @@ import { SocialGate } from './FriendsPage'
 import * as more from '../social/more'
 import { BlockReportButton, RateTrade } from '../social/MoreUi'
 import { communityRules } from '../social/communityRules'
+import { doneLabel, tradeInbox, tradeSummary } from '../social/friendsHub'
 
-type Filter = 'waiting' | 'sent' | 'done'
-
-/** Trades with friends: the ones waiting on the user, the ones they sent, and finished ones. */
+/** Trades with friends: the trade inbox (TradeInboxList), as on Friends' Trades tab. */
 export function TradesPage() {
   const back = useBack('/friends')
   return (
@@ -26,16 +25,20 @@ export function TradesPage() {
       <TopBar title="Trades" onBack={back} />
       <div className="content-scroll">
         <div className="narrow-width">
-          <SocialGate>{(overview) => <TradeList overview={overview} />}</SocialGate>
+          <SocialGate>{(overview) => <TradeInboxList overview={overview} />}</SocialGate>
         </div>
       </div>
     </>
   )
 }
 
-/** The trades themselves, filtered — on this page and on Friends' Trades tab. */
-export function TradeList({ overview }: { overview: api.Overview }) {
-  const navigate = useNavigate()
+/**
+ * The trade inbox — on this page and on Friends' Trades tab (friendsHub.ts's tradeInbox): Your
+ * turn, each trade in full with its fairness bar and Counter / Accept; Waiting on them, a line each;
+ * [wants] (What friends want from you); and Done, a line each with the user's rating. A line opens
+ * into the full trade. [footer] goes last. The Android app's twin is TradesScreen.kt's TradeInboxList.
+ */
+export function TradeInboxList({ overview, wants, footer }: { overview: api.Overview; wants?: ReactNode; footer?: ReactNode }) {
   const me = overview.me!.user_id
   const available = more.useSocialMore()
   // People the user blocked are left out, and the user's thumbs up/down on finished trades shown.
@@ -48,45 +51,99 @@ export function TradeList({ overview }: { overview: api.Overview }) {
     more.myTradeRatings().then((r) => { if (!cancelled) setRatings(r) }).catch(() => {})
     return () => { cancelled = true }
   }, [available, overview])
-  const trades = overview.trades.filter((t) => !blocked.has(t.from_user === me ? t.to_user : t.from_user))
-  const waiting = trades.filter((t) => (t.status === 'open' && t.to_user === me) || awaitingMyUpdate(t, me))
-  const sent = trades.filter((t) => t.status === 'open' && t.from_user === me)
-  const done = trades.filter((t) => !waiting.includes(t) && !sent.includes(t))
-  const [filter, setFilter] = useState<Filter>(waiting.length > 0 || sent.length === 0 ? 'waiting' : 'sent')
-  const shown = filter === 'waiting' ? waiting : filter === 'sent' ? sent : done
+  const inbox = tradeInbox(overview.trades, me, blocked)
+  // The lines opened into full trades.
+  const [opened, setOpened] = useState<Set<string>>(new Set())
+  const [allDone, setAllDone] = useState(false)
   const friends = overview.friends.filter((f) => f.status === 'accepted')
+  const nameOf = (id: string) => overview.people[id]?.display_name ?? 'Someone'
+  const day = (t: api.Trade) => new Date(t.updated_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+  const open = (id: string) => setOpened((s) => new Set(s).add(id))
+  const full = (t: api.Trade) => (
+    <TradeCardView
+      key={t.id}
+      trade={t}
+      overview={overview}
+      more={!!available}
+      rating={ratings[t.id]}
+      onRated={(positive) => setRatings((r) => ({ ...r, [t.id]: positive }))}
+    />
+  )
+  const done = allDone ? inbox.done : inbox.done.slice(0, DONE_SHOWN)
 
   return (
     <>
-      <div className="chips rise" style={rise(0)}>
-        <PillChip label="Waiting on you" count={waiting.length} selected={filter === 'waiting'} onClick={() => setFilter('waiting')} />
-        <PillChip label="Sent" count={sent.length} selected={filter === 'sent'} onClick={() => setFilter('sent')} />
-        <PillChip label="Done" count={done.length} selected={filter === 'done'} onClick={() => setFilter('done')} />
-      </div>
-      {shown.length === 0 ? (
-        <div className="empty-state">
-          <Icon name="swap_horiz" />
-          <div>
-            {filter === 'waiting' ? 'Nothing needs your answer.' : filter === 'sent' ? 'No trade requests waiting for an answer.' : 'No finished trades yet.'}
-            {friends.length > 0 && filter !== 'done' && ' To start one, open a friend’s shared binder.'}
-          </div>
-          {friends.length === 0 && <button type="button" className="btn line" onClick={() => navigate('/friends')}>Add friends</button>}
-        </div>
+      <SectionHeader title={inbox.yourTurn.length ? `Your turn · ${inbox.yourTurn.length}` : 'Your turn'} />
+      {inbox.yourTurn.length === 0 ? (
+        <p className="muted trade-none">Nothing needs your answer.{friends.length > 0 && ' To start a trade, open a friend’s shared binder.'}</p>
       ) : (
-        <div className="list" style={{ marginTop: 12 }}>
-          {shown.map((t) => (
-            <TradeCardView
-              key={t.id}
-              trade={t}
-              overview={overview}
-              more={!!available}
-              rating={ratings[t.id]}
-              onRated={(positive) => setRatings((r) => ({ ...r, [t.id]: positive }))}
-            />
-          ))}
-        </div>
+        <div className="list">{inbox.yourTurn.map(full)}</div>
       )}
+
+      {inbox.waitingOnThem.length > 0 && (
+        <>
+          <SectionHeader title={`Waiting on them · ${inbox.waitingOnThem.length}`} />
+          <div className="list">
+            {inbox.waitingOnThem.map((t) => {
+              if (opened.has(t.id)) return full(t)
+              const other = tradeSides(t, me).other
+              const sent = t.status === 'open'
+              return (
+                <TradeLine
+                  key={t.id}
+                  title={sent ? `To ${nameOf(other)}` : `With ${nameOf(other)}`}
+                  detail={sent ? tradeSummary(t, me) : `Accepted — ${nameOf(other)} is updating their binders`}
+                  end={sent ? `Sent ${day(t)}` : day(t)}
+                  onClick={() => open(t.id)}
+                />
+              )
+            })}
+          </div>
+        </>
+      )}
+
+      {wants}
+
+      {inbox.done.length > 0 && (
+        <>
+          <SectionHeader
+            title="Done"
+            action={inbox.done.length > DONE_SHOWN ? (allDone ? 'Fewer' : `All ${inbox.done.length}`) : undefined}
+            onAction={() => setAllDone((v) => !v)}
+          />
+          <div className="list">
+            {done.map((t) => (opened.has(t.id) ? full(t) : (
+              <TradeLine
+                key={t.id}
+                title={`With ${nameOf(tradeSides(t, me).other)} · ${day(t)}`}
+                end={doneLabel(t, me, ratings[t.id])}
+                onClick={() => open(t.id)}
+              />
+            )))}
+          </div>
+        </>
+      )}
+      {inbox.yourTurn.length === 0 && inbox.waitingOnThem.length === 0 && inbox.done.length === 0 && (
+        <div className="empty-state"><Icon name="swap_horiz" /><div>No trades yet.</div></div>
+      )}
+      {footer}
     </>
+  )
+}
+
+/** Finished trades shown before "All". */
+const DONE_SHOWN = 5
+
+/** A trade in one line: who, what, and when or how it ended; tapping opens it in full. */
+function TradeLine({ title, detail, end, onClick }: { title: string; detail?: string; end: string; onClick: () => void }) {
+  return (
+    <button type="button" className="trade-line press" onClick={onClick} aria-label={`${title}${detail ? ` — ${detail}` : ''} — ${end}. Open the trade`}>
+      <span className="trade-line-main">
+        <b>{title}</b>
+        {detail && <span className="dim">{detail}</span>}
+      </span>
+      <span className="dim trade-line-end">{end}</span>
+    </button>
   )
 }
 

@@ -1,22 +1,25 @@
 import { useEffect } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { BottomNav, NAV_TABS } from './BottomNav'
+import { BottomNav, FriendsBadge, NAV_TABS } from './BottomNav'
 import { Icon } from './Icon'
 import { ArtImage, toArtCrop, useLayoutSize } from './kit'
 import { useSync } from '../sync/SyncContext'
 import { useDeckColors } from './useDeckColors'
 import { PullToSync } from './PullToSync'
 import { SyncButton } from './SyncButton'
-import { useSocial } from '../social/SocialContext'
 
 // Matches the Android app's bottomNavRoutes — on a phone the bar hides on pushed detail screens
 // (their own back button takes over). Tablet and desktop keep their rail/sidebar everywhere.
-export const TAB_ROUTES = new Set(['/', '/collections', '/decks', '/search', '/play'])
+export const TAB_ROUTES = new Set(['/', '/collections', '/decks', '/search', '/play', '/friends'])
 
 export const LAST_DECK_KEY = 'mtgweb_last_deck'
 
-/** The sidebar's and rail's top links: the bottom bar's, but Play, which comes after Scan. */
-const MAIN_TABS = NAV_TABS.filter((tab) => tab.to !== '/play')
+/**
+ * The sidebar's and rail's links, in the Android bar's order: Home, Search, Play, then Scan, then
+ * Decks, Collection and Friends.
+ */
+const BEFORE_SCAN = NAV_TABS.slice(0, 3)
+const AFTER_SCAN = NAV_TABS.slice(3)
 
 export function Layout() {
   const location = useLocation()
@@ -110,13 +113,8 @@ function AccountStatus({ compact }: { compact?: boolean }) {
   )
 }
 
-/** How many friend requests and trades are waiting on the user. */
-export function InboxBadge({ dot }: { dot?: boolean }) {
-  const { inbox } = useSocial()
-  const n = inbox.friend_requests + inbox.trades
-  if (n === 0) return null
-  return <span className={dot ? 'inbox-dot' : 'count-badge'} role="img" aria-label={`${n} waiting`}>{dot ? '' : n}</span>
-}
+/** What waits on Friends: friend requests, trades waiting on the user and unread messages. */
+export const InboxBadge = FriendsBadge
 
 function Sidebar() {
   const { decks } = useSync()
@@ -131,7 +129,7 @@ function Sidebar() {
         <span className="mark">M</span>
         <span>Manabind</span>
       </NavLink>
-      {MAIN_TABS.map((tab) => (
+      {BEFORE_SCAN.map((tab) => (
         <NavLink key={tab.to} to={tab.to} end={tab.end} className={({ isActive }) => `side-nav${isActive ? ' active' : ''}`}>
           <Icon name={tab.icon} />
           {tab.label}
@@ -141,18 +139,16 @@ function Sidebar() {
         <Icon name="photo_camera" />
         Scan cards
       </NavLink>
-      <NavLink to="/play" className={({ isActive }) => `side-nav${isActive ? ' active' : ''}`}>
-        <Icon name="favorite" />
-        Play
-      </NavLink>
+      {AFTER_SCAN.map((tab) => (
+        <NavLink key={tab.to} to={tab.to} end={tab.end} className={({ isActive }) => `side-nav${isActive ? ' active' : ''}`}>
+          <Icon name={tab.icon} />
+          {tab.label}
+          {tab.to === '/friends' && <FriendsBadge />}
+        </NavLink>
+      ))}
       <NavLink to="/rules" className={({ isActive }) => `side-nav${isActive ? ' active' : ''}`}>
         <Icon name="gavel" />
         Rules
-      </NavLink>
-      <NavLink to="/friends" className={({ isActive }) => `side-nav${isActive ? ' active' : ''}`}>
-        <Icon name="group" />
-        Friends
-        <InboxBadge />
       </NavLink>
       {recent.length > 0 && (
         <>
@@ -190,7 +186,7 @@ function NavRail() {
   return (
     <nav className="navrail" aria-label="Main">
       <NavLink to="/" className="mark" aria-label="Home">M</NavLink>
-      {MAIN_TABS.map((tab) => (
+      {BEFORE_SCAN.map((tab) => (
         <NavLink key={tab.to} to={tab.to} end={tab.end} className={({ isActive }) => `nav-tab${isActive ? ' active' : ''}`}>
           <span className="pill"><Icon name={tab.icon} /></span>
           <span>{tab.label}</span>
@@ -200,17 +196,15 @@ function NavRail() {
         <span className="pill"><Icon name="photo_camera" /></span>
         <span>Scan</span>
       </NavLink>
-      <NavLink to="/play" className={({ isActive }) => `nav-tab${isActive ? ' active' : ''}`}>
-        <span className="pill"><Icon name="favorite" /></span>
-        <span>Play</span>
-      </NavLink>
+      {AFTER_SCAN.map((tab) => (
+        <NavLink key={tab.to} to={tab.to} end={tab.end} className={({ isActive }) => `nav-tab${isActive ? ' active' : ''}`}>
+          <span className="pill"><Icon name={tab.icon} />{tab.to === '/friends' && <FriendsBadge dot />}</span>
+          <span>{tab.label}</span>
+        </NavLink>
+      ))}
       <NavLink to="/rules" className={({ isActive }) => `nav-tab${isActive ? ' active' : ''}`}>
         <span className="pill"><Icon name="gavel" /></span>
         <span>Rules</span>
-      </NavLink>
-      <NavLink to="/friends" className={({ isActive }) => `nav-tab${isActive ? ' active' : ''}`}>
-        <span className="pill"><Icon name="group" /><InboxBadge dot /></span>
-        <span>Friends</span>
       </NavLink>
       <div style={{ flex: 1 }} />
       <NavLink to="/settings" className={({ isActive }) => `nav-tab${isActive ? ' active' : ''}`}>
