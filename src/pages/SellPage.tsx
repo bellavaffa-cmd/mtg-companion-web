@@ -7,6 +7,7 @@ import { Dialog } from '../components/Dialog'
 import { IconButton, PageHeader, useBack } from '../components/kit'
 import { useCardData } from '../collection/cardData'
 import { recordMoves } from '../collection/copyHistoryStore'
+import { noteSelling } from '../social/activity'
 import { soldMove } from '../collection/copyHistory'
 import { metaLine, pulledCopies, sellPullList, type PullRow } from '../collection/pullList'
 import { loadPullProgress, savePullProgress } from '../collection/pullProgress'
@@ -127,6 +128,7 @@ export function SellPage() {
             onClick={() => {
               const n = markSparesToSell(collections, decks).added
               changeStorage((c) => markSparesToSell(c, decks).collections)
+              noteSelling()
               setMessage(n > 0 ? `${n} ${n === 1 ? 'copy' : 'copies'} beyond four added.` : 'No card is owned more than four times.')
             }}
           >+ Spares over 4</button>
@@ -137,6 +139,7 @@ export function SellPage() {
             onClick={() => {
               const n = markUnusedToSell(collections, decks, 5, facts).added
               changeStorage((c) => markUnusedToSell(c, decks, 5, facts).collections)
+              noteSelling()
               setMessage(n > 0 ? `${n} ${n === 1 ? 'copy' : 'copies'} added.` : `No card outside your decks is worth over ${five}.`)
             }}
           >+ Not in any deck, over {five}</button>

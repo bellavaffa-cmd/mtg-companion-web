@@ -92,8 +92,9 @@ export function DeckDetailPage() {
   const cardData = useDeckCardData(deck)
   // What each card does (mana ramp, removal…): searched with the name, shown in the zoom and Stats.
   const { tags: roleTags, loading: tagging } = useRoleTags(deck ? [...deck.cards, ...(deck.sideboard ?? []), ...(deck.considering ?? [])].map((c) => c.name) : [])
-  // A deck just made from scratch opens where its next step is (see landingTab in decks/newDeck.ts).
-  const opening = (useLocation().state as { tab?: 'Cards' | 'Suggestions' } | null)?.tab
+  // A deck just made from scratch opens where its next step is (see landingTab in decks/newDeck.ts);
+  // a comment's "Consider a swap" opens Considering (social/DeckComments.tsx).
+  const opening = (useLocation().state as { tab?: 'Cards' | 'Suggestions' | 'Considering' } | null)?.tab
   const [tabName, setTabName] = useState<'Cards' | 'Considering' | 'Stats' | 'Suggestions' | 'Details'>(opening ?? 'Cards')
   const [filter, setFilter] = useState('')
   // The chips under the search: every card, only the cut candidates, or only the combo pieces.

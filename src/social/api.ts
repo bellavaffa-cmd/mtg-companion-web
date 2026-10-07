@@ -208,6 +208,16 @@ const MESSAGES: Record<string, string> = {
   bad_season: 'Check the season: a name, the day it starts, and points from 0 to 10.',
   too_many_seasons: 'This pod has 100 seasons already.',
   cant_rate: "You can rate a trade once you've updated your binders for it.",
+  // supabase/migrations/20261006080000_activity_comments.sql (activity.ts)
+  bad_prefs: "Those settings couldn't be saved.",
+  empty_comment: 'Write something first.',
+  comment_too_long: 'Keep comments under 1,000 characters.',
+  bad_comment_card: "That card couldn't be added to the comment.",
+  cant_comment: 'Only friends the deck is shared with can comment.',
+  bad_parent: "That comment isn't there any more.",
+  comment_slow_down: "You're commenting very fast — wait a minute.",
+  too_many_comments: 'This deck has 1,000 comments already.',
+  not_your_comment: 'Only its author or the deck’s owner can do that.',
 }
 
 export async function call<T>(fn: string, args: Record<string, unknown> = {}, { signedIn = true } = {}): Promise<T> {

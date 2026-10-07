@@ -4,17 +4,16 @@
 import { Fragment, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Icon } from '../components/Icon'
-import { EmptyState } from '../components/EmptyState'
 import { Dialog } from '../components/Dialog'
-import { ArtImage, SectionHeader, toArtCrop } from '../components/kit'
+import { SectionHeader } from '../components/kit'
 import type * as api from './api'
 import { useOverview } from './SocialContext'
 import { useSync } from '../sync/SyncContext'
 import { Avatar, handle } from './ui'
 import * as more from './more'
 import {
-  activityText, canRate, matchSentence, messageParts, positiveLine, REPORT_REASONS, timeAgo, tradesLine, withYouLine,
-  type ActivityItem, type ReportReason,
+  canRate, matchSentence, messageParts, positiveLine, REPORT_REASONS, tradesLine, withYouLine,
+  type ReportReason,
 } from './moreLogic'
 import './more.css'
 
@@ -286,69 +285,5 @@ export function TradeMatchesSection({ overview }: { overview: api.Overview }) {
   )
 }
 
-/** The Friends page's Activity tab: what friends have shared, changed, played and put up for trade. */
-export function ActivityList() {
-  const available = more.useSocialMore()
-  const navigate = useNavigate()
-  const [items, setItems] = useState<ActivityItem[] | null>(null)
-  const [more_, setMore] = useState(true)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [now] = useState(() => Date.now())
-  const PAGE = 30
-
-  const load = async (before: number | null) => {
-    setBusy(true)
-    try {
-      const page = await more.activityFeed(before, PAGE)
-      setItems((list) => (before === null ? page : [...(list ?? []), ...page]))
-      setMore(page.length >= PAGE)
-      setError(null)
-    } catch (e) {
-      setError(message(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-  useEffect(() => { if (available) void load(null) }, [available]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (available === false) return <div className="empty-state"><Icon name="dynamic_feed" />Not available yet.</div>
-  if (error && !items) return <div className="empty-state"><Icon name="cloud_off" />{error}<button type="button" className="btn line" onClick={() => void load(null)}>Try again</button></div>
-  if (!items) return <div className="empty-state"><Icon name="hourglass_empty" />Loading…</div>
-  if (items.length === 0) {
-    return <EmptyState icon="dynamic_feed" text="Nothing from friends yet. When they share a deck, record a game or put cards up for trade, it shows here." actions={[{ label: 'Your friends', icon: 'group', to: '/friends' }]} />
-  }
-
-  const open = (item: ActivityItem) => {
-    if ((item.kind === 'shared' || item.kind === 'deck_updated') && item.item_id && item.item_kind) navigate(`/shared/${item.actor.user_id}/${item.item_kind}/${encodeURIComponent(item.item_id)}`)
-    else if (item.kind === 'shared') navigate(`/shared/${item.actor.user_id}`)
-    else if (item.kind === 'pod_game') navigate('/play/playgroup')
-    else navigate(`/friends/${item.actor.user_id}`)
-  }
-  return (
-    <>
-      <div className="list">
-        {items.map((item, i) => {
-          const { action, detail } = activityText(item)
-          const art = item.cover ?? item.cards?.find((c) => c.imageUrl)?.imageUrl ?? null
-          return (
-            <button key={`${item.kind}:${item.actor.user_id}:${item.at}:${i}`} type="button" className="activity-row press" onClick={() => open(item)}>
-              <Avatar profile={{ display_name: item.actor.display_name, avatar_path: item.actor.avatar_path ?? null }} size={40} />
-              <span className="person-main">
-                <span><b>{item.actor.display_name}</b> {action}</span>
-                {detail && <span className="dim activity-detail">{detail}</span>}
-                <span className="dim activity-when">{timeAgo(item.at, now)}</span>
-              </span>
-              {art && <ArtImage className="activity-art" src={toArtCrop(art)} seed={item.name ?? item.kind} />}
-            </button>
-          )
-        })}
-      </div>
-      {more_ && (
-        <button type="button" className="btn line block" style={{ marginTop: 12 }} disabled={busy} onClick={() => void load(items[items.length - 1]?.at ?? null)}>
-          {busy ? 'Loading…' : 'Show older'}
-        </button>
-      )}
-    </>
-  )
-}
+/** The Friends page's Activity tab (ActivityFeed.tsx). */
+export { ActivityList } from './ActivityFeed'
