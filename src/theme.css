@@ -3522,6 +3522,28 @@ select.input.sf-sort {
 .playtest-zone {
   margin-top: 12px;
 }
+.goldfish-bar .playtest-stats {
+  margin-left: auto;
+  color: var(--gold);
+}
+.goldfish-bar .playtest-stats + .playtest-reset {
+  margin-left: 0;
+}
+.goldfish-bar .playtest-stats.on {
+  background: var(--g2);
+}
+.hand-stats {
+  max-width: 520px;
+}
+.hand-stats .matchup > b,
+.hand-stats-h > span:not(.grow) {
+  width: 48px;
+  text-align: right;
+}
+.hand-stats-note {
+  margin-top: 8px;
+  font-size: 0.75rem;
+}
 .playtest-zone > .dim {
   font-size: 0.8125rem;
 }

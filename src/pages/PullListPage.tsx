@@ -17,6 +17,8 @@ import {
 import { loadPullProgress, savePullProgress, setOpenPullDeck } from '../collection/pullProgress'
 import { householdBorrow, householdError, useShelves } from '../social/household'
 import { borrowCards, pullAsks, shelfLoanId, type AskGroup } from '../social/householdLogic'
+import { ProxyPrintDialog } from '../components/ProxyPrintDialog'
+import { markPrintedAsProxies, picksFromNeeds } from '../decks/proxySheet'
 import '../collection/storage.css'
 
 type View = 'place' | 'az'
@@ -44,6 +46,7 @@ export function PullListPage() {
   const [moving, setMoving] = useState(false)
   const [done, setDone] = useState<MovePulledResult | null>(null)
   const [copied, setCopied] = useState(false)
+  const [printing, setPrinting] = useState(false)
   const placeFilter = params.get('place')
   const filterPlace = placeFilter ? placesOf(collections).find((p) => p.id === placeFilter) ?? null : null
 
@@ -230,13 +233,16 @@ export function PullListPage() {
                     <button type="button" className="btn line sm" onClick={() => { void navigator.clipboard.writeText(pullBuyList(list)).then(() => setCopied(true)) }}>
                       <Icon name={copied ? 'check' : 'content_copy'} aria-hidden />{copied ? 'Copied' : 'Copy buy list'}
                     </button>
+                    <button type="button" className="btn line sm" onClick={() => setPrinting(true)}>
+                      <Icon name="print" aria-hidden />Print proxies
+                    </button>
                     {!holdsCards(deck) && (
                       <button
                         type="button"
                         className="btn line sm"
                         onClick={() => changeDecksAndStorage((cols, ds) => ({ collections: cols, decks: ds.map((d) => (d.id === deck.id ? markMissingAsProxies(d, pullList(d, cols, ds)) : d)) }))}
                       >
-                        <Icon name="print" aria-hidden />Mark as proxies
+                        <Icon name="style" aria-hidden />Mark as proxies
                       </button>
                     )}
                   </div>
@@ -254,6 +260,16 @@ export function PullListPage() {
           </button>
           <button type="button" className="btn gold" disabled={pulled === 0} onClick={() => setMoving(true)}>Move pulled into deck box</button>
         </div>
+      )}
+
+      {printing && (
+        <ProxyPrintDialog
+          title={deck.name}
+          initial={picksFromNeeds(deck, missingRows)}
+          markLabel={holdsCards(deck) ? undefined : `Mark as proxies in ${deck.name}`}
+          onMark={(printed) => changeDecksAndStorage((cols, ds) => ({ collections: cols, decks: ds.map((d) => (d.id === deck.id ? markPrintedAsProxies(d, printed) : d)) }))}
+          onClose={() => setPrinting(false)}
+        />
       )}
 
       {asking && (() => {

@@ -44,6 +44,8 @@ import { ownedNameKeys } from '../collection/owned'
 import { DeckSwaps } from '../components/DeckSwaps'
 import { DeckStats, deckFigures, useDeckCardData } from '../components/DeckStats'
 import { PlaytestDialog } from '../components/PlaytestDialog'
+import { ProxyPrintDialog } from '../components/ProxyPrintDialog'
+import { markPrintedAsProxies, picksForDeck } from '../decks/proxySheet'
 import { CompareScreen, ComparePickerDialog, type CompareTarget } from '../components/CompareDialogs'
 import { Dialog } from '../components/Dialog'
 import {
@@ -144,6 +146,7 @@ export function DeckDetailPage() {
   const [sharing, setSharing] = useState(false)
   const [whoHas, setWhoHas] = useState(false)
   const [goldfish, setGoldfish] = useState(false)
+  const [printingProxies, setPrintingProxies] = useState(false)
   // "Compare with…": first the picker (a deck or a saved version), then the comparison itself.
   const [comparePicking, setComparePicking] = useState(false)
   const [compareWith, setCompareWith] = useState<CompareTarget | null>(null)
@@ -890,6 +893,7 @@ export function DeckDetailPage() {
             ...(holdsCards(deck) && deck.cards.some((c) => c.quantity - proxyCopies(deck, c) > 0)
               ? [{ label: 'Take apart', icon: 'move_down', detail: 'A list to put its cards back where they go', onClick: () => navigate(`/decks/${deck.id}/put-back`) }]
               : []),
+            { label: 'Print proxies…', icon: 'print', detail: 'Nine to a page at real size, to cut out', onClick: () => setPrintingProxies(true) },
             { label: 'Who has it?', icon: 'person_search', detail: "Friends who own the cards you're missing", onClick: () => setWhoHas(true) },
             ...(missing.length > 0
               ? [{
@@ -1100,6 +1104,15 @@ export function DeckDetailPage() {
       )}
       {compareWith && <CompareScreen deck={deck} target={compareWith} onClose={() => setCompareWith(null)} />}
       {goldfish && <PlaytestDialog deck={deck} cardsById={cardData} onClose={() => setGoldfish(false)} />}
+      {printingProxies && (
+        <ProxyPrintDialog
+          title={deck.name}
+          initial={picksForDeck(deck, collections, decks)}
+          markLabel={holdsCards(deck) ? undefined : `Mark as proxies in ${deck.name}`}
+          onMark={(printed) => changeDeck(deck.id, (d) => markPrintedAsProxies(d, printed))}
+          onClose={() => setPrintingProxies(false)}
+        />
+      )}
 
       {zoomSuggestion && (
         <CardZoomModal

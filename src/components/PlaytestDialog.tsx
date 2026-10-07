@@ -8,6 +8,7 @@ import {
 import { tokensNeeded } from '../decks/tokens'
 import { ActionSheet, type SheetAction } from './ActionSheet'
 import { CardZoomModal } from './CardZoomModal'
+import { HandStatsPanel } from './HandStatsPanel'
 import { Icon } from './Icon'
 import { PillChip } from './kit'
 import { useLongPress } from './useLongPress'
@@ -26,8 +27,9 @@ interface CardMenu {
  * turns — Next turn untaps everything and draws. Tap a hand card to put it onto the battlefield (land
  * or spell alike), tap a permanent to tap or untap it; press and hold (or right-click) a card for more
  * (To graveyard, Back to hand, Look). The deck's tokens can be made on the battlefield. Nothing is
- * kept: it starts over every time it's opened, or with Reset. The rules are decks/playtest.ts; this is
- * the Android app's playtest screen (GoldfishDialog.kt).
+ * kept: it starts over every time it's opened, or with Reset. Hand stats (the chart button) shows how
+ * 10,000 shuffled hands go (HandStatsPanel). The rules are decks/playtest.ts; this is the Android app's
+ * playtest screen (GoldfishDialog.kt).
  */
 export function PlaytestDialog({ deck, cardsById, onClose }: {
   deck: Deck
@@ -40,6 +42,7 @@ export function PlaytestDialog({ deck, cardsById, onClose }: {
   const [game, setGame] = useState<PlaytestState>(() => newGame(start.library, start.commandZone, Math.random, true, usesCommander))
   const [looking, setLooking] = useState<PlayCard | null>(null)
   const [menu, setMenu] = useState<CardMenu | null>(null)
+  const [showStats, setShowStats] = useState(false)
   const tokens = useMemo(() => tokensNeeded(deck, cardsById), [deck, cardsById])
   const tokenArt = useTokenArt(tokens)
   const empty = start.library.length === 0
@@ -64,6 +67,18 @@ export function PlaytestDialog({ deck, cardsById, onClose }: {
           {!empty && <span className="playtest-status">{status}</span>}
         </div>
         {!empty && (
+          <button
+            type="button"
+            className={`ib playtest-stats${showStats ? ' on' : ''}`}
+            aria-label="Hand stats"
+            aria-pressed={showStats}
+            title="Hand stats"
+            onClick={() => setShowStats((v) => !v)}
+          >
+            <Icon name="query_stats" />
+          </button>
+        )}
+        {!empty && (
           <button type="button" className="ib playtest-reset" aria-label="Reset" title="Reset" onClick={() => setGame((g) => reset(g))}>
             <Icon name="restart_alt" />
           </button>
@@ -75,6 +90,11 @@ export function PlaytestDialog({ deck, cardsById, onClose }: {
           <div className="dim">Add cards to this deck before playtesting.</div>
         ) : (
           <>
+            {showStats && (
+              <Zone label="Hand stats">
+                <HandStatsPanel deck={deck} cardsById={cardsById} />
+              </Zone>
+            )}
             {choosing && (
               <div className="playtest-setup">
                 <div className="chips wrap">

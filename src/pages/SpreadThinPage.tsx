@@ -7,6 +7,8 @@ import { useSync } from '../sync/SyncContext'
 import { useMoney } from '../money/currency'
 import { useCardData } from '../collection/cardData'
 import { buyListUrl } from '../api/buy'
+import { ProxyPrintDialog } from '../components/ProxyPrintDialog'
+import { picksFromThin } from '../decks/proxySheet'
 import { shortBuyList, shortCost, spreadThin, thinLine, type ThinCard } from '../collection/spreadThin'
 
 // Cards spread too thin: what your decks between them use more copies of than you own, shortest
@@ -26,6 +28,7 @@ export function SpreadThinPage() {
     return m
   }, [cardsById])
   const [copied, setCopied] = useState(false)
+  const [printing, setPrinting] = useState(false)
 
   const copies = cards.reduce((n, c) => n + c.short, 0)
   const costs = cards.map((c) => shortCost(c, prices))
@@ -73,6 +76,9 @@ export function SpreadThinPage() {
                 >
                   <Icon name="shopping_cart" aria-hidden />Buy at TCGplayer
                 </button>
+                <button type="button" className="btn line sm" onClick={() => setPrinting(true)}>
+                  <Icon name="print" aria-hidden />Print proxies
+                </button>
               </div>
               <div className="list wide-list">
                 {cards.map((c, i) => (
@@ -87,6 +93,7 @@ export function SpreadThinPage() {
           )}
         </div>
       </div>
+      {printing && <ProxyPrintDialog title="Spread thin" initial={picksFromThin(cards)} onClose={() => setPrinting(false)} />}
     </>
   )
 }
