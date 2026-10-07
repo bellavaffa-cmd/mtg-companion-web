@@ -75,7 +75,7 @@ export function PlaytestDialog({ deck, cardsById, onClose }: {
             title="Hand stats"
             onClick={() => setShowStats((v) => !v)}
           >
-            <Icon name="query_stats" />
+            <Icon name="bar_chart" />
           </button>
         )}
         {!empty && (
