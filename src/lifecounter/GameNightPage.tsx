@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Icon } from '../components/Icon'
 import { TopBar } from '../components/TopBar'
@@ -16,6 +16,7 @@ import { useTableGames } from './tableGames'
 import './play.css'
 import './gameNight.css'
 import { activeDecks } from '../decks/deckFolders'
+import { TradeMatchesTonight } from '../social/TradeMatchesTonight'
 
 /**
  * Game night: who's here and what they're playing, fair pods by power bracket (not last night's
@@ -43,6 +44,8 @@ export function GameNightPage() {
     .filter((p) => !night.players.some((x) => x.userId === p.user_id))
     .sort((a, b) => a.display_name.localeCompare(b.display_name))
   const previousPairs = pairingsOf(previous)
+  // Everyone but the user, for Trade matches tonight.
+  const atTable = useMemo(() => night.players.filter((p) => p.kind !== 'ME').map((p) => ({ name: p.name, userId: p.userId ?? null })), [night.players])
 
   const add = (p: Omit<NightPlayer, 'id' | 'deck' | 'commander' | 'bracket'>) =>
     updateNight((n) => ({ ...n, players: [...n.players, { id: newPlayerId(), deck: null, commander: null, bracket: null, ...p }] }))
@@ -178,6 +181,7 @@ export function GameNightPage() {
               ))}
             </div>
           )}
+          <TradeMatchesTonight players={atTable} className="rise" />
         </div>
       </div>
     </>

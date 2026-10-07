@@ -49,9 +49,11 @@ function Composer({ overview }: { overview: api.Overview }) {
   const friend = overview.people[to] ?? null
   const isFriend = overview.friends.some((f) => f.user_id === to && f.status === 'accepted')
 
-  // A counter starts from their trade turned around: what they offered is what the user asks for.
-  const [want, setWant] = useState<api.TradeCard[]>(() => replyTo?.give ?? (location.state as { want?: api.TradeCard[] } | null)?.want ?? [])
-  const [give, setGive] = useState<api.TradeCard[]>(() => replyTo?.want ?? (location.state as { give?: api.TradeCard[] } | null)?.give ?? [])
+  // A counter starts from their trade turned around: what they offered is what the user asks for —
+  // or from the lists it was opened with (a counter with a card added to even it out).
+  const started = location.state as { want?: api.TradeCard[]; give?: api.TradeCard[] } | null
+  const [want, setWant] = useState<api.TradeCard[]>(() => started?.want ?? replyTo?.give ?? [])
+  const [give, setGive] = useState<api.TradeCard[]>(() => started?.give ?? replyTo?.want ?? [])
   const [message, setMessage] = useState('')
   const [picking, setPicking] = useState<'theirs' | 'mine' | null>(null)
   const [theirBinders, setTheirBinders] = useState<TheirBinder[] | null>(null)
@@ -154,7 +156,17 @@ function Composer({ overview }: { overview: api.Overview }) {
       <SectionHeader title={`You offer${give.length ? ` · ${cardTotal(give)}` : ''}`} action="Pick cards" onAction={() => setPicking('mine')} />
       <TradeCardList cards={give} empty="Nothing — or pick cards from your binders to offer." onRemove={(c) => setGive((l) => remove(l, c))} />
 
-      <TradeValue get={want} give={give} />
+      <TradeValue
+        get={want}
+        give={give}
+        friend={to}
+        friendName={friend.display_name}
+        onAdd={(side, card) => {
+          const add = (l: api.TradeCard[]) => (l.some((x) => tradeKey(x) === tradeKey(card)) ? l : [...l, card])
+          if (side === 'want') setWant(add)
+          else setGive(add)
+        }}
+      />
 
       <label className="field-label" htmlFor="trade-message" style={{ marginTop: 18 }}>Message (optional)</label>
       <textarea id="trade-message" className="input" rows={3} maxLength={500} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="e.g. Can bring them on Friday" />

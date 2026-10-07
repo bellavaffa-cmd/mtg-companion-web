@@ -758,6 +758,67 @@
 .trade-value .tv-note {
   font-size: 0.7812rem;
 }
+/* The balance bar: the user's side (the accent) against theirs, the middle marked. */
+.trade-value .tv-bar {
+  position: relative;
+  display: flex;
+  height: 10px;
+  margin-top: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--g3);
+}
+.trade-value .tv-bar-get {
+  background: var(--accent);
+  transition: width 0.3s var(--out);
+}
+.trade-value .tv-bar-give {
+  background: var(--g3);
+  transition: width 0.3s var(--out);
+}
+.trade-value .tv-bar-mid {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--t0);
+  opacity: 0.55;
+}
+.trade-value .tv-bar-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7812rem;
+}
+.trade-value .tv-even {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.trade-value .tv-even-title {
+  font-size: 0.8438rem;
+  color: var(--t1);
+}
+.trade-value .tv-even-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.trade-value .tv-even-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trade-value .tv-even-price {
+  font-variant-numeric: tabular-nums;
+  color: var(--t1);
+}
 
 /* Friends' Trades tab: the ways to cards for trade and loans, above the trades (FriendsPage.tsx). */
 .friends-links {

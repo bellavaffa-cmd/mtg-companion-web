@@ -162,7 +162,19 @@ function TradeCardView({ trade, overview, more: withMore, rating, onRated }: {
           <TradeCardList cards={get} empty="Nothing" />
         </div>
       </div>
-      {trade.status === 'open' && <TradeValue get={get} give={give} />}
+      {trade.status === 'open' && (
+        <TradeValue
+          get={get}
+          give={give}
+          friend={other}
+          friendName={theirName}
+          addLabel="Counter with it"
+          // A card that evens it out starts a counter-offer: their trade turned around, with the card added.
+          onAdd={incoming ? (side, card) => navigate(`/trades/new?to=${other}&reply=${trade.id}`, {
+            state: side === 'want' ? { want: [...get, card], give } : { want: get, give: [...give, card] },
+          }) : undefined}
+        />
+      )}
 
       {trade.message && <div className="trade-message"><b>{trade.from_user === me ? 'You' : theirName}:</b> {trade.message}</div>}
       {trade.reply && <div className="trade-message"><b>{trade.to_user === me ? 'You' : theirName}:</b> {trade.reply}</div>}
