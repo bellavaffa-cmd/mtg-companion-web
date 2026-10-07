@@ -20,6 +20,7 @@ import { isWishlist } from '../collection/wishlist'
 import { usePriceAlertHits } from '../collection/priceAlerts'
 import type { AlertHit } from '../collection/priceAlertRules'
 import { useCollectionValue } from '../collection/valueHistory'
+import { markTold, useSetsToAnnounce } from '../collection/newSetsStore'
 import { useMoney } from '../money/currency'
 import { proxySwaps } from '../decks/proxies'
 import { isAndroid } from './GetAppPage'
@@ -134,6 +135,21 @@ export function HomePage() {
       onDismiss={priceAlerts.dismiss}
     />
   )
+  // A followed set out today (or this week, not yet seen): New sets (collection/newSetsStore.ts).
+  const setsOut = useSetsToAnnounce()
+  const setBanner = setsOut.length > 0 && (
+    <div className="banner rise" style={{ ...rise(1), marginBottom: 0 }}>
+      <Icon name="new_releases" />
+      <button type="button" className="banner-text" onClick={() => { markTold(setsOut.map((s) => s.code)); navigate(setsOut.length === 1 ? `/new-sets/${setsOut[0].code}` : '/new-sets') }}>
+        {setsOut.length === 1
+          ? <><b>{setsOut[0].name}</b> is out — see the cards for your decks</>
+          : <><b>{setsOut.length} sets you follow</b> are out — see the cards for your decks</>}
+      </button>
+      <button type="button" className="icon-btn" aria-label="Close" onClick={() => markTold(setsOut.map((s) => s.code))}>
+        <Icon name="close" />
+      </button>
+    </div>
+  )
   // Proxies you've since bought for real: worth saying here, rather than only inside the deck.
   const swaps = useMemo(() => proxySwaps(collections, decks), [collections, decks])
   const swapBanner = swaps.length > 0 && (
@@ -228,6 +244,8 @@ export function HomePage() {
           )}
           {seatBanner}
           {alertBanner}
+        {setBanner}
+          {setBanner}
             {swapBanner}
           {appBanner}
           {samplesBar}

@@ -15,6 +15,7 @@ import { useUpkeep } from './useUpkeep'
 import { upkeepHeadline, type UpkeepItem } from './upkeep'
 import { placesOf } from './storagePlaces'
 import { PlacePicker } from './StorageTab'
+import { useNewSetsLine } from './newSetsStore'
 import './collectionHome.css'
 
 const TILE_ICONS: Record<HomeTileKey, string> = {
@@ -35,6 +36,7 @@ export function CollectionHome({ onImport }: { onImport: () => void }) {
   const [choosing, setChoosing] = useState(false)
   const [sheet, setSheet] = useState<'loans' | null>(null)
   const hasPlaces = placesOf(collections).length > 0
+  const sets = useNewSetsLine()
 
   const openTile = (key: HomeTileKey) => {
     switch (key) {
@@ -69,6 +71,13 @@ export function CollectionHome({ onImport }: { onImport: () => void }) {
           </button>
         ))}
       </div>
+
+      <button type="button" className="chome-sets press rise" style={rise(3)} onClick={() => navigate('/new-sets')}>
+        <Icon name="new_releases" aria-hidden />
+        <span className="chome-sets-text"><b>New sets</b><span>{sets.line}</span></span>
+        {sets.out > 0 && <span className="badge" aria-label={`${sets.out} followed ${sets.out === 1 ? 'set is' : 'sets are'} out`}>{sets.out}</span>}
+        <Icon name="chevron_right" aria-hidden />
+      </button>
 
       <section className="chome-todo rise" style={rise(3)} data-tour="home-todo">
         <div className="chome-head">
