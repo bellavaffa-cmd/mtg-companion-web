@@ -14,6 +14,10 @@ export interface SetInfo {
   cardCount: number
   releasedAt?: string | null
   iconSvgUri?: string | null
+  /** Scryfall's set_type: "expansion", "commander", "token"… (newSets.ts leaves some out). */
+  setType?: string | null
+  /** Only on MTG Arena or Magic Online. */
+  digital?: boolean
 }
 
 /** How much of [set] the user has: [owned] of its printings. */

@@ -243,11 +243,14 @@ export async function getSets(): Promise<Map<string, SetInfo>> {
   if (!res.ok) throw new Error(`Scryfall couldn't send its sets (HTTP ${res.status}).`)
   const json = await res.json()
   const sets = new Map<string, SetInfo>()
-  for (const s of (json.data ?? []) as { code?: string; name?: string; card_count?: number; released_at?: string; icon_svg_uri?: string }[]) {
+  for (const s of (json.data ?? []) as { code?: string; name?: string; card_count?: number; released_at?: string; icon_svg_uri?: string; set_type?: string; digital?: boolean }[]) {
     // One odd set mustn't fail the whole list.
     const code = s.code?.toLowerCase()
     if (!code) continue
-    sets.set(code, { code, name: s.name ?? code.toUpperCase(), cardCount: s.card_count ?? 0, releasedAt: s.released_at ?? null, iconSvgUri: s.icon_svg_uri ?? null })
+    sets.set(code, {
+      code, name: s.name ?? code.toUpperCase(), cardCount: s.card_count ?? 0, releasedAt: s.released_at ?? null, iconSvgUri: s.icon_svg_uri ?? null,
+      setType: s.set_type ?? null, digital: s.digital === true,
+    })
   }
   if (sets.size > 0) setsCache = sets
   return sets

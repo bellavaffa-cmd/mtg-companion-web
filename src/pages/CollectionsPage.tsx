@@ -77,7 +77,7 @@ export function CollectionsPage() {
         title="Collection"
         onBack={home ? undefined : back}
         actions={home
-          ? (value ? <span className="chome-value-h" aria-label={`Collection value ${money.format(value.usd, true)}`}>{money.format(value.usd, true)}</span> : undefined)
+          ? (value ? <button type="button" className="chome-value-h press" aria-label={`Collection value ${money.format(value.usd, true)}: see it over time`} onClick={() => navigate('/value')}>{money.format(value.usd, true)}</button> : undefined)
           : wide
           ? (
             <>

@@ -2,7 +2,7 @@
    tour's spotlight (onboarding/WhatsNewTour.tsx). */
 
 .chome { max-width: 560px; display: flex; flex-direction: column; gap: 12px; }
-.chome-value-h { font-family: var(--num); font-size: 1.625rem; color: var(--gold); line-height: 1; }
+.chome-value-h { font-family: var(--num); font-size: 1.625rem; color: var(--gold); line-height: 1; border: 0; background: none; padding: 4px 2px; cursor: pointer; }
 
 .chome-find {
   height: 48px;
@@ -149,3 +149,31 @@
 .tour-buttons { display: flex; gap: 8px; padding-top: 4px; align-items: center; flex-wrap: wrap; }
 .tour-buttons .grow { flex: 1; }
 .tour-skip { background: none; border: 0; color: var(--t1); font: inherit; font-weight: 600; font-size: 0.875rem; padding: 10px 4px; cursor: pointer; }
+
+.chome-sets {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--g1);
+  color: var(--t0);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.chome-sets > .icon:first-child { color: var(--gold); }
+.chome-sets-text { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.chome-sets-text span { font-size: 0.8125rem; color: var(--t1); }
+.chome-sets .badge {
+  min-width: 22px;
+  padding: 2px 7px;
+  border-radius: 11px;
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+}

@@ -96,6 +96,18 @@ export async function recordCardPrices(prices: Map<string, ScryfallPrices | null
   }
 }
 
+/** Every card's history, re-rendering as notes come in: undefined while it's read. */
+export function usePriceHistory(): Map<string, PriceTrack> | undefined {
+  const [, setVersion] = useState(0)
+  useEffect(() => {
+    const l = () => setVersion((v) => v + 1)
+    listeners.add(l)
+    void loadPriceHistory()
+    return () => { listeners.delete(l) }
+  }, [])
+  return tracks ?? undefined
+}
+
 /** One card's history, re-rendering as notes come in: undefined while it's read, null when there's none. */
 export function usePriceTrack(scryfallId: string): PriceTrack | null | undefined {
   const [, setVersion] = useState(0)
