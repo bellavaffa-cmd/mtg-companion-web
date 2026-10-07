@@ -4966,6 +4966,28 @@ button.tag-chip {
   color: var(--t1);
   line-height: 1.4;
 }
+.danger-zone h3 {
+  color: var(--error);
+}
+.reset-counts {
+  margin: 12px 0 0;
+  font-size: 0.8438rem;
+  line-height: 1.45;
+}
+label.field-label.reset-type {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+.btn.danger.solid {
+  background: var(--error);
+  color: #fff;
+}
+.btn.danger.solid:disabled {
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+  color: var(--error);
+  opacity: 0.6;
+}
 .list-more {
   padding: 14px 0;
   text-align: center;

@@ -5,6 +5,7 @@ import { AccountDialogs } from './components/AccountDialogs'
 import { CardHoverPreview } from './components/CardHoverPreview'
 import { Layout } from './components/Layout'
 import { UndoProvider } from './components/UndoBar'
+import { ResetUndoBar } from './settings/ResetUndoBar'
 import { AddCheckProvider } from './components/AddCheckDialog'
 import { HomePage } from './pages/HomePage'
 import { CollectionsPage } from './pages/CollectionsPage'
@@ -94,6 +95,8 @@ export default function App() {
         <UsageScreens />
         {/* The one-time community rules, asked for before a first post (profile, message, trade, share). */}
         <CommunityRulesHost />
+        {/* Undo for Reset collection (Settings › Data and speed), on every screen while it's offered. */}
+        <ResetUndoBar />
         {/* The Undo bar after a card goes into a deck or binder, on every screen. */}
         <UndoProvider>
         {/* The check before a card goes into a deck, asked wherever it's added from. */}

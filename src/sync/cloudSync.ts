@@ -601,7 +601,9 @@ export function applyRemoteChanges(live: Library, snapshot: Library, changes: Ma
       else collections = [...collections, next]
     }
   })
-  return { decks, collections }
+  // What the user deleted stays noted: dropped here, a push that then failed would leave every deck
+  // a reset removed looking lost rather than deleted, and the next pass would bring them back.
+  return { ...live, decks, collections }
 }
 
 // ---- Whose library is this? ----

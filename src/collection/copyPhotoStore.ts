@@ -127,6 +127,15 @@ export async function restorePhotos(photos: CopyPhoto[], pictures: Map<string, B
   write({ ...now, photos, ...(askOver !== undefined ? { askOver } : {}) }, dropped)
 }
 
+/** Every photo gone, pictures and all (Reset collection); the setting stays. */
+export function clearCopyPhotos() {
+  void loadCopyPhotos().then((now) => {
+    const ids = now.photos.flatMap((p) => [p.front, p.back].filter((id): id is string => !!id))
+    for (const id of ids) memory.delete(id)
+    write({ ...now, photos: [] }, ids)
+  }).catch(() => { /* nothing kept to clear */ })
+}
+
 /** A picture scaled down to MAX_SIDE on its long side, as a JPEG. */
 async function scaled(file: Blob): Promise<Blob> {
   const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })

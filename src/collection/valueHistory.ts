@@ -78,6 +78,13 @@ export function recordValue(usd: number, cards: number) {
   listeners.forEach((l) => l())
 }
 
+/** Forgets the value history (Reset collection): it was the value of a collection that's gone. */
+export function clearValueHistory() {
+  history = []
+  try { localStorage.removeItem(HISTORY_KEY) } catch { /* blocked: nothing kept */ }
+  listeners.forEach((l) => l())
+}
+
 /** The value history, oldest first, re-rendering when a point is added. */
 export function useValueHistory(): ValuePoint[] {
   const [, setVersion] = useState(0)

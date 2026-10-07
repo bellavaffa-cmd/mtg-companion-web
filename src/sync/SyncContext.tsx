@@ -40,6 +40,10 @@ import { splitPlaces } from '../collection/storagePlaces'
 import { changeBetween, isNoChange, undoChange } from './undo'
 import { withCopiesOf, withCopyDetails, withOptional } from '../collection/copyDetails'
 import { withTarget } from '../collection/wishlistTargets'
+import { PendingReset, RESET_UNDO_MS, resetLibrary, type ResetScope } from '../settings/resetCollection'
+import { clearCopyPhotos } from '../collection/copyPhotoStore'
+import { replaceMoves } from '../collection/copyHistoryStore'
+import { clearValueHistory } from '../collection/valueHistory'
 
 /** What a user-requested sync ended with. */
 export type RefreshResult =
@@ -65,6 +69,21 @@ const LAST_DECK_KEY = 'mtgweb_last_deck'
 const MERGE_PENDING_KEY = 'mtgweb_merge_pending'
 /** Switching back to the tab checks at once, unless a check ran moments ago. */
 const RETURN_SYNC_GAP_MS = 5_000
+/**
+ * Set (to a time, in ms) while a Reset collection waits out its Undo: no tab syncs until then, so the
+ * reset's deletions only leave once Undo has gone (settings/resetCollection.ts). Kept in localStorage
+ * so every tab holds back, and as a time so a tab closed meanwhile can't hold the sync up for good.
+ */
+const SYNC_HOLD_KEY = 'mtgweb_sync_hold'
+
+function syncHeld(now = Date.now()): boolean {
+  try {
+    const until = Number(localStorage.getItem(SYNC_HOLD_KEY))
+    return Number.isFinite(until) && until > now
+  } catch {
+    return false
+  }
+}
 
 const LIBRARY_KEY = 'mtgweb_library'
 /** Where "Use my account only" keeps this browser's old library, until it's brought back or discarded (Account & sync). */
@@ -128,6 +147,17 @@ interface SyncContextValue {
    * back as they were in it. Nothing is deleted. Synced like any other change.
    */
   restoreBackup: (backup: BackupFile, mode: RestoreMode) => void
+  /**
+   * Settings › Data and speed › Reset collection (settings/resetCollection.ts): applied here at once,
+   * with its deletions held back from the sync until Undo has gone (or the tab is left).
+   */
+  resetCollection: (scope: ResetScope) => void
+  /** The reset still offering Undo, if any. */
+  pendingReset: PendingReset | null
+  /** Puts the library back exactly as it was before the reset. */
+  undoReset: () => void
+  /** Ends the Undo now and lets the sync send the reset. */
+  commitReset: () => void
   discardLibraryBackup: () => void
   /** True after a password-reset link signed the user in: ask for a new password. */
   passwordRecovery: boolean
@@ -419,6 +449,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         if (!auth.currentAccount()) setSignedOut(true)
         return onResult?.({ kind: 'signed-out' })
       }
+      // A reset is waiting out its Undo: nothing goes or comes until it's committed or undone.
+      if (syncHeld()) return onResult?.({ kind: 'ok', pulled: 0, pushed: 0 })
       if (!quiet) setCloud((c) => ({ ...c, syncing: true, message: null, failed: false }))
       try {
         adoptStoredLibrary()
@@ -712,6 +744,64 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     commitLibrary(keepUserTags(restoreLibrary(libraryRef.current, backup, mode)))
     scheduleSync()
   }, [adoptStoredLibrary, commitLibrary, scheduleSync])
+
+  const [pendingReset, setPendingReset] = useState<PendingReset | null>(null)
+  const pendingResetRef = useRef<PendingReset | null>(null)
+  const resetTimer = useRef<number | undefined>(undefined)
+
+  const endReset = useCallback(() => {
+    window.clearTimeout(resetTimer.current)
+    try { localStorage.removeItem(SYNC_HOLD_KEY) } catch { /* blocked: the hold runs out by itself */ }
+    pendingResetRef.current = null
+    setPendingReset(null)
+  }, [])
+
+  /** The Undo has gone: what's kept only on this device goes too, and the sync sends the reset. */
+  const commitReset = useCallback(() => {
+    const pending = pendingResetRef.current
+    if (!pending?.commit()) return
+    endReset()
+    // The copies are gone, so are their photos and history; and with the collection, its value over time.
+    clearCopyPhotos()
+    replaceMoves([])
+    if (pending.scope !== 'cards') clearValueHistory()
+    // Straight away rather than after the usual pause: this can be the tab closing.
+    if (accountRef.current && !mergePending.current) void runSync(true)
+  }, [endReset, runSync])
+
+  const undoReset = useCallback(() => {
+    const previous = pendingResetRef.current?.undo()
+    if (!previous) return
+    endReset()
+    // Exactly as it was, including what it remembered as deleted; nothing was sent meanwhile.
+    commitLibrary(previous)
+  }, [commitLibrary, endReset])
+
+  const resetCollection = useCallback((scope: ResetScope) => {
+    // A reset already waiting goes first, as if its Undo had run out.
+    commitReset()
+    adoptStoredLibrary()
+    const previous = libraryRef.current
+    const until = Date.now() + RESET_UNDO_MS
+    try { localStorage.setItem(SYNC_HOLD_KEY, String(until)) } catch { /* blocked: this tab still holds back below */ }
+    window.clearTimeout(syncTimer.current)
+    commitLibrary(resetLibrary(previous, scope))
+    const pending = new PendingReset(scope, previous, until)
+    pendingResetRef.current = pending
+    setPendingReset(pending)
+    resetTimer.current = window.setTimeout(commitReset, RESET_UNDO_MS)
+  }, [adoptStoredLibrary, commitLibrary, commitReset])
+
+  // Leaving the tab (or closing it) ends the Undo: the reset is sent rather than left half done.
+  useEffect(() => {
+    const onLeave = () => { if (document.visibilityState === 'hidden') commitReset() }
+    document.addEventListener('visibilitychange', onLeave)
+    window.addEventListener('pagehide', commitReset)
+    return () => {
+      document.removeEventListener('visibilitychange', onLeave)
+      window.removeEventListener('pagehide', commitReset)
+    }
+  }, [commitReset])
 
   const restoreLibraryBackup = useCallback(() => {
     const raw = localStorage.getItem(LIBRARY_BACKUP_KEY)
@@ -1482,6 +1572,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       libraryBackup,
       restoreLibraryBackup,
       restoreBackup,
+      resetCollection,
+      pendingReset,
+      undoReset,
+      commitReset,
       discardLibraryBackup,
       passwordRecovery,
       dismissPasswordRecovery: () => setPasswordRecovery(false),
@@ -1550,7 +1644,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       removeEntriesFromCollection,
     }),
     [
-      library, account, cloud, mergePrompt, resolveMerge, libraryBackup, restoreLibraryBackup, restoreBackup, discardLibraryBackup, passwordRecovery, linkNotice, storageFullNotice, signIn, signUp, signOut,
+      library, account, cloud, mergePrompt, resolveMerge, libraryBackup, restoreLibraryBackup, restoreBackup, resetCollection, pendingReset, undoReset, commitReset, discardLibraryBackup, passwordRecovery, linkNotice, storageFullNotice, signIn, signUp, signOut,
       signInWithToken, syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setReplaceable, setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, setCardTags, addGameResult,
       addCardsToDeck, stopConsidering, considerIntoDeck, moveToConsidering, swapConsidered, importIntoDeck, addCardToSideboard, setSideboardQuantity, moveToSideboard, moveToMain, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,

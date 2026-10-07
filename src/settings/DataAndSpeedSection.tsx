@@ -1,7 +1,7 @@
 // Settings › Data and speed: the collection's size, its card data kept for offline, how long All cards
 // took to open, when it last synced, and the backup — Save a backup, Restore. The words are in
 // dataAndSpeed.ts and the backup's rules in sync/backupFile.ts. Mirrors the Android app's
-// DataAndSpeedScreen.kt.
+// DataAndSpeedScreen.kt. Below them, the Danger zone's Reset collection (ResetCollectionPanel.tsx).
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSync } from '../sync/SyncContext'
@@ -14,6 +14,7 @@ import { lastAllCardsOpen } from './perfStats'
 import { BACKUP_NOTE, lastSyncedLabel, offlineLabel, openLabel, QUICK_OPEN_MS } from './dataAndSpeed'
 import { backupSummary, parseBackup, restoredMessage, summaryLines, type BackupFile, type RestoreMode } from '../sync/backupFile'
 import { download, makeBackup, restoreExtras } from '../sync/backupIo'
+import { ResetCollectionPanel } from './ResetCollectionPanel'
 
 const when = (ms: number) => new Date(ms).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
@@ -111,6 +112,7 @@ export function DataAndSpeedSection() {
           </div>
         )}
       </section>
+      <ResetCollectionPanel />
 
       {problem && (
         <Dialog title="Can't restore this" onDismiss={() => setProblem(null)} actions={<button type="button" className="btn gold" onClick={() => setProblem(null)}>OK</button>}>
