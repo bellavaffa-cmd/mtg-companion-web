@@ -9,7 +9,7 @@ import { useCardData } from '../collection/cardData'
 import { dayOf } from '../collection/copyHistoryStore'
 import { deleteBag, saveBag, useBags } from '../collection/bagStore'
 import {
-  allTicked, BAG_SECTION_LABELS, bagHeading, bagLines, homeSummary, isTicked, namesFrom, newBag, setComingHome, shownLines, tickAll, toggleTick,
+  allTicked, BAG_SECTION_LABELS, bagHeading, bagLines, homeSummary, isComing, isTicked, namesFrom, newBag, setComingHome, shownLines, tickAll, toggleTick,
   type BagSection, type BorrowedFrom, type WantedBy,
 } from '../collection/eventBag'
 import { gearOf } from '../collection/gear'
@@ -20,6 +20,8 @@ import { useEvents } from '../tournament/events'
 import { useOverview } from '../social/SocialContext'
 import * as more from '../social/more'
 import { friendsWantHere } from '../social/friendsWant'
+import { TradeMatchesTonight } from '../social/TradeMatchesTonight'
+import { playersFromNames } from '../social/tradeTonight'
 import { myBorrowedLoans } from '../social/api'
 import type { Deck } from '../types/models'
 import '../collection/storage.css'
@@ -133,7 +135,7 @@ export function PackPage() {
   const bags = useBags()
   const bag = bags.find((b) => b.id === id)
   const { collections, decks, account } = useSync()
-  const { person } = useOverview()
+  const { overview, person } = useOverview()
   const available = more.useSocialMore()
   const [matches, setMatches] = useState<more.TradeMatch[]>([])
   const [borrowed, setBorrowed] = useState<BorrowedFrom[]>([])
@@ -175,6 +177,15 @@ export function PackPage() {
     return bagLines({ decks: chosen, collections, gear: gearOf(collections), tokens, counters, wants, borrowed, attendees: bag.attendees })
   }, [bag, chosen, cards, collections, matches, person, borrowed])
 
+  // Who's coming, as players: a name that's a friend's gets their account (Trade matches tonight).
+  const attendees = bag?.attendees
+  const coming = useMemo(() => {
+    const friends = (overview?.friends ?? []).filter((f) => f.status === 'accepted')
+      .map((f) => ({ userId: f.user_id, name: person(f.user_id)?.display_name ?? '' }))
+      .filter((f) => f.name)
+    return playersFromNames(attendees ?? [], friends, isComing)
+  }, [attendees, overview, person])
+
   if (!bag) {
     return (
       <>
@@ -212,6 +223,7 @@ export function PackPage() {
             </section>
           ))}
           {bag.comingHome && shown.length === 0 && <p className="muted">Nothing was ticked as packed, so there's nothing to check off.</p>}
+          {!bag.comingHome && <TradeMatchesTonight players={coming} />}
           <button type="button" className="link" onClick={() => { deleteBag(bag.id); navigate('/play/pack') }}>Delete this bag</button>
         </div>
       </div>
