@@ -62,11 +62,6 @@ export const activityPrefs = () => call<unknown>('activity_prefs').then(parsePre
 export const setActivityPrefs = (p: ActivityPrefs) =>
   call<void>('set_activity_prefs', { p_decks: p.decks, p_for_trade: p.for_trade, p_selling: p.selling, p_leagues: p.leagues })
 
-/** Tells friends' feeds the user's To sell list changed (when they show it). Failing costs only that. */
-export const noteSelling = () => {
-  void activityCommentsAvailable().then((ok) => (ok ? call<void>('note_selling') : undefined)).catch(() => {})
-}
-
 /** [owner]'s To sell list, their cards on the user's wishlists first; null when it can't be seen. */
 export const sellingList = (owner: string) => call<SellingCard[] | null>('selling_list', { p_owner: owner })
 

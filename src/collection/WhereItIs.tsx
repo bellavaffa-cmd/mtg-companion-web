@@ -15,7 +15,6 @@ import { cardFactsOf, moveCopies, placeTree, placesOf, placeUnplaced, suggestSpo
 import { movedMove, putAwayMove } from './copyHistory'
 import { recordMoves } from './copyHistoryStore'
 import { sellCountsByName, setForSaleByName } from './selling'
-import { noteSelling } from '../social/activity'
 import { gradedWhere } from './graded'
 import { useMoney } from '../money/currency'
 import './storage.css'
@@ -180,7 +179,7 @@ function SellDialog({ name, copies, toSell, onDismiss }: { name: string; copies:
       actions={
         <>
           <button type="button" className="btn line" onClick={onDismiss}>Cancel</button>
-          <button type="button" className="btn gold" onClick={() => { changeStorage((c) => setForSaleByName(c, name, count)); if (count > 0) noteSelling(); onDismiss() }}>Save</button>
+          <button type="button" className="btn gold" onClick={() => { changeStorage((c) => setForSaleByName(c, name, count)); onDismiss() }}>Save</button>
         </>
       }
     >
