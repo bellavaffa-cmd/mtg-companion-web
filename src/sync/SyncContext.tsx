@@ -18,6 +18,7 @@ import type { Account } from './supabaseAuth'
 import type { Library } from './cloudSync'
 import { onStorageFull, saveToStorage } from './storage'
 import { libraryCounts, withBackupAdded } from './libraryBackup'
+import { restoreLibrary, type BackupFile, type RestoreMode } from './backupFile'
 import { applyCollectionChanges, type CollectionChange } from '../social/tradeLogic'
 import { dropPushOnSignOut } from '../social/push'
 import {
@@ -122,6 +123,11 @@ interface SyncContextValue {
   libraryBackup: { decks: number; collections: number } | null
   /** Adds the set-aside decks and binders to the library as new ones, then forgets the backup. */
   restoreLibraryBackup: () => void
+  /**
+   * Restores a backup file's decks and binders (sync/backupFile.ts): merged with the library, or put
+   * back as they were in it. Nothing is deleted. Synced like any other change.
+   */
+  restoreBackup: (backup: BackupFile, mode: RestoreMode) => void
   discardLibraryBackup: () => void
   /** True after a password-reset link signed the user in: ask for a new password. */
   passwordRecovery: boolean
@@ -698,6 +704,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(LIBRARY_BACKUP_KEY)
     setLibraryBackup(null)
   }, [])
+
+  const restoreBackup = useCallback((backup: BackupFile, mode: RestoreMode) => {
+    updateLibrary((lib) => restoreLibrary(lib, backup, mode))
+  }, [updateLibrary])
 
   const restoreLibraryBackup = useCallback(() => {
     const raw = localStorage.getItem(LIBRARY_BACKUP_KEY)
@@ -1467,6 +1477,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       resolveMerge,
       libraryBackup,
       restoreLibraryBackup,
+      restoreBackup,
       discardLibraryBackup,
       passwordRecovery,
       dismissPasswordRecovery: () => setPasswordRecovery(false),
@@ -1535,7 +1546,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       removeEntriesFromCollection,
     }),
     [
-      library, account, cloud, mergePrompt, resolveMerge, libraryBackup, restoreLibraryBackup, discardLibraryBackup, passwordRecovery, linkNotice, storageFullNotice, signIn, signUp, signOut,
+      library, account, cloud, mergePrompt, resolveMerge, libraryBackup, restoreLibraryBackup, restoreBackup, discardLibraryBackup, passwordRecovery, linkNotice, storageFullNotice, signIn, signUp, signOut,
       signInWithToken, syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setReplaceable, setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, setCardTags, addGameResult,
       addCardsToDeck, stopConsidering, considerIntoDeck, moveToConsidering, swapConsidered, importIntoDeck, addCardToSideboard, setSideboardQuantity, moveToSideboard, moveToMain, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,

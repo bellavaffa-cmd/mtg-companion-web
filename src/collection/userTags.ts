@@ -133,16 +133,61 @@ function remembered(lib: Library, was: Ledger): Ledger {
  */
 export function keepUserTags(lib: Library): Library {
   const ledger = remembered(lib, lib.userTags ?? {})
-  let next = lib
-  for (const [scryfallId, tags] of Object.entries(ledger)) {
-    const decks = next.decks.map((d) => deckWithTags(d, scryfallId, tags))
-    const collections = next.collections.map((c) => collectionWithTags(c, scryfallId, tags))
-    if (decks.some((d, i) => d !== next.decks[i]) || collections.some((c, i) => c !== next.collections[i])) {
-      next = { ...next, decks, collections }
-    }
+  // One pass over every copy (not one per tagged printing): a big library has thousands of each.
+  const tagsFor = (id: string): string[] | undefined => (Object.prototype.hasOwnProperty.call(ledger, id) ? ledger[id] : undefined)
+  const one = <T extends AnyEntry>(e: T): T => {
+    const tags = tagsFor(e.scryfallId)
+    return tags && !sameTags(e.userTags, tags) ? withTags(e, tags) : e
   }
+  const list = <T extends AnyEntry>(entries: T[]): T[] => {
+    let out: T[] | null = null
+    for (let i = 0; i < entries.length; i++) {
+      const e = one(entries[i])
+      if (e !== entries[i]) (out ??= entries.slice())[i] = e
+    }
+    return out ?? entries
+  }
+  let decksChanged = false
+  const decks = lib.decks.map((d) => {
+    const commander = d.commander ? one(d.commander) : d.commander
+    const partner = d.partnerCommander ? one(d.partnerCommander) : d.partnerCommander
+    const cards = list(d.cards)
+    const considering = d.considering && list(d.considering)
+    const sideboard = d.sideboard && list(d.sideboard)
+    if (commander === d.commander && partner === d.partnerCommander && cards === d.cards && considering === d.considering && sideboard === d.sideboard) return d
+    decksChanged = true
+    return { ...d, commander, partnerCommander: partner, cards, ...(considering ? { considering } : {}), ...(sideboard ? { sideboard } : {}) }
+  })
+  let collectionsChanged = false
+  const collections = lib.collections.map((c) => {
+    const entries = list(c.entries)
+    if (entries === c.entries) return c
+    collectionsChanged = true
+    return { ...c, entries }
+  })
+  const next = decksChanged || collectionsChanged
+    ? { ...lib, decks: decksChanged ? decks : lib.decks, collections: collectionsChanged ? collections : lib.collections }
+    : lib
   const same = JSON.stringify(ledger) === JSON.stringify(lib.userTags ?? {})
   return same && next === lib ? lib : { ...next, userTags: ledger }
+}
+
+/**
+ * Every printing's tags, wherever it's held, in one pass — what [userTagsOf] answers for one printing,
+ * for all of them at once (All cards asks about thousands).
+ */
+export function userTagIndex(decks: Deck[], collections: Collection[]): Map<string, string[]> {
+  const found = new Map<string, string[]>()
+  const note = (e: AnyEntry) => {
+    if (!e.userTags?.length) return
+    const had = found.get(e.scryfallId)
+    if (had) had.push(...e.userTags)
+    else found.set(e.scryfallId, [...e.userTags])
+  }
+  for (const deck of decks) for (const e of entriesOf(deck)) note(e)
+  for (const c of collections) for (const e of c.entries) note(e)
+  for (const [id, tags] of found) found.set(id, tidyTags(tags))
+  return found
 }
 
 /** What the library should remember once [tags] are set on [scryfallId] — empty forgets it. */

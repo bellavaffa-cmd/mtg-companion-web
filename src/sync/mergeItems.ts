@@ -38,7 +38,7 @@
 // The Android app merges the same way — see data/supabase/ItemMerge.kt.
 
 import type { Collection, CollectionEntry, Deck, DeckCardEntry, GameResult } from '../types/models'
-import { canonicalJson } from './canonicalJson'
+import { sameJson } from './canonicalJson'
 import { keepPlaceSizes, keepPlacesFromOlderApp, mergeCopyPlaces, mergePlaceLists, tidied } from '../collection/storagePlaces'
 import { keepForSaleFromOlderApp } from '../collection/selling'
 import { keepAlertOptionsFromOlderApp } from '../collection/wishlistTargets'
@@ -53,7 +53,7 @@ import { keepHistoryFromOlderApp, mergeHistory } from '../decks/deckHistory'
 import { MAX_VERSIONS } from '../decks/versions'
 
 // Key order doesn't count: the server's copy comes back with its keys reordered.
-const same = (a: unknown, b: unknown) => canonicalJson(a ?? null) === canonicalJson(b ?? null)
+const same = sameJson
 
 /** A field's value after a merge: whoever changed it, or the more recent edit when both did. */
 function pick<T>(base: T, mine: T, theirs: T, minePreferred: boolean): T {
@@ -105,7 +105,9 @@ function mergeEntries<T extends { scryfallId: string }>(
   // Both devices must land on the same order, so start from the order they agreed on and append
   // what either side added, by id — never "their order, then mine".
   const baseIds = base.map((e) => e.scryfallId)
-  const added = [...new Set([...theirs, ...mine].map((e) => e.scryfallId))].filter((id) => !baseIds.includes(id)).sort()
+  // A set, not a search of the list: a big binder has thousands of cards on each side.
+  const inBase = new Set(baseIds)
+  const added = [...new Set([...theirs, ...mine].map((e) => e.scryfallId))].filter((id) => !inBase.has(id)).sort()
   const ids = [...baseIds, ...added]
 
   const out: T[] = []

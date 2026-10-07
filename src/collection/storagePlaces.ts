@@ -97,7 +97,11 @@ function inLoop(byId: Map<string, StoragePlace>, id: string): boolean {
 
 /** The place [id] sits in, or null at the top — also for a parent that's gone, or a loop. */
 export function parentOf(places: StoragePlace[], id: string): string | null {
-  const byId = new Map(places.map((p) => [p.id, p]))
+  return parentIn(new Map(places.map((p) => [p.id, p])), id)
+}
+
+/** [parentOf] with the places by id made once, for callers asking about many places. */
+function parentIn(byId: Map<string, StoragePlace>, id: string): string | null {
   const parent = byId.get(id)?.parentId
   return parent && byId.has(parent) && !inLoop(byId, id) ? parent : null
 }
@@ -109,8 +113,9 @@ export interface PlaceNode { place: StoragePlace; depth: number }
 /** Every place, each followed by the places inside it, oldest first at each level. */
 export function placeTree(places: StoragePlace[]): PlaceNode[] {
   const kids = new Map<string | null, StoragePlace[]>()
+  const byId = new Map(places.map((p) => [p.id, p]))
   for (const p of places) {
-    const parent = parentOf(places, p.id)
+    const parent = parentIn(byId, p.id)
     kids.set(parent, [...(kids.get(parent) ?? []), p])
   }
   const out: PlaceNode[] = []
@@ -125,17 +130,20 @@ export function placeTree(places: StoragePlace[]): PlaceNode[] {
 }
 
 /** The places directly inside [id] (null: the top level), oldest first. */
-export const childrenOf = (places: StoragePlace[], id: string | null): StoragePlace[] =>
-  places.filter((p) => parentOf(places, p.id) === id).sort(byAge)
+export function childrenOf(places: StoragePlace[], id: string | null): StoragePlace[] {
+  const byId = new Map(places.map((p) => [p.id, p]))
+  return places.filter((p) => parentIn(byId, p.id) === id).sort(byAge)
+}
 
 /** [id] and every place inside it, however deep. */
 export function placeAndInside(places: StoragePlace[], id: string): Set<string> {
   const out = new Set<string>([id])
+  const byId = new Map(places.map((p) => [p.id, p]))
   let grew = true
   while (grew) {
     grew = false
     for (const p of places) {
-      const parent = parentOf(places, p.id)
+      const parent = parentIn(byId, p.id)
       if (parent && out.has(parent) && !out.has(p.id)) { out.add(p.id); grew = true }
     }
   }
@@ -145,14 +153,23 @@ export function placeAndInside(places: StoragePlace[], id: string): Set<string> 
 /** The places [id] sits in, outermost first. */
 export function parentsOf(places: StoragePlace[], id: string): StoragePlace[] {
   const out: StoragePlace[] = []
-  let p = parentOf(places, id)
+  const byId = new Map(places.map((x) => [x.id, x]))
+  let p = parentIn(byId, id)
   while (p) {
-    const place = places.find((x) => x.id === p)
+    const place = byId.get(p)
     if (!place || out.includes(place)) break
     out.unshift(place)
-    p = parentOf(places, p)
+    p = parentIn(byId, p)
   }
   return out
+}
+
+/**
+ * For each place, its id after the ids of the places it sits in, outermost first — what [parentsOf]
+ * answers, for every place at once (the Advanced filters ask about each copy's places).
+ */
+export function placeChains(places: StoragePlace[]): Map<string, string[]> {
+  return new Map(places.map((p) => [p.id, [...parentsOf(places, p.id).map((x) => x.id), p.id]]))
 }
 
 /** "Shelf, study › Red box". */
@@ -228,6 +245,9 @@ type Counts = Pick<CollectionEntry, 'quantity' | 'foilQuantity'>
  * plain and foil apart, the first lines keeping theirs.
  */
 export function tidyPlaces(entry: Counts, places: CopyPlace[]): CopyPlace[] {
+  // Nearly always already tidy: then it's the same list, rather than a copy of every line each time
+  // a page asks (thousands of entries, many times a render).
+  if (isTidy(entry, places)) return places
   const merged: CopyPlace[] = []
   for (const p of places) {
     if (!(p.qty > 0)) continue
@@ -248,6 +268,26 @@ export function tidyPlaces(entry: Counts, places: CopyPlace[]): CopyPlace[] {
   return out
 }
 
+/** A line as copyPlace writes it: optional fields left out rather than false, empty or 0. */
+const isWritten = (p: CopyPlace): boolean =>
+  (p.foil === undefined || p.foil === true) && (p.section === undefined || (typeof p.section === 'string' && p.section !== ''))
+  && (p.page === undefined || p.page > 0) && (p.slot === undefined || p.slot > 0)
+
+/** Whether [places] is already as tidyPlaces leaves it. */
+function isTidy(entry: Counts, places: CopyPlace[]): boolean {
+  let plain = Math.max(0, entry.quantity)
+  let foil = Math.max(0, entry.foilQuantity ?? 0)
+  for (let i = 0; i < places.length; i++) {
+    const p = places[i]
+    if (!(p.qty > 0) || !isWritten(p)) return false
+    for (let j = 0; j < i; j++) if (sameLine(places[j], p)) return false
+    if (p.foil) foil -= p.qty
+    else plain -= p.qty
+    if (plain < 0 || foil < 0) return false
+  }
+  return true
+}
+
 /** The entry's copies that have a place, as they stand (see tidyPlaces). */
 export const placedCopies = (entry: CollectionEntry): CopyPlace[] => tidyPlaces(entry, entry.places ?? [])
 
@@ -265,6 +305,7 @@ export function unplacedCopies(entry: CollectionEntry): { plain: number; foil: n
 export function withPlaces(entry: CollectionEntry, places: CopyPlace[]): CollectionEntry {
   const tidy = tidyPlaces(entry, places)
   if (tidy.length === 0 && entry.places === undefined) return entry
+  if (tidy === entry.places) return entry
   return { ...entry, places: tidy }
 }
 
@@ -476,6 +517,24 @@ export interface PlacedCard {
   collectionId: string
   entry: CollectionEntry
   line: CopyPlace
+}
+
+/**
+ * Every line of copies kept in each place itself, by place id, in no particular order — [cardsIn] for
+ * every place in one pass over the collection, for pages that ask about all of them (Upkeep).
+ */
+export function cardsByPlace(collections: Collection[]): Map<string, PlacedCard[]> {
+  const out = new Map<string, PlacedCard[]>()
+  for (const c of owned(collections)) {
+    for (const e of c.entries) {
+      for (const line of placedCopies(e)) {
+        const list = out.get(line.placeId)
+        if (list) list.push({ collectionId: c.id, entry: e, line })
+        else out.set(line.placeId, [{ collectionId: c.id, entry: e, line }])
+      }
+    }
+  }
+  return out
 }
 
 /** Every line of copies kept in [placeId] itself, by card name. */
@@ -1066,14 +1125,14 @@ export function keepPlaceSizes(source: Collection, theirs: Collection): Collecti
 export const NO_PLACE = 'none'
 
 /** The places holding copies of an entry — each with the places it sits in — and how many have none. */
-export function placeFactsOf(entry: CollectionEntry, places: StoragePlace[]): { places: string[]; unplaced: number } {
-  const known = new Set(places.map((p) => p.id))
+export function placeFactsOf(entry: CollectionEntry, places: StoragePlace[], chains: Map<string, string[]> = placeChains(places)): { places: string[]; unplaced: number } {
   const out: string[] = []
   let here = 0
   for (const line of placedCopies(entry)) {
-    if (!known.has(line.placeId)) continue
+    const chain = chains.get(line.placeId)
+    if (!chain) continue
     here += line.qty
-    for (const id of [...parentsOf(places, line.placeId).map((p) => p.id), line.placeId]) if (!out.includes(id)) out.push(id)
+    for (const id of chain) if (!out.includes(id)) out.push(id)
   }
   const copies = entry.quantity + (entry.foilQuantity ?? 0)
   return { places: out, unplaced: lentTag(entry) ? 0 : Math.max(0, copies - here) }

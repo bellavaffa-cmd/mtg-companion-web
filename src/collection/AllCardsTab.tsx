@@ -3,10 +3,10 @@
 // into a binder, adding them to a deck, exporting or removing them. Mirrors the Android app's
 // CollectionsScreen (AllCardsTab).
 
-import { allUserTags, userTagsOf } from '../collection/userTags'
+import { allUserTags, userTagIndex } from '../collection/userTags'
 import { biggerImageUrl } from '../types/scryfall'
 import { PrintingPicker, printingName } from '../components/PrintingPicker'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { knownCards, useCardData } from './cardData'
 import { BreakdownPanel } from './BreakdownPanel'
 import { collectionBreakdown } from './breakdown'
@@ -27,13 +27,13 @@ import { getCardsByIds } from '../api/scryfall'
 import { buyCardUrl } from '../api/buy'
 import { isUnsorted, type Collection } from '../types/models'
 import { isWishlist } from './wishlist'
-import { allCardsOf, copiesInBinders, gatherCounts, csvExportEntries, dashboardOf, exportEntries, type AllCard, type CollectionDashboard } from './allCards'
+import { allCardsOf, allCardTags, searchAllCards, copiesInBinders, gatherCounts, csvExportEntries, dashboardOf, exportEntries, type AllCard, type CollectionDashboard } from './allCards'
 import { spares } from './spares'
 import { spreadThin } from './spreadThin'
 import { TradeOfferSheet } from '../social/TradeOffer'
 import { ExportCollectionDialog } from './CardListDialogs'
 import { useMoney } from '../money/currency'
-import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
+import { matchedTags, tagLabel, useRoleTags } from '../tags/roleTags'
 import { cardFactsOf, filterActive, filterCount, filterMatches, NO_COLLECTION_FILTER, type CardFacts, type CollectionFilter } from './cardFilter'
 import { ActiveFilterChips, CollectionFilterPanel } from './CollectionFilterPanel'
 import {
@@ -43,6 +43,8 @@ import {
 import { AdvancedFilterPage } from './AdvancedFilterPage'
 import { placeTree, placesOf } from './storagePlaces'
 import { useCardViewMode } from '../settings/settings'
+import { noteAllCardsOpened } from '../settings/perfStats'
+import { useProgressiveList } from '../components/useProgressiveList'
 
 
 // Scryfall's data for the cards owned, kept for this visit (see cardData.ts).
@@ -56,10 +58,14 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
   const [changing, setChanging] = useState<{ scryfallId: string; name: string } | null>(null)
   const navigate = useNavigate()
   const size = useLayoutSize()
+  // When the tab started to draw, for "Opening All cards" in Settings › Data and speed.
+  const [openedAt] = useState(() => performance.now())
   const cards = useMemo(() => allCardsOf(collections, decks), [collections, decks])
-  const cardsById = useCardData(cards.map((c) => c.scryfallId))
+  const cardIds = useMemo(() => cards.map((c) => c.scryfallId), [cards])
+  const cardNames = useMemo(() => cards.map((c) => c.name), [cards])
+  const cardsById = useCardData(cardIds)
   const dashboard = useMemo(() => (cardsById ? dashboardOf(cards, cardsById) : null), [cards, cardsById])
-  const { tags: roleTags, loading: tagging } = useRoleTags(cards.map((c) => c.name))
+  const { tags: roleTags, loading: tagging } = useRoleTags(cardNames)
   // Null until the cards' details have loaded.
   const breakdown = useMemo(() => {
     if (!cardsById || !dashboard || cards.length === 0) return null
@@ -130,18 +136,27 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
   const q = query.trim().toLowerCase()
   const inSpares = (c: AllCard) => spareIds.has(c.scryfallId)
   // "proxy" reads as a tag of its own, so a search finds the cards standing in for real ones.
-  const tagsFor = (c: AllCard) => {
-    const mine = userTagsOf(decks, collections, c.scryfallId)
-    const role = tagsOf(roleTags, c.name)
-    return c.proxies > 0 ? [...role, ...mine, 'proxy'] : [...role, ...mine]
-  }
+  // Every printing's own tags, found in one pass rather than card by card (thousands of cards).
+  const userTags = useMemo(() => userTagIndex(decks, collections), [decks, collections])
+  const tagsFor = (c: AllCard) => allCardTags(c, roleTags, userTags)
   // The panel's filters and the advanced ones; a card whose data hasn't loaded is left out while either is on.
   const passes = (c: AllCard, basic: CollectionFilter, adv: AdvancedFilter) =>
     filterMatches(basic, facts.get(c.scryfallId)) && advancedMatches(adv, advFacts.get(c.scryfallId), copyFacts.get(c.scryfallId), (n) => money.toUsd(n))
-  const named = cards.filter((c) => matchesNameOrTag(c.name, tagsFor(c), q))
-  const shown = named
-    .filter((c) => !filtering || passes(c, cardFilter, advFilter))
-    .filter((c) => !sparesOnly || inSpares(c))
+  const named = useMemo(() => searchAllCards(cards, q, (c) => allCardTags(c, roleTags, userTags)), [cards, q, roleTags, userTags])
+  const shown = useMemo(
+    () => named.filter((c) => (!filtering || passes(c, cardFilter, advFilter)) && (!sparesOnly || inSpares(c))),
+    // passes and inSpares read only what's listed here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [named, filtering, cardFilter, advFilter, sparesOnly, spareIds, facts, advFacts, copyFacts, money],
+  )
+  // A screenful at a time: thousands of rows at once is what made a big collection slow to open.
+  const list = useProgressiveList(shown.length, shown)
+  const noted = useRef(false)
+  useEffect(() => {
+    if (noted.current || cards.length === 0) return
+    noted.current = true
+    noteAllCardsOpened(performance.now() - openedAt, cards.length)
+  }, [cards.length, openedAt])
   // Live, for the Advanced page's "Show N cards".
   const countFor = (basic: CollectionFilter, adv: AdvancedFilter) =>
     named.filter((c) => passes(c, basic, adv) && (!sparesOnly || inSpares(c))).length
@@ -334,13 +349,13 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
         <EmptyState icon="search_off" text={filtering ? 'No cards match these filters.' : <>No cards match “{query}”.</>} />
       ) : view === 'grid' ? (
         <div className="card-grid" style={{ marginTop: 14 }}>
-          {shown.map((c) => (
+          {shown.slice(0, list.count).map((c) => (
             <CardTile key={c.scryfallId} card={c} selecting={selecting} selected={pickedIds.has(c.scryfallId)} onToggle={() => toggle(c.scryfallId)} onZoom={() => setZoomId(c.scryfallId)} />
           ))}
         </div>
       ) : (
         <div className="list wide-list" style={{ marginTop: 14 }}>
-          {shown.map((c) => (
+          {shown.slice(0, list.count).map((c) => (
             <CardRow
               key={c.scryfallId}
               card={c}
@@ -353,6 +368,7 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
           ))}
         </div>
       )}
+      {shown.length > 0 && list.more && <div ref={list.ref} className="list-more dim">Showing {list.count} of {shown.length}…</div>}
 
       {selecting && (
         <div className="select-bar" role="toolbar" aria-label="Selected cards">
@@ -431,7 +447,7 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
           backImageUrl={zoomCard.backImageUrl}
           tags={tagsFor(zoomCard).map(tagLabel)}
           tagsLoading={!!tagging && !roleTags.has(zoomCard.name.trim().toLowerCase())}
-          userTags={userTagsOf(decks, collections, zoomCard.scryfallId)}
+          userTags={userTags.get(zoomCard.scryfallId) ?? []}
           knownUserTags={allUserTags(decks, collections)}
           onUserTags={(next) => setCardTags(zoomCard.scryfallId, next)}
           onTagClick={(label) => { setZoomId(null); setQuery(label) }}

@@ -21,6 +21,16 @@ function load(): CopyMove[] {
   return log
 }
 
+/** The log as it is now, oldest first — for a backup (sync/backupFile.ts). */
+export const currentMoves = (): CopyMove[] => load()
+
+/** Puts [moves] in place of the log — a restored backup's, put together with this browser's. */
+export function replaceMoves(moves: CopyMove[]) {
+  log = moves
+  try { localStorage.setItem(KEY, JSON.stringify(log)) } catch { /* full or blocked: kept for this visit */ }
+  listeners.forEach((l) => l())
+}
+
 /** Adds [moves] to the log. */
 export function recordMoves(moves: CopyMove[]) {
   if (moves.length === 0) return

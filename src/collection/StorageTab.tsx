@@ -94,6 +94,11 @@ export function StorageTab() {
           <div className="storage-text"><b>Gear</b><span>{gearLine}</span></div>
           <Icon name="chevron_right" aria-hidden />
         </button>
+        <button type="button" className="storage-row storage-card press rise" style={rise(5)} onClick={() => navigate('/settings/data')}>
+          <Icon name="speed" className="storage-icon" />
+          <div className="storage-text"><b>Data and speed</b><span>Save a backup of everything, or restore one</span></div>
+          <Icon name="chevron_right" aria-hidden />
+        </button>
         <button type="button" className="storage-row storage-card press rise" style={rise(5)} onClick={() => navigate('/collections/household')}>
           <Icon name="shelves" className="storage-icon" />
           <div className="storage-text"><b>Sharing storage at home</b><span>Keep cards on the same shelf as someone you live with</span></div>

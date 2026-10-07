@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useProgressiveList } from '../components/useProgressiveList'
 import { allUserTags, userTagsOf } from '../collection/userTags'
 import { PrintingPicker } from '../components/PrintingPicker'
 import { useParams } from 'react-router-dom'
@@ -36,6 +37,9 @@ import { biggerImageUrl } from '../types/scryfall'
 import { CopyDetailsButton } from '../collection/CopyDetails'
 import { CopyBadge } from '../components/CopyBadge'
 import { conditionName, copyBadges, languageName } from '../collection/copyDetails'
+
+// The same order as localeCompare, one collator reused.
+const byName = new Intl.Collator()
 
 export function CollectionDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -80,7 +84,8 @@ export function CollectionDetailPage() {
   const money = useMoney()
   const formatUsd = (v: number) => money.format(v)
   // What each card does: found by the search, shown in the zoom.
-  const { tags: roleTags, loading: tagging } = useRoleTags(collection?.entries.map((e) => e.name) ?? [])
+  const entryNames = useMemo(() => collection?.entries.map((e) => e.name) ?? [], [collection])
+  const { tags: roleTags, loading: tagging } = useRoleTags(entryNames)
   const [alerting, setAlerting] = useState<CollectionEntry | null>(null)
   const [zoomId, setZoomId] = useState<string | null>(null)
   const [sheet, setSheet] = useState<CollectionEntry | null>(null)
@@ -109,6 +114,17 @@ export function CollectionDetailPage() {
   // The big title scrolls away; the bar's title fades in to replace it.
   const titleProgress = useScrollProgress(90)
   const size = useLayoutSize()
+  const q = filter.trim().toLowerCase()
+  const shown = useMemo(
+    () => (collection?.entries ?? [])
+      .filter((e) => matchesNameOrTag(e.name, [...tagsOf(roleTags, e.name), ...(e.userTags ?? [])], q))
+      .map((e) => ({ e, k: e.name }))
+      .sort((a, b) => byName.compare(a.k, b.k))
+      .map((x) => x.e),
+    [collection, roleTags, q],
+  )
+  // A screenful at a time: the Unsorted pile of a big collection has thousands of cards.
+  const list = useProgressiveList(shown.length, shown)
 
   if (!collection) {
     return (
@@ -127,10 +143,6 @@ export function CollectionDetailPage() {
   const under = underHere ? underYourPrice(underHere, gotIt) : []
   const cards = collection.entries.reduce((s, e) => s + e.quantity, 0)
   const foils = collection.entries.reduce((s, e) => s + e.foilQuantity, 0)
-  const q = filter.trim().toLowerCase()
-  const shown = collection.entries
-    .filter((e) => matchesNameOrTag(e.name, [...tagsOf(roleTags, e.name), ...(e.userTags ?? [])], q))
-    .sort((a, b) => a.name.localeCompare(b.name))
   const tagHits = q ? [...new Set(shown.filter((e) => !e.name.toLowerCase().includes(q)).flatMap((e) => matchedTags(tagsOf(roleTags, e.name), q)))] : []
   const setQty = (e: CollectionEntry, quantity: number, foilQuantity: number) =>
     setEntryQuantities(collection.id, e.scryfallId, Math.max(0, quantity), Math.max(0, foilQuantity))
@@ -247,7 +259,7 @@ export function CollectionDetailPage() {
       {wishlist && <div className="eyebrow target-count">{targetCount(collection.entries).toUpperCase()}</div>}
       {view === 'grid' ? (
         <div className="card-grid" style={{ marginTop: 14 }}>
-          {shown.map((entry) => (
+          {shown.slice(0, list.count).map((entry) => (
             <EntryTile
               key={entry.scryfallId}
               entry={entry}
@@ -262,7 +274,7 @@ export function CollectionDetailPage() {
         </div>
       ) : (
       <div className="list wide-list" style={{ marginTop: 14 }}>
-        {shown.map((entry) => (
+        {shown.slice(0, list.count).map((entry) => (
           <EntryRow
             key={entry.scryfallId}
             entry={entry}
@@ -281,6 +293,7 @@ export function CollectionDetailPage() {
         {shown.length === 0 && <div className="empty-state">Nothing in this binder matches “{filter}”.</div>}
       </div>
       )}
+      {list.more && <div ref={list.ref} className="list-more dim">Showing {list.count} of {shown.length}…</div>}
       {wishlist && (
         <div className="wishlist-foot">
           <button type="button" className="btn line" onClick={() => setSettingAll(true)}>Set targets for all…</button>

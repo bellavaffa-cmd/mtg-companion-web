@@ -10,7 +10,7 @@ import { canBeCommander, hasFlipSides, type ScryfallCard } from '../types/scryfa
 import { GAME_MODE_LABELS, GAME_MODES, type Collection, type Deck } from '../types/models'
 import { CARD_CONDITIONS, languageName } from './copyDetails'
 import { COLLECTION_FILTER_RARITIES, NO_COLLECTION_FILTER, type CollectionFilter, type FilterColor } from './cardFilter'
-import { NO_PLACE, placeFactsOf, placesOf } from './storagePlaces'
+import { NO_PLACE, placeChains, placeFactsOf, placesOf } from './storagePlaces'
 
 /** How a number is compared: stored as these, shown as ≤ ≥ ≠. */
 export type CompareOp = '=' | '<' | '<=' | '>' | '>=' | '!='
@@ -270,6 +270,7 @@ export function copyFactsOf(collections: Collection[], decks: Deck[]): Map<strin
   }
   const addOnce = (list: string[], v: string) => { if (!list.includes(v)) list.push(v) }
   const places = placesOf(collections)
+  const chains = placeChains(places)
   for (const c of collections) {
     if (c.type === 'WISHLIST') continue
     for (const e of c.entries) {
@@ -282,7 +283,7 @@ export function copyFactsOf(collections: Collection[], decks: Deck[]): Map<strin
       if (e.condition) addOnce(f.conditions, e.condition)
       addOnce(f.languages, e.language || 'en')
       addOnce(f.binders, c.id)
-      const where = placeFactsOf(e, places)
+      const where = placeFactsOf(e, places, chains)
       where.places.forEach((p) => addOnce(f.places, p))
       f.unplaced += where.unplaced
     }

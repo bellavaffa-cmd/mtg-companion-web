@@ -56,6 +56,9 @@ export const unitPrice = (p: PrintingFacts | undefined, foil: boolean): number |
 export function valueRows(collections: Collection[], decks: Deck[], facts: (scryfallId: string) => PrintingFacts | undefined): ValueRow[] {
   const places = placesOf(collections)
   const known = new Set(places.map((p) => p.id))
+  // Each place's path worked out once, not once per copy.
+  const paths = new Map(places.map((p) => [p.id, placePath(places, p.id)]))
+  const pathOf = (id: string) => paths.get(id) ?? placePath(places, id)
   const lent = lentCopies(collections, decks)
   const byEntry = lentByEntry(lent)
   const rows: ValueRow[] = []
@@ -73,7 +76,7 @@ export function valueRows(collections: Collection[], decks: Deck[], facts: (scry
       for (const line of placedCopies(e)) {
         if (!known.has(line.placeId)) continue
         row({
-          ...base, foil: !!line.foil, qty: line.qty, kind: 'place', group: line.placeId, where: placePath(places, line.placeId),
+          ...base, foil: !!line.foil, qty: line.qty, kind: 'place', group: line.placeId, where: pathOf(line.placeId),
           spot: line.section ?? (line.page && line.slot ? pocketLabel(line.page, line.slot) : ''),
         })
       }
@@ -110,7 +113,7 @@ export function valueRows(collections: Collection[], decks: Deck[], facts: (scry
   }
   // Graded copies and sealed product, at the value entered; in their place, or with no place yet.
   const spotOf = (placeId: string | undefined) => (placeId && known.has(placeId)
-    ? { kind: 'place' as const, group: placeId, where: placePath(places, placeId) }
+    ? { kind: 'place' as const, group: placeId, where: pathOf(placeId) }
     : { kind: 'none' as const, group: 'none', where: 'No place yet' })
   for (const g of gradedOf(collections)) {
     const p = facts(g.scryfallId)
