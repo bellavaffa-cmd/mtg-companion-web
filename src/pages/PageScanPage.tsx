@@ -17,6 +17,8 @@ import { cardNameIndex } from '../scan/cardNames'
 import { readCardName, type Box } from '../scan/ocr'
 import { flattenCard } from '../scan/flatCard'
 import { loadRecognizer, recognize } from '../scan/cardRecognizer'
+import { cueOfCard, playCue, unlockScanAudio } from '../scan/scanFeedback'
+import { bestCue } from '../scan/scanSounds'
 import { backImageUrl, cardTags, displayImageUrl, type ScryfallCard } from '../types/scryfall'
 import type { CollectionEntry } from '../types/models'
 import '../collection/storage.css'
@@ -127,10 +129,27 @@ export function PageScanPage() {
     )
   }
 
-  const loadCards = (list: PageCell[]) => {
+  /** Fetches the cards [list] shows that aren't here yet; answers every card known once they're in. */
+  const loadCards = (list: PageCell[]): Promise<Map<string, ScryfallCard>> => {
     const ids = [...new Set(list.flatMap((c) => [...(c.card ? [c.card.scryfallId] : []), ...c.options.map((o) => o.scryfallId)]))].filter((x) => !cardData.has(x))
-    if (ids.length === 0) return
-    getCardsByIds(ids).then((got) => setCardData((m) => { const next = new Map(m); got.forEach((c) => next.set(c.id, c)); return next })).catch(() => {})
+    if (ids.length === 0) return Promise.resolve(cardData)
+    return getCardsByIds(ids)
+      .then((got) => {
+        const known = new Map(cardData)
+        got.forEach((c) => known.set(c.id, c))
+        setCardData((m) => { const next = new Map(m); got.forEach((c) => next.set(c.id, c)); return next })
+        return known
+      })
+      .catch(() => cardData)
+  }
+
+  /** One sound for the page, not one a pocket: the best card read on it (Settings › Scanner). */
+  const cuePage = (list: PageCell[], known: Map<string, ScryfallCard>) => {
+    const cue = bestCue(list.flatMap((c) => {
+      const card = c.card ? known.get(c.card.scryfallId) : undefined
+      return card ? [cueOfCard(card)] : []
+    }))
+    if (cue) playCue(cue)
   }
 
   const read = async (source: HTMLCanvasElement, area: Box) => {
@@ -141,7 +160,7 @@ export function PageScanPage() {
       setCells(got)
       setChecking(false)
       if (!sighted) setMessage('Card recognition couldn’t load, so only titles were read. Tap a pocket to fix it.')
-      loadCards(got)
+      void loadCards(got).then((known) => cuePage(got, known))
       setPhase('results')
     } catch {
       setMessage('Couldn’t read the page — try again.')
@@ -150,6 +169,7 @@ export function PageScanPage() {
   }
 
   const scanFromCamera = () => {
+    unlockScanAudio()
     const video = videoRef.current
     const guide = guideRef.current
     const area = video && guide ? guideInVideo(video, guide) : null
@@ -162,6 +182,7 @@ export function PageScanPage() {
   }
 
   const scanFromFile = (file: File) => {
+    unlockScanAudio()
     const url = URL.createObjectURL(file)
     const img = new Image()
     img.onload = () => {

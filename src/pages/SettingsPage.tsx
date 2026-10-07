@@ -8,6 +8,9 @@ import { ActivityPrivacy } from '../social/ActivityPrivacy'
 import { useUsageEnabled } from '../usage/usage'
 import { GettingStartedSection } from '../onboarding/GettingStartedSection'
 import { DataAndSpeedSection } from '../settings/DataAndSpeedSection'
+import { ScannerSection } from '../settings/ScannerSection'
+import { useScanSound } from '../scan/scanFeedback'
+import { scanSoundSummary } from '../scan/scanSounds'
 import { rise, useBack } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
 import { currencyOf, useCurrencySetting } from '../money/currency'
@@ -35,6 +38,7 @@ const SECTIONS = [
   { id: 'appearance', title: 'Appearance', icon: 'dark_mode', to: '/settings/appearance' },
   { id: 'card-display', title: 'Card Display', icon: 'grid_view', to: '/settings/card-display' },
   { id: 'prices', title: 'Prices', icon: 'sell', to: '/settings/prices' },
+  { id: 'scanner', title: 'Scanner', icon: 'volume_up', to: '/settings/scanner' },
   { id: 'data', title: 'Data and speed', icon: 'speed', to: '/settings/data' },
   { id: 'blocked', title: 'Blocked people', icon: 'block', to: '/settings/blocked' },
   { id: 'privacy', title: 'Privacy', icon: 'shield', to: '/settings/privacy' },
@@ -51,6 +55,7 @@ export function SettingsPage() {
   const { brightness, accent } = useAppearance()
   const { chosen } = useCurrencySetting()
   const usageOn = useUsageEnabled()
+  const scanSound = useScanSound()
 
   const summaryOf = (id: (typeof SECTIONS)[number]['id']): string => {
     switch (id) {
@@ -70,6 +75,8 @@ export function SettingsPage() {
         const c = currencyOf(chosen)
         return `${c.name} (${c.code})`
       }
+      case 'scanner':
+        return scanSoundSummary(scanSound)
       case 'data':
         return 'Backup and restore, and how quick the app is'
       case 'blocked':
@@ -121,6 +128,7 @@ export function SettingsSectionPage() {
           {found.id === 'appearance' && <AppearanceSection />}
           {found.id === 'card-display' && <CardDisplaySection />}
           {found.id === 'prices' && <PricesPanel heading={false} />}
+          {found.id === 'scanner' && <ScannerSection />}
           {found.id === 'data' && <DataAndSpeedSection />}
           {found.id === 'blocked' && <BlockedPeople />}
           {found.id === 'privacy' && <><PrivacySection /><ActivityPrivacy /></>}

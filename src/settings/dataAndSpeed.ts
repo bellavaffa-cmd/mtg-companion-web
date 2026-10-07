@@ -29,7 +29,7 @@ export const BACKUP_NOTE = 'Everything, including places, loans, history and pho
 /**
  * This browser's settings worth keeping in a backup (as they're stored, under these keys): appearance,
  * card display, prices, saved filters, deck page choices, the life counter's, the value over time,
- * bags being packed, events and table games. Sign-in, sync bookkeeping and caches are left out — they
+ * bags being packed, events and table games, and the scanner's sounds. Sign-in, sync bookkeeping and caches are left out — they
  * belong to this browser, or come back by themselves.
  */
 export const BACKUP_SETTINGS_KEYS = [
@@ -38,4 +38,6 @@ export const BACKUP_SETTINGS_KEYS = [
   'mtgweb_saved_filters', 'mtgweb_deck_grouping', 'mtgweb_deck_folders_folded', 'mtgweb_stats_panels',
   'mtgweb_role_tag_sets', 'mtgweb_life_settings', 'mtgweb_usage_off', 'mtgweb_value_history', 'mtgweb_deck_value_history',
   'mtgweb_packing_bags', 'mtgweb_last_import', 'mtgweb_tournaments', 'mtgweb_table_games',
+  'mtgweb_scan_sound_on', 'mtgweb_scan_sound_volume', 'mtgweb_scan_sound_mode', 'mtgweb_scan_sound_threshold',
+  'mtgweb_scan_vibrate', 'mtgweb_scan_sound_silent',
 ] as const

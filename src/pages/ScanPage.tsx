@@ -26,6 +26,8 @@ import { confirmRead, parseSetAndNumber, parseSetCode, sameCardName, SCAN_MODES,
 import { appLinkPath, qrReader } from '../scan/qr'
 import { copyNumber, grouped, onlyRepeats, repeatedCards, saveNewest, scannedTwiceOver, withPrinting, type ScanRow } from '../scan/scanLog'
 import { useSync } from '../sync/SyncContext'
+import { cardRecognised, unlockScanAudio } from '../scan/scanFeedback'
+import { rarityLabel } from '../scan/scanSounds'
 import { UNSORTED_COLLECTION_ID } from '../types/models'
 import { isLimited } from '../decks/limited'
 import { backImageUrl, cardTags, displayImageUrl, type ScryfallCard } from '../types/scryfall'
@@ -175,7 +177,7 @@ export function ScanPage() {
       if (row.result === 'new') recordMoves([addedMove(Date.now(), { name: card.name, scryfallId: card.id }, 1, here, 'by scanning')])
       else if (row.result !== 'here') recordMoves([putAwayMove(Date.now(), { name: card.name, scryfallId: card.id }, 1, here, fromPlace ? { id: fromPlace.id, name: fromPlace.name } : row.step?.collectionId === UNSORTED_COLLECTION_ID ? { id: '', name: 'Unsorted' } : null, 'by scanning')])
       setSession((list) => [row, ...list])
-      setStatus(`${card.name} — ${row.label}`)
+      sayCard(`${card.name} — ${row.label}`, card)
     }
     : null
   // Check mode (?check=<place>): each card scanned is matched against what's listed in that place (or
@@ -204,7 +206,7 @@ export function ScanPage() {
       const next = { ...now, scans: [...now.scans, scan] }
       changeCheck(next)
       const line = reconcile(collections, decks, { placeId: next.placeId, section: next.section }, next.scans).lines.at(-1)
-      setStatus(`${card.name} — ${line?.label ?? 'scanned'}`)
+      sayCard(`${card.name} — ${line?.label ?? 'scanned'}`, card)
     }
     : null
   // Scan-to-tick mode (?pull=<deck> or ?putBack=<deck>): each card scanned ticks its row on that deck's
@@ -224,17 +226,17 @@ export function ScanPage() {
       const of = countable.reduce((n, r) => n + r.qty, 0)
       if (!row) {
         const onList = rows.some((r) => r.name.toLowerCase() === card.name.toLowerCase())
-        setStatus(onList ? `${card.name} — already ticked` : `${card.name} isn't on the list`)
+        sayCard(onList ? `${card.name} — already ticked` : `${card.name} isn't on the list`, card)
         return
       }
       if (row.source?.kind === 'deck') {
-        setStatus(`${card.name} is only in another deck — tick it on the list to take it`)
+        sayCard(`${card.name} is only in another deck — tick it on the list to take it`, card)
         return
       }
       const now = new Set(tickRow(tickKind, tickDeck.id, row.key).ticked)
       const done = countable.filter((r) => now.has(r.key)).reduce((n, r) => n + r.qty, 0)
       setTickCount({ done, of })
-      setStatus(`${card.name} — ticked${row.where ? ` (${row.where})` : ''}`)
+      sayCard(`${card.name} — ticked${row.where ? ` (${row.where})` : ''}`, card)
     }
     : null
   // Sort mode (?sort): each card scanned goes in the first pile whose rule fits it — shown big, in its
@@ -258,7 +260,7 @@ export function ScanPage() {
         pile: choice?.index ?? -1, why: choice?.why ?? '', ...(choice && choice.decks.length > 0 ? { decks: choice.decks } : {}),
       }
       setSort({ ...now, scans: [...now.scans, scan] })
-      setStatus(choice ? `${card.name} — pile ${choice.index + 1}` : `${card.name} — no pile fits`)
+      sayCard(choice ? `${card.name} — pile ${choice.index + 1}` : `${card.name} — no pile fits`, card)
     }
     : null
   const fileSort = () => {
@@ -328,6 +330,26 @@ export function ScanPage() {
   const [cameraAttempt, setCameraAttempt] = useState(0)
   const [loading, setLoading] = useState<string | null>('Getting the card reader ready…')
   const [status, setStatus] = useState("Hold a card inside the frame, its name in the gold strip — or a friend's QR code.")
+  // A screen reader hears a recognised card's rarity with its line ("Added Sol Ring, Uncommon"); the
+  // line on screen stays as it was. Kept with the line it goes with, so a later line doesn't get it.
+  const [statusRarity, setStatusRarity] = useState<{ status: string; rarity: string } | null>(null)
+  /** The line for a card just recognised, with its rarity for a screen reader. */
+  const sayCard = (text: string, card: ScryfallCard) => {
+    const rarity = rarityLabel(card.rarity)
+    setStatusRarity(rarity ? { status: text, rarity } : null)
+    setStatus(text)
+  }
+  // Browsers only make sound after a tap: the scanner's first one readies the scan sounds.
+  useEffect(() => {
+    unlockScanAudio()
+    const unlock = () => unlockScanAudio()
+    window.addEventListener('pointerdown', unlock, { once: true })
+    window.addEventListener('keydown', unlock, { once: true })
+    return () => {
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('keydown', unlock)
+    }
+  }, [])
   const [seen, setSeen] = useState('')
   const [scanned, setScanned] = useState<ScanRow[]>(loadPile)
   // "Only the ones I may have scanned twice."
@@ -352,41 +374,35 @@ export function ScanPage() {
     // While a box label's sheet is up, cards wait.
     if (labelShown.current) return id
     countAction('card_scanned')
-    if (sortCard.current) {
-      sortCard.current(card, id)
+    // Its sound and buzz (Settings › Scanner): by rarity, or a sting for a valuable card.
+    cardRecognised(card)
+    const modeCard = sortCard.current
+      ? () => sortCard.current?.(card, id)
+      : tickCard.current
+        ? () => tickCard.current?.(card)
+        : putAwayCard.current
+          ? () => putAwayCard.current?.(card, id)
+          : checkCard.current
+            ? () => checkCard.current?.(card, exact)
+            : null
+    if (modeCard) {
+      modeCard()
       setFlash((n) => n + 1)
-      navigator.vibrate?.(30)
-      return id
-    }
-    if (tickCard.current) {
-      tickCard.current(card)
-      setFlash((n) => n + 1)
-      navigator.vibrate?.(30)
-      return id
-    }
-    if (putAwayCard.current) {
-      putAwayCard.current(card, id)
-      setFlash((n) => n + 1)
-      navigator.vibrate?.(30)
-      return id
-    }
-    if (checkCard.current) {
-      checkCard.current(card, exact)
-      setFlash((n) => n + 1)
-      navigator.vibrate?.(30)
       return id
     }
     setScanned((list) => {
       const row: ScanRow = { id, card, foil: false, at: Date.now(), exact }
       const next = [row, ...list]
       const copy = copyNumber(next, row)
-      setStatus(copy > 1
+      const text = copy > 1
         ? `${card.name} again — copy ${copy}${scannedTwiceOver(next, row) ? ', scanned just now' : ''}`
-        : `Added ${card.name}`)
+        : `Added ${card.name}`
+      const rarity = rarityLabel(card.rarity)
+      setStatusRarity(rarity ? { status: text, rarity } : null)
+      setStatus(text)
       return next
     })
     setFlash((n) => n + 1)
-    navigator.vibrate?.(30)
     return id
   }
 
@@ -910,7 +926,10 @@ export function ScanPage() {
         </div>
 
         <div className="scan-status">
-          <div aria-live="polite">{(camera === 'on' && loading) || status}</div>
+          <div aria-live="polite" aria-atomic="true">
+            {(camera === 'on' && loading) || status}
+            {!(camera === 'on' && loading) && statusRarity?.status === status && <span className="sr-only">, {statusRarity.rarity}</span>}
+          </div>
           {!loading && camera === 'on' && <div className="scan-seen">Reading: {seen || '…'}</div>}
         </div>
 
