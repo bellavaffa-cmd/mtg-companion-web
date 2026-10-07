@@ -19,7 +19,7 @@
 // (tests/collection/gear.test.ts ↔ GearTest.kt).
 
 import { isUnsorted, type Collection, type Deck, type GearItem, type GearKind } from '../types/models'
-import { canonicalJson } from '../sync/canonicalJson'
+import { sameJson } from '../sync/canonicalJson'
 import { withUnsortedPile } from './unsorted'
 import { placesOf } from './storagePlaces'
 
@@ -228,7 +228,7 @@ export function deckNeedsLine(deck: Deck, needs: DeckNeeds): string {
 
 // ---- Two devices ----
 
-const same = (a: unknown, b: unknown) => canonicalJson(a ?? null) === canonicalJson(b ?? null)
+const same = sameJson
 function pick<T>(base: T, mine: T, theirs: T, minePreferred: boolean): T {
   if (same(mine, theirs)) return mine
   if (same(mine, base)) return theirs

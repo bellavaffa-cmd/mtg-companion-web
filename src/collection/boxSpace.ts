@@ -58,10 +58,11 @@ export const spaceRoom = (s: Space): number => s.size - s.used
 export const nearlyFull = (s: Space): boolean => s.size > 0 && s.used * 100 >= s.size * NEARLY_FULL
 
 /** How full [place] is, or null when it has no size. */
-export function spaceOf(place: StoragePlace, collections: Collection[]): Space | null {
+export function spaceOf(place: StoragePlace, collections: Collection[], cards?: PlacedCard[]): Space | null {
   const size = placeSize(place)
   if (size === null) return null
-  return { placeId: place.id, used: spaceUsed(place, cardsIn(collections, place.id)), size }
+  // [cards]: the place's own copies when the caller has them already (cardsByPlace), in any order.
+  return { placeId: place.id, used: spaceUsed(place, cards ?? cardsIn(collections, place.id)), size }
 }
 
 /** "96% full · 612 of 640" when nearly full, else "288 of 360 pockets" (a binder) or "312 of 640". */

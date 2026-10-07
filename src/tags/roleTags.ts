@@ -284,7 +284,8 @@ export function requestTags(names: string[]): void {
  */
 export function useRoleTags(names: string[]): { tags: Map<string, string[]>; loading: { done: number; total: number } | null } {
   const [version, setVersion] = useState(0)
-  const namesKey = [...new Set(names.map(key))].sort().join('\n')
+  // Worked out again only when the names change: a big collection has thousands.
+  const namesKey = useMemo(() => [...new Set(names.map(key))].sort().join('\n'), [names])
   useEffect(() => {
     const l = () => setVersion((v) => v + 1)
     listeners.add(l)

@@ -19,7 +19,7 @@ import { nearlyFull, roomLine, spaceOf, spacePercent } from './boxSpace'
 import { loanPeople, type NightDay } from './loans'
 import { pulledCopies, pullList } from './pullList'
 import { placedPercent } from './storageSetup'
-import { cardsIn, lentByEntry, lentCopies, lentOf, lentTag, loansOf, placedCopies, placeAndInside, placesOf, placeTree, stillOut, storageSummary } from './storagePlaces'
+import { cardsByPlace, cardsIn, lentByEntry, lentCopies, lentOf, lentTag, loansOf, placedCopies, placeAndInside, placesOf, placeTree, stillOut, storageSummary } from './storagePlaces'
 
 /** A place not checked for this many days, with something of value in it, is worth checking. */
 export const CHECK_AFTER_DAYS = 90
@@ -184,6 +184,8 @@ export function upkeep({ collections, decks, now, today, nights = [], pulls = []
   const summary = storageSummary(collections, decks)
   const places = placesOf(collections)
   const items: UpkeepItem[] = []
+  // Each place's own copies, found in one pass rather than a pass per place.
+  const byPlace = cardsByPlace(collections)
 
   if (summary.unplaced > 0) {
     items.push({
@@ -200,7 +202,7 @@ export function upkeep({ collections, decks, now, today, nights = [], pulls = []
     const days = Math.floor((now - since) / DAY_MS)
     if (days < CHECK_AFTER_DAYS) return []
     // Only the place's own copies: a shelf's boxes are checked one by one.
-    const value = cardsIn(collections, p.id).reduce((n, c) => n + (price(c.entry.scryfallId, !!c.line.foil) ?? 0) * c.line.qty, 0)
+    const value = (byPlace.get(p.id) ?? []).reduce((n, c) => n + (price(c.entry.scryfallId, !!c.line.foil) ?? 0) * c.line.qty, 0)
     return value > 0 ? [{ p, days, value }] : []
   }).sort((a, b) => b.value - a.value).slice(0, MAX_CHECKS)
   for (const { p, days, value } of stale) {
@@ -228,7 +230,7 @@ export function upkeep({ collections, decks, now, today, nights = [], pulls = []
 
   for (const { place: p } of placeTree(places)) {
     if (p.kind === 'BINDER') continue
-    const space = spaceOf(p, collections)
+    const space = spaceOf(p, collections, byPlace.get(p.id) ?? [])
     if (!space || !nearlyFull(space)) continue
     items.push({ kind: 'SPLIT', title: `${p.name} is ${spacePercent(space)}% full`, detail: roomLine(space).replace(/\.$/, ''), action: 'Split', placeId: p.id })
   }

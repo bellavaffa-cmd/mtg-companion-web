@@ -6,6 +6,7 @@ import { BlockedPeople } from '../social/MoreUi'
 import { PrivacySection } from '../usage/UsageUi'
 import { useUsageEnabled } from '../usage/usage'
 import { GettingStartedSection } from '../onboarding/GettingStartedSection'
+import { DataAndSpeedSection } from '../settings/DataAndSpeedSection'
 import { rise, useBack } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
 import { currencyOf, useCurrencySetting } from '../money/currency'
@@ -33,6 +34,7 @@ const SECTIONS = [
   { id: 'appearance', title: 'Appearance', icon: 'dark_mode', to: '/settings/appearance' },
   { id: 'card-display', title: 'Card Display', icon: 'grid_view', to: '/settings/card-display' },
   { id: 'prices', title: 'Prices', icon: 'sell', to: '/settings/prices' },
+  { id: 'data', title: 'Data and speed', icon: 'speed', to: '/settings/data' },
   { id: 'blocked', title: 'Blocked people', icon: 'block', to: '/settings/blocked' },
   { id: 'privacy', title: 'Privacy', icon: 'shield', to: '/settings/privacy' },
   { id: 'getting-started', title: 'Getting started', icon: 'flag', to: '/settings/getting-started' },
@@ -67,6 +69,8 @@ export function SettingsPage() {
         const c = currencyOf(chosen)
         return `${c.name} (${c.code})`
       }
+      case 'data':
+        return 'Backup and restore, and how quick the app is'
       case 'blocked':
         return account ? 'People who can’t see your things or contact you' : 'Sign in to block people'
       case 'privacy':
@@ -116,6 +120,7 @@ export function SettingsSectionPage() {
           {found.id === 'appearance' && <AppearanceSection />}
           {found.id === 'card-display' && <CardDisplaySection />}
           {found.id === 'prices' && <PricesPanel heading={false} />}
+          {found.id === 'data' && <DataAndSpeedSection />}
           {found.id === 'blocked' && <BlockedPeople />}
           {found.id === 'privacy' && <PrivacySection />}
           {found.id === 'getting-started' && <GettingStartedSection />}

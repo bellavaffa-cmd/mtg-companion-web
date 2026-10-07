@@ -148,9 +148,24 @@ function hash(text: string): number {
  */
 export function libraryJson(lib: Library): Map<string, string> {
   const out = new Map<string, string>()
-  syncable(lib.decks).forEach((d) => out.set(`deck:${d.id}`, canonicalJson(d)))
-  syncable(lib.collections).forEach((c) => out.set(`collection:${c.id}`, canonicalJson(c)))
+  syncable(lib.decks).forEach((d) => out.set(`deck:${d.id}`, itemJson(d)))
+  syncable(lib.collections).forEach((c) => out.set(`collection:${c.id}`, itemJson(c)))
   return out
+}
+
+/**
+ * Each deck's and binder's JSON, kept while that very object is in the library. Every change makes a
+ * new object for what it changes and leaves the rest as they were, so a sync pass only writes out
+ * what changed since the last one — a big library's every binder each pass was most of a pass.
+ */
+const jsonOf = new WeakMap<object, string>()
+function itemJson(item: Deck | Collection): string {
+  let json = jsonOf.get(item)
+  if (json === undefined) {
+    json = canonicalJson(item)
+    jsonOf.set(item, json)
+  }
+  return json
 }
 
 interface RemoteRow {

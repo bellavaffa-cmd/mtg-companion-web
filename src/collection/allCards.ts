@@ -7,6 +7,7 @@ import type { Collection, CollectionEntry, Deck } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 import { proxyCopies } from '../decks/proxies'
 import { withCopiesOf } from './copyDetails'
+import { matchesNameOrTag, tagsOf } from '../tags/roleTags'
 
 export interface CardSource {
   kind: 'binder' | 'deck'
@@ -59,7 +60,37 @@ export function allCardsOf(collections: Collection[], decks: Deck[]): AllCard[] 
       add(e, proxies, { kind: 'deck', id: d.id, name: d.name, quantity: proxies, proxy: true })
     }
   }
-  return [...byCard.values()].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+  return byName(byCard.values())
+}
+
+// The same order as comparing with localeCompare, but each name lowered once and one collator reused:
+// sorting 18,000 printings with localeCompare inside the comparison took most of the time here.
+const collator = new Intl.Collator()
+function byName(cards: Iterable<AllCard>): AllCard[] {
+  const keyed = [...cards].map((c) => ({ k: c.name.toLowerCase(), c }))
+  keyed.sort((a, b) => collator.compare(a.k, b.k))
+  return keyed.map((x) => x.c)
+}
+
+/**
+ * The cards a search by name or tag finds: all of them when [query] is blank. [tagsFor] is only asked
+ * about cards when there's something to look for, since it's the costly part (see allCardTags).
+ */
+export function searchAllCards(cards: AllCard[], query: string, tagsFor: (card: AllCard) => string[]): AllCard[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return cards
+  return cards.filter((c) => matchesNameOrTag(c.name, tagsFor(c), q))
+}
+
+/**
+ * A card's tags as All cards searches them: what it does (role tags, by name), the user's own (from a
+ * userTagIndex of the library, made once rather than looked up card by card), and "proxy" when some
+ * of its copies are.
+ */
+export function allCardTags(card: AllCard, roleTags: Map<string, string[]>, userTags: Map<string, string[]>): string[] {
+  const role = tagsOf(roleTags, card.name)
+  const mine = userTags.get(card.scryfallId) ?? []
+  return card.proxies > 0 ? [...role, ...mine, 'proxy'] : [...role, ...mine]
 }
 
 /** [collections] with every copy of the cards [ids] in the other owned binders gathered into [toId]. */
@@ -67,17 +98,24 @@ export function gatherInto(collections: Collection[], toId: string, ids: Set<str
   const sources = collections.filter((c) => c.id !== toId && owns(c))
   const moving = sources.flatMap((c) => c.entries.filter((e) => ids.has(e.scryfallId)))
   if (moving.length === 0) return collections
+  const fromSources = new Set(sources)
   return collections.map((c) => {
     if (c.id === toId) {
-      let entries = c.entries
+      // By printing, so gathering thousands of cards doesn't search the binder once per copy.
+      const entries = [...c.entries]
+      const at = new Map(entries.map((e, i) => [e.scryfallId, i]))
       for (const m of moving) {
-        entries = entries.some((e) => e.scryfallId === m.scryfallId)
-          ? entries.map((e) => (e.scryfallId === m.scryfallId ? withCopiesOf(e, m) : e))
-          : [...entries, { ...m }]
+        const i = at.get(m.scryfallId)
+        if (i === undefined) {
+          at.set(m.scryfallId, entries.length)
+          entries.push({ ...m })
+        } else {
+          entries[i] = withCopiesOf(entries[i], m)
+        }
       }
       return { ...c, entries }
     }
-    return sources.includes(c) ? { ...c, entries: c.entries.filter((e) => !ids.has(e.scryfallId)) } : c
+    return fromSources.has(c) ? { ...c, entries: c.entries.filter((e) => !ids.has(e.scryfallId)) } : c
   })
 }
 
@@ -131,7 +169,8 @@ export function exportEntries(collections: Collection[], cards: AllCard[], ids: 
  */
 export function csvExportEntries(collections: Collection[], cards: AllCard[], ids: Set<string>): CollectionEntry[] {
   const owned = collections.filter(owns).flatMap((c) => c.entries).filter((e) => ids.has(e.scryfallId))
-  const deckOnly = cards.filter((c) => ids.has(c.scryfallId) && !owned.some((e) => e.scryfallId === c.scryfallId))
+  const inBinders = new Set(owned.map((e) => e.scryfallId))
+  const deckOnly = cards.filter((c) => ids.has(c.scryfallId) && !inBinders.has(c.scryfallId))
     .map((c): CollectionEntry => ({ scryfallId: c.scryfallId, name: c.name, imageUrl: c.imageUrl, quantity: c.total - c.proxies, foilQuantity: 0 }))
     .filter((e) => e.quantity > 0)
   return [...owned, ...deckOnly]

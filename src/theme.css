@@ -4820,3 +4820,79 @@ button.tag-chip {
 .import-place-row .v { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .import-place-row .n { font-size: 0.8125rem; color: var(--t1); }
 .import-place-row .input { flex: 1.3; min-width: 0; padding-top: 8px; padding-bottom: 8px; }
+
+/* ---- Settings › Data and speed ---- */
+
+.data-rows {
+  display: grid;
+  gap: 10px;
+}
+.data-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.875rem;
+}
+.data-row > span {
+  color: var(--t1);
+}
+.data-row > b {
+  font-weight: 700;
+  text-align: right;
+}
+.data-row > b.quick {
+  color: var(--ok);
+}
+.backup-panel h3 {
+  margin: 0;
+  font-size: 0.9375rem;
+}
+.backup-panel > p {
+  margin: 6px 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+.backup-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 10px;
+}
+.backup-actions .btn {
+  flex: 1;
+}
+.backup-status {
+  margin: 10px 0 0;
+}
+.backup-summary {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+.backup-modes {
+  display: grid;
+  gap: 8px;
+}
+.backup-mode {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--g2);
+  cursor: pointer;
+}
+.backup-mode input {
+  margin-top: 3px;
+}
+.backup-mode small {
+  display: block;
+  margin-top: 2px;
+  color: var(--t1);
+  line-height: 1.4;
+}
+.list-more {
+  padding: 14px 0;
+  text-align: center;
+  font-size: 0.8125rem;
+}

@@ -112,6 +112,21 @@ export function setAskOver(usd: number | null) {
   write(usd !== null && usd >= 0 ? { ...rest, askOver: usd } : rest)
 }
 
+/**
+ * A restored backup's photos (sync/backupFile.ts): [photos] in place of the details kept, [pictures]
+ * written under their ids, the pictures [dropped] (replaced copies' old ones) taken out. The setting
+ * comes back too when [askOver] is given.
+ */
+export async function restorePhotos(photos: CopyPhoto[], pictures: Map<string, Blob>, dropped: string[], askOver?: number): Promise<void> {
+  const now = await loadCopyPhotos()
+  for (const [id, blob] of pictures) {
+    memory.set(id, blob)
+    writing = writing.then(() => put(id, blob)).catch(() => { /* kept for this visit */ })
+  }
+  for (const id of dropped) memory.delete(id)
+  write({ ...now, photos, ...(askOver !== undefined ? { askOver } : {}) }, dropped)
+}
+
 /** A picture scaled down to MAX_SIDE on its long side, as a JPEG. */
 async function scaled(file: Blob): Promise<Blob> {
   const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
