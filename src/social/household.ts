@@ -10,6 +10,7 @@ import { useSync } from '../sync/SyncContext'
 import { call, SocialError } from './api'
 import { HOUSEHOLD_ERRORS, type HouseholdCards, type MyHouseholds, type Shelf } from './householdLogic'
 import type { PlaceKind } from '../types/models'
+import { useAreaChanges } from './liveChanges'
 
 let probe: Promise<boolean> | null = null
 
@@ -62,6 +63,8 @@ export function useHouseholds(): { state: HouseholdsState; reload: () => Promise
   const { account } = useSync()
   const userId = account?.userId ?? null
   const [state, setState] = useState<HouseholdsState>({ kind: 'loading' })
+  // A household or its loans changed elsewhere (a live ping): load again.
+  const live = useAreaChanges('household') + useAreaChanges('loans')
   const reload = useCallback(async () => {
     if (!userId) return
     try {
@@ -72,7 +75,7 @@ export function useHouseholds(): { state: HouseholdsState; reload: () => Promise
       else setState({ kind: 'error', message: householdError(e) })
     }
   }, [userId])
-  useEffect(() => { void reload() }, [reload])
+  useEffect(() => { void reload() }, [reload, live])
   return { state: userId ? state : { kind: 'signed-out' }, reload }
 }
 

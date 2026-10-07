@@ -20,6 +20,7 @@ import {
   type NightInvite, type RsvpAnswer,
 } from '../social/nightsLogic'
 import '../social/nights.css'
+import { bumpAreas, useAreaChanges } from '../social/liveChanges'
 
 // A game night invite (the Invite mockup): when and where, Going / Maybe / Can't with the deck
 // you'll bring, who's coming, "Ready for the night" (Pack your bag, Trade matches tonight, cards to
@@ -62,7 +63,9 @@ function Invite({ overview, nightId }: { overview: api.Overview; nightId: string
   const load = useCallback(() => {
     gameNight(nightId).then((n) => { setNight(n); setError(null) }).catch((e: unknown) => setError(e instanceof Error ? e.message : 'Something went wrong.'))
   }, [nightId])
-  useEffect(() => { if (available) load() }, [available, load])
+  // Also when a night changes elsewhere: the app-wide live channel (SocialContext).
+  const nightChanges = useAreaChanges('nights')
+  useEffect(() => { if (available) load() }, [available, load, nightChanges])
   usePodLive({ onNight: (id) => { if (id === nightId) load() }, onReconnect: load }, !!available)
   useEffect(() => {
     let live = true
@@ -94,6 +97,7 @@ function Invite({ overview, nightId }: { overview: api.Overview; nightId: string
     try {
       const n = await rsvpGameNight(night.id, a, a === 'cant' ? null : deck)
       if (n) setNight(n)
+      bumpAreas('nights')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.')
     } finally {

@@ -11,13 +11,14 @@ import { ShareWithFriend } from '../social/ShareWithFriend'
 import { SharedRow, SocialGate, WholeCollectionRow } from './FriendsPage'
 import * as more from '../social/more'
 import { BlockReportButton, ReputationLine } from '../social/MoreUi'
+import { withoutFriend } from '../social/live'
 
 /** One friend: what they've shared with the user, trading with them, and unfriending. */
 export function FriendPage() {
   const { id = '' } = useParams<{ id: string }>()
   const back = useBack('/friends')
   const navigate = useNavigate()
-  const { refresh } = useOverview()
+  const { mutate } = useOverview()
   const [confirmRemove, setConfirmRemove] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const available = more.useSocialMore()
@@ -123,8 +124,7 @@ export function FriendPage() {
                             className="btn danger"
                             onClick={async () => {
                               try {
-                                await api.removeFriend(id)
-                                await refresh()
+                                await mutate(() => api.removeFriend(id), { optimistic: (o) => withoutFriend(o, id), areas: ['friends'] })
                                 navigate('/friends', { replace: true })
                               } catch (e) {
                                 setError(e instanceof Error ? e.message : 'Something went wrong.')

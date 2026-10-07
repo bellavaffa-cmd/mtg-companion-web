@@ -8,7 +8,7 @@ import { Dialog } from '../components/Dialog'
 import { ArtImage, IconButton, PageHeader, SectionHeader, SegmentedTabs, rise, toArtCrop, useLayoutSize } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
 import * as api from '../social/api'
-import { useOverview, useSocial } from '../social/SocialContext'
+import { useOverview } from '../social/SocialContext'
 import { ProfileEditor } from '../social/ProfileEditor'
 import { NotificationsPanel } from '../social/NotificationsPanel'
 import { Avatar, handle, QrCode } from '../social/ui'
@@ -25,6 +25,8 @@ import { loanPeople } from '../collection/loans'
 import { loansOf } from '../collection/storagePlaces'
 import { todayDay } from '../decks/league'
 import { useMoney } from '../money/currency'
+import { withFriendAccepted, withoutFriend } from '../social/live'
+import { useAreaChanges } from '../social/liveChanges'
 
 /**
  * Friends, a tab of the bottom bar, in four tabs (friendsTabs.ts): People — the next game night,
@@ -41,7 +43,6 @@ export function FriendsPage() {
   const wide = useLayoutSize() !== 'phone'
   const [params, setParams] = useSearchParams()
   const { account } = useSync()
-  const { refresh } = useSocial()
   const profile = params.get('tab') === 'profile'
   const [adding, setAdding] = useState(false)
   return (
@@ -68,7 +69,7 @@ export function FriendsPage() {
       </div>
       {adding && (
         <Dialog title="Add a friend" onDismiss={() => setAdding(false)} actions={<button type="button" className="btn line" onClick={() => setAdding(false)}>Close</button>}>
-          <AddFriend onAdded={refresh} onShowQr={() => { setAdding(false); setParams({ tab: 'profile' }) }} />
+          <AddFriend onShowQr={() => { setAdding(false); setParams({ tab: 'profile' }) }} />
         </Dialog>
       )}
     </>
@@ -162,7 +163,7 @@ function FriendsContent({ overview }: { overview: api.Overview }) {
  */
 function PeopleTab({ overview }: { overview: api.Overview }) {
   const navigate = useNavigate()
-  const { refresh } = useOverview()
+  const { mutate } = useOverview()
   const { collections } = useSync()
   const money = useMoney()
   const me = overview.me!
@@ -197,7 +198,7 @@ function PeopleTab({ overview }: { overview: api.Overview }) {
           <SectionHeader title="Friend requests" />
           <div className="list">
             {incoming.map((f) => (
-              <RequestRow key={f.user_id} profile={person(f.user_id)} userId={f.user_id} onDone={refresh} />
+              <RequestRow key={f.user_id} profile={person(f.user_id)} userId={f.user_id} />
             ))}
           </div>
         </>
@@ -294,7 +295,7 @@ function PeopleTab({ overview }: { overview: api.Overview }) {
                     <span className="person-name">{p?.display_name ?? 'Someone'}</span>
                     <span className="dim">{p ? handle(p) : ''}</span>
                   </span>
-                  <AsyncButton className="btn line sm" run={() => api.removeFriend(f.user_id)} done={refresh}>Cancel</AsyncButton>
+                  <AsyncButton className="btn line sm" run={() => mutate(() => api.removeFriend(f.user_id), { optimistic: (o) => withoutFriend(o, f.user_id), areas: ['friends'] })}>Cancel</AsyncButton>
                 </div>
               )
             })}
@@ -330,9 +331,10 @@ function TradesTab({ overview, more }: { overview: api.Overview; more: boolean }
   // What friends have lent the user (supabase/migrations/20261006010000_loans.sql) — nothing if the
   // server can't say.
   const [borrowed, setBorrowed] = useState(0)
+  const loanChanges = useAreaChanges('loans')
   useEffect(() => {
     api.myBorrowedLoans().then((l) => setBorrowed(l.reduce((n, x) => n + x.cards.reduce((m, c) => m + c.qty, 0), 0))).catch(() => {})
-  }, [])
+  }, [loanChanges])
   const wants = useWantsFromYou(overview)
   return (
     <TradeInboxList
@@ -439,8 +441,9 @@ export function WholeCollectionRow({ owner, name, binders, whole }: { owner: str
   )
 }
 
-function AddFriend({ onAdded, onShowQr }: { onAdded: () => Promise<void>; onShowQr: () => void }) {
+function AddFriend({ onShowQr }: { onShowQr: () => void }) {
   const navigate = useNavigate()
+  const { mutate } = useOverview()
   const [username, setUsername] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null)
@@ -450,13 +453,12 @@ function AddFriend({ onAdded, onShowQr }: { onAdded: () => Promise<void>; onShow
     setBusy(true)
     setMessage(null)
     try {
-      const result = await api.requestFriend(name)
+      const result = await mutate(() => api.requestFriend(name), { areas: ['friends'] })
       setMessage({
         ok: true,
         text: result === 'accepted' ? `You and @${name} are now friends.` : result === 'already' ? `You've already asked @${name}.` : `Asked @${name} — they'll see your request.`,
       })
       setUsername('')
-      await onAdded()
     } catch (e) {
       setMessage({ ok: false, text: e instanceof Error ? e.message : 'Something went wrong.' })
     } finally {
@@ -483,7 +485,13 @@ function AddFriend({ onAdded, onShowQr }: { onAdded: () => Promise<void>; onShow
   )
 }
 
-function RequestRow({ profile, userId, onDone }: { profile: api.Profile | null; userId: string; onDone: () => Promise<void> }) {
+function RequestRow({ profile, userId }: { profile: api.Profile | null; userId: string }) {
+  const { mutate } = useOverview()
+  // The answer shows at once; the server's overview replaces it.
+  const answer = (accept: boolean) => mutate(() => api.respondFriend(userId, accept), {
+    optimistic: (o) => (accept ? withFriendAccepted(o, userId) : withoutFriend(o, userId)),
+    areas: ['friends'],
+  })
   return (
     <div className="person-row">
       <Avatar profile={profile} size={44} />
@@ -491,8 +499,8 @@ function RequestRow({ profile, userId, onDone }: { profile: api.Profile | null; 
         <span className="person-name">{profile?.display_name ?? 'Someone'}</span>
         <span className="dim">{profile ? handle(profile) : ''}</span>
       </span>
-      <AsyncButton className="btn line sm" run={() => api.respondFriend(userId, false)} done={onDone}>Decline</AsyncButton>
-      <AsyncButton className="btn gold sm" run={() => api.respondFriend(userId, true)} done={onDone}>Accept</AsyncButton>
+      <AsyncButton className="btn line sm" run={() => answer(false)}>Decline</AsyncButton>
+      <AsyncButton className="btn gold sm" run={() => answer(true)}>Accept</AsyncButton>
     </div>
   )
 }

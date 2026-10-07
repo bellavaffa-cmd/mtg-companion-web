@@ -15,7 +15,7 @@ export function AddFriendLinkPage() {
   const { username = '' } = useParams<{ username: string }>()
   const back = useBack('/friends')
   const navigate = useNavigate()
-  const { refresh } = useOverview()
+  const { mutate } = useOverview()
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const name = username.toLowerCase()
@@ -57,9 +57,8 @@ export function AddFriendLinkPage() {
                         onClick={async () => {
                           setBusy(true)
                           try {
-                            const r = await api.requestFriend(name)
+                            const r = await mutate(() => api.requestFriend(name), { areas: ['friends'] })
                             setResult({ ok: true, text: r === 'accepted' ? "You're now friends." : r === 'already' ? 'You already asked — waiting for their answer.' : 'Asked! They’ll see your request.' })
-                            await refresh()
                           } catch (e) {
                             setResult({ ok: false, text: e instanceof Error ? e.message : 'Something went wrong.' })
                           } finally {

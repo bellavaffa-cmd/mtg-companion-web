@@ -17,6 +17,7 @@ import { myBorrowedLoans, type BorrowedLoan } from '../social/api'
 import type { Collection, Loan } from '../types/models'
 import '../collection/storage.css'
 import '../collection/loans.css'
+import { useAreaChanges } from '../social/liveChanges'
 
 /**
  * Loans: the cards lent out, a group per person — overdue first, each card with where it goes back
@@ -46,10 +47,16 @@ export function LoansPage() {
   useEffect(() => {
     if (!account) return
     void sendFriendLoans(loansOf(collections), Date.now())
-    myBorrowedLoans().then(setBorrowed).catch(() => setBorrowed('failed'))
     // Once per visit to the page.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account])
+  // What's borrowed, loaded again when a loan changes elsewhere (a live ping). Only read here:
+  // sending loans would change them and ping again.
+  const loanChanges = useAreaChanges('loans')
+  useEffect(() => {
+    if (!account) return
+    myBorrowedLoans().then(setBorrowed).catch(() => setBorrowed('failed'))
+  }, [account, loanChanges])
 
   const gotBack = (person: LoanPerson, counts?: Map<string, number[]>) => {
     const now = Date.now()

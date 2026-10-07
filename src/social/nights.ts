@@ -10,6 +10,7 @@ import { accessToken } from '../sync/supabaseAuth'
 import { watchDm } from '../sync/realtime'
 import { useSync } from '../sync/SyncContext'
 import { call, SocialError } from './api'
+import { useAreaChanges } from './liveChanges'
 import {
   parseNightInvite, parseNightInvites, parsePodChats, parsePodMessage, parsePodMessages,
   type NightInvite, type PodChat, type PodMessage, type PodMessageRef, type RsvpAnswer,
@@ -136,12 +137,14 @@ export function useGameNights(podId: string | null = null): { nights: NightInvit
   const available = useNightsAvailable()
   const [nights, setNights] = useState<NightInvite[] | null>(null)
   const [tick, setTick] = useState(0)
+  // Also when a night changes elsewhere: the app-wide live channel (SocialContext).
+  const live = useAreaChanges('nights')
   useEffect(() => {
     if (!available) return
     let cancelled = false
     gameNights(podId).then((n) => { if (!cancelled) setNights(n) }).catch(() => { if (!cancelled) setNights((x) => x ?? []) })
     return () => { cancelled = true }
-  }, [available, podId, tick])
+  }, [available, podId, tick, live])
   usePodLive({ onNight: () => setTick((t) => t + 1), onReconnect: () => setTick((t) => t + 1) }, !!available)
   return { nights: available === false ? [] : nights, available, reload: () => setTick((t) => t + 1) }
 }

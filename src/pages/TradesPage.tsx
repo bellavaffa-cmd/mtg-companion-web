@@ -16,6 +16,7 @@ import * as more from '../social/more'
 import { BlockReportButton, RateTrade } from '../social/MoreUi'
 import { communityRules } from '../social/communityRules'
 import { doneLabel, tradeInbox, tradeSummary } from '../social/friendsHub'
+import { openKey, withTradeApplied, withTradeStatus } from '../social/live'
 
 /** Trades with friends: the trade inbox (TradeInboxList), as on Friends' Trades tab. */
 export function TradesPage() {
@@ -52,13 +53,15 @@ export function TradeInboxList({ overview, wants, footer }: { overview: api.Over
     return () => { cancelled = true }
   }, [available, overview])
   const inbox = tradeInbox(overview.trades, me, blocked)
-  // The lines opened into full trades.
-  const [opened, setOpened] = useState<Set<string>>(new Set())
+  // The lines opened into full trades, by id and status: a trade whose status changes (cancelled,
+  // declined…) goes back to its one line, where it now belongs, rather than staying open in full.
+  const [openedKeys, setOpenedKeys] = useState<Set<string>>(new Set())
+  const opened = { has: (t: api.Trade) => openedKeys.has(openKey(t)) }
   const [allDone, setAllDone] = useState(false)
   const friends = overview.friends.filter((f) => f.status === 'accepted')
   const nameOf = (id: string) => overview.people[id]?.display_name ?? 'Someone'
   const day = (t: api.Trade) => new Date(t.updated_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
-  const open = (id: string) => setOpened((s) => new Set(s).add(id))
+  const open = (t: api.Trade) => setOpenedKeys((s) => new Set(s).add(openKey(t)))
   const full = (t: api.Trade) => (
     <TradeCardView
       key={t.id}
@@ -85,7 +88,7 @@ export function TradeInboxList({ overview, wants, footer }: { overview: api.Over
           <SectionHeader title={`Waiting on them · ${inbox.waitingOnThem.length}`} />
           <div className="list">
             {inbox.waitingOnThem.map((t) => {
-              if (opened.has(t.id)) return full(t)
+              if (opened.has(t)) return full(t)
               const other = tradeSides(t, me).other
               const sent = t.status === 'open'
               return (
@@ -94,7 +97,7 @@ export function TradeInboxList({ overview, wants, footer }: { overview: api.Over
                   title={sent ? `To ${nameOf(other)}` : `With ${nameOf(other)}`}
                   detail={sent ? tradeSummary(t, me) : `Accepted — ${nameOf(other)} is updating their binders`}
                   end={sent ? `Sent ${day(t)}` : day(t)}
-                  onClick={() => open(t.id)}
+                  onClick={() => open(t)}
                 />
               )
             })}
@@ -112,12 +115,12 @@ export function TradeInboxList({ overview, wants, footer }: { overview: api.Over
             onAction={() => setAllDone((v) => !v)}
           />
           <div className="list">
-            {done.map((t) => (opened.has(t.id) ? full(t) : (
+            {done.map((t) => (opened.has(t) ? full(t) : (
               <TradeLine
                 key={t.id}
                 title={`With ${nameOf(tradeSides(t, me).other)} · ${day(t)}`}
                 end={doneLabel(t, me, ratings[t.id])}
-                onClick={() => open(t.id)}
+                onClick={() => open(t)}
               />
             )))}
           </div>
@@ -164,7 +167,7 @@ function TradeCardView({ trade, overview, more: withMore, rating, onRated }: {
   onRated: (positive: boolean) => void
 }) {
   const navigate = useNavigate()
-  const { refresh } = useOverview()
+  const { mutate } = useOverview()
   const me = overview.me!.user_id
   const { give, get, other } = tradeSides(trade, me)
   const them = overview.people[other] ?? null
@@ -175,12 +178,12 @@ function TradeCardView({ trade, overview, more: withMore, rating, onRated }: {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const run = async (action: () => Promise<unknown>) => {
+  // Shown at once (the trade moves to where it now belongs), then the server's answer replaces it.
+  const run = async (status: api.TradeStatus, action: () => Promise<unknown>) => {
     setBusy(true)
     setError(null)
     try {
-      await action()
-      await refresh()
+      await mutate(action, { optimistic: (o) => withTradeStatus(o, trade.id, status), areas: ['trades'] })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.')
     } finally {
@@ -246,7 +249,7 @@ function TradeCardView({ trade, overview, more: withMore, rating, onRated }: {
       )}
       {trade.status === 'open' && !incoming && (
         <div className="trade-actions">
-          <button type="button" className="btn line sm" disabled={busy} onClick={() => void run(() => api.respondTrade(trade.id, 'cancel'))}>Cancel request</button>
+          <button type="button" className="btn line sm" disabled={busy} onClick={() => void run('cancelled', () => api.respondTrade(trade.id, 'cancel'))}>Cancel request</button>
         </div>
       )}
       {withMore && <RateTrade trade={trade} me={me} rating={rating} name={theirName} onRated={onRated} />}
@@ -263,7 +266,7 @@ function TradeCardView({ trade, overview, more: withMore, rating, onRated }: {
           onCancel={() => setAnswering(null)}
           onSend={(reply) => {
             setAnswering(null)
-            const answer = () => void run(() => api.respondTrade(trade.id, answering, reply))
+            const answer = () => void run(answering === 'accept' ? 'accepted' : 'declined', () => api.respondTrade(trade.id, answering, reply))
             // A reply with a message is something they read: the community rules first, once.
             if (reply.trim()) communityRules.require(answer)
             else answer()
@@ -301,7 +304,7 @@ function AnswerDialog({ accept, name, onCancel, onSend }: { accept: boolean; nam
  */
 function UpdateBindersDialog({ trade, me, theirName, onClose }: { trade: api.Trade; me: string; theirName: string; onClose: () => void }) {
   const { collections, changeCollections } = useSync()
-  const { refresh } = useOverview()
+  const { refresh, applyLocal } = useOverview()
   const owned = collections.filter((c) => c.type !== 'WISHLIST')
   const { give, get } = tradeSides(trade, me)
   const givenFrom = give.map((c) => c.collectionId).find((id) => owned.some((b) => b.id === id))
@@ -338,7 +341,8 @@ function UpdateBindersDialog({ trade, me, theirName, onClose }: { trade: api.Tra
       setBusy(false)
     }
     // The cards have moved, so the job is done even if the refresh fails — offering to try again
-    // here would move them a second time. The trade list catches up on its next refresh.
+    // here would move them a second time. Shown done at once; the rest of the list catches up.
+    applyLocal((o) => withTradeApplied(o, trade.id, me))
     await refresh().catch(() => {})
     if (missing.length > 0) setShort(missing)
     else onClose()

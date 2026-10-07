@@ -16,6 +16,7 @@ import {
   type ReportReason,
 } from './moreLogic'
 import './more.css'
+import { withoutFriend } from './live'
 
 const message = (e: unknown) => (e instanceof Error ? e.message : 'Something went wrong.')
 
@@ -88,15 +89,14 @@ export function BlockReportButton({ userId, name, item, onBlocked, compact = fal
 }
 
 function BlockDialog({ userId, name, onClose }: { userId: string; name: string; onClose: (blocked: boolean) => void }) {
-  const { refresh } = useOverview()
+  const { mutate } = useOverview()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const block = async () => {
     setBusy(true)
     setError(null)
     try {
-      await more.blockUser(userId)
-      await refresh().catch(() => {})
+      await mutate(() => more.blockUser(userId), { optimistic: (o) => withoutFriend(o, userId), areas: ['friends', 'trades'] })
       onClose(true)
     } catch (e) {
       setError(message(e))

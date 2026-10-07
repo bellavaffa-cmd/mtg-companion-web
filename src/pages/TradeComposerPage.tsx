@@ -16,6 +16,7 @@ import { TradeValue } from '../social/TradeValue'
 import * as more from '../social/more'
 import { matchSentence } from '../social/moreLogic'
 import { communityRules } from '../social/communityRules'
+import { withTradeStatus } from '../social/live'
 
 interface TheirBinder { id: string; name: string; entries: CollectionEntry[] }
 
@@ -43,7 +44,7 @@ function Composer({ overview }: { overview: api.Overview }) {
   const location = useLocation()
   const [params] = useSearchParams()
   const { collections } = useSync()
-  const { refresh } = useOverview()
+  const { mutate } = useOverview()
   const to = params.get('to') ?? ''
   const replyTo = overview.trades.find((t) => t.id === params.get('reply') && t.status === 'open' && t.to_user === overview.me?.user_id) ?? null
   const friend = overview.people[to] ?? null
@@ -120,9 +121,12 @@ function Composer({ overview }: { overview: api.Overview }) {
     setBusy(true)
     setError(null)
     try {
-      await api.proposeTrade(to, want, give, message.trim(), replyTo?.id ?? null)
+      // A counter-offer closes the trade it answers at once.
+      await mutate(() => api.proposeTrade(to, want, give, message.trim(), replyTo?.id ?? null), {
+        optimistic: replyTo ? (o) => withTradeStatus(o, replyTo.id, 'countered') : undefined,
+        areas: ['trades'],
+      })
       countAction('trade_proposed')
-      await refresh()
       navigate('/trades', { replace: true })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.')

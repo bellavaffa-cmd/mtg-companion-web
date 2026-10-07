@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Avatar } from './ui'
 import { householdError, respondHousehold } from './household'
 import type { HouseholdInvite } from './householdLogic'
+import { bumpAreas } from './liveChanges'
 
 /** Invitations to share storage, with Decline and Accept — on this page and on Friends. */
 export function HouseholdInvites({ invites, onDone }: { invites: HouseholdInvite[]; onDone: (accepted: string | null) => unknown }) {
@@ -12,6 +13,7 @@ export function HouseholdInvites({ invites, onDone }: { invites: HouseholdInvite
     setError(null)
     try {
       await respondHousehold(inv.id, yes)
+      bumpAreas('household')
       await onDone(yes ? inv.id : null)
     } catch (e) {
       setError(householdError(e))

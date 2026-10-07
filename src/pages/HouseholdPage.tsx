@@ -22,6 +22,7 @@ import {
 } from '../social/householdLogic'
 import '../collection/storage.css'
 import '../social/household.css'
+import { bumpAreas } from '../social/liveChanges'
 
 const count = (n: number) => n.toLocaleString('en-GB')
 
@@ -139,7 +140,7 @@ function HouseholdView({ household: h, reload }: { household: Household; reload:
 
   const act = async (run: () => Promise<unknown>) => {
     setError(null)
-    try { await run(); await reload(); await loadCards() } catch (e) { setError(householdError(e)) }
+    try { await run(); bumpAreas('household'); await reload(); await loadCards() } catch (e) { setError(householdError(e)) }
   }
   // "Keep my cards here too": the place goes in the user's own storage (same id), then the household is told.
   const join = (placeId: string) => act(async () => {
