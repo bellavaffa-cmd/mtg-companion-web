@@ -25,9 +25,12 @@ interface Props {
   onApart: (kind: ApartKind) => void
   onDone: () => void
   onFinishCheck: () => void
+  /** The newest card was put right by a correction learned before (scan/scanCorrections.ts). */
+  learned?: boolean
+  onLearned?: () => void
 }
 
-export function RecipeScanPanel({ session, derived, ctx, voice, rate, onUndo, onWrong, onSend, onPutInDeck, onApart, onDone, onFinishCheck }: Props) {
+export function RecipeScanPanel({ session, derived, ctx, voice, rate, onUndo, onWrong, onSend, onPutInDeck, onApart, onDone, onFinishCheck, learned = false, onLearned }: Props) {
   const money = useMoney()
   const price = (usd: number) => money.format(usd)
   const scans = session.scans
@@ -125,6 +128,7 @@ export function RecipeScanPanel({ session, derived, ctx, voice, rate, onUndo, on
           {alt && <button type="button" onClick={() => onSend(alt)}>Send to pile {alt.pile} instead</button>}
           <button type="button" onClick={onUndo} disabled={!!last.filed}>Undo</button>
           {!last.filed && <button type="button" onClick={onWrong}>Wrong card?</button>}
+          {learned && <button type="button" className="rscan-learned" aria-label={`Learned from your correction: ${last.name}`} onClick={onLearned}>Learned</button>}
           {last.filed && <span className="last" style={{ textAlign: 'left' }}>Put with its deck</span>}
           <span className="last">{before && beforePile ? `Last: ${beforePile.number} · ${beforePile.name}` : ''}</span>
         </div>

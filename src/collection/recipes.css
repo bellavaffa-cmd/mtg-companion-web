@@ -52,6 +52,7 @@
 .rscan-bar { padding: 4px 18px; border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
 .rscan-bar button { border: 0; background: transparent; color: var(--gold); font: 700 0.8125rem var(--ui); padding: 0; min-height: 44px; cursor: pointer; }
 .rscan-bar button:disabled { color: var(--t2); cursor: default; }
+.rscan-bar button.rscan-learned { min-height: 32px; padding: 4px 10px; border-radius: 12px; background: var(--gold-soft); color: var(--gold-light); font-size: 0.75rem; }
 .rscan-bar .last { flex: 1; text-align: right; color: #a7b8d3; font-size: 0.8125rem; }
 .rscan-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .rscan-chip { min-height: 32px; padding: 0 12px; border-radius: 16px; background: var(--g2); font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }

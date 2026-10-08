@@ -3,6 +3,8 @@ import { useMoney } from '../money/currency'
 import { previewCue, setScanSound, useScanSound } from '../scan/scanFeedback'
 import { useAutoCameraSetting } from '../components/useAutoCamera'
 import { parseThreshold, SOUND_MODE_LABELS, type ScanCue, type ScanSoundMode } from '../scan/scanSounds'
+import { correctedLine, correctionsOf, forgetCorrection, readLine, usedLine, withCorrections } from '../scan/scanCorrections'
+import { useSync } from '../sync/SyncContext'
 
 /** Play all's buttons, in the order Play all plays them. The Android app's ScannerSection.kt. */
 const PREVIEWS: { label: string; cue: ScanCue }[] = [
@@ -32,7 +34,61 @@ function Switch({ on, title, note, onChange }: { on: boolean; title: string; not
   )
 }
 
-/** Settings › Scanner: the sound and buzz when the scanner recognises a card (scan/scanFeedback.ts), and auto zoom and focus. */
+/**
+ * Learned corrections (scan/scanCorrections.ts): what the scanner read and what it puts in instead, how
+ * often, with Forget for each and Forget all. Synced with the collection. The Android app's ScannerSection.kt.
+ */
+function LearnedCorrections() {
+  const { collections, changeStorage } = useSync()
+  const list = correctionsOf(collections)
+  const [open, setOpen] = useState(false)
+  const [sure, setSure] = useState(false)
+  const forget = (key: string) => changeStorage((c) => withCorrections(c, forgetCorrection(correctionsOf(c), key)))
+  return (
+    <>
+      <button type="button" className="settings-row" style={{ width: '100%', background: 'none', border: 0, color: 'inherit', font: 'inherit', textAlign: 'left', cursor: 'pointer' }} aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span className="grow">Learned corrections ({list.length})</span>
+        <span className="dim" aria-hidden>{open ? '▴' : '▾'}</span>
+      </button>
+      {open && (
+        <>
+          <p className="dim settings-note">
+            When you change a scanned card to another printing, the scanner remembers what it read and puts in
+            your pick next time. A printing picked for a card whose set can't be read is used once you've picked it twice.
+          </p>
+          {list.length === 0 && <p className="dim settings-note">Nothing learned yet.</p>}
+          {list.map((c) => (
+            <div key={c.key} className="settings-row">
+              <span className="grow">
+                <span className="dim" style={{ display: 'block', fontSize: '0.8125rem' }}>{readLine(c)}</span>
+                <b style={{ display: 'block' }}>→ {correctedLine(c)}</b>
+                <span className="dim" style={{ display: 'block', fontSize: '0.75rem' }}>{usedLine(c)}</span>
+              </span>
+              <button type="button" className="btn line" aria-label={`Forget: ${readLine(c)}`} onClick={() => forget(c.key)}>Forget</button>
+            </div>
+          ))}
+          {list.length > 0 && (
+            <div className="settings-row">
+              <span className="grow">{sure ? `Forget all ${list.length}?` : ''}</span>
+              {sure && <button type="button" className="btn line" onClick={() => setSure(false)}>Keep</button>}
+              <button
+                type="button"
+                className="btn line"
+                onClick={() => {
+                  if (!sure) { setSure(true); return }
+                  changeStorage((c) => withCorrections(c, []))
+                  setSure(false)
+                }}
+              >Forget all</button>
+            </div>
+          )}
+        </>
+      )}
+    </>
+  )
+}
+
+/** Settings › Scanner: the sound and buzz when the scanner recognises a card (scan/scanFeedback.ts), auto zoom and focus, and what it learned. */
 export function ScannerSection() {
   const s = useScanSound()
   const [autoCamera, setAutoCamera] = useAutoCameraSetting()
@@ -124,6 +180,8 @@ export function ScannerSection() {
         note="Zooms to fit the card in the frame and keeps it in focus, on cameras that allow it. Zooming by hand takes over until you tap the zoom chip."
         onChange={setAutoCamera}
       />
+      <div className="settings-divider" />
+      <LearnedCorrections />
       <div className="settings-divider" />
       <div className="settings-row">
         <span className="grow">Play all</span>

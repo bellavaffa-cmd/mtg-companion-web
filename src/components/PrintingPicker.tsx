@@ -12,12 +12,14 @@ export const printingName = (card: ScryfallCard) =>
  * Every printing of the card called [name], to pick one: the scanner's "which one are you holding",
  * and "change printing" on a card in a binder or deck. [currentId] is the printing it is now, ringed.
  */
-export function PrintingPicker({ name, currentId, prompt = "Pick the printing you're holding.", onPick, onClose }: {
+export function PrintingPicker({ name, currentId, prompt = "Pick the printing you're holding.", onPick, onClose, onDifferent }: {
   name: string
   currentId: string
   prompt?: string
   onPick: (card: ScryfallCard) => void
   onClose: () => void
+  /** Given where a scan is being fixed: "It's a different card" — search for the card it really is. */
+  onDifferent?: () => void
 }) {
   const [printings, setPrintings] = useState<ScryfallCard[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -30,7 +32,14 @@ export function PrintingPicker({ name, currentId, prompt = "Pick the printing yo
   }, [name])
 
   return (
-    <Dialog title={name} onDismiss={onClose} actions={<button type="button" className="btn line" onClick={onClose}>Close</button>}>
+    <Dialog
+      title={name}
+      onDismiss={onClose}
+      actions={<>
+        {onDifferent && <button type="button" className="btn line" onClick={onDifferent}>It's a different card</button>}
+        <button type="button" className="btn line" onClick={onClose}>Close</button>
+      </>}
+    >
       <p className="muted" style={{ marginTop: 0 }}>{prompt}</p>
       {error && <div className="muted">{error}</div>}
       {!printings && !error && <div className="muted">Looking up printings…</div>}
