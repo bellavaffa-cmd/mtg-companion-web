@@ -228,6 +228,11 @@ const MESSAGES: Record<string, string> = {
   comment_slow_down: "You're commenting very fast — wait a minute.",
   too_many_comments: 'This deck has 1,000 comments already.',
   not_your_comment: 'Only its author or the deck’s owner can do that.',
+  // supabase/migrations/20261008100000_trade_nights.sql (tradeNightsApi.ts)
+  not_going: 'Answer Going first — trades are for the people going.',
+  cant_trade_here: "You can trade here with people going who've put up their cards, or with friends.",
+  too_many_night_cards: 'A list for the night holds up to 500 lines.',
+  bad_sources: "Those binders couldn't be used.",
 }
 
 export async function call<T>(fn: string, args: Record<string, unknown> = {}, { signedIn = true } = {}): Promise<T> {

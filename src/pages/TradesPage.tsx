@@ -302,7 +302,7 @@ function AnswerDialog({ accept, name, onCancel, onSend }: { accept: boolean; nam
  * Applies the user's side of an accepted trade to their own binders: the cards they give come out
  * of the binders they were in, the cards they get go into the binder they pick.
  */
-function UpdateBindersDialog({ trade, me, theirName, onClose }: { trade: api.Trade; me: string; theirName: string; onClose: () => void }) {
+export function UpdateBindersDialog({ trade, me, theirName, onClose }: { trade: api.Trade; me: string; theirName: string; onClose: () => void }) {
   const { collections, changeCollections } = useSync()
   const { refresh, applyLocal } = useOverview()
   const owned = collections.filter((c) => c.type !== 'WISHLIST')

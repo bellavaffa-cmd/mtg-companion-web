@@ -12,6 +12,7 @@ import { dayOf } from '../collection/copyHistoryStore'
 import { newPlayerId, updateNight } from '../lifecounter/gameNightStore'
 import { SocialGate } from './FriendsPage'
 import { TradeMatchesTonight } from '../social/TradeMatchesTonight'
+import { TradeNightSection } from '../social/TradeNightSection'
 import * as api from '../social/api'
 import * as more from '../social/more'
 import { cancelGameNight, gameNight, NIGHTS_UNAVAILABLE, rsvpGameNight, saveGameNight, useNightsAvailable, usePodLive } from '../social/nights'
@@ -203,6 +204,8 @@ function Invite({ overview, nightId }: { overview: api.Overview; nightId: string
           {showTrades && <TradeMatchesTonight players={coming.map((c) => ({ name: c.name, userId: c.userId }))} />}
         </section>
       )}
+
+      {!night.cancelled && <TradeNightSection nightId={night.id} me={me} going={mine?.answer === 'going'} />}
 
       <div className="gn-bar">
         <button type="button" className="btn soft" onClick={addToCalendar}><Icon name="event" aria-hidden />Add to calendar</button>
