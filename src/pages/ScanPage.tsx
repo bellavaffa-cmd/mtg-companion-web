@@ -10,6 +10,7 @@ import { Icon } from '../components/Icon'
 import { ArtImage, IconButton, PillChip, toArtCrop, useBack } from '../components/kit'
 import { Dialog } from '../components/Dialog'
 import { PrintingPicker, printingName } from '../components/PrintingPicker'
+import { DifferentCardSearch } from '../components/DifferentCardSearch'
 import { useLeaveGuard } from '../components/useLeaveGuard'
 import { useKeepAwake } from '../components/useKeepAwake'
 import { TopBar } from '../components/TopBar'
@@ -556,6 +557,20 @@ export function ScanPage() {
   /** A learned correction put another scan right (read by the camera loop). */
   const usedCorrection = useRef((key: string) => changeStorage((c) => withCorrections(c, markUsed(correctionsOf(c), key, Date.now()))))
   usedCorrection.current = (key: string) => changeStorage((c) => withCorrections(c, markUsed(correctionsOf(c), key, Date.now())))
+  /** "It's a different card": the scan being fixed, then the card searched for, to pick its printing. */
+  const [differentFor, setDifferentFor] = useState<{ id: number; recipe: boolean } | null>(null)
+  const [differentPick, setDifferentPick] = useState<{ id: number; recipe: boolean; name: string } | null>(null)
+  /** The scan the user fixed by hand: the scan list's row, or the sort's newest card, re-sorted. */
+  const fixScan = (target: { id: number; recipe: boolean }, card: ScryfallCard) => (target.recipe ? setRecipePrinting(card) : setPrinting(target.id, card))
+  /** A card named in "It's a different card": its printing picked, or straight in when it has only one. */
+  const differentNamed = async (target: { id: number; recipe: boolean }, name: string) => {
+    setDifferentFor(null)
+    const printings = await getPrintings(name).catch(() => [])
+    if (printings.length > 1) { setDifferentPick({ ...target, name }); return }
+    const card = printings[0] ?? await getByExactName(name).catch(() => null)
+    if (card) fixScan(target, card)
+    else setStatus(`Couldn't load ${name} — check the connection.`)
+  }
   /** The scan whose "Learned" tag was tapped. */
   const [learnedOpen, setLearnedOpen] = useState<{ id: number; name: string; recipe: boolean } | null>(null)
   /** Scan [id] changed by hand to [card]: learned against what the scanner read for it. */
@@ -1025,6 +1040,13 @@ export function ScanPage() {
     setPickingArt(null)
   }
 
+  /** Wrong card? The sort's newest card is [card] after all: learned, and sorted again into its pile. */
+  const setRecipePrinting = (card: ScryfallCard) => {
+    const last = recipeNow.current?.scans.at(-1)
+    if (last && last.scryfallId !== card.id) learnFrom(last.id, card)
+    changeLast((last, rest) => { recipeCards.current.set(last.id, card); return resort(last, rest, recipeCardOf(card, last.card), card) })
+  }
+
   /** Takes one scan off the pile — a card read twice, or read wrongly. */
   const removeScan = (id: number) => {
     setScanned((list) => list.filter((s) => s.id !== id))
@@ -1428,10 +1450,11 @@ export function ScanPage() {
           onDismiss={() => setWrongCard(false)}
           actions={<>
             <button type="button" className="btn line" onClick={() => { setWrongCard(false); setPickingRecipeArt(true) }}>Pick the printing</button>
+            <button type="button" className="btn line" onClick={() => { const last = recipe.scans.at(-1); setWrongCard(false); if (last) setDifferentFor({ id: last.id, recipe: true }) }}>It's a different card</button>
             <button type="button" className="btn gold" onClick={() => { changeLast(() => null); handsFree.current.rescan(); setWrongCard(false); setStatus('Show the card again') }}>Rescan it</button>
           </>}
         >
-          <p className="muted" style={{ margin: 0 }}>Right card, wrong printing: pick the one you're holding. A different card: rescan it — it's taken off its pile first.</p>
+          <p className="muted" style={{ margin: 0 }}>Right card, wrong printing: pick the one you're holding. A different card: rescan it — it's taken off its pile first — or say which card it is, and the scanner learns it.</p>
         </Dialog>
       )}
       {learnedOpen && (
@@ -1459,13 +1482,9 @@ export function ScanPage() {
         <PrintingPicker
           name={recipe.scans.at(-1)!.name}
           currentId={recipe.scans.at(-1)!.scryfallId}
-          onPick={(card) => {
-            setPickingRecipeArt(false)
-            const last = recipeNow.current?.scans.at(-1)
-            if (last && last.scryfallId !== card.id) learnFrom(last.id, card)
-            changeLast((last, rest) => { recipeCards.current.set(last.id, card); return resort(last, rest, recipeCardOf(card, last.card), card) })
-          }}
+          onPick={(card) => { setPickingRecipeArt(false); setRecipePrinting(card) }}
           onClose={() => setPickingRecipeArt(false)}
+          onDifferent={() => { const last = recipe.scans.at(-1); setPickingRecipeArt(false); if (last) setDifferentFor({ id: last.id, recipe: true }) }}
         />
       )}
       {pickingArt && (
@@ -1474,6 +1493,16 @@ export function ScanPage() {
           currentId={pickingArt.card.id}
           onPick={(card) => setPrinting(pickingArt.id, card)}
           onClose={() => setPickingArt(null)}
+          onDifferent={() => { setDifferentFor({ id: pickingArt.id, recipe: false }); setPickingArt(null) }}
+        />
+      )}
+      {differentFor && <DifferentCardSearch onPick={(name) => void differentNamed(differentFor, name)} onClose={() => setDifferentFor(null)} />}
+      {differentPick && (
+        <PrintingPicker
+          name={differentPick.name}
+          currentId=""
+          onPick={(card) => { const target = differentPick; setDifferentPick(null); fixScan(target, card) }}
+          onClose={() => setDifferentPick(null)}
         />
       )}
 

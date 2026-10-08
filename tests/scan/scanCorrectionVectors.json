@@ -836,6 +836,273 @@
      ]
     }
    ]
+  },
+  {
+   "name": "It's a different card: a card searched for by name is learned as a misread of what was read",
+   "steps": [
+    {
+     "op": "record",
+     "reading": {
+      "read": "Lightning Bolt",
+      "set": "m10",
+      "number": "146",
+      "recognizedId": "bolt-m10",
+      "recognizedName": "Lightning Bolt"
+     },
+     "card": {
+      "id": "chain-a25",
+      "name": "Chain Lightning",
+      "set": "a25",
+      "collectorNumber": "123"
+     },
+     "now": 10
+    },
+    {
+     "op": "expect",
+     "entries": [
+      {
+       "key": "lightningbolt|m10:146",
+       "kind": "MISREAD",
+       "scryfallId": "chain-a25",
+       "count": 1,
+       "used": 0
+      }
+     ]
+    },
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "Lightning Bolt",
+      "set": "m10",
+      "number": "146",
+      "recognizedId": "bolt-m10",
+      "recognizedName": "Lightning Bolt"
+     },
+     "expect": {
+      "key": "lightningbolt|m10:146",
+      "kind": "MISREAD",
+      "scryfallId": "chain-a25"
+     }
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Shock",
+      "set": "M19",
+      "number": null,
+      "recognizedId": "shock-m19",
+      "recognizedName": "Shock"
+     },
+     "card": {
+      "id": "burst-zen",
+      "name": "Burst Lightning",
+      "set": "zen",
+      "collectorNumber": "126"
+     },
+     "now": 20
+    },
+    {
+     "op": "expect",
+     "entries": [
+      {
+       "key": "shock|m19|=shock-m19",
+       "kind": "MISREAD",
+       "scryfallId": "burst-zen",
+       "count": 1,
+       "used": 0
+      },
+      {
+       "key": "lightningbolt|m10:146",
+       "kind": "MISREAD",
+       "scryfallId": "chain-a25",
+       "count": 1,
+       "used": 0
+      }
+     ]
+    },
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "Shock",
+      "set": "m19",
+      "number": null,
+      "recognizedId": "shock-m19",
+      "recognizedName": "Shock"
+     },
+     "expect": {
+      "key": "shock|m19|=shock-m19",
+      "kind": "MISREAD",
+      "scryfallId": "burst-zen"
+     }
+    },
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "Shock",
+      "set": "m19",
+      "number": null,
+      "recognizedId": "shock-m19b",
+      "recognizedName": "Shock"
+     },
+     "expect": null
+    },
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "Shock",
+      "set": null,
+      "number": null,
+      "recognizedId": "shock-m19",
+      "recognizedName": "Shock"
+     },
+     "expect": null
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "card": {
+      "id": "plains-dmu-262",
+      "name": "Plains",
+      "set": "dmu",
+      "collectorNumber": "262"
+     },
+     "now": 30
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "card": {
+      "id": "plains-dmu-262",
+      "name": "Plains",
+      "set": "dmu",
+      "collectorNumber": "262"
+     },
+     "now": 40
+    },
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "expect": {
+      "key": "~plains",
+      "kind": "PRINTING",
+      "scryfallId": "plains-dmu-262"
+     }
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "card": {
+      "id": "snow-plains-khm",
+      "name": "Snow-Covered Plains",
+      "set": "khm",
+      "collectorNumber": "276"
+     },
+     "learned": "~plains",
+     "now": 50
+    },
+    {
+     "op": "expect",
+     "entries": [
+      {
+       "key": "plains||=plains-fdn",
+       "kind": "MISREAD",
+       "scryfallId": "snow-plains-khm",
+       "count": 1,
+       "used": 0
+      },
+      {
+       "key": "shock|m19|=shock-m19",
+       "kind": "MISREAD",
+       "scryfallId": "burst-zen",
+       "count": 1,
+       "used": 0
+      },
+      {
+       "key": "lightningbolt|m10:146",
+       "kind": "MISREAD",
+       "scryfallId": "chain-a25",
+       "count": 1,
+       "used": 0
+      }
+     ]
+    },
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "expect": {
+      "key": "plains||=plains-fdn",
+      "kind": "MISREAD",
+      "scryfallId": "snow-plains-khm"
+     }
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "card": {
+      "id": "plains-fdn",
+      "name": "Plains",
+      "set": "fdn",
+      "collectorNumber": "272"
+     },
+     "learned": "plains||=plains-fdn",
+     "now": 60
+    },
+    {
+     "op": "expect",
+     "entries": [
+      {
+       "key": "shock|m19|=shock-m19",
+       "kind": "MISREAD",
+       "scryfallId": "burst-zen",
+       "count": 1,
+       "used": 0
+      },
+      {
+       "key": "lightningbolt|m10:146",
+       "kind": "MISREAD",
+       "scryfallId": "chain-a25",
+       "count": 1,
+       "used": 0
+      }
+     ]
+    }
+   ]
   }
  ],
  "merge": [
