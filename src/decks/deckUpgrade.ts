@@ -244,12 +244,13 @@ export function upgradeSwaps(input: UpgradeInput): UpgradeSwap[] {
 /** "Would move the deck to bracket 4". */
 export const bracketWarning = (bracket: number) => `Would move the deck to bracket ${bracket}`
 
-/** "8 upgrades from your cards · would save $12.40 · pull from 3 places": what buying the cards coming in would cost. */
+/** "8 upgrades from your cards · $46 of cards you already own · pull from 3 places": what the cards coming in are worth (left out at $0). */
 export function upgradeSummary(swaps: UpgradeSwap[], money: (usd: number) => string): string {
   const n = swaps.length
   const saved = round2(swaps.reduce((t, s) => t + (s.add.usd ?? 0), 0))
   const places = new Set(swaps.filter((s) => s.add.spare > 0 && s.add.placeKey).map((s) => s.add.placeKey)).size
-  const parts = [`${n} upgrade${n === 1 ? '' : 's'} from your cards`, `would save ${money(saved)}`]
+  const parts = [`${n} upgrade${n === 1 ? '' : 's'} from your cards`]
+  if (saved > 0) parts.push(`${money(saved)} of cards you already own`)
   if (places > 0) parts.push(`pull from ${places} place${places === 1 ? '' : 's'}`)
   return parts.join(' · ')
 }

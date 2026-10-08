@@ -1,5 +1,5 @@
 {
-  "_about": "Upgrade with my cards (src/decks/deckUpgrade.ts). Run by tests/decks/deckUpgrade.test.ts and by the Android app's DeckUpgradeTest.kt (a copy in app/src/test/resources). A card's missing fields are their defaults: typeLine/cmc/usd/edhrecRank/inclusion/identity/heldBy/where/placeKey null, roles [], flags false, legal true, spare 0, scryfallId its name. summary: upgradeSummary of the swaps that keep the bracket, money as $ and the number.",
+  "_about": "Upgrade with my cards (src/decks/deckUpgrade.ts). Run by tests/decks/deckUpgrade.test.ts and by the Android app's DeckUpgradeTest.kt (a copy in app/src/test/resources). A card's missing fields are their defaults: typeLine/cmc/usd/edhrecRank/inclusion/identity/heldBy/where/placeKey null, roles [], flags false, legal true, spare 0, scryfallId its name. summary: upgradeSummary of the swaps that keep the bracket, money as $ and the number (the money part left out at $0).",
   "cases": [
     {
       "name": "Krenko with EDHREC: role pairs, marked cut first, keep and combo pieces never cut, bracket guard",
@@ -43,7 +43,7 @@
         { "key": "mind stone>jeska's will", "role": "ramp", "reason": "Both are ramp; Jeska's Will is in 70% of Krenko decks, Mind Stone in 40%.", "where": "Red box › Red", "gain": 30, "priceDelta": 8.8, "raisesBracketTo": 3 },
         { "key": "lightning bolt>pyrokinesis", "role": "removal", "reason": "Both are removal; Pyrokinesis is in 65% of Krenko decks, Lightning Bolt in 50%.", "where": "Unsorted", "gain": 15, "priceDelta": 3, "raisesBracketTo": 3 }
       ],
-      "summary": "3 upgrades from your cards · would save $2.4 · pull from 1 place"
+      "summary": "3 upgrades from your cards · $2.4 of cards you already own · pull from 1 place"
     },
     {
       "name": "Offline Modern deck: role and EDHREC rank against mana value, no bracket, not-on-list wording",
@@ -71,7 +71,7 @@
       "expect": [
         { "key": "divination>consider", "role": "draw", "reason": "Both are card draw; Consider ranks #900 on EDHREC, Divination #9,000; Consider costs 2 less.", "where": "Unsorted", "gain": 48.63, "priceDelta": 0.05, "raisesBracketTo": null }
       ],
-      "summary": "1 upgrade from your cards · would save $0.1 · pull from 1 place"
+      "summary": "1 upgrade from your cards · $0.1 of cards you already own · pull from 1 place"
     },
     {
       "name": "Bracket 3 deck: a fourth Game Changer is kept aside as bracket 4; the others still get their cuts",
@@ -97,7 +97,7 @@
         { "key": "rhystic study>mystic remora", "role": "draw", "reason": "Both are card draw; Mystic Remora is in 45% of Kenrith decks, Rhystic Study in 20%.", "where": "Artifact box", "gain": 25, "priceDelta": -25, "raisesBracketTo": null },
         { "key": "mind stone>mana vault", "role": "ramp", "reason": "Both are ramp; Mana Vault is in 80% of Kenrith decks, Mind Stone in 40%.", "where": "Binder of power p1 s1", "gain": 40, "priceDelta": 99.8, "raisesBracketTo": 4 }
       ],
-      "summary": "2 upgrades from your cards · would save $5 · pull from 1 place"
+      "summary": "2 upgrades from your cards · $5 of cards you already own · pull from 1 place"
     },
     {
       "name": "Not on EDHREC's list, and nothing better",
@@ -120,7 +120,7 @@
       "expect": [
         { "key": "divination>night's whisper", "role": "draw", "reason": "Both are card draw; Night's Whisper is in 12% of Atraxa decks, Divination isn't on EDHREC's list for it.", "where": "Black box", "gain": 12, "priceDelta": null, "raisesBracketTo": null }
       ],
-      "summary": "1 upgrade from your cards · would save $0 · pull from 1 place"
+      "summary": "1 upgrade from your cards · pull from 1 place"
     }
   ]
 }

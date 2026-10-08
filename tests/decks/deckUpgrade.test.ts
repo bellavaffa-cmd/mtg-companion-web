@@ -76,7 +76,7 @@ test('words and numbers', () => {
   assert.equal(upgradeScore(card({ name: 'X', inclusion: 33 }), true), 33)
   assert.equal(upgradeScore(card({ name: 'X' }), true), 0)
   assert.equal(upgradeScore(card({ name: 'X', edhrecRank: 1000, cmc: 2 }), false), 44)
-  assert.equal(upgradeSummary([], (n) => `$${n}`), '0 upgrades from your cards · would save $0')
+  assert.equal(upgradeSummary([], (n) => `$${n}`), '0 upgrades from your cards')
 })
 
 // ---- Where the owned cards are ----
