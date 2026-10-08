@@ -1,10 +1,9 @@
 // The scanner's Last scanned panel (src/scan/scanCardPanel.ts). The Android app has the same checks —
-// see ScanCardPanelTest.kt.
+// see ScanCardPanelTest.kt — plus its camera-reads-another-printing flash, which the web leaves out.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
-  cameraReadsLine, copiesInScan, HeldPrintingWatch, ownedLine, ownedSummary, panelPrice, printedLanguage, printingMismatch,
-  scanDetailsLine, scanHowLabel, scanIsGuess, scanPanelSpoken, cameraButtonLabel,
+  copiesInScan, ownedLine, ownedSummary, panelPrice, printedLanguage, scanDetailsLine, scanHowLabel, scanIsGuess, scanPanelSpoken,
 } from '../../src/scan/scanCardPanel.ts'
 import { normalizeDeck, type Collection, type CollectionEntry, type CopyPlace, type DeckCardEntry } from '../../src/types/models.ts'
 
@@ -53,28 +52,6 @@ test('the foil price for a foil copy', () => {
   assert.equal(panelPrice('0.40', '2.00', false), '0.40')
   assert.equal(panelPrice('0.40', null, true), '0.40')
   assert.equal(panelPrice(null, '2.00', false), '2.00')
-})
-
-test('the camera reading another printing is only taken on two reads running', () => {
-  const watch = new HeldPrintingWatch()
-  assert.equal(watch.see({ set: 'FIN', number: '307' }), null)
-  assert.deepEqual(watch.see({ set: 'fin', number: '0307' }), { set: 'FIN', number: '307' })
-  // A frame with nothing read doesn't break it; another printing starts again.
-  assert.deepEqual(watch.see(null), { set: 'FIN', number: '307' })
-  assert.equal(watch.see({ set: 'FIN', number: '308' }), null)
-  assert.deepEqual(watch.see({ set: 'FIN', number: '308' }), { set: 'FIN', number: '308' })
-  watch.reset()
-  assert.equal(watch.see(null), null)
-})
-
-test('a mismatch is another printing, not leading zeros or case', () => {
-  assert.equal(printingMismatch({ set: 'fin', number: '0306' }, { set: 'FIN', number: '306' }), null)
-  assert.equal(printingMismatch({ set: 'fin', number: '306' }, null), null)
-  assert.deepEqual(printingMismatch({ set: 'fin', number: '0306' }, { set: 'FIN', number: '307' }), { set: 'FIN', number: '307' })
-  assert.deepEqual(printingMismatch({ set: 'fin', number: '306' }, { set: 'FIC', number: '306' }), { set: 'FIC', number: '306' })
-  assert.deepEqual(printingMismatch(null, { set: 'FIN', number: '307' }), { set: 'FIN', number: '307' })
-  assert.equal(cameraReadsLine({ set: 'FIN', number: '307' }), 'Camera reads FIN · 307')
-  assert.equal(cameraButtonLabel({ set: 'fin', number: '307' }), 'Use FIN 307')
 })
 
 const entry = (id: string, name: string, quantity: number, foilQuantity = 0, places?: CopyPlace[]): CollectionEntry =>

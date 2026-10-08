@@ -12,8 +12,7 @@
   border-top: 0;
   color: #fff;
 }
-.last-scanned.guess,
-.last-scanned.mismatch {
+.last-scanned.guess {
   border: 2px solid var(--warn);
   border-top: 0;
 }
@@ -80,10 +79,6 @@
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
 }
-.last-scanned.mismatch .last-scanned-details {
-  color: #f3b64a;
-  animation: last-scanned-pulse 1.2s ease-in-out infinite;
-}
 .last-scanned-meta { font-size: 0.75rem; color: rgba(255, 255, 255, 0.72); }
 .last-scanned-owned { font-size: 0.75rem; color: rgba(255, 255, 255, 0.6); }
 .last-scanned-actions {
@@ -98,26 +93,9 @@
   background: transparent;
 }
 .last-scanned-actions .ib.on { background: rgba(230, 180, 94, 0.22); }
-.last-scanned-camera {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 6px;
-  color: #f3b64a;
-  font-size: 0.8125rem;
-  font-weight: 600;
-}
-.last-scanned-camera .btn { background: #f3b64a; color: #000; border-color: #f3b64a; }
 @keyframes last-scanned-in {
   from { opacity: 0; transform: translateY(8px); }
 }
-@keyframes last-scanned-pulse {
-  50% { opacity: 0.4; }
-}
 @media (prefers-reduced-motion: reduce) {
   .last-scanned-open { animation: none; }
-  /* No pulse: an outline that stays, and the "Camera reads" line under it says why. */
-  .last-scanned.mismatch .last-scanned-details { animation: none; outline: 1px solid #f3b64a; outline-offset: 2px; border-radius: 3px; }
 }

@@ -328,11 +328,6 @@ export class ScanTracker {
     this.lastAdded = cardName
   }
 
-  /** The card just added while it's still in view (until the card has left), or null. */
-  get holding(): string | null {
-    return this.lastAdded
-  }
-
   /**
    * The picture just changed under the card — the zoom moved — so the reads so far no longer count
    * towards a steady one. The card already added stays added.

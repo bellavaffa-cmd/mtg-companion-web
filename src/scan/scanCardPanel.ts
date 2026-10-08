@@ -1,14 +1,14 @@
 // The scanner's "Last scanned" panel (components/LastScannedPanel.tsx): the words on it, worked out
 // here so they can be tested. The card's bottom-left details as printed ("FIN · 0306 · L · EN"), how
-// the scanner knew the card, what a screen reader hears, whether the camera is reading a different
-// printing off the card still held, and how many copies you already own. Mirrors the Android app's
-// data/ScanCardPanel.kt, with the same checks.
+// the scanner knew the card, what a screen reader hears, and how many copies you already own. Mirrors
+// the Android app's data/ScanCardPanel.kt, with the same checks — except the Android panel's flash when
+// the camera reads another printing off the card still held, which the web scanner leaves out: it can't
+// tell a same-name card laid on top from the one still held.
 
 import { languageName } from '../collection/copyDetails'
 import { placedCopies, placesOf, sameCardName } from '../collection/storagePlaces'
 import { realCopiesOf } from '../collection/unsorted'
 import type { Collection, Deck } from '../types/models'
-import { samePrinting, type Printing } from './scanLogic'
 
 /** How a scan was identified, for the panel's "From small print" / "By name" / "Best guess" / "Learned". */
 export type ScanHow = 'SMALL_PRINT' | 'NAME' | 'SIGHT' | 'LEARNED' | 'PICKED'
@@ -92,45 +92,6 @@ export function scanPanelSpoken(
 export function panelPrice(usd: string | null | undefined, usdFoil: string | null | undefined, foil: boolean): string | null {
   return (foil ? usdFoil ?? usd : usd ?? usdFoil) ?? null
 }
-
-// ---- The camera reading another printing off the card still held ----
-
-/**
- * The small print read off the card still under the camera, frame by frame: a printing counts once it's
- * read the same on [frames] reads running. A frame with nothing read doesn't break the run.
- */
-export class HeldPrintingWatch {
-  private streak: Printing | null = null
-  private count = 0
-  private readonly frames: number
-  constructor(frames = 2) { this.frames = frames }
-
-  /** One frame's read; the printing the camera is steadily reading, or null while it isn't. */
-  see(read: Printing | null): Printing | null {
-    if (read) {
-      if (this.streak && samePrinting(this.streak, read)) this.count += 1
-      else { this.streak = read; this.count = 1 }
-    }
-    return this.streak && this.count >= this.frames ? this.streak : null
-  }
-
-  reset() { this.streak = null; this.count = 0 }
-}
-
-/**
- * What the camera reads, when it isn't the printing the panel shows ([shown]): set and number compared
- * as a printing, so "0307" and "307", "fin" and "FIN" are the same. Null when they agree or nothing's read.
- */
-export function printingMismatch(shown: Printing | null, cameraReads: Printing | null): Printing | null {
-  if (!cameraReads) return null
-  return !shown || !samePrinting(shown, cameraReads) ? cameraReads : null
-}
-
-/** "Camera reads FIN · 307". */
-export const cameraReadsLine = (read: Printing): string => `Camera reads ${setAndNumber(read.set, read.number)}`
-
-/** "Use FIN 307". */
-export const cameraButtonLabel = (read: Printing): string => `Use ${read.set.toUpperCase()} ${read.number}`
 
 // ---- You own N ----
 

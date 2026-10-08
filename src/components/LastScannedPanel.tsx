@@ -7,10 +7,8 @@ import { useCallback, useMemo, useState } from 'react'
 import { canBeFoil } from '../collection/addTo'
 import type { Money } from '../money/currency'
 import type { ScanRow } from '../scan/scanLog'
-import type { Printing } from '../scan/scanLogic'
 import {
-  cameraReadsLine, copiesInScan, ownedLine, ownedSummary, panelPrice, printingMismatch, scanDetailsLine, scanHowLabel, scanIsGuess,
-  scanPanelSpoken, cameraButtonLabel, type ScanHow,
+  copiesInScan, ownedLine, ownedSummary, panelPrice, scanDetailsLine, scanHowLabel, scanIsGuess, scanPanelSpoken, type ScanHow,
 } from '../scan/scanCardPanel'
 import type { Collection, Deck } from '../types/models'
 import { displayImageUrl } from '../types/scryfall'
@@ -47,8 +45,6 @@ export function lastScanned(session: PanelSession, pile: ScanRow[]): ScanRow | n
 }
 
 const thumbOf = (row: ScanRow) => row.card.image_uris?.small ?? row.card.card_faces?.[0]?.image_uris?.small ?? displayImageUrl(row.card)
-const printingOf = (row: ScanRow): Printing | null =>
-  row.card.set && row.card.collector_number ? { set: row.card.set, number: row.card.collector_number } : null
 
 /**
  * The panel in one breath for a screen reader — "Forest, FIN 306, basic land, English, $0.40". The scan
@@ -64,8 +60,6 @@ interface Props {
   row: ScanRow
   pile: ScanRow[]
   how: ScanHow | undefined
-  /** The printing the camera is steadily reading off the card still held, when it's this scan's card. */
-  cameraReads: Printing | null
   collections: Collection[]
   decks: Deck[]
   money: Money
@@ -73,10 +67,9 @@ interface Props {
   onChangePrinting: () => void
   onUndo: () => void
   onFoil: () => void
-  onUseCamera: (read: Printing) => void
 }
 
-export function LastScannedPanel({ row, pile, how, cameraReads, collections, decks, money, onOpen, onChangePrinting, onUndo, onFoil, onUseCamera }: Props) {
+export function LastScannedPanel({ row, pile, how, collections, decks, money, onOpen, onChangePrinting, onUndo, onFoil }: Props) {
   const card = row.card
   const exact = !!row.exact
   const guess = scanIsGuess(how, exact)
@@ -85,11 +78,10 @@ export function LastScannedPanel({ row, pile, how, cameraReads, collections, dec
   const details = scanDetailsLine(card.set, card.collector_number, card.rarity, card.type_line, card.lang, row.foil)
   const spoken = lastScannedSpoken(row, how, money)
   const copies = pile.filter((s) => s.card.id === card.id).length
-  const mismatch = printingMismatch(printingOf(row), cameraReads)
   // You own N: once per card and library change, not every frame.
   const owned = useMemo(() => ownedLine(ownedSummary(collections, decks, card.id, card.name)), [collections, decks, card.id, card.name])
   return (
-    <section className={`last-scanned${guess ? ' guess' : ''}${mismatch ? ' mismatch' : ''}`} aria-label="Last scanned card">
+    <section className={`last-scanned${guess ? ' guess' : ''}`} aria-label="Last scanned card">
       {/* Keyed by the scan, so the next card slides in (not with reduced motion: lastScanned.css). */}
       <div className="last-scanned-body" key={row.id}>
       <button type="button" className="last-scanned-open" onClick={onOpen} aria-label={`${spoken} — card details`}>
@@ -118,12 +110,6 @@ export function LastScannedPanel({ row, pile, how, cameraReads, collections, dec
         </button>
       </div>
       </div>
-      {mismatch && (
-        <div className="last-scanned-camera" role="status">
-          <span>{cameraReadsLine(mismatch)}</span>
-          <button type="button" className="btn" onClick={() => onUseCamera(mismatch)}>{cameraButtonLabel(mismatch)}</button>
-        </div>
-      )}
     </section>
   )
 }
