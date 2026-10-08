@@ -1,0 +1,101 @@
+/* The scanner's Last scanned panel (LastScannedPanel.tsx): docked right under the camera, so it never
+   covers the guide (whose bottom edge is the small print being read), on the scanner's dark glass. */
+.last-scanned {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-top: -12px;
+  padding: 18px 10px 8px;
+  border-radius: 0 0 16px 16px;
+  background: rgba(10, 11, 14, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 0;
+  color: #fff;
+}
+.last-scanned.guess {
+  border: 2px solid var(--warn);
+  border-top: 0;
+}
+.last-scanned-body {
+  display: contents;
+}
+.last-scanned-open {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  animation: last-scanned-in 0.22s ease-out;
+}
+.last-scanned-open:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 8px; }
+.last-scanned-thumb {
+  width: 44px;
+  height: 61px;
+  flex: none;
+  border-radius: 4px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.08);
+}
+.last-scanned-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.last-scanned-text > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.last-scanned-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.last-scanned-name b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.last-scanned-how {
+  flex: none;
+  padding: 0 7px;
+  border: 1px solid rgba(230, 180, 94, 0.55);
+  border-radius: 999px;
+  color: #f0cd8c;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+.last-scanned-how.guess { border-color: #f3b64a; color: #f3b64a; }
+/* The bottom-left details, big: the reason the panel is there. */
+.last-scanned-details {
+  color: #e6b45e;
+  font-weight: 800;
+  font-size: 1.0625rem;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.last-scanned-meta { font-size: 0.75rem; color: rgba(255, 255, 255, 0.72); }
+.last-scanned-owned { font-size: 0.75rem; color: rgba(255, 255, 255, 0.6); }
+.last-scanned-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.last-scanned-actions .ib {
+  width: 40px;
+  height: 40px;
+  color: #e6b45e;
+  background: transparent;
+}
+.last-scanned-actions .ib.on { background: rgba(230, 180, 94, 0.22); }
+@keyframes last-scanned-in {
+  from { opacity: 0; transform: translateY(8px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .last-scanned-open { animation: none; }
+}

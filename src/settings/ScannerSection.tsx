@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useMoney } from '../money/currency'
 import { previewCue, setScanSound, useScanSound } from '../scan/scanFeedback'
 import { useAutoCameraSetting } from '../components/useAutoCamera'
+import { useShowLastScannedSetting } from '../components/LastScannedPanel'
 import { parseThreshold, SOUND_MODE_LABELS, type ScanCue, type ScanSoundMode } from '../scan/scanSounds'
 import { correctedLine, correctionsOf, forgetCorrection, readLine, usedLine, withCorrections } from '../scan/scanCorrections'
 import { useSync } from '../sync/SyncContext'
@@ -92,6 +93,7 @@ function LearnedCorrections() {
 export function ScannerSection() {
   const s = useScanSound()
   const [autoCamera, setAutoCamera] = useAutoCameraSetting()
+  const [lastScanned, setLastScanned] = useShowLastScannedSetting()
   const money = useMoney()
   const [threshold, setThreshold] = useState(String(s.threshold))
   useEffect(() => { setThreshold(String(s.threshold)) }, [s.threshold])
@@ -179,6 +181,12 @@ export function ScannerSection() {
         title="Auto zoom and focus"
         note="Zooms to fit the card in the frame and keeps it in focus, on cameras that allow it. Zooming by hand takes over until you tap the zoom chip."
         onChange={setAutoCamera}
+      />
+      <Switch
+        on={lastScanned}
+        title="Show last scanned card"
+        note="The card just scanned stays under the camera until the next one: its set code and number, how it was recognised, and Change printing, Foil and Undo."
+        onChange={setLastScanned}
       />
       <div className="settings-divider" />
       <LearnedCorrections />

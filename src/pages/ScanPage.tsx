@@ -69,6 +69,8 @@ import { addedMove, putAwayMove } from '../collection/copyHistory'
 import { recordMoves } from '../collection/copyHistoryStore'
 import { correctionsOf, forgetCorrection, lookupCorrection, markUsed, recordCorrection, withCorrections, type Applied, type ScanReading } from '../scan/scanCorrections'
 import '../collection/storage.css'
+import { LastScannedPanel, lastScanned, lastScannedSpoken, loadShowLastScanned, type PanelSession } from '../components/LastScannedPanel'
+import type { ScanHow } from '../scan/scanCardPanel'
 
 /** A card's shape: the guide box matches it. */
 const CARD_ASPECT = 63 / 88
@@ -143,6 +145,12 @@ function savePile(rows: ScanRow[]): number {
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * The Last scanned panel's scans (components/LastScannedPanel.tsx): kept while the app is open, like
+ * the scan ids, so looking at a card's details and coming back finds the panel where it was.
+ */
+let panelMemory: PanelSession = { rows: [], how: {} }
 
 /** One card put away this session (put-away mode): what happened to it, and how to take it back. */
 interface PutAwayRow {
@@ -557,6 +565,12 @@ export function ScanPage() {
   const [picking, setPicking] = useState(false)
   // The row whose art is being chosen, when the printing was guessed from the name.
   const [pickingArt, setPickingArt] = useState<ScanRow | null>(null)
+  // The Last scanned panel (Settings › Scanner › Show last scanned card): this session's scans and how
+  // each was identified.
+  const [showPanel] = useState(loadShowLastScanned)
+  const [panel, setPanelState] = useState<PanelSession>(() => panelMemory)
+  const setPanel = (change: (p: PanelSession) => PanelSession) => setPanelState((p) => { panelMemory = change(p); return panelMemory })
+  const noteHow = (id: number, how: ScanHow) => setPanel((p) => ({ ...p, how: { ...p.how, [id]: how } }))
 
   // The scanner learns from corrections (scan/scanCorrections.ts): what each scan read, by its id, so a
   // printing picked for it later is remembered against that read; and the scans a learned correction
@@ -626,6 +640,7 @@ export function ScanPage() {
       setFlash((n) => n + 1)
       return id
     }
+    setPanel((p) => ({ ...p, rows: [...p.rows, id] }))
     setScanned((list) => {
       const row: ScanRow = { id, card, foil: false, at: Date.now(), exact }
       const next = [row, ...list]
@@ -659,6 +674,8 @@ export function ScanPage() {
         s.id === id && s.card.id === scanned.id && !s.exact ? withPrinting(s, pick, only) : s
       )))
       if (pick.id !== scanned.id) setStatus(`${scanned.name} — ${how}`)
+      // Unless it was put right by hand meanwhile (then the row was left as it was, too).
+      setPanel((p) => (p.how[id] === 'PICKED' || p.how[id] === 'LEARNED' ? p : { ...p, how: { ...p.how, [id]: 'SIGHT' } }))
     }
     // When the small print gave the set code but not the number, it narrows things first: the name
     // says which card, the set code which of its printings are in play, and the whole card's look —
@@ -989,6 +1006,7 @@ export function ScanPage() {
             devLog(`added ${added.name} ${added.set} #${added.collector_number} (${fix ? `learned, ${fix.kind}` : printing ? 'small print' : bySight ? (bySight.certain ? 'by sight, certain' : 'by sight, best guess') : 'usual printing'})`)
             const id = addScanned(added, fix !== null || !!printing || bySight?.certain === true, fix ? ' · learned from your correction' : '')
             readings.current.set(id, reading)
+            noteHow(id, fix ? 'LEARNED' : printing && !bySight ? 'SMALL_PRINT' : seenBySight ? 'SIGHT' : 'NAME')
             if (fix) {
               const key = fix.key
               setLearned((m) => ({ ...m, [id]: key }))
@@ -1063,7 +1081,7 @@ export function ScanPage() {
       // The same matching as scanning, which copes with typos better than Scryfall's fuzzy search
       // ("sol rng" is Sol Ring there, Oathsworn Giant here); that search is the fallback.
       const match = (await cardNameIndex().catch(() => null))?.match(name)
-      addScanned(match && match.score >= MIN_MATCH ? await getByExactName(match.name) : await getByFuzzyName(name))
+      noteHow(addScanned(match && match.score >= MIN_MATCH ? await getByExactName(match.name) : await getByFuzzyName(name)), 'NAME')
       setTyped('')
     } catch (e) {
       setStatus(e instanceof OfflineError ? "You're offline — cards can't be looked up until the connection is back." : `No card called “${name}”.`)
@@ -1083,6 +1101,7 @@ export function ScanPage() {
     if (was && was.card.id !== card.id) learnFrom(id, card)
     setScanned((list) => list.map((s) => (s.id === id ? withPrinting(s, card, true) : s)))
     setPickingArt(null)
+    noteHow(id, 'PICKED')
   }
 
   /** Wrong card? The sort's newest card is [card] after all: learned, and sorted again into its pile. */
@@ -1096,6 +1115,16 @@ export function ScanPage() {
   const removeScan = (id: number) => {
     setScanned((list) => list.filter((s) => s.id !== id))
   }
+
+  /** The Last scanned panel's Undo: that scan off the pile; the panel goes back to the scan before it. */
+  const undoScan = (row: ScanRow) => {
+    removeScan(row.id)
+    setPanel((p) => ({ ...p, rows: p.rows.filter((r) => r !== row.id) }))
+    setStatus(`${row.card.name} taken off the list`)
+  }
+
+  const panelOn = showPanel && !target && !tickKind && !checkPlace && !sortMode && !recipeMode
+  const panelRow = panelOn ? lastScanned(panel, scanned) : null
 
   const total = scanned.length
   // The nav bar and the sidebar are the app's own links: caught here, asked about, then followed.
@@ -1243,6 +1272,24 @@ export function ScanPage() {
             </div>
           )}
         </div>
+
+        {panelOn && (
+          <div className="sr-only" aria-live="polite" aria-atomic="true">{panelRow ? lastScannedSpoken(panelRow, panel.how[panelRow.id], money) : ''}</div>
+        )}
+        {panelRow && (
+          <LastScannedPanel
+            row={panelRow}
+            pile={scanned}
+            how={panel.how[panelRow.id]}
+            collections={collections}
+            decks={decks}
+            money={money}
+            onOpen={() => navigate(`/card/${encodeURIComponent(panelRow.card.name)}?id=${panelRow.card.id}`)}
+            onChangePrinting={() => setPickingArt(panelRow)}
+            onUndo={() => undoScan(panelRow)}
+            onFoil={() => toggleFoil(panelRow.id)}
+          />
+        )}
 
         <div className="scan-status">
           <div aria-live="polite" aria-atomic="true">
