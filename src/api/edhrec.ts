@@ -170,3 +170,21 @@ const sectionsOf = (lists: Awaited<ReturnType<typeof cardLists>>): EdhrecSection
 export async function cardPageSections(cardName: string, asCommander: boolean): Promise<EdhrecSection[] | null> {
   return sectionsOf(await (asCommander ? commanderPage(edhrecSlug(cardName)) : cardLists(`cards/${edhrecSlug(cardName)}`)))
 }
+
+/**
+ * How many of [commanderName]'s decks (with [partnerName], for a pair) run each card on its EDHREC
+ * page, as a whole percentage, by lower-case name (a two-faced card under its front face too) — for
+ * "Upgrade with my cards" (decks/deckUpgrade.ts). Null when EDHREC has no page for it; an
+ * OfflineError when it couldn't be reached.
+ */
+export async function commanderInclusion(commanderName: string, partnerName?: string | null): Promise<Map<string, number> | null> {
+  const lists = await commanderLists(commanderName, partnerName)
+  if (!lists) return null
+  const out = new Map<string, number>()
+  for (const view of lists.flatMap((l) => l.cardviews ?? [])) {
+    const percent = inclusionPercent(toCard(view))
+    if (percent == null) continue
+    for (const key of cardNameKeys(view.name)) if (!out.has(key)) out.set(key, percent)
+  }
+  return out
+}
