@@ -17,13 +17,17 @@ import * as more from '../social/more'
 import { matchSentence } from '../social/moreLogic'
 import { communityRules } from '../social/communityRules'
 import { withTradeStatus } from '../social/live'
+import { proposeNightTrade } from '../social/tradeNightsApi'
+import type { NightCard } from '../social/tradeNights'
 
 interface TheirBinder { id: string; name: string; entries: CollectionEntry[] }
 
 /**
  * Proposes a trade to a friend: cards from their shared binders, and optionally cards from the
  * user's own binders in return. With ?reply=<trade>, it counters a trade they sent: it starts from
- * that trade turned around, and sending it closes theirs.
+ * that trade turned around, and sending it closes theirs. With ?night=<game night>, from the night's
+ * Suggested trades: to anyone going (a friend or not), picking from what they bring, and the trade is
+ * tied to the night (its Trade table).
  */
 export function TradeComposerPage() {
   const back = useBack('/trades')
@@ -47,12 +51,15 @@ function Composer({ overview }: { overview: api.Overview }) {
   const { mutate } = useOverview()
   const to = params.get('to') ?? ''
   const replyTo = overview.trades.find((t) => t.id === params.get('reply') && t.status === 'open' && t.to_user === overview.me?.user_id) ?? null
-  const friend = overview.people[to] ?? null
   const isFriend = overview.friends.some((f) => f.user_id === to && f.status === 'accepted')
+  // A trade at a game night: to someone going, who may not be a friend.
+  const night = params.get('night')
+  const started = location.state as { want?: api.TradeCard[]; give?: api.TradeCard[]; toName?: string | null; theirCards?: NightCard[] } | null
+  const friend = overview.people[to] ?? (night && started?.toName ? { user_id: to, username: '', display_name: started.toName, avatar_path: null } : null)
+  const nightBinders = nightCardsAsBinders(started?.theirCards ?? [])
 
   // A counter starts from their trade turned around: what they offered is what the user asks for —
   // or from the lists it was opened with (a counter with a card added to even it out).
-  const started = location.state as { want?: api.TradeCard[]; give?: api.TradeCard[] } | null
   const [want, setWant] = useState<api.TradeCard[]>(() => started?.want ?? replyTo?.give ?? [])
   const [give, setGive] = useState<api.TradeCard[]>(() => started?.give ?? replyTo?.want ?? [])
   const [message, setMessage] = useState('')
@@ -112,7 +119,7 @@ function Composer({ overview }: { overview: api.Overview }) {
     return () => { cancelled = true }
   }, [picking, theirBinders, sharedIds, to])
 
-  if (!friend || !isFriend) return <div className="empty-state"><Icon name="person_off" />You can only trade with friends.</div>
+  if (!friend || (!isFriend && !night)) return <div className="empty-state"><Icon name="person_off" />You can only trade with friends.</div>
 
   const myBinders = collections.filter((c) => c.type !== 'WISHLIST')
   // A first trade request (and its message) waits for the community rules, once.
@@ -122,6 +129,12 @@ function Composer({ overview }: { overview: api.Overview }) {
     setError(null)
     try {
       // A counter-offer closes the trade it answers at once.
+      if (night && !replyTo) {
+        await mutate(() => proposeNightTrade(night, to, want, give, message.trim()), { areas: ['trades', 'nights'] })
+        countAction('trade_proposed')
+        navigate(`/play/nights/${night}`, { replace: true })
+        return
+      }
       await mutate(() => api.proposeTrade(to, want, give, message.trim(), replyTo?.id ?? null), {
         optimistic: replyTo ? (o) => withTradeStatus(o, replyTo.id, 'countered') : undefined,
         areas: ['trades'],
@@ -142,7 +155,7 @@ function Composer({ overview }: { overview: api.Overview }) {
         <Avatar profile={friend} size={44} />
         <span className="person-main">
           <span className="person-name">{replyTo ? `Counter ${friend.display_name}'s offer` : `Trade with ${friend.display_name}`}</span>
-          <span className="dim">{handle(friend)}</span>
+          <span className="dim">{night && !replyTo ? 'At game night' : handle(friend)}</span>
         </span>
       </div>
 
@@ -183,6 +196,12 @@ function Composer({ overview }: { overview: api.Overview }) {
 
       {picking === 'theirs' && (
         <PickerSheet title={`${friend.display_name}'s binders`} subtitle="Pick what you'd like" onClose={() => setPicking(null)}>
+          {nightBinders.map((b) => (
+            <div key={`night:${b.id}`} className="picker-group">
+              <div className="picker-group-title">Bringing tonight</div>
+              <BinderPicker collectionId={b.id} entries={b.entries} picked={want} onChange={setWant} emptyText="Nothing here." />
+            </div>
+          ))}
           {forTradeBinders.map((b) => (
             <div key={`ft:${b.id}`} className="picker-group">
               <div className="picker-group-title">For trade · {b.name}</div>
@@ -190,7 +209,7 @@ function Composer({ overview }: { overview: api.Overview }) {
             </div>
           ))}
           {sharedBinders.length === 0 ? (
-            forTradeBinders.length === 0 && <div className="notice">{friend.display_name} hasn't shared a binder with you or marked cards for trade.</div>
+            forTradeBinders.length === 0 && nightBinders.length === 0 && <div className="notice">{friend.display_name} hasn't shared a binder with you or marked cards for trade.</div>
           ) : !theirBinders ? (
             <div className="empty-state"><Icon name="hourglass_empty" />Loading…</div>
           ) : theirBinders.map((b) => (
@@ -215,4 +234,19 @@ function Composer({ overview }: { overview: api.Overview }) {
       )}
     </>
   )
+}
+
+/** What someone brings to a game night, as binders to pick from (a binder per collection they came out of). */
+function nightCardsAsBinders(cards: NightCard[]): TheirBinder[] {
+  const byBinder = new Map<string, CollectionEntry[]>()
+  for (const c of cards) {
+    const id = c.collectionId ?? 'night'
+    const entries = byBinder.get(id) ?? []
+    const e = entries.find((x) => x.scryfallId === c.scryfallId)
+    const plain = c.foil ? 0 : c.quantity
+    const foil = c.foil ? c.quantity : 0
+    if (e) { e.quantity += plain; e.foilQuantity += foil } else entries.push({ scryfallId: c.scryfallId, name: c.name, imageUrl: c.imageUrl ?? null, quantity: plain, foilQuantity: foil, ...(c.condition ? { condition: c.condition } : {}) })
+    byBinder.set(id, entries)
+  }
+  return [...byBinder].map(([id, entries]) => ({ id, name: 'Bringing tonight', entries: entries.sort((a, b) => a.name.localeCompare(b.name)) }))
 }

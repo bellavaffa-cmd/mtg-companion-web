@@ -1,0 +1,1249 @@
+{
+  "about": "Trade nights (Android data/social/TradeNights.kt, web src/social/tradeNights.ts). Both apps run every case; keep the two copies of this file the same.",
+  "prices": {
+    "tithe": {
+      "usd": 18,
+      "foil": 30
+    },
+    "tithe-2": {
+      "usd": 17,
+      "foil": 30
+    },
+    "sol": {
+      "usd": 1.5,
+      "foil": 4
+    },
+    "rhystic": {
+      "usd": 20,
+      "foil": 45
+    },
+    "bolt": {
+      "usd": 1,
+      "foil": 3
+    },
+    "signet": {
+      "usd": 0.5,
+      "foil": 2
+    },
+    "rift": {
+      "usd": 25,
+      "foil": 40
+    },
+    "x": {
+      "usd": 20,
+      "foil": null
+    },
+    "y": {
+      "usd": 15,
+      "foil": null
+    },
+    "z": {
+      "usd": 5,
+      "foil": null
+    },
+    "p": {
+      "usd": 22,
+      "foil": null
+    },
+    "a": {
+      "usd": 10,
+      "foil": null
+    },
+    "b": {
+      "usd": 9.5,
+      "foil": null
+    },
+    "big": {
+      "usd": 50,
+      "foil": null
+    },
+    "small": {
+      "usd": 1,
+      "foil": null
+    },
+    "foilonly": {
+      "usd": null,
+      "foil": 12
+    },
+    "plain11": {
+      "usd": 11,
+      "foil": null
+    }
+  },
+  "mergeWants": [
+    {
+      "about": "weights, first spelling, blanks",
+      "wishlist": [
+        "Smothering Tithe",
+        " cyclonic rift "
+      ],
+      "decks": [
+        "Cyclonic Rift",
+        "Sol Ring",
+        ""
+      ],
+      "goals": [
+        "sol ring",
+        "Arcane Signet"
+      ],
+      "expect": [
+        {
+          "name": "cyclonic rift",
+          "weight": 3
+        },
+        {
+          "name": "Smothering Tithe",
+          "weight": 3
+        },
+        {
+          "name": "Sol Ring",
+          "weight": 2
+        },
+        {
+          "name": "Arcane Signet",
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "about": "nothing",
+      "wishlist": [],
+      "decks": [],
+      "goals": [],
+      "expect": []
+    }
+  ],
+  "bring": {
+    "collections": [
+      {
+        "id": "tb",
+        "name": "Trade binder",
+        "type": "OWNED",
+        "createdAt": 0,
+        "entries": [
+          {
+            "scryfallId": "sol",
+            "name": "Sol Ring",
+            "imageUrl": "img-sol",
+            "quantity": 2,
+            "foilQuantity": 1
+          },
+          {
+            "scryfallId": "rhystic",
+            "name": "Rhystic Study",
+            "imageUrl": null,
+            "quantity": 1,
+            "foilQuantity": 0,
+            "forTrade": 1,
+            "condition": "LP"
+          },
+          {
+            "scryfallId": "signet",
+            "name": "Arcane Signet",
+            "imageUrl": null,
+            "quantity": 1,
+            "foilQuantity": 0
+          },
+          {
+            "scryfallId": "zero",
+            "name": "Nothing Left",
+            "imageUrl": null,
+            "quantity": 0,
+            "foilQuantity": 0
+          }
+        ]
+      },
+      {
+        "id": "mb",
+        "name": "Main binder",
+        "type": "OWNED",
+        "createdAt": 0,
+        "entries": [
+          {
+            "scryfallId": "bolt",
+            "name": "Lightning Bolt",
+            "imageUrl": null,
+            "quantity": 0,
+            "foilQuantity": 2
+          },
+          {
+            "scryfallId": "counter",
+            "name": "Counterspell",
+            "imageUrl": null,
+            "quantity": 120,
+            "foilQuantity": 0
+          }
+        ]
+      },
+      {
+        "id": "wl",
+        "name": "Trade wants",
+        "type": "WISHLIST",
+        "createdAt": 0,
+        "entries": [
+          {
+            "scryfallId": "rift",
+            "name": "Cyclonic Rift",
+            "imageUrl": null,
+            "quantity": 0,
+            "foilQuantity": 0
+          }
+        ]
+      }
+    ],
+    "decksUse": [
+      "sol ring",
+      "rhystic study",
+      "counterspell"
+    ],
+    "defaultSources": [
+      {
+        "kind": "binder",
+        "id": "tb",
+        "name": "Trade binder"
+      }
+    ],
+    "cases": [
+      {
+        "about": "the trade binder: plain and foil apart, spare when for trade or no deck uses it, empty lines left out",
+        "sources": [
+          {
+            "kind": "binder",
+            "id": "tb",
+            "name": "Trade binder"
+          }
+        ],
+        "bagNames": [],
+        "expect": [
+          {
+            "scryfallId": "sol",
+            "name": "Sol Ring",
+            "imageUrl": "img-sol",
+            "foil": false,
+            "quantity": 2,
+            "collectionId": "tb",
+            "condition": null,
+            "spare": false
+          },
+          {
+            "scryfallId": "sol",
+            "name": "Sol Ring",
+            "imageUrl": "img-sol",
+            "foil": true,
+            "quantity": 1,
+            "collectionId": "tb",
+            "condition": null,
+            "spare": false
+          },
+          {
+            "scryfallId": "rhystic",
+            "name": "Rhystic Study",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": "tb",
+            "condition": "LP",
+            "spare": true
+          },
+          {
+            "scryfallId": "signet",
+            "name": "Arcane Signet",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": "tb",
+            "condition": null,
+            "spare": true
+          }
+        ]
+      },
+      {
+        "about": "with the event bag: one copy each from the first binder that has it, not twice, unknown names skipped, 99 at most",
+        "sources": [
+          {
+            "kind": "binder",
+            "id": "tb",
+            "name": "Trade binder"
+          },
+          {
+            "kind": "bag",
+            "name": "Event bag"
+          }
+        ],
+        "bagNames": [
+          "Lightning Bolt",
+          "sol ring",
+          "Counterspell",
+          "Nope"
+        ],
+        "expect": [
+          {
+            "scryfallId": "sol",
+            "name": "Sol Ring",
+            "imageUrl": "img-sol",
+            "foil": false,
+            "quantity": 2,
+            "collectionId": "tb",
+            "condition": null,
+            "spare": false
+          },
+          {
+            "scryfallId": "sol",
+            "name": "Sol Ring",
+            "imageUrl": "img-sol",
+            "foil": true,
+            "quantity": 1,
+            "collectionId": "tb",
+            "condition": null,
+            "spare": false
+          },
+          {
+            "scryfallId": "rhystic",
+            "name": "Rhystic Study",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": "tb",
+            "condition": "LP",
+            "spare": true
+          },
+          {
+            "scryfallId": "signet",
+            "name": "Arcane Signet",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": "tb",
+            "condition": null,
+            "spare": true
+          },
+          {
+            "scryfallId": "bolt",
+            "name": "Lightning Bolt",
+            "imageUrl": null,
+            "foil": true,
+            "quantity": 1,
+            "collectionId": "mb",
+            "condition": null,
+            "spare": true
+          },
+          {
+            "scryfallId": "counter",
+            "name": "Counterspell",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": "mb",
+            "condition": null,
+            "spare": false
+          }
+        ]
+      },
+      {
+        "about": "a binder that is gone, and the Wishlist, bring nothing",
+        "sources": [
+          {
+            "kind": "binder",
+            "id": "gone",
+            "name": "Old"
+          },
+          {
+            "kind": "binder",
+            "id": "wl",
+            "name": "Trade wants"
+          }
+        ],
+        "bagNames": [
+          "Lightning Bolt"
+        ],
+        "expect": []
+      },
+      {
+        "about": "a whole binder over 99 copies",
+        "sources": [
+          {
+            "kind": "binder",
+            "id": "mb",
+            "name": "Main binder"
+          }
+        ],
+        "bagNames": [],
+        "expect": [
+          {
+            "scryfallId": "bolt",
+            "name": "Lightning Bolt",
+            "imageUrl": null,
+            "foil": true,
+            "quantity": 2,
+            "collectionId": "mb",
+            "condition": null,
+            "spare": true
+          },
+          {
+            "scryfallId": "counter",
+            "name": "Counterspell",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 99,
+            "collectionId": "mb",
+            "condition": null,
+            "spare": false
+          }
+        ]
+      }
+    ]
+  },
+  "lists": {
+    "me": {
+      "userId": "alice",
+      "name": "Alice",
+      "wants": [
+        {
+          "name": "Smothering Tithe",
+          "weight": 3
+        },
+        {
+          "name": "Cyclonic Rift",
+          "weight": 2
+        },
+        {
+          "name": "Sol Ring",
+          "weight": 1
+        }
+      ],
+      "cards": [
+        {
+          "scryfallId": "rhystic",
+          "name": "Rhystic Study",
+          "imageUrl": null,
+          "foil": false,
+          "quantity": 1,
+          "collectionId": "tb",
+          "condition": "LP",
+          "spare": true
+        },
+        {
+          "scryfallId": "bolt",
+          "name": "Lightning Bolt",
+          "imageUrl": null,
+          "foil": false,
+          "quantity": 1,
+          "collectionId": "mb",
+          "condition": null,
+          "spare": true
+        },
+        {
+          "scryfallId": "signet",
+          "name": "Arcane Signet",
+          "imageUrl": null,
+          "foil": false,
+          "quantity": 1,
+          "collectionId": "tb",
+          "condition": null,
+          "spare": false
+        }
+      ]
+    },
+    "others": [
+      {
+        "userId": "priya",
+        "name": "Priya",
+        "wants": [
+          {
+            "name": "Lightning Bolt",
+            "weight": 2
+          },
+          {
+            "name": "arcane signet",
+            "weight": 3
+          }
+        ],
+        "cards": [
+          {
+            "scryfallId": "rift",
+            "name": "Cyclonic Rift",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": "p1",
+            "condition": null,
+            "spare": true
+          },
+          {
+            "scryfallId": "tithe-2",
+            "name": "Smothering Tithe",
+            "imageUrl": null,
+            "foil": true,
+            "quantity": 1,
+            "collectionId": "p1",
+            "condition": null,
+            "spare": true
+          }
+        ]
+      },
+      {
+        "userId": "bob",
+        "name": "Bob",
+        "wants": [
+          {
+            "name": "Rhystic Study",
+            "weight": 3
+          }
+        ],
+        "cards": [
+          {
+            "scryfallId": "tithe",
+            "name": "Smothering Tithe",
+            "imageUrl": "img-tithe",
+            "foil": false,
+            "quantity": 1,
+            "collectionId": "b1",
+            "condition": null,
+            "spare": true
+          },
+          {
+            "scryfallId": "sol",
+            "name": "Sol Ring",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 3,
+            "collectionId": "b1",
+            "condition": null,
+            "spare": true
+          }
+        ]
+      },
+      {
+        "userId": "sam",
+        "name": "Sam",
+        "wants": [],
+        "cards": [
+          {
+            "scryfallId": "big",
+            "name": "Big Card",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": null,
+            "condition": null,
+            "spare": true
+          }
+        ]
+      }
+    ],
+    "wantedHere": [
+      {
+        "name": "Smothering Tithe",
+        "weight": 3,
+        "from": [
+          {
+            "userId": "priya",
+            "name": "Priya",
+            "card": {
+              "scryfallId": "tithe-2",
+              "name": "Smothering Tithe",
+              "imageUrl": null,
+              "foil": true,
+              "quantity": 1,
+              "collectionId": "p1",
+              "condition": null,
+              "spare": true
+            }
+          },
+          {
+            "userId": "bob",
+            "name": "Bob",
+            "card": {
+              "scryfallId": "tithe",
+              "name": "Smothering Tithe",
+              "imageUrl": "img-tithe",
+              "foil": false,
+              "quantity": 1,
+              "collectionId": "b1",
+              "condition": null,
+              "spare": true
+            }
+          }
+        ]
+      },
+      {
+        "name": "Cyclonic Rift",
+        "weight": 2,
+        "from": [
+          {
+            "userId": "priya",
+            "name": "Priya",
+            "card": {
+              "scryfallId": "rift",
+              "name": "Cyclonic Rift",
+              "imageUrl": null,
+              "foil": false,
+              "quantity": 1,
+              "collectionId": "p1",
+              "condition": null,
+              "spare": true
+            }
+          }
+        ]
+      },
+      {
+        "name": "Sol Ring",
+        "weight": 1,
+        "from": [
+          {
+            "userId": "bob",
+            "name": "Bob",
+            "card": {
+              "scryfallId": "sol",
+              "name": "Sol Ring",
+              "imageUrl": null,
+              "foil": false,
+              "quantity": 3,
+              "collectionId": "b1",
+              "condition": null,
+              "spare": true
+            }
+          }
+        ]
+      }
+    ],
+    "theyWant": [
+      {
+        "userId": "priya",
+        "name": "Priya",
+        "cards": [
+          {
+            "card": {
+              "scryfallId": "signet",
+              "name": "Arcane Signet",
+              "imageUrl": null,
+              "foil": false,
+              "quantity": 1,
+              "collectionId": "tb",
+              "condition": null,
+              "spare": false
+            },
+            "weight": 3
+          },
+          {
+            "card": {
+              "scryfallId": "bolt",
+              "name": "Lightning Bolt",
+              "imageUrl": null,
+              "foil": false,
+              "quantity": 1,
+              "collectionId": "mb",
+              "condition": null,
+              "spare": true
+            },
+            "weight": 2
+          }
+        ]
+      },
+      {
+        "userId": "bob",
+        "name": "Bob",
+        "cards": [
+          {
+            "card": {
+              "scryfallId": "rhystic",
+              "name": "Rhystic Study",
+              "imageUrl": null,
+              "foil": false,
+              "quantity": 1,
+              "collectionId": "tb",
+              "condition": "LP",
+              "spare": true
+            },
+            "weight": 3
+          }
+        ]
+      }
+    ],
+    "suggested": [
+      {
+        "userId": "bob",
+        "name": "Bob",
+        "get": [
+          {
+            "scryfallId": "tithe",
+            "name": "Smothering Tithe",
+            "foil": false,
+            "quantity": 1,
+            "imageUrl": "img-tithe",
+            "collectionId": "b1"
+          },
+          {
+            "scryfallId": "sol",
+            "name": "Sol Ring",
+            "foil": false,
+            "quantity": 1,
+            "collectionId": "b1"
+          }
+        ],
+        "give": [
+          {
+            "scryfallId": "rhystic",
+            "name": "Rhystic Study",
+            "foil": false,
+            "quantity": 1,
+            "collectionId": "tb",
+            "condition": "LP"
+          }
+        ],
+        "getValue": 19.5,
+        "giveValue": 20
+      }
+    ],
+    "priceIds": [
+      "bolt",
+      "rhystic",
+      "rift",
+      "sol",
+      "tithe",
+      "tithe-2"
+    ]
+  },
+  "suggest": [
+    {
+      "about": "an even swap",
+      "me": {
+        "userId": "me",
+        "name": "Me",
+        "wants": [
+          {
+            "name": "A",
+            "weight": 3
+          }
+        ],
+        "cards": [
+          {
+            "scryfallId": "b",
+            "name": "B",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": null,
+            "condition": null,
+            "spare": true
+          }
+        ]
+      },
+      "them": {
+        "userId": "them",
+        "name": "Them",
+        "wants": [
+          {
+            "name": "B",
+            "weight": 3
+          }
+        ],
+        "cards": [
+          {
+            "scryfallId": "a",
+            "name": "A",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": null,
+            "condition": null,
+            "spare": true
+          }
+        ]
+      },
+      "expect": {
+        "userId": "them",
+        "name": "Them",
+        "get": [
+          {
+            "scryfallId": "a",
+            "name": "A",
+            "foil": false,
+            "quantity": 1
+          }
+        ],
+        "give": [
+          {
+            "scryfallId": "b",
+            "name": "B",
+            "foil": false,
+            "quantity": 1
+          }
+        ],
+        "getValue": 10,
+        "giveValue": 9.5
+      }
+    },
+    {
+      "about": "the heavier side gives up its least wanted card that brings it closer, until fair",
+      "me": {
+        "userId": "me",
+        "name": "Me",
+        "wants": [
+          {
+            "name": "X",
+            "weight": 3
+          },
+          {
+            "name": "Y",
+            "weight": 1
+          },
+          {
+            "name": "Z",
+            "weight": 2
+          }
+        ],
+        "cards": [
+          {
+            "scryfallId": "p",
+            "name": "P",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": null,
+            "condition": null,
+            "spare": true
+          }
+        ]
+      },
+      "them": {
+        "userId": "them",
+        "name": "Them",
+        "wants": [
+          {
+            "name": "P",
+            "weight": 3
+          }
+        ],
+        "cards": [
+          {
+            "scryfallId": "x",
+            "name": "X",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": null,
+            "condition": null,
+            "spare": true
+          },
+          {
+            "scryfallId": "y",
+            "name": "Y",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": null,
+            "condition": null,
+            "spare": true
+          },
+          {
+            "scryfallId": "z",
+            "name": "Z",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": null,
+            "condition": null,
+            "spare": true
+          }
+        ]
+      },
+      "expect": {
+        "userId": "them",
+        "name": "Them",
+        "get": [
+          {
+            "scryfallId": "x",
+            "name": "X",
+            "foil": false,
+            "quantity": 1
+          }
+        ],
+        "give": [
+          {
+            "scryfallId": "p",
+            "name": "P",
+            "foil": false,
+            "quantity": 1
+          }
+        ],
+        "getValue": 20,
+        "giveValue": 22
+      }
+    },
+    {
+      "about": "cards that are not spare are not offered",
+      "me": {
+        "userId": "me",
+        "name": "Me",
+        "wants": [
+          {
+            "name": "A",
+            "weight": 3
+          }
+        ],
+        "cards": [
+          {
+            "scryfallId": "b",
+            "name": "B",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": null,
+            "condition": null,
+            "spare": false
+          }
+        ]
+      },
+      "them": {
+        "userId": "them",
+        "name": "Them",
+        "wants": [
+          {
+            "name": "B",
+            "weight": 3
+          }
+        ],
+        "cards": [
+          {
+            "scryfallId": "a",
+            "name": "A",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": null,
+            "condition": null,
+            "spare": true
+          }
+        ]
+      },
+      "expect": null
+    },
+    {
+      "about": "unpriced cards are left out",
+      "me": {
+        "userId": "me",
+        "name": "Me",
+        "wants": [
+          {
+            "name": "Unpriced",
+            "weight": 3
+          }
+        ],
+        "cards": [
+          {
+            "scryfallId": "b",
+            "name": "B",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": null,
+            "condition": null,
+            "spare": true
+          }
+        ]
+      },
+      "them": {
+        "userId": "them",
+        "name": "Them",
+        "wants": [
+          {
+            "name": "B",
+            "weight": 3
+          }
+        ],
+        "cards": [
+          {
+            "scryfallId": "none",
+            "name": "Unpriced",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": null,
+            "condition": null,
+            "spare": true
+          }
+        ]
+      },
+      "expect": null
+    },
+    {
+      "about": "cannot be made fair",
+      "me": {
+        "userId": "me",
+        "name": "Me",
+        "wants": [
+          {
+            "name": "Big Card",
+            "weight": 3
+          }
+        ],
+        "cards": [
+          {
+            "scryfallId": "small",
+            "name": "Small Card",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": null,
+            "condition": null,
+            "spare": true
+          }
+        ]
+      },
+      "them": {
+        "userId": "them",
+        "name": "Them",
+        "wants": [
+          {
+            "name": "Small Card",
+            "weight": 3
+          }
+        ],
+        "cards": [
+          {
+            "scryfallId": "big",
+            "name": "Big Card",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": null,
+            "condition": null,
+            "spare": true
+          }
+        ]
+      },
+      "expect": null
+    },
+    {
+      "about": "a foil copy at its foil price; a foil-only price for a plain copy",
+      "me": {
+        "userId": "me",
+        "name": "Me",
+        "wants": [
+          {
+            "name": "Foil Only",
+            "weight": 3
+          }
+        ],
+        "cards": [
+          {
+            "scryfallId": "plain11",
+            "name": "Plain Eleven",
+            "imageUrl": null,
+            "foil": true,
+            "quantity": 1,
+            "collectionId": null,
+            "condition": null,
+            "spare": true
+          }
+        ]
+      },
+      "them": {
+        "userId": "them",
+        "name": "Them",
+        "wants": [
+          {
+            "name": "plain eleven",
+            "weight": 2
+          }
+        ],
+        "cards": [
+          {
+            "scryfallId": "foilonly",
+            "name": "Foil Only",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": null,
+            "condition": null,
+            "spare": true
+          }
+        ]
+      },
+      "expect": {
+        "userId": "them",
+        "name": "Them",
+        "get": [
+          {
+            "scryfallId": "foilonly",
+            "name": "Foil Only",
+            "foil": false,
+            "quantity": 1
+          }
+        ],
+        "give": [
+          {
+            "scryfallId": "plain11",
+            "name": "Plain Eleven",
+            "foil": true,
+            "quantity": 1
+          }
+        ],
+        "getValue": 12,
+        "giveValue": 11
+      }
+    },
+    {
+      "about": "one way only",
+      "me": {
+        "userId": "me",
+        "name": "Me",
+        "wants": [
+          {
+            "name": "A",
+            "weight": 3
+          }
+        ],
+        "cards": [
+          {
+            "scryfallId": "b",
+            "name": "B",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": null,
+            "condition": null,
+            "spare": true
+          }
+        ]
+      },
+      "them": {
+        "userId": "them",
+        "name": "Them",
+        "wants": [],
+        "cards": [
+          {
+            "scryfallId": "a",
+            "name": "A",
+            "imageUrl": null,
+            "foil": false,
+            "quantity": 1,
+            "collectionId": null,
+            "condition": null,
+            "spare": true
+          }
+        ]
+      },
+      "expect": null
+    }
+  ],
+  "table": {
+    "me": "alice",
+    "trades": [
+      {
+        "id": "t1",
+        "from_user": "alice",
+        "to_user": "bob",
+        "want": [],
+        "give": [],
+        "message": null,
+        "reply": null,
+        "status": "open",
+        "reply_to": null,
+        "from_applied": false,
+        "to_applied": false,
+        "created_at": "",
+        "updated_at": ""
+      },
+      {
+        "id": "t2",
+        "from_user": "bob",
+        "to_user": "alice",
+        "want": [],
+        "give": [],
+        "message": null,
+        "reply": null,
+        "status": "accepted",
+        "reply_to": null,
+        "from_applied": true,
+        "to_applied": false,
+        "created_at": "",
+        "updated_at": ""
+      },
+      {
+        "id": "t3",
+        "from_user": "alice",
+        "to_user": "priya",
+        "want": [],
+        "give": [],
+        "message": null,
+        "reply": null,
+        "status": "accepted",
+        "reply_to": null,
+        "from_applied": true,
+        "to_applied": false,
+        "created_at": "",
+        "updated_at": ""
+      },
+      {
+        "id": "t4",
+        "from_user": "priya",
+        "to_user": "alice",
+        "want": [],
+        "give": [],
+        "message": null,
+        "reply": null,
+        "status": "declined",
+        "reply_to": null,
+        "from_applied": false,
+        "to_applied": false,
+        "created_at": "",
+        "updated_at": ""
+      },
+      {
+        "id": "t5",
+        "from_user": "alice",
+        "to_user": "sam",
+        "want": [],
+        "give": [],
+        "message": null,
+        "reply": null,
+        "status": "accepted",
+        "reply_to": null,
+        "from_applied": false,
+        "to_applied": true,
+        "created_at": "",
+        "updated_at": ""
+      },
+      {
+        "id": "t6",
+        "from_user": "sam",
+        "to_user": "alice",
+        "want": [],
+        "give": [],
+        "message": null,
+        "reply": null,
+        "status": "countered",
+        "reply_to": null,
+        "from_applied": false,
+        "to_applied": false,
+        "created_at": "",
+        "updated_at": ""
+      }
+    ],
+    "expect": [
+      {
+        "id": "t2",
+        "other": "bob",
+        "state": "agreed"
+      },
+      {
+        "id": "t5",
+        "other": "sam",
+        "state": "agreed"
+      },
+      {
+        "id": "t1",
+        "other": "bob",
+        "state": "waiting"
+      },
+      {
+        "id": "t3",
+        "other": "priya",
+        "state": "done"
+      }
+    ],
+    "line": "2 agreed · 1 waiting · 1 done"
+  }
+}

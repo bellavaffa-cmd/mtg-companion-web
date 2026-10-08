@@ -1,40 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMoney } from '../money/currency'
 import { Icon } from '../components/Icon'
-import { getCardsByIds } from '../api/scryfall'
+import { useTradePrices } from './tradePrices'
 import { namesDecksUse } from '../collection/spares'
 import { useSync } from '../sync/SyncContext'
 import type { TradeCard } from './api'
 import * as more from './more'
 import {
   candidatesFor, evenOut, evenOutTitle, fairness, shortSide, unpricedLine, verdictLine,
-  type PriceBook, type Suggestion,
+  type Suggestion,
 } from './tradeFairness'
-
-/** Prices of [cards] (USD, and the foil price for foil copies), fetched when the list changes. Null when they couldn't be fetched. */
-function useTradePrices(cards: TradeCard[]): PriceBook | null | undefined {
-  const [prices, setPrices] = useState<{ key: string; book: PriceBook | null } | null>(null)
-  const key = [...new Set(cards.map((c) => c.scryfallId))].sort().join(',')
-  useEffect(() => {
-    if (!key) return
-    let cancelled = false
-    getCardsByIds(key.split(','))
-      .then((list) => {
-        if (cancelled) return
-        setPrices({ key, book: new Map(list.map((c) => [c.id, {
-          usd: c.prices?.usd ? Number(c.prices.usd) : null,
-          foil: c.prices?.usd_foil ? Number(c.prices.usd_foil) : null,
-        }])) })
-      })
-      .catch(() => { if (!cancelled) setPrices({ key, book: null }) })
-    return () => { cancelled = true }
-  }, [key])
-  if (!key) return new Map()
-  if (prices?.key === key) return prices.book
-  // The last answer still does while it has every card (a card taken off), so the totals don't blink.
-  const last = prices?.book
-  return last && key.split(',').every((id) => last.has(id)) ? last : undefined
-}
 
 // The trade matches, asked once a minute at most: every trade on the Trades page shares one answer.
 let matchesAsked: { at: number; answer: Promise<more.TradeMatch[]> } | null = null

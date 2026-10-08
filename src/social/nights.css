@@ -156,3 +156,14 @@
 .pc-row-name { display: flex; align-items: center; gap: 6px; }
 .pc-thread .link-like { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
 .pc-name.link-like { color: var(--t1); font-size: 0.75rem; }
+
+/* Trades on a game night (TradeNightSection.tsx) */
+.tn .tn-label { margin-top: 8px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--t1); }
+.tn .muted { font-size: 0.8125rem; }
+.tn-sources { display: flex; flex-direction: column; gap: 6px; }
+.tn-check { display: flex; align-items: center; gap: 10px; font-size: 0.875rem; min-height: 32px; }
+.tn-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--g1); }
+.tn-row .tn-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 0.875rem; }
+.tn-row .tn-tick { flex: none; width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--line); display: inline-flex; align-items: center; justify-content: center; color: var(--gold-ink); font-weight: 800; }
+.tn-row.tn-done .tn-tick { background: var(--gold); border-color: var(--gold); }
+.tn-row.tn-done .tn-main b { text-decoration: line-through; }
