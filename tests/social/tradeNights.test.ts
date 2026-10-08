@@ -66,7 +66,7 @@ test('wants from the library: wishlist, cards decks are missing, unfinished goal
     { id: 'b', name: 'Binder', type: 'OWNED', createdAt: 0, entries: [{ scryfallId: 'sol', name: 'Sol Ring', imageUrl: null, quantity: 1, foilQuantity: 0 }] },
   ] as Collection[]
   const deck = (id: string, name: string, cards: string[], extra: Partial<Deck> = {}): Deck =>
-    ({ id, name, cards: cards.map((n) => ({ scryfallId: n, name: n, imageUrl: null, quantity: 1 })), createdAt: 0, ...extra }) as unknown as Deck
+    ({ id, name, ownership: 'VIRTUAL', cards: cards.map((n) => ({ scryfallId: n, name: n, imageUrl: null, quantity: 1 })), createdAt: 0, ...extra }) as unknown as Deck
   const decks = [
     deck('d1', 'Krenko', ['Sol Ring', 'Goblin Bombardment']),
     deck('d2', 'Old', ['Archived Card'], { archived: true }),
