@@ -13,10 +13,11 @@ import { IconButton } from '../components/kit'
 import type { ScryfallCard } from '../types/scryfall'
 import type { Deck } from '../types/models'
 import {
-  completeGoals, goalsOf, GOAL_RARITIES, missingLine, newDeckGoal, newSetGoal, progressLine, saveGoal, setGoalName,
+  completeGoals, goalActivityOf, goalProgress, goalsOf, GOAL_RARITIES, missingLine, newDeckGoal, newSetGoal, progressLine, saveGoal, setGoalName,
   sortedGoals, withGoals, type CollectionGoal, type GoalProgress, type GoalSetCard,
 } from './collectionGoals'
 import { goalSetCard, newGoalId, useGoals } from './useGoals'
+import { postGoalCompleted } from '../social/activity'
 import './storage.css'
 import './recipes.css'
 import './goals.css'
@@ -179,7 +180,10 @@ export function GoalWatcher() {
         const r = completeGoals(goalsOf(c), c, decks, Date.now())
         return r.done.length > 0 ? withGoals(c, r.goals) : c
       })
-      setParty(found.goals.filter((g) => found.done.includes(g.id)).map((g) => g.name))
+      const completed = found.goals.filter((g) => found.done.includes(g.id))
+      setParty(completed.map((g) => g.name))
+      // Friends' Activity hears of it, when the user shares completed goals (and the server has it).
+      for (const g of completed) void postGoalCompleted(goalActivityOf(g, goalProgress(g, collections, decks)))
       if (!reducedMotion()) navigator.vibrate?.([30, 60, 30, 60, 90])
     }, 700)
     return () => window.clearTimeout(t)

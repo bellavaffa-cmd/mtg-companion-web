@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
   collectionGoal, completeGoals, deleteGoal, goalHits, goalProgress, goalsOf, goalWishlistAdds, hitLine, keepGoalsFromOlderApp, mergeGoals,
-  missingLine, missingNames, newDeckGoal, newListGoal, newSetGoal, progressLine, saveGoal, setGoalName, sortedGoals,
+  missingLine, missingNames, newDeckGoal, newListGoal, newSetGoal, progressLine, saveGoal, setGoalName, sortedGoals, goalActivityOf,
   type CollectionGoal, type GoalPrices, type GoalSetCard,
 } from '../../src/collection/collectionGoals.ts'
 import { mergeCollection } from '../../src/sync/mergeItems.ts'
@@ -156,4 +156,25 @@ test('Reset collection: Collection and Everything clear goals; Cards only keeps 
   assert.deepEqual(resetLibrary(lib as never, 'everything', 1).collections[0].collectionGoals, [])
   assert.equal(resetCountsText(resetCounts(lib, 'collection')), '2 goals')
   assert.equal(resetCountsText(resetCounts(lib, 'cards')), 'Nothing to remove')
+})
+
+test('a completed goal for friends’ Activity: its cards and its most valuable card', () => {
+  const goal = newListGoal('g', 'CUSTOM', 'Shock lands', [
+    { name: 'Steam Vents', scryfallId: 'sv', qty: 2, usd: 9 }, { name: 'Sacred Foundry', scryfallId: 'sf', qty: 1, usd: 12 }, { name: 'Opt', qty: 1 },
+  ], null, 1)
+  const cols: Collection[] = [{
+    id: 'unsorted', name: 'Unsorted', createdAt: 0, type: 'OWNED', entries: [
+      { scryfallId: 'sv', name: 'Steam Vents', imageUrl: null, quantity: 2, foilQuantity: 0 },
+      { scryfallId: 'sf', name: 'Sacred Foundry', imageUrl: null, quantity: 1, foilQuantity: 0 },
+      { scryfallId: 'o', name: 'Opt', imageUrl: null, quantity: 1, foilQuantity: 0 },
+    ],
+  }]
+  const p = goalProgress(goal, cols, [])
+  assert.ok(p.complete)
+  assert.deepEqual(goalActivityOf(goal, p), { goalId: 'g', name: 'Shock lands', kind: 'CUSTOM', cards: 4, cover: 'sf' })
+  // No prices: the first card with a printing; none at all: no card.
+  const plain = newListGoal('h', 'PLAYSET', 'Opts', [{ name: 'Opt', qty: 1 }, { name: 'Ponder', scryfallId: 'po', qty: 1 }], 4, 1)
+  assert.equal(goalActivityOf(plain, goalProgress(plain, cols, [])).cover, 'po')
+  const bare = newListGoal('i', 'CUSTOM', 'Opt', [{ name: 'Opt', qty: 1 }], null, 1)
+  assert.equal(goalActivityOf(bare, goalProgress(bare, cols, [])).cover, null)
 })

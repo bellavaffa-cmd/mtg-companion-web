@@ -206,6 +206,25 @@
   font-size: 0.75rem;
 }
 
+/* A completed goal: the trophy and the goal's card. */
+.activity-goal {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gold);
+}
+
+.activity-goal .icon {
+  font-size: 18px;
+}
+
+.activity-goal-art {
+  width: 64px;
+  height: 46px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
 .activity-action {
   padding: 0;
   min-height: 24px;

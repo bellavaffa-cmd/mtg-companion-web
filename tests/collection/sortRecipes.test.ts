@@ -5,8 +5,10 @@ import {
   alsoLine, bucketOf, capWarning, cardLine, checkPileCard, derivePiles, fileRecipe, HandsFreeCapture, keepRecipesFromOlderApp, levelBuckets,
   levelLine, mergeRecipes, newRecipe, pileGoesTo, reasonLine, recipeLine, recipeTemplates, recipesOf, saveRecipe, deleteRecipe, sortCard,
   sortRecipe, spokenPile, summarize, withGoTo, ordinal, otherPile, pileSignsHtml, deckNeedsOf, friendWantsOf, orderedBinders,
-  type RecipeCard, type RecipeScan, type SmartContext, type SortRecipe, type SplitLevel,
+  goalNeedsOf, binderFiledInto, reasonsFor,
+  type RecipeCard, type RecipeScan, type SmartContext, type SortRecipe, type SplitLevel, type OrderedBinder,
 } from '../../src/collection/sortRecipes.ts'
+import { newListGoal, newSetGoal, type CollectionGoal } from '../../src/collection/collectionGoals.ts'
 import { BY_RULE } from '../../src/collection/sortPiles.ts'
 import { mergeCollection } from '../../src/sync/mergeItems.ts'
 import { isUnsorted, type Collection, type Deck, type StoragePlace } from '../../src/types/models.ts'
@@ -14,19 +16,22 @@ import { isUnsorted, type Collection, type Deck, type StoragePlace } from '../..
 // Sorting recipes. The cases in sortRecipeVectors.json are run by the Android app too (SortRecipesTest.kt),
 // so both apps make the same piles and send every card to the same one.
 
+interface Session {
+  recipe: SortRecipe
+  rate: number
+  expect: { pile: number; key: string; reason: string | null; also: string[]; spoken: string; line: string }[]
+  summary: { cards: number; usd: number; rows: string[] }
+  checks: { pile: number; names: string[]; lines: string[] }[]
+}
+
 interface Vectors {
   derive: { recipe: SortRecipe; piles: string[]; wanted: number; capped: boolean; warning: string | null; line: string }[]
   labels: { level: SplitLevel; labels: string[]; line: string }[]
   buckets: { level: SplitLevel; rate: number; card: RecipeCard; key: string }[]
   ctx: SmartContext
   session: RecipeCard[]
-  sessions: {
-    recipe: SortRecipe
-    rate: number
-    expect: { pile: number; key: string; reason: string | null; also: string[]; spoken: string; line: string }[]
-    summary: { cards: number; usd: number; rows: string[] }
-    checks: { pile: number; names: string[]; lines: string[] }[]
-  }[]
+  sessions: Session[]
+  goalSessions: { ctx: SmartContext; session: RecipeCard[]; sessions: Session[] }
   handsFree: { steady: number; gap: number; steps: { read?: string | null; captured?: string; rescan?: true; missed?: true }[]; takes: (boolean | null)[] }[]
 }
 
@@ -56,12 +61,12 @@ test('the bucket a card falls in: value bands in the user’s currency, A–Z ra
   for (const b of V.buckets) assert.equal(bucketOf(b.level, b.card, b.rate), b.key, `${JSON.stringify(b.level)} ${JSON.stringify(b.card)} @${b.rate}`)
 })
 
-test('a session: smart piles first (deck > friend > binder > trade), then keep apart, then the levels', () => {
-  for (const s of V.sessions) {
+function runSessions(ctx: SmartContext, cards: RecipeCard[], sessions: Session[]) {
+  for (const s of sessions) {
     const d = derivePiles(s.recipe, fmt)
     const scans: RecipeScan[] = []
-    V.session.forEach((card, i) => {
-      const c = sortCard(s.recipe, d, V.ctx, card, scans, s.rate)
+    cards.forEach((card, i) => {
+      const c = sortCard(s.recipe, d, ctx, card, scans, s.rate)
       const pile = d.piles.find((p) => p.number === c.pile)!
       const scan: RecipeScan = {
         id: i + 1, scryfallId: `id${i}`, name: card.name, card, pile: c.pile, key: c.key, reason: c.reason, also: c.also, setName: null,
@@ -87,6 +92,14 @@ test('a session: smart piles first (deck > friend > binder > trade), then keep a
       assert.deepEqual(c.names.map((n) => { const r = checkPileCard(d, scans, c.pile, checked, n); if (r.belongs) checked.push(n); return r.line }), c.lines)
     }
   }
+}
+
+test('a session: smart piles first (deck > goal > friend > binder > trade), then keep apart, then the levels', () => {
+  runSessions(V.ctx, V.session, V.sessions)
+})
+
+test('the Goals need pile: each goal claims only what it’s missing, the session’s copies counted; after decks, before friends and binders', () => {
+  runSessions(V.goalSessions.ctx, V.goalSessions.session, V.goalSessions.sessions)
 })
 
 test('capture without tapping: steady frames, and never the same card twice until it has left', () => {
@@ -102,7 +115,13 @@ test('templates and a new recipe', () => {
   assert.deepEqual(t.map((r) => r.name), ['Commander by colour', 'Binder by set', 'Rares by value', 'What my collection needs'])
   assert.deepEqual(derivePiles(t[1], fmt).piles.slice(3, 5).map((p) => p.name), ['DSK · #1–99', 'DSK · #100–199'])
   assert.deepEqual(derivePiles(t[2], fmt).piles.slice(3).map((p) => p.name), ['$20+', '$5–$20', '$1–$5', 'under $1'])
+  // Goals need is off unless a goal is under way — then only "What my collection needs" pulls it out.
+  assert.ok(t.every((r) => !r.pullOut.includes('GOALS')))
+  const withGoals = recipeTemplates(['dsk'], true)
+  assert.deepEqual(withGoals.map((r) => r.pullOut.includes('GOALS')), [false, false, false, true])
+  assert.equal(recipeLine(withGoals[3], fmt), 'Decks need · Goals need · Friends want · Binder gaps · To trade · 6 piles')
   const mine = newRecipe('n1', 5)
+  assert.ok(!mine.pullOut.includes('GOALS'))
   assert.equal(recipeLine(mine, fmt), 'Value $2+ apart · then colour · 12 piles')
   assert.equal(ordinal(1) + ordinal(2) + ordinal(3) + ordinal(11) + ordinal(22), '1st2nd3rd11th22nd')
 })
@@ -116,8 +135,11 @@ test('a recipe is kept tidy: known kinds in order, three levels at most, cuts so
   assert.deepEqual(r, {
     id: 'x', name: 'My recipe', pullOut: ['DECKS', 'TRADE'], apart: ['FOIL', 'PLAYED'],
     levels: [{ by: 'VALUE', cuts: [5, 1] }, { by: 'NAME', letters: ['A', 'C', 'Q'] }, { by: 'NUMBER', cuts: [1, 50] }],
-    goTo: [{ pile: 'L:v0', to: 'b' }], createdAt: 3,
+    goTo: [{ pile: 'L:v0', to: 'b' }], createdAt: 3, goals: false,
   })
+  // "goals" says whether the Goals need pile is pulled out, always.
+  assert.equal(sortRecipe({ ...newRecipe('y', 1), pullOut: ['FRIENDS', 'GOALS'] }).goals, true)
+  assert.deepEqual(sortRecipe({ ...newRecipe('y', 1), pullOut: ['FRIENDS', 'GOALS'] }).pullOut, ['GOALS', 'FRIENDS'])
 })
 
 const pile = (recipes?: SortRecipe[]): Collection => ({ id: 'unsorted', name: 'Unsorted', entries: [], createdAt: 0, type: 'OWNED', ...(recipes ? { sortRecipes: recipes } : {}) })
@@ -146,6 +168,84 @@ test('a pile saved by an app from before recipes keeps this device’s', () => {
   assert.deepEqual(merged.sortRecipes, here.sortRecipes)
   const both = mergeCollection(pile([]), pile([R('a', 'Bulk')]), pile([R('b', 'Rares')]), true)
   assert.deepEqual(both.sortRecipes!.map((r) => r.id), ['a', 'b'])
+})
+
+test('a recipe saved by an app from before the Goals need pile keeps this device’s pile; one turned off stays off', () => {
+  const goals = R('a', 'Bulk', { pullOut: ['DECKS', 'GOALS', 'FRIENDS'] })
+  const here = pile([goals, R('b', 'Rares')])
+  // The older app drops GOALS and the "goals" key — and here it renamed the recipe too.
+  const { goals: _drop, ...older } = { ...goals, name: 'Bulk boxes', pullOut: ['DECKS', 'FRIENDS'] as SortRecipe['pullOut'] }
+  void _drop
+  const olderPile = pile([older, R('b', 'Rares')])
+  const kept = keepRecipesFromOlderApp(here, olderPile).sortRecipes!
+  assert.deepEqual(kept[0].pullOut, ['DECKS', 'GOALS', 'FRIENDS'])
+  assert.equal(kept[0].name, 'Bulk boxes')
+  assert.equal(kept[0].goals, true)
+  // Nothing to put back: the same object.
+  assert.equal(keepRecipesFromOlderApp(here, here), here)
+  // Through the whole merge, both ways round: the rename comes through, the pile stays.
+  for (const minePreferred of [true, false]) {
+    const merged = mergeCollection(here, here, olderPile, minePreferred).sortRecipes!
+    assert.deepEqual(merged[0].pullOut, ['DECKS', 'GOALS', 'FRIENDS'])
+    assert.equal(merged[0].name, 'Bulk boxes')
+    const back = mergeCollection(here, olderPile, here, minePreferred).sortRecipes!
+    assert.deepEqual(back[0].pullOut, ['DECKS', 'GOALS', 'FRIENDS'])
+  }
+  // A newer app that turned it off says so ("goals": false): it stays off.
+  const off = pile([R('a', 'Bulk', { pullOut: ['DECKS', 'FRIENDS'] }), R('b', 'Rares')])
+  assert.equal(off.sortRecipes![0].goals, false)
+  assert.deepEqual(mergeCollection(here, here, off, true).sortRecipes![0].pullOut, ['DECKS', 'FRIENDS'])
+})
+
+test('the goals the Goals need pile goes by: open ones missing something, most nearly done first, a set goal with its set binder', () => {
+  const dskCards = [
+    { id: 'd1', name: 'Fear of Exposure', rarity: 'uncommon' }, { id: 'd2', name: 'Grim Cellar', rarity: 'uncommon' }, { id: 'd3', name: 'Valgavoth', rarity: 'mythic' },
+  ]
+  const dsk = newSetGoal('g-dsk', { code: 'DSK', name: 'Duskmourn' }, dskCards, ['uncommon'], false, 1)
+  const shocks = newListGoal('g-shock', 'PLAYSET', 'Shock lands', [{ name: 'Steam Vents', qty: 1 }, { name: 'Sacred Foundry', qty: 1 }], 4, 1)
+  const done: CollectionGoal = { ...newListGoal('g-done', 'CUSTOM', 'Done', [{ name: 'Opt', qty: 1 }], null, 1), completedAt: 5 }
+  const full = newListGoal('g-full', 'CUSTOM', 'Full', [{ name: 'Opt', qty: 1 }], null, 1)
+  const cols: Collection[] = [{
+    ...pile(), entries: [
+      { scryfallId: 'd1', name: 'Fear of Exposure', imageUrl: null, quantity: 1, foilQuantity: 0 },
+      { scryfallId: 'sv', name: 'Steam Vents', imageUrl: null, quantity: 1, foilQuantity: 0 },
+      { scryfallId: 'opt', name: 'Opt', imageUrl: null, quantity: 1, foilQuantity: 0 },
+    ],
+  }]
+  const binder = (placeId: string, sets: string[]): OrderedBinder => ({ placeId, name: placeId, rule: 'SET', pockets: 9, occupied: [], names: [], sets })
+  const needs = goalNeedsOf([shocks, done, full, dsk], cols, [], [binder('mixed', ['dsk', 'm10']), binder('dskonly', ['dsk'])])
+  assert.deepEqual(needs, [
+    { goalId: 'g-dsk', name: 'Duskmourn uncommons', kind: 'SET', foil: false, have: 1, need: 2, missing: { 'id:d2': 1 }, placeId: 'dskonly' },
+    { goalId: 'g-shock', name: 'Shock lands', kind: 'PLAYSET', foil: false, have: 1, need: 8, missing: { 'n:steam vents': 3, 'n:sacred foundry': 4 } },
+  ])
+  assert.equal(goalNeedsOf([dsk], cols, [], [binder('mixed', ['dsk', 'm10'])])[0].placeId, 'mixed')
+  assert.equal(goalNeedsOf([dsk], cols, [], [binder('m10', ['m10'])])[0].placeId, undefined)
+  // A foil goal moves only for a foil copy; a set goal only for its printing.
+  const ctx: SmartContext = { deckNeeds: {}, friendWants: {}, binders: [], owned: {}, goals: [{ ...needs[0], foil: true }] }
+  assert.deepEqual(reasonsFor(ctx, { name: 'Grim Cellar', scryfallId: 'd2' }, []), [])
+  assert.deepEqual(reasonsFor(ctx, { name: 'Grim Cellar', scryfallId: 'other-printing', foil: true }, []), [])
+  assert.deepEqual(reasonsFor(ctx, { name: 'Grim Cellar', scryfallId: 'd2', foil: true }, []).map(reasonLine), ['GOAL · DUSKMOURN UNCOMMONS'])
+})
+
+test('filing the Goals need pile: into the goal’s set binder, else no place — or where the recipe says', () => {
+  const dsk: StoragePlace = { id: 'dsk', name: 'Duskmourn', kind: 'BINDER', sortRule: 'SET', createdAt: 2 }
+  const box: StoragePlace = { id: 'box', name: 'Goal box', kind: 'BOX', createdAt: 3 }
+  const cols: Collection[] = [{ ...pile(), storagePlaces: [dsk, box] }]
+  let recipe = sortRecipe({ id: 'r', name: 'Goals', pullOut: ['GOALS'], levels: [], apart: [], createdAt: 1 })
+  const d = derivePiles(recipe, fmt)
+  assert.equal(pileGoesTo(recipe, d.piles[0]), '')
+  const scan = (id: string, name: string, placeId?: string): RecipeScan => ({
+    id: Number(id.slice(1)), scryfallId: id, name, card: { name }, facts: { name, set: 'dsk' }, entry: { scryfallId: id, name, imageUrl: null, quantity: 0, foilQuantity: 0 },
+    pile: 1, key: 'S:GOALS', reason: { kind: 'GOALS', goalId: 'g', goal: 'Duskmourn uncommons', have: 91, need: 92, ...(placeId ? { placeId } : {}) },
+  })
+  const scans = [scan('s1', 'Grim Cellar', 'dsk'), scan('s2', 'Steam Vents')]
+  assert.deepEqual(scans.map((s) => binderFiledInto(recipe, s)), ['dsk', null])
+  let filed = fileRecipe(cols, recipe, d, scans)
+  assert.deepEqual(filed.steps.map((s) => `${s.scan.name} → ${s.to}`), ['Grim Cellar → Duskmourn', 'Steam Vents → No place yet'])
+  recipe = withGoTo(recipe, 'S:GOALS', 'box')
+  assert.equal(binderFiledInto(recipe, scans[0]), null)
+  filed = fileRecipe(cols, recipe, d, scans)
+  assert.deepEqual(filed.steps.map((s) => `${s.scan.name} → ${s.to}`), ['Grim Cellar → Goal box', 'Steam Vents → Goal box'])
 })
 
 test('saving and deleting recipes on the Unsorted pile', () => {
@@ -201,6 +301,12 @@ test('send to pile N instead: the next smart pile that wants it, else its own pi
   // Nothing else wants it: the pile it'd go in without the smart piles.
   assert.equal(otherPile(recipe, d, { card, pile: 2, reason: friend, also: [] }, 1)?.key, 'L:v1/R')
   assert.equal(otherPile(recipe, d, { card, pile: 11, reason: null, also: [] }, 1), null)
+  // From the Goals need pile, the next smart pile after it: a friend's.
+  const goalRecipe = V.goalSessions.sessions[0].recipe
+  const gd = derivePiles(goalRecipe, fmt)
+  const goal = { kind: 'GOALS' as const, goalId: 'g', goal: 'Shock lands', have: 38, need: 40 }
+  assert.equal(otherPile(goalRecipe, gd, { card, pile: 2, reason: goal, also: [deck, friend] }, 1)?.key, 'S:FRIENDS')
+  assert.equal(otherPile(goalRecipe, gd, { card, pile: 1, reason: deck, also: [goal] }, 1)?.key, 'S:GOALS')
 })
 
 test('pile signs: each pile’s number and name, two to a page of the paper chosen', () => {

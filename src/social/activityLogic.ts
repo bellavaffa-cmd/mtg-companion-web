@@ -1,6 +1,7 @@
-// The rules behind the friends' Activity feed (friends_activity), what it may show of the user
-// (Settings › Privacy) and comments on shared decks — kept apart from the screens so they can be
-// tested. Server side: MtgCompanionApp/supabase/migrations/20261006080000_activity_comments.sql.
+// The rules behind the friends' Activity feed (friends_activity, and friends_goal_activity for
+// completed collection goals), what it may show of the user (Settings › Privacy) and comments on
+// shared decks — kept apart from the screens so they can be tested. Server side:
+// MtgCompanionApp/supabase/migrations/20261006080000_activity_comments.sql and 20261008110000_goal_activity.sql.
 // The Android app's twin is data/social/ActivityCommentsLogic.kt, case for case
 // (tests/social/activity.test.ts ↔ ActivityCommentsLogicTest.kt).
 
@@ -33,6 +34,12 @@ export const ACTIVITY_PREF_ROWS: { key: keyof ActivityPrefs; title: string; deta
   { key: 'selling', title: 'Your To sell list', detail: "That you're selling cards, and how many. Off unless you turn it on." },
   { key: 'leagues', title: 'League results', detail: 'Your name in pod league news: who leads, who won.' },
 ]
+
+/**
+ * The switch for completed goals, after ACTIVITY_PREF_ROWS — once the server has it
+ * (goal_activity_version). On unless turned off; saved apart (set_goal_activity_pref).
+ */
+export const GOAL_PREF_ROW = { key: 'goals' as const, title: 'Share completed goals', detail: 'When you complete a collection goal: its name and how many cards.' }
 
 export const ACTIVITY_PRIVACY_NOTE = "Only friends see your activity, never anyone you've blocked. These change only what shows in friends' Activity: what you share stays shared."
 
@@ -87,6 +94,23 @@ export interface FeedItem {
   card_name?: string | null
   reply?: boolean
   on_mine?: boolean
+  /** goal_completed: the goal's kind (SET, PLAYSET, DECK, CUSTOM); [item_id] is the goal's id, [count] its cards. */
+  goal_kind?: string
+}
+
+/**
+ * One page of the feed from friends_activity and friends_goal_activity, read with the same
+ * before/limit: both newest first, together, the newest [limit]. The next page starts before the last
+ * one kept, so what's cut here comes on it.
+ */
+export function mergeFeeds(main: FeedItem[], goals: FeedItem[], limit: number): FeedItem[] {
+  if (goals.length === 0) return main
+  return [...main, ...goals].map((x, i) => ({ x, i })).sort((a, b) => b.x.at - a.x.at || a.i - b.i).slice(0, limit).map((e) => e.x)
+}
+
+/** "Set goal", "Playset goal"…: a completed goal's kind, under it in the feed. */
+export function goalKindWords(kind: string | null | undefined): string {
+  return kind === 'SET' ? 'Set goal' : kind === 'PLAYSET' ? 'Playset goal' : kind === 'DECK' ? 'Deck goal' : 'Card list goal'
 }
 
 /** What a tap on an item's action does. */
@@ -197,6 +221,12 @@ export function feedLine(item: FeedItem, table: LeagueSnapshot | null = null): F
             : [who, { text: ' commented on ' }, deck]
       return { parts, sub: item.body ? `“${cut(item.body, 80)}”` : null, action: { label: 'Reply', kind: 'comments' } }
     }
+    case 'goal_completed':
+      return {
+        parts: [who, { text: ' completed a goal' }, ...(name ? [{ text: ': ' }, { text: name, bold: true }] : [])],
+        sub: [goalKindWords(item.goal_kind), ...(item.count != null ? [plural(item.count, 'card')] : [])].join(' · '),
+        action: null,
+      }
     default:
       return { parts: [who, { text: ' did something new' }], sub: null, action: null }
   }

@@ -15,6 +15,7 @@ import * as activity from './activity'
 import { askCards, commentsPath, feedDeck, feedLine, sellingAsk, type FeedItem, type LeagueSnapshot, type SellingCard } from './activityLogic'
 import { timeAgo } from './moreLogic'
 import { Avatar } from './ui'
+import { useAreaChanges } from './liveChanges'
 import './more.css'
 
 const message = (e: unknown) => (e instanceof Error ? e.message : 'Something went wrong.')
@@ -47,6 +48,9 @@ export function ActivityList() {
     }
   }
   useEffect(() => { if (available && richer !== null) void load(null) }, [available, richer]) // eslint-disable-line react-hooks/exhaustive-deps
+  // A friend completed a goal (a live ping): the newest page again.
+  const live = useAreaChanges('activity')
+  useEffect(() => { if (live > 0 && items && !busy) void load(null) }, [live]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // League news names the leader: the table comes from the pod's games, as on the league screen.
   useEffect(() => {
@@ -120,6 +124,12 @@ export function ActivityList() {
                     {line.parts.map((p, j) => (p.bold ? <b key={j}>{p.text}</b> : <span key={j}>{p.text}</span>))}
                   </button>
                   <span className="dim activity-sub">{line.sub ? `${line.sub} · ${when}` : when}</span>
+                  {item.kind === 'goal_completed' && (
+                    <span className="activity-goal">
+                      <Icon name="emoji_events" aria-hidden />
+                      {item.cover && <ArtImage src={toArtCrop(item.cover)} seed={item.item_id ?? item.name ?? ''} preview={item.cover} className="activity-goal-art" />}
+                    </span>
+                  )}
                   {line.action && (
                     <button type="button" className="activity-action" onClick={() => act(item, line.action!.kind)}>{line.action.label}</button>
                   )}

@@ -55,7 +55,7 @@ import { fileEveryPile, nextPile, ownedCounts, wantedByDecks, type FiledPiles, t
 import { loadPiles, loadSort, saveSort } from '../collection/sortSession'
 import { SortPilePanel } from '../collection/SortPilePanel'
 import {
-  apartOf, checkPileCard, deckNeedsOf, derivePiles, fileRecipe, friendWantsOf, HandsFreeCapture, orderedBinders, ownedOf, pileFor, reasonsFor,
+  apartOf, checkPileCard, deckNeedsOf, derivePiles, fileRecipe, friendWantsOf, goalNeedsOf, HandsFreeCapture, orderedBinders, ownedOf, pileFor, reasonsFor,
   sortCard as sortRecipeCard, spokenPile, type ApartKind, type RecipeChoice, type RecipeCard, type RecipeScan, type SmartContext,
 } from '../collection/sortRecipes'
 import { loadRecipeSession, loadVoice, saveRecipeSession, sayOutLoud, type RecipeSessionState } from '../collection/recipeSession'
@@ -163,6 +163,7 @@ const priceOf = (s: string | null | undefined): number | null => { const n = s ?
 /** What a sorting recipe needs to know of a scanned card (collection/sortRecipes.ts). */
 const recipeCardOf = (card: ScryfallCard, was?: RecipeCard): RecipeCard => ({
   name: card.name,
+  scryfallId: card.id,
   colors: card.colors ?? card.card_faces?.[0]?.colors ?? [],
   colorIdentity: card.color_identity ?? [],
   typeLine: card.type_line ?? card.card_faces?.[0]?.type_line ?? null,
@@ -359,14 +360,17 @@ export function ScanPage() {
     ? placesOf(collections).filter((p) => p.kind === 'BINDER' && p.sortRule).flatMap((p) => cardsIn(collections, p.id).map((c) => c.entry.scryfallId))
     : []), [recipeMode, collections])
   const binderData = useCardData(binderIds)
-  const smart = useMemo<SmartContext>(() => (recipeMode
-    ? {
+  const smart = useMemo<SmartContext>(() => {
+    if (!recipeMode) return NO_CONTEXT
+    const binders = orderedBinders(collections, (id) => { const c = binderData?.get(id); return c ? cardFactsOf(c) : null })
+    return {
       deckNeeds: deckNeedsOf(collections, decks),
       friendWants: friendWantsOf(matches, (id) => { const p = person(id); return p ? p.display_name || p.username : null }),
-      binders: orderedBinders(collections, (id) => { const c = binderData?.get(id); return c ? cardFactsOf(c) : null }),
+      binders,
       owned: ownedOf(collections, decks),
+      goals: goalNeedsOf(goalsOf(collections), collections, decks, binders),
     }
-    : NO_CONTEXT), [recipeMode, collections, decks, matches, binderData, person])
+  }, [recipeMode, collections, decks, matches, binderData, person])
   /** The cards of this sort as Scryfall has them, by scan, for Wrong card? and Put in deck now. */
   const recipeCards = useRef(new Map<number, ScryfallCard>())
   const [wrongCard, setWrongCard] = useState(false)

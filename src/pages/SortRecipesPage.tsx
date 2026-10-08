@@ -11,7 +11,7 @@ import { BY_RULE } from '../collection/sortPiles'
 import { addedMove, putAwayMove } from '../collection/copyHistory'
 import { recordMoves } from '../collection/copyHistoryStore'
 import {
-  APART_KINDS, APART_LABELS, capWarning, derivePiles, fileRecipe, isTemplate, LEVEL_BYS, LEVEL_LABELS, levelLine, MAX_LEVELS, newRecipe,
+  APART_KINDS, APART_LABELS, binderFiledInto, capWarning, derivePiles, fileRecipe, isTemplate, LEVEL_BYS, LEVEL_LABELS, levelLine, MAX_LEVELS, newRecipe,
   pileGoesTo, pileSignsHtml, recipeLine, recipesOf, recipeTemplates, saveRecipe, deleteRecipe, SMART_KINDS, SMART_LABELS, sortRecipe, splitLevel,
   summarize, withGoTo, type LevelBy, type Paper, type RecipePile, type SortRecipe, type SplitLevel,
 } from '../collection/sortRecipes'
@@ -19,6 +19,7 @@ import {
   lastRecipeId, loadRecipeSession, loadVoice, printHtml, saveRecipeSession, saveVoice, setLastRecipeId, startRecipeSession, type RecipeVoice,
 } from '../collection/recipeSession'
 import type { FiledPiles } from '../collection/sortPiles'
+import { goalsOf } from '../collection/collectionGoals'
 import '../collection/storage.css'
 import '../collection/inventory.css'
 import '../collection/recipes.css'
@@ -41,7 +42,8 @@ export function SortRecipesPage() {
     for (const id of setBinderIds) { const s = data?.get(id)?.set; if (s) counts.set(s, (counts.get(s) ?? 0) + 1) }
     return [...counts].sort((a, b) => b[1] - a[1]).map(([s]) => s)
   }, [setBinderIds, data])
-  const templates = recipeTemplates(sets)
+  // With a goal under way, "What my collection needs" pulls out what the goals need too.
+  const templates = recipeTemplates(sets, goalsOf(collections).some((g) => g.completedAt == null))
   const find = (id: string | null): SortRecipe | null => (id ? recipesOf(collections).find((r) => r.id === id) ?? templates.find((r) => r.id === id) ?? null : null)
   const edit = params.get('edit')
   const layout = params.get('layout')
@@ -440,7 +442,7 @@ function RecipeSummaryView() {
           : addedMove(at, scan, 1, place ? { id: place.id, name: to } : null, session.recipe.name)
       }))
     }
-    const binders = [...new Set(session.scans.filter((s) => !s.filed && s.reason?.kind === 'BINDER').map((s) => (s.reason as { placeId: string }).placeId))]
+    const binders = [...new Set(session.scans.filter((s) => !s.filed).map((s) => binderFiledInto(session.recipe, s)).filter((id): id is string => !!id))]
       .map((id) => ({ id, name: placesOf(collections).find((p) => p.id === id)?.name ?? 'Binder' }))
     saveRecipeSession(null)
     setFiled({ count: session.scans.filter((s) => !s.filed).length, binders })

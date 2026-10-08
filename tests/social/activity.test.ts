@@ -4,7 +4,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   askCards, commentActions, commentCount, commentHeader, commentsNote, commentsPath, commentsTabLabel, composerPlaceholder, cut, DEFAULT_ACTIVITY_PREFS,
-  feedDeck, feedLine, leagueText, offerCard, parsePrefs, sellingAsk, swapReply, threadComments,
+  feedDeck, feedLine, leagueText, offerCard, parsePrefs, sellingAsk, swapReply, threadComments, mergeFeeds, GOAL_PREF_ROW, ACTIVITY_PREF_ROWS,
   type DeckComment, type FeedItem, type FeedLine, type LeagueSnapshot, type SellingCard,
 } from '../../src/social/activityLogic.ts'
 import type { ForTradeCard } from '../../src/social/more.ts'
@@ -195,4 +195,31 @@ test('offering a card takes one copy, marked for trade first', () => {
   assert.equal(offerCard(cols, 'Sol Ring')?.foil, true)
   assert.equal(offerCard(cols, 'Mana Crypt'), null)
   assert.equal(offerCard([binder('wish', [e('Skullclamp', 4, 0)], 'WISHLIST')], 'Skullclamp'), null)
+})
+
+// ---- Completed goals (20261008110000_goal_activity.sql) ----
+
+test('a completed goal: who, which goal, its kind and cards, no action', () => {
+  const done = feedLine(item('goal_completed', { item_id: 'g1', name: 'Duskmourn uncommons', goal_kind: 'SET', count: 92 }))
+  assert.equal(text(done), '*Priya* completed a goal: *Duskmourn uncommons*')
+  assert.equal(done.sub, 'Set goal · 92 cards')
+  assert.equal(done.action, null)
+  assert.equal(feedLine(item('goal_completed', { name: 'Shock lands', goal_kind: 'PLAYSET', count: 1 })).sub, 'Playset goal · 1 card')
+  assert.equal(feedLine(item('goal_completed', { name: 'x' })).sub, 'Card list goal')
+  assert.equal(feedLine(item('goal_completed', { name: 'Foil Krenko', goal_kind: 'DECK', count: 60 })).sub, 'Deck goal · 60 cards')
+})
+
+test('completed goals are read beside the feed and merged newest first', () => {
+  const goals = [item('goal_completed', { at: 1500, item_id: 'g1', name: 'Duskmourn uncommons', goal_kind: 'SET', count: 92 })]
+  const main = [item('deck_updated', { at: 2000 }), item('selling', { at: 1000 }), item('for_trade', { at: 500 })]
+  assert.deepEqual(mergeFeeds(main, goals, 3).map((i) => i.at), [2000, 1500, 1000])
+  assert.deepEqual(mergeFeeds(main, goals, 30).map((i) => i.kind), ['deck_updated', 'goal_completed', 'selling', 'for_trade'])
+  // No goals (an older server): the page as it came.
+  assert.equal(mergeFeeds(main, [], 2), main)
+})
+
+test('share completed goals: its own switch, after the four', () => {
+  assert.equal(GOAL_PREF_ROW.key, 'goals')
+  assert.equal(GOAL_PREF_ROW.title, 'Share completed goals')
+  assert.deepEqual(ACTIVITY_PREF_ROWS.map((r) => r.key), ['decks', 'for_trade', 'selling', 'leagues'])
 })

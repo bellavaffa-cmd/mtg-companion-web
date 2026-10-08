@@ -304,6 +304,57 @@
    "capped": true,
    "warning": "That makes 28 piles — only 24 fit, so the last ones share pile 24, “Everything else”.",
    "line": "Colour identity · then A–Z · then collector number · 24 piles"
+  },
+  {
+   "recipe": {
+    "id": "r8",
+    "name": "Goal hunting",
+    "pullOut": [
+     "TRADE",
+     "GOALS",
+     "DECKS"
+    ],
+    "levels": [
+     {
+      "by": "RARITY"
+     }
+    ],
+    "apart": [],
+    "createdAt": 1
+   },
+   "piles": [
+    "1 S:DECKS Decks need #e6b45e",
+    "2 S:GOALS Goals need #e6b45e",
+    "3 S:TRADE To trade #e6b45e",
+    "4 L:mythic Mythic #e2694a",
+    "5 L:rare Rare #e6b45e",
+    "6 L:uncommon Uncommon #c0c6d0",
+    "7 L:common Common #6f6a78"
+   ],
+   "wanted": 7,
+   "capped": false,
+   "warning": null,
+   "line": "Rarity · 7 piles"
+  },
+  {
+   "recipe": {
+    "id": "r9",
+    "name": "Just goals",
+    "pullOut": [
+     "GOALS"
+    ],
+    "levels": [],
+    "apart": [],
+    "createdAt": 1
+   },
+   "piles": [
+    "1 S:GOALS Goals need #e6b45e",
+    "2 L:all Bulk #e2694a"
+   ],
+   "wanted": 2,
+   "capped": false,
+   "warning": null,
+   "line": "Goals need · 2 piles"
   }
  ],
  "labels": [
@@ -2738,5 +2789,451 @@
     false
    ]
   }
- ]
+ ],
+ "goalSessions": {
+  "about": "The Goals need pile: a goal claims only the copies it's missing, counting every copy of the card this session has sorted (whatever its pile); decks before goals before friends before binders.",
+  "ctx": {
+   "deckNeeds": {
+    "goblin chieftain": [
+     {
+      "deckId": "k",
+      "deck": "Krenko goblins",
+      "qty": 1
+     }
+    ]
+   },
+   "friendWants": {
+    "steam vents": [
+     {
+      "id": "u-priya",
+      "name": "Priya"
+     }
+    ]
+   },
+   "binders": [
+    {
+     "placeId": "dsk",
+     "name": "Duskmourn",
+     "rule": "SET",
+     "pockets": 9,
+     "occupied": [
+      {
+       "index": 0,
+       "facts": {
+        "name": "Acrobat",
+        "set": "dsk",
+        "collectorNumber": "1"
+       }
+      },
+      {
+       "index": 1,
+       "facts": {
+        "name": "Bottomless Pool",
+        "set": "dsk",
+        "collectorNumber": "5"
+       }
+      },
+      {
+       "index": 9,
+       "facts": {
+        "name": "Zimone",
+        "set": "dsk",
+        "collectorNumber": "40"
+       }
+      }
+     ],
+     "names": [
+      "acrobat",
+      "bottomless pool",
+      "zimone"
+     ],
+     "sets": [
+      "dsk"
+     ]
+    }
+   ],
+   "owned": {},
+   "goals": [
+    {
+     "goalId": "g-dsk",
+     "name": "Duskmourn uncommons",
+     "kind": "SET",
+     "foil": false,
+     "have": 90,
+     "need": 92,
+     "missing": {
+      "id:dsk-fear": 1,
+      "id:dsk-cell": 1
+     },
+     "placeId": "dsk"
+    },
+    {
+     "goalId": "g-shock",
+     "name": "Shock lands",
+     "kind": "PLAYSET",
+     "foil": false,
+     "have": 37,
+     "need": 40,
+     "missing": {
+      "n:sacred foundry": 2,
+      "n:steam vents": 1
+     }
+    },
+    {
+     "goalId": "g-foil",
+     "name": "Foil Krenko goblins",
+     "kind": "DECK",
+     "foil": true,
+     "have": 10,
+     "need": 60,
+     "missing": {
+      "n:goblin chieftain": 1
+     }
+    }
+   ]
+  },
+  "session": [
+   {
+    "name": "Fear of Exposure",
+    "scryfallId": "dsk-fear",
+    "colors": [
+     "B"
+    ],
+    "typeLine": "Creature — Nightmare",
+    "set": "dsk",
+    "collectorNumber": "20",
+    "rarity": "uncommon",
+    "usd": 0.1
+   },
+   {
+    "name": "Fear of Exposure",
+    "scryfallId": "dsk-fear",
+    "colors": [
+     "B"
+    ],
+    "typeLine": "Creature — Nightmare",
+    "set": "dsk",
+    "collectorNumber": "20",
+    "rarity": "uncommon",
+    "usd": 0.1
+   },
+   {
+    "name": "Grim Cellar",
+    "scryfallId": "dsk-cell",
+    "colors": [
+     "B"
+    ],
+    "typeLine": "Enchantment — Room",
+    "set": "dsk",
+    "collectorNumber": "30",
+    "rarity": "uncommon",
+    "usd": 0.15
+   },
+   {
+    "name": "Steam Vents",
+    "colors": [],
+    "typeLine": "Land — Island Mountain",
+    "set": "grn",
+    "rarity": "rare",
+    "usd": 9
+   },
+   {
+    "name": "Sacred Foundry",
+    "colors": [],
+    "typeLine": "Land — Mountain Plains",
+    "set": "grn",
+    "rarity": "rare",
+    "usd": 8
+   },
+   {
+    "name": "Sacred Foundry",
+    "colors": [],
+    "typeLine": "Land — Mountain Plains",
+    "set": "grn",
+    "rarity": "rare",
+    "usd": 8
+   },
+   {
+    "name": "Sacred Foundry",
+    "colors": [],
+    "typeLine": "Land — Mountain Plains",
+    "set": "grn",
+    "rarity": "rare",
+    "usd": 8
+   },
+   {
+    "name": "Goblin Chieftain",
+    "colors": [
+     "R"
+    ],
+    "typeLine": "Creature — Goblin",
+    "set": "m10",
+    "rarity": "rare",
+    "usd": 0.6,
+    "usdFoil": 3,
+    "foil": true
+   },
+   {
+    "name": "Goblin Chieftain",
+    "colors": [
+     "R"
+    ],
+    "typeLine": "Creature — Goblin",
+    "set": "m10",
+    "rarity": "rare",
+    "usd": 0.6,
+    "usdFoil": 3,
+    "foil": true
+   },
+   {
+    "name": "Goblin Chieftain",
+    "colors": [
+     "R"
+    ],
+    "typeLine": "Creature — Goblin",
+    "set": "m10",
+    "rarity": "rare",
+    "usd": 0.6,
+    "usdFoil": 3
+   }
+  ],
+  "sessions": [
+   {
+    "recipe": {
+     "id": "g1",
+     "name": "Goal hunting",
+     "pullOut": [
+      "DECKS",
+      "GOALS",
+      "FRIENDS",
+      "BINDER"
+     ],
+     "levels": [],
+     "apart": [],
+     "createdAt": 1
+    },
+    "rate": 1,
+    "expect": [
+     {
+      "pile": 2,
+      "key": "S:GOALS",
+      "reason": "GOAL · DUSKMOURN UNCOMMONS",
+      "also": [
+       "New for Duskmourn binder · p1 s3"
+      ],
+      "spoken": "Two, goal Duskmourn uncommons",
+      "line": "Uncommon · $0.1 · 90/92 → 91/92"
+     },
+     {
+      "pile": 5,
+      "key": "L:all",
+      "reason": null,
+      "also": [],
+      "spoken": "Five, bulk",
+      "line": "Uncommon · $0.1 · DSK"
+     },
+     {
+      "pile": 2,
+      "key": "S:GOALS",
+      "reason": "GOAL · DUSKMOURN UNCOMMONS",
+      "also": [
+       "New for Duskmourn binder · p1 s4"
+      ],
+      "spoken": "Two, goal Duskmourn uncommons",
+      "line": "Uncommon · $0.15 · 91/92 → 92/92"
+     },
+     {
+      "pile": 2,
+      "key": "S:GOALS",
+      "reason": "GOAL · SHOCK LANDS",
+      "also": [
+       "Priya wants one"
+      ],
+      "spoken": "Two, goal Shock lands",
+      "line": "Rare · $9 · 37/40 → 38/40"
+     },
+     {
+      "pile": 2,
+      "key": "S:GOALS",
+      "reason": "GOAL · SHOCK LANDS",
+      "also": [],
+      "spoken": "Two, goal Shock lands",
+      "line": "Rare · $8 · 38/40 → 39/40"
+     },
+     {
+      "pile": 2,
+      "key": "S:GOALS",
+      "reason": "GOAL · SHOCK LANDS",
+      "also": [],
+      "spoken": "Two, goal Shock lands",
+      "line": "Rare · $8 · 39/40 → 40/40"
+     },
+     {
+      "pile": 5,
+      "key": "L:all",
+      "reason": null,
+      "also": [],
+      "spoken": "Five, bulk",
+      "line": "Rare · $8 · GRN"
+     },
+     {
+      "pile": 1,
+      "key": "S:DECKS",
+      "reason": "KRENKO NEEDS IT",
+      "also": [
+       "Goal: Foil Krenko goblins 11/60"
+      ],
+      "spoken": "One, Krenko needs it",
+      "line": "Rare · $3 · missing from Krenko goblins"
+     },
+     {
+      "pile": 5,
+      "key": "L:all",
+      "reason": null,
+      "also": [],
+      "spoken": "Five, bulk",
+      "line": "Rare · $3 · M10"
+     },
+     {
+      "pile": 5,
+      "key": "L:all",
+      "reason": null,
+      "also": [],
+      "spoken": "Five, bulk",
+      "line": "Rare · $0.6 · M10"
+     }
+    ],
+    "summary": {
+     "cards": 10,
+     "usd": 39.95,
+     "rows": [
+      "1-1 Decks need 1 3 Krenko 1",
+      "2-2 Goals need 5 25.25 Shock lands 3, Duskmourn uncommons 2",
+      "5-5 Bulk 4 11.7"
+     ]
+    },
+    "checks": []
+   },
+   {
+    "recipe": {
+     "id": "g2",
+     "name": "No goal pile",
+     "pullOut": [
+      "DECKS",
+      "FRIENDS",
+      "BINDER"
+     ],
+     "levels": [],
+     "apart": [],
+     "createdAt": 1
+    },
+    "rate": 1,
+    "expect": [
+     {
+      "pile": 3,
+      "key": "S:BINDER",
+      "reason": "NEW FOR DUSKMOURN BINDER · p1 s3",
+      "also": [
+       "Goal: Duskmourn uncommons 91/92"
+      ],
+      "spoken": "Three, new for Duskmourn binder",
+      "line": "Uncommon · $0.1 · DSK"
+     },
+     {
+      "pile": 4,
+      "key": "L:all",
+      "reason": null,
+      "also": [],
+      "spoken": "Four, bulk",
+      "line": "Uncommon · $0.1 · DSK"
+     },
+     {
+      "pile": 3,
+      "key": "S:BINDER",
+      "reason": "NEW FOR DUSKMOURN BINDER · p1 s4",
+      "also": [
+       "Goal: Duskmourn uncommons 92/92"
+      ],
+      "spoken": "Three, new for Duskmourn binder",
+      "line": "Uncommon · $0.15 · DSK"
+     },
+     {
+      "pile": 2,
+      "key": "S:FRIENDS",
+      "reason": "PRIYA WANTS IT",
+      "also": [
+       "Goal: Shock lands 38/40"
+      ],
+      "spoken": "Two, Priya wants it",
+      "line": "Rare · $9 · GRN"
+     },
+     {
+      "pile": 4,
+      "key": "L:all",
+      "reason": null,
+      "also": [
+       "Goal: Shock lands 39/40"
+      ],
+      "spoken": "Four, bulk",
+      "line": "Rare · $8 · GRN"
+     },
+     {
+      "pile": 4,
+      "key": "L:all",
+      "reason": null,
+      "also": [
+       "Goal: Shock lands 40/40"
+      ],
+      "spoken": "Four, bulk",
+      "line": "Rare · $8 · GRN"
+     },
+     {
+      "pile": 4,
+      "key": "L:all",
+      "reason": null,
+      "also": [],
+      "spoken": "Four, bulk",
+      "line": "Rare · $8 · GRN"
+     },
+     {
+      "pile": 1,
+      "key": "S:DECKS",
+      "reason": "KRENKO NEEDS IT",
+      "also": [
+       "Goal: Foil Krenko goblins 11/60"
+      ],
+      "spoken": "One, Krenko needs it",
+      "line": "Rare · $3 · missing from Krenko goblins"
+     },
+     {
+      "pile": 4,
+      "key": "L:all",
+      "reason": null,
+      "also": [],
+      "spoken": "Four, bulk",
+      "line": "Rare · $3 · M10"
+     },
+     {
+      "pile": 4,
+      "key": "L:all",
+      "reason": null,
+      "also": [],
+      "spoken": "Four, bulk",
+      "line": "Rare · $0.6 · M10"
+     }
+    ],
+    "summary": {
+     "cards": 10,
+     "usd": 39.95,
+     "rows": [
+      "1-1 Decks need 1 3 Krenko 1",
+      "2-2 Friends want 1 9 Priya 1",
+      "3-3 Binder gaps 2 0.25 Duskmourn",
+      "4-4 Bulk 6 27.7"
+     ]
+    },
+    "checks": []
+   }
+  ]
+ }
 }

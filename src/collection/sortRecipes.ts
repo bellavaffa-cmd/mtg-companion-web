@@ -1,23 +1,26 @@
 // Sorting recipes: how a pile of cards splits, saved and reused. A recipe is a name, the smart piles
-// to "first, pull out" (cards a deck needs, cards a friend wants, cards new for a binder, copies past
-// a playset to trade), up to three levels that split the rest (value bands, colour, colour identity,
+// to "first, pull out" (cards a deck needs, cards a collection goal is missing, cards a friend wants,
+// cards new for a binder, copies past a playset to trade), up to three levels that split the rest (value bands, colour, colour identity,
 // set, mana value, rarity, card type, A–Z ranges, collector number) and what to "also keep apart"
 // (foils, not English, played). The piles follow from the recipe, always the same way: the smart
 // piles first, then the keep-apart piles, then every combination of the levels — at most
 // MAX_RECIPE_PILES, the rest sharing an "Everything else" pile. Each card scanned goes in one pile:
-// a smart pile when one applies (decks before friends before binders before trade), else a
-// keep-apart pile, else the levels' pile.
+// a smart pile when one applies (decks before goals before friends before binders before trade), else
+// a keep-apart pile, else the levels' pile.
 //
 // Where recipes are kept: the Unsorted pile's "sortRecipes" (Collection.sortRecipes), so they sync
 // like the storage places and gear. Two devices' recipes merge recipe by recipe (mergeRecipes): one
 // added on either is kept, one deleted on either stays deleted, each field goes to whoever changed it.
 // A pile saved by an app from before recipes comes without the key and keeps this device's
-// (keepRecipesFromOlderApp).
+// (keepRecipesFromOlderApp); so does a recipe saved by an app from before the Goals need pile, which
+// drops that pile and the recipe's "goals" key (see SortRecipe.goals).
 //
-//   "sortRecipes": [{ "id": "…", "name": "My bulk boxes", "pullOut": ["DECKS", "FRIENDS", "BINDER"],
+//   "sortRecipes": [{ "id": "…", "name": "My bulk boxes", "pullOut": ["DECKS", "GOALS", "FRIENDS", "BINDER"],
 //                     "levels": [{ "by": "VALUE", "cuts": [2], "restOn": true }, { "by": "COLOUR" }],
-//                     "apart": ["FOIL"], "goTo": [{ "pile": "L:W", "to": "RULE" }], "createdAt": 1790000000000 }]
-// A level's "cuts", "letters", "sets", "lands" and "restOn", and a recipe's "goTo", are left out when not said.
+//                     "apart": ["FOIL"], "goTo": [{ "pile": "L:W", "to": "RULE" }], "createdAt": 1790000000000,
+//                     "goals": true }]
+// A level's "cuts", "letters", "sets", "lands" and "restOn", and a recipe's "goTo", are left out when
+// not said; "goals" is always written.
 //
 // Pure, so it can be tested. Mirrors the Android app's data/SortRecipes.kt rule for rule; both run the
 // same test vectors (tests/collection/sortRecipeVectors.json ↔ app/src/test/resources/sortRecipeVectors.json).
@@ -29,20 +32,28 @@ import { cardsIn, colourSection, letterOf, placesOf, pocketsOf, typeSection, TYP
 import { binderPockets, planFit, pocketAt } from './binderPages'
 import { isBasicLand, missingCards } from '../decks/missing'
 import { BY_RULE, fileEveryPile, ownedCounts, type FiledPiles, type PileRule, type SortScan } from './sortPiles'
+import { goalCardKey, goalProgress, missingLines, sortedGoals, type CollectionGoal, type GoalKind } from './collectionGoals'
 
 // ---- What a recipe is ----
 
-export type SmartKind = 'DECKS' | 'FRIENDS' | 'BINDER' | 'TRADE'
-export const SMART_KINDS: SmartKind[] = ['DECKS', 'FRIENDS', 'BINDER', 'TRADE']
+export type SmartKind = 'DECKS' | 'GOALS' | 'FRIENDS' | 'BINDER' | 'TRADE'
+/**
+ * The smart piles, in priority order. A deck's need comes first (a deck is played; its pull list waits
+ * for the card), then a goal's (the user's own target, which a copy for a deck still counts towards
+ * once it's in the collection), then a friend's want (one copy, for a trade that may not happen), then
+ * a binder's gap and a copy past a playset (both just tidying).
+ */
+export const SMART_KINDS: SmartKind[] = ['DECKS', 'GOALS', 'FRIENDS', 'BINDER', 'TRADE']
 /** The switches under "First, pull out". */
 export const SMART_LABELS: Record<SmartKind, string> = {
   DECKS: 'Cards my decks need',
+  GOALS: 'Cards my goals need',
   FRIENDS: 'Cards friends want',
   BINDER: 'New for a binder (fills a gap)',
   TRADE: 'More than a playset · to trade',
 }
 /** The smart piles' names on the table. */
-export const SMART_PILE_NAMES: Record<SmartKind, string> = { DECKS: 'Decks need', FRIENDS: 'Friends want', BINDER: 'Binder gaps', TRADE: 'To trade' }
+export const SMART_PILE_NAMES: Record<SmartKind, string> = { DECKS: 'Decks need', GOALS: 'Goals need', FRIENDS: 'Friends want', BINDER: 'Binder gaps', TRADE: 'To trade' }
 
 export type ApartKind = 'FOIL' | 'FOREIGN' | 'PLAYED'
 export const APART_KINDS: ApartKind[] = ['FOIL', 'FOREIGN', 'PLAYED']
@@ -75,6 +86,12 @@ export interface SplitLevel {
 /** Where one pile is filed: a place's id, BY_RULE ("the box whose rule fits"), or "" — no place (Unsorted). */
 export interface PileGoTo { pile: string; to: string }
 
+/**
+ * A recipe. [goals]: whether [pullOut] has the Goals need pile ("GOALS"), as an app that knows that
+ * pile writes it — always, on or off. An app from before it drops "GOALS" from [pullOut] and leaves
+ * this key out, so a recipe without it was saved by such an app and keeps this device's Goals need
+ * pile (keepRecipesFromOlderApp).
+ */
 export interface SortRecipe {
   id: string
   name: string
@@ -83,6 +100,7 @@ export interface SortRecipe {
   apart: ApartKind[]
   goTo?: PileGoTo[]
   createdAt: number
+  goals?: boolean
 }
 
 export const MAX_LEVELS = 3
@@ -117,7 +135,7 @@ export function splitLevel(l: SplitLevel): SplitLevel {
   return { by }
 }
 
-/** A recipe as both apps write it: known kinds only, in their fixed order, at most MAX_LEVELS levels. */
+/** A recipe as both apps write it: known kinds only, in their fixed order, at most MAX_LEVELS levels, and [SortRecipe.goals] said. */
 export function sortRecipe(r: SortRecipe): SortRecipe {
   // One line per pile, the last said winning.
   const goTo: PileGoTo[] = []
@@ -128,27 +146,34 @@ export function sortRecipe(r: SortRecipe): SortRecipe {
     if (at >= 0) goTo[at] = line
     else goTo.push(line)
   }
+  const pullOut = SMART_KINDS.filter((k) => (r.pullOut ?? []).includes(k))
   return {
     id: r.id,
     name: r.name.trim() || 'My recipe',
-    pullOut: SMART_KINDS.filter((k) => (r.pullOut ?? []).includes(k)),
+    pullOut,
     levels: (r.levels ?? []).slice(0, MAX_LEVELS).map(splitLevel),
     apart: APART_KINDS.filter((k) => (r.apart ?? []).includes(k)),
     ...(goTo.length > 0 ? { goTo } : {}),
     createdAt: r.createdAt,
+    goals: pullOut.includes('GOALS'),
   }
 }
 
 // ---- Templates ----
 
-/** "Start from": the ready-made recipes. [sets]: the sets the user's binders sorted by set hold, for Binder by set. */
-export function recipeTemplates(sets: string[] = []): SortRecipe[] {
+/**
+ * "Start from": the ready-made recipes. [sets]: the sets the user's binders sorted by set hold, for
+ * Binder by set. [goals]: the user has a goal under way — then "What my collection needs" pulls out
+ * the cards the goals need too (without one, that pile would only stand empty on the table).
+ */
+export function recipeTemplates(sets: string[] = [], goals = false): SortRecipe[] {
   const smart: SmartKind[] = ['DECKS', 'FRIENDS', 'BINDER']
+  const needs: SmartKind[] = goals ? ['DECKS', 'GOALS', 'FRIENDS', 'BINDER', 'TRADE'] : ['DECKS', 'FRIENDS', 'BINDER', 'TRADE']
   return [
     { id: 'tpl-colour', name: 'Commander by colour', pullOut: smart, levels: [{ by: 'COLOUR', lands: true }], apart: [], createdAt: 0 },
     { id: 'tpl-set', name: 'Binder by set', pullOut: smart, levels: [splitLevel({ by: 'SET', sets: sets.slice(0, 5) }), splitLevel({ by: 'NUMBER' })], apart: [], createdAt: 0 },
     { id: 'tpl-value', name: 'Rares by value', pullOut: smart, levels: [{ by: 'VALUE', cuts: [20, 5, 1] }], apart: [], createdAt: 0 },
-    { id: 'tpl-needs', name: 'What my collection needs', pullOut: ['DECKS', 'FRIENDS', 'BINDER', 'TRADE'], levels: [], apart: [], createdAt: 0 },
+    { id: 'tpl-needs', name: 'What my collection needs', pullOut: needs, levels: [], apart: [], createdAt: 0 },
   ]
 }
 
@@ -310,6 +335,8 @@ export function lowerWord(s: string): string {
 /** What a recipe needs to know of a scanned card. Prices are in US dollars. */
 export interface RecipeCard {
   name: string
+  /** The printing (what a set goal goes by), when known. */
+  scryfallId?: string | null
   colors?: string[] | null
   colorIdentity?: string[] | null
   typeLine?: string | null
@@ -368,9 +395,14 @@ export function bucketOf(level: SplitLevel, card: RecipeCard, rate: number): str
   }
 }
 
-/** Why a card goes in a smart pile. */
+/**
+ * Why a card goes in a smart pile. GOALS: goal [goalId] ([goal]) is missing it, and has [have] of its
+ * [need] copies with it (and the session's) in; it's filed into binder [placeId] when the goal has
+ * one (its set's binder).
+ */
 export type SortReason =
   | { kind: 'DECKS'; deckId: string; deck: string }
+  | { kind: 'GOALS'; goalId: string; goal: string; have: number; need: number; placeId?: string }
   | { kind: 'FRIENDS'; friend: string; friendId: string }
   | { kind: 'BINDER'; placeId: string; binder: string; page: number; slot: number }
   | { kind: 'TRADE'; copy: number }
@@ -442,12 +474,34 @@ export interface OrderedBinder {
   sets: string[]
 }
 
-/** What the smart piles go by: deck needs and friends' wants by card name (recipeNameKey), the binders in order, copies owned by name. */
+/**
+ * A collection goal under way, as the Goals need pile goes by it: [have] of its [need] copies there,
+ * and the copies still [missing] of each card, by its card key (goalCardKey: a set goal's by printing,
+ * the others' by name). [foil]: only foil copies count. [placeId]: where its cards are filed — a set
+ * goal's set binder (a binder kept in order that holds that set's cards; one holding only that set
+ * first); left out for the Unsorted pile.
+ */
+export interface GoalNeed {
+  goalId: string
+  name: string
+  kind: GoalKind
+  foil: boolean
+  have: number
+  need: number
+  missing: Record<string, number>
+  placeId?: string
+}
+
+/**
+ * What the smart piles go by: deck needs and friends' wants by card name (recipeNameKey), the binders
+ * in order, copies owned by name, and the goals under way (most nearly done first; none when left out).
+ */
 export interface SmartContext {
   deckNeeds: Record<string, DeckNeed[]>
   friendWants: Record<string, FriendWant[]>
   binders: OrderedBinder[]
   owned: Record<string, number>
+  goals?: GoalNeed[]
 }
 
 /** A card's name as the lookups key it: lowercase, its front face. */
@@ -511,6 +565,32 @@ export function orderedBinders(collections: Collection[], factsOf: (scryfallId: 
   return out
 }
 
+/**
+ * The goals under way that are missing something, most nearly done first (as the Goals page lists
+ * them), each with what it's missing and where its cards are filed ([binders]: orderedBinders).
+ */
+export function goalNeedsOf(goals: CollectionGoal[], collections: Collection[], decks: Deck[], binders: OrderedBinder[] = []): GoalNeed[] {
+  const open = goals.filter((g) => g.completedAt == null)
+  const progress = new Map(open.map((g) => [g.id, goalProgress(g, collections, decks)]))
+  const out: GoalNeed[] = []
+  for (const g of sortedGoals(open, (x) => progress.get(x.id)!).open) {
+    const p = progress.get(g.id)!
+    const missing: Record<string, number> = {}
+    for (const l of missingLines(p)) missing[l.key] = l.missing
+    if (Object.keys(missing).length === 0) continue
+    const placeId = goalBinder(g, binders)
+    out.push({ goalId: g.id, name: g.name, kind: g.kind, foil: g.foil === true, have: p.have, need: p.need, missing, ...(placeId ? { placeId } : {}) })
+  }
+  return out
+}
+
+/** A set goal's set binder: a binder kept in order holding only that set's cards, else one holding some; null for other goals. */
+export function goalBinder(goal: CollectionGoal, binders: OrderedBinder[]): string | null {
+  const set = goal.kind === 'SET' ? (goal.setCode ?? '').toLowerCase() : ''
+  if (!set) return null
+  return (binders.find((b) => b.sets.length === 1 && b.sets[0] === set) ?? binders.find((b) => b.sets.includes(set)))?.placeId ?? null
+}
+
 /** Copies owned of each card, by name (sortPiles.ts's ownedCounts). */
 export function ownedOf(collections: Collection[], decks: Deck[]): Record<string, number> {
   const out: Record<string, number> = {}
@@ -538,11 +618,20 @@ export interface RecipeScan {
   at?: number
 }
 
+/** The card key [goal] knows [card] by, when the card is a copy it counts (a foil goal counts foil copies only); else null. */
+const goalKeyOf = (goal: GoalNeed, card: RecipeCard, scryfallId: string | null | undefined): string | null =>
+  goal.foil && !card.foil ? null : goalCardKey(goal, { name: card.name, scryfallId })
+
+/** Whether a card sorted this session goes into binder [placeId]: a gap it fills, or a goal's card filed there. */
+const intoBinder = (s: RecipeScan, placeId: string): boolean =>
+  (s.reason?.kind === 'BINDER' || s.reason?.kind === 'GOALS') && s.reason.placeId === placeId
+
 /**
- * The smart reasons that apply to one more [card], in priority order — a deck needs it, a friend
- * wants it, it's new for a binder, it's past a playset — given what this session has already pulled
- * out ([scans]): a deck's need goes down with each copy pulled for it, a friend wants one copy, a
- * binder's gap is filled once, and every copy scanned counts as owned.
+ * The smart reasons that apply to one more [card], in priority order — a deck needs it, a goal is
+ * missing it, a friend wants it, it's new for a binder, it's past a playset — given what this session
+ * has already pulled out ([scans]): a deck's need goes down with each copy pulled for it, a goal's
+ * with each copy of the card sorted (whatever its pile: they all go into the collection), a friend
+ * wants one copy, a binder's gap is filled once, and every copy scanned counts as owned.
  */
 export function reasonsFor(ctx: SmartContext, card: RecipeCard, scans: RecipeScan[]): SortReason[] {
   const k = recipeNameKey(card.name)
@@ -552,14 +641,28 @@ export function reasonsFor(ctx: SmartContext, card: RecipeCard, scans: RecipeSca
     const taken = same.filter((s) => s.reason?.kind === 'DECKS' && s.reason.deckId === need.deckId).length
     if (need.qty > taken) out.push({ kind: 'DECKS', deckId: need.deckId, deck: need.deck })
   }
+  for (const g of ctx.goals ?? []) {
+    const key = goalKeyOf(g, card, card.scryfallId)
+    const missing = key !== null ? g.missing[key] : undefined
+    if (key === null || missing === undefined) continue
+    // The session's copies of each card the goal is missing, as many as it's missing.
+    const coming = new Map<string, number>()
+    for (const s of scans) {
+      const sk = goalKeyOf(g, s.card, s.card.scryfallId ?? s.scryfallId)
+      if (sk !== null && sk in g.missing) coming.set(sk, (coming.get(sk) ?? 0) + 1)
+    }
+    if ((coming.get(key) ?? 0) >= missing) continue
+    const have = g.have + Object.entries(g.missing).reduce((n, [mk, m]) => n + Math.min(m, coming.get(mk) ?? 0), 0)
+    out.push({ kind: 'GOALS', goalId: g.goalId, goal: g.name, have: have + 1, need: g.need, ...(g.placeId ? { placeId: g.placeId } : {}) })
+  }
   for (const f of ctx.friendWants[k] ?? []) {
     if (!same.some((s) => s.reason?.kind === 'FRIENDS' && s.reason.friendId === f.id)) out.push({ kind: 'FRIENDS', friend: f.name, friendId: f.id })
   }
   const set = (card.set ?? '').toLowerCase()
   for (const b of ctx.binders) {
     if (!set || !b.sets.includes(set) || b.names.includes(k)) continue
-    if (same.some((s) => s.reason?.kind === 'BINDER' && s.reason.placeId === b.placeId)) continue
-    const adds = scans.filter((s) => s.reason?.kind === 'BINDER' && s.reason.placeId === b.placeId).map((s) => s.facts)
+    if (same.some((s) => intoBinder(s, b.placeId))) continue
+    const adds = scans.filter((s) => intoBinder(s, b.placeId)).map((s) => s.facts)
     const plan = planFit(b.rule, b.occupied, [...adds, factsOf(card)], 'KEEP')
     const put = plan.puts.find((p) => p.item === adds.length)
     if (!put) continue
@@ -611,20 +714,22 @@ export function ordinal(n: number): string {
   return `${n}${n % 10 === 1 ? 'st' : n % 10 === 2 ? 'nd' : n % 10 === 3 ? 'rd' : 'th'}`
 }
 
-/** The big line on a smart pile's card: "KRENKO NEEDS IT", "PRIYA WANTS IT", "NEW FOR DUSKMOURN BINDER · p12 s3", "5th COPY · TRADE". */
+/** The big line on a smart pile's card: "KRENKO NEEDS IT", "GOAL · DUSKMOURN UNCOMMONS", "PRIYA WANTS IT", "NEW FOR DUSKMOURN BINDER · p12 s3", "5th COPY · TRADE". */
 export function reasonLine(r: SortReason): string {
   switch (r.kind) {
     case 'DECKS': return `${firstWord(r.deck).toUpperCase()} NEEDS IT`
+    case 'GOALS': return `GOAL · ${r.goal.trim().toUpperCase()}`
     case 'FRIENDS': return `${firstWord(r.friend).toUpperCase()} WANTS IT`
     case 'BINDER': return `NEW FOR ${binderName(r.binder).toUpperCase()} · p${r.page} s${r.slot}`
     case 'TRADE': return `${ordinal(r.copy)} COPY · TRADE`
   }
 }
 
-/** A line under "Also wanted:": "Priya wants one", "Krenko goblins needs it", "New for Duskmourn binder · p12 s3", "5th copy · trade". */
+/** A line under "Also wanted:": "Priya wants one", "Krenko goblins needs it", "Goal: Duskmourn uncommons 42/92", "New for Duskmourn binder · p12 s3", "5th copy · trade". */
 export function alsoLine(r: SortReason): string {
   switch (r.kind) {
     case 'DECKS': return `${r.deck} needs it`
+    case 'GOALS': return `Goal: ${r.goal} ${r.have}/${r.need}`
     case 'FRIENDS': return `${r.friend} wants one`
     case 'BINDER': return `New for ${binderName(r.binder)} · p${r.page} s${r.slot}`
     case 'TRADE': return `${ordinal(r.copy)} copy · trade`
@@ -639,10 +744,17 @@ export function ownedLine(ctx: SmartContext, name: string, scans: RecipeScan[]):
 
 const RARITY_WORDS: Record<string, string> = { common: 'Common', uncommon: 'Uncommon', rare: 'Rare', mythic: 'Mythic', special: 'Special', bonus: 'Bonus' }
 
-/** The card's line under its name: "Uncommon · $1.20 · Dominaria Remastered", or "… · missing from Krenko goblins" for a deck. */
+/** A goal's progress with the card in: "41/92 → 42/92". */
+export const goalStep = (r: { have: number; need: number }): string => `${r.have - 1}/${r.need} → ${r.have}/${r.need}`
+
+/**
+ * The card's line under its name: "Uncommon · $1.20 · Dominaria Remastered", or "… · missing from
+ * Krenko goblins" for a deck, or "… · 41/92 → 42/92" for a goal.
+ */
 export function cardLine(scan: Pick<RecipeScan, 'card' | 'setName' | 'reason'>, price: (usd: number) => string): string {
   const usd = cardPrice(scan.card)
-  const where = scan.reason?.kind === 'DECKS' ? `missing from ${scan.reason.deck}` : scan.setName || (scan.card.set ?? '').toUpperCase()
+  const r = scan.reason
+  const where = r?.kind === 'DECKS' ? `missing from ${r.deck}` : r?.kind === 'GOALS' ? goalStep(r) : scan.setName || (scan.card.set ?? '').toUpperCase()
   return [RARITY_WORDS[scan.card.rarity ?? ''] ?? '', usd !== null ? price(usd) : 'No price', where].filter(Boolean).join(' · ')
 }
 
@@ -654,6 +766,7 @@ export function spokenPile(pile: RecipePile, reason: SortReason | null): string 
   const n = NUMBER_WORDS[pile.number] ?? String(pile.number)
   const what = reason
     ? reason.kind === 'DECKS' ? `${firstWord(reason.deck)} needs it`
+      : reason.kind === 'GOALS' ? `goal ${reason.goal}`
       : reason.kind === 'FRIENDS' ? `${firstWord(reason.friend)} wants it`
         : reason.kind === 'BINDER' ? `new for ${binderName(reason.binder)}`
           : 'trade'
@@ -764,7 +877,7 @@ function counted(names: string[]): string {
 
 /**
  * "Sorted 212 cards": each smart and keep-apart pile with cards, with who it's for ("Krenko 4,
- * Atraxa 2", "Priya 3, Jo 2", the binders); the levels' piles one by one — or, when there are more
+ * Atraxa 2", "Duskmourn uncommons 3, Shock lands 1", "Priya 3, Jo 2", the binders); the levels' piles one by one — or, when there are more
  * than six, as one line ("6–11 · Bulk by colour").
  */
 export function summarize(recipe: SortRecipe, derived: DerivedPiles, scans: RecipeScan[]): RecipeSummary {
@@ -782,6 +895,8 @@ export function summarize(recipe: SortRecipe, derived: DerivedPiles, scans: Reci
     if (here.length === 0) continue
     const detail = p.key === 'S:DECKS'
       ? counted(here.map((s) => (s.reason?.kind === 'DECKS' ? firstWord(s.reason.deck) : '')).filter(Boolean))
+      : p.key === 'S:GOALS'
+        ? counted(here.map((s) => (s.reason?.kind === 'GOALS' ? s.reason.goal.trim() : '')).filter(Boolean))
       : p.key === 'S:FRIENDS'
         ? counted(here.map((s) => (s.reason?.kind === 'FRIENDS' ? firstWord(s.reason.friend) : '')).filter(Boolean))
         : p.key === 'S:BINDER'
@@ -815,11 +930,14 @@ export function checkPileCard(derived: DerivedPiles, scans: RecipeScan[], pile: 
   return { belongs: false, line: `Doesn't belong — pile ${other.pile}${p ? ` · ${p.name}` : ''}`, goes: other.pile }
 }
 
-/** Where a pile is filed: what the recipe says for it, else the box whose rule fits — or no place for decks, friends and trades. */
+/**
+ * Where a pile is filed: what the recipe says for it, else the box whose rule fits — or no place for
+ * decks, goals, friends and trades (a goal's card with a set binder goes there: fileRecipe).
+ */
 export function pileGoesTo(recipe: SortRecipe, pile: RecipePile): string {
   const set = (recipe.goTo ?? []).find((g) => g.pile === pile.key)
   if (set) return set.to
-  return pile.key === 'S:DECKS' || pile.key === 'S:FRIENDS' || pile.key === 'S:TRADE' ? '' : BY_RULE
+  return pile.key === 'S:DECKS' || pile.key === 'S:GOALS' || pile.key === 'S:FRIENDS' || pile.key === 'S:TRADE' ? '' : BY_RULE
 }
 
 /** [recipe] with pile [key] filed at [to] (a place's id, BY_RULE or "": no place). */
@@ -827,10 +945,24 @@ export const withGoTo = (recipe: SortRecipe, key: string, to: string): SortRecip
   sortRecipe({ ...recipe, goTo: [...(recipe.goTo ?? []).filter((g) => g.pile !== key), { pile: key, to }] })
 
 /**
+ * The binder kept in order a card sorted this session is filed into, to be fitted in: a binder gap's
+ * binder, or a goal's set binder (unless the recipe says where the Goals need pile goes); null for
+ * the rest.
+ */
+export function binderFiledInto(recipe: SortRecipe, s: Pick<RecipeScan, 'key' | 'reason'>): string | null {
+  const r = s.reason
+  if (r?.kind === 'BINDER') return r.placeId
+  if (r?.kind === 'GOALS' && s.key === 'S:GOALS' && !(recipe.goTo ?? []).some((g) => g.pile === 'S:GOALS')) return r.placeId ?? null
+  return null
+}
+
+/**
  * "File everything": every card not filed yet goes into the collection at its pile's place, as the
  * old sorter files (fileEveryPile): a binder gap into its binder (waiting beside it to be fitted in
- * order), the deck-need cards with no place, for their decks' pull lists to find, the rest where the
- * recipe files their pile.
+ * order), a goal's card into its set binder the same way (or, with none, where the recipe files the
+ * Goals need pile — the Unsorted pile unless the user said otherwise), the deck-need cards with no
+ * place, for their decks' pull lists to find, the rest where the recipe files their pile. The goals
+ * count them from then on, and the goal watcher celebrates one that's now complete.
  */
 export function fileRecipe(collections: Collection[], recipe: SortRecipe, derived: DerivedPiles, scans: RecipeScan[]): FiledPiles {
   const rules: PileRule[] = derived.piles.map((p) => ({ kind: 'BULK', ...(pileGoesTo(recipe, p) ? { to: pileGoesTo(recipe, p) } : {}) }))
@@ -839,8 +971,8 @@ export function fileRecipe(collections: Collection[], recipe: SortRecipe, derive
   for (const s of scans) {
     if (s.filed) continue
     let pile = s.pile - 1
-    if (s.reason?.kind === 'BINDER') {
-      const id = s.reason.placeId
+    const id = binderFiledInto(recipe, s)
+    if (id) {
       if (!binderRule.has(id)) { binderRule.set(id, rules.length); rules.push({ kind: 'BULK', to: id }) }
       pile = binderRule.get(id)!
     }
@@ -909,11 +1041,18 @@ export function mergeRecipes(base: SortRecipe[] | undefined, mine: SortRecipe[] 
 
 /**
  * [theirs] with [source]'s recipes, when [theirs] was saved by an app that doesn't know about recipes
- * (no "sortRecipes" key) — the same object otherwise.
+ * (no "sortRecipes" key); and each of its recipes saved by an app that doesn't know about the Goals
+ * need pile (no "goals" key) with that pile back where [source]'s same recipe pulls it out — the same
+ * object otherwise.
  */
 export function keepRecipesFromOlderApp(source: Collection, theirs: Collection): Collection {
-  if (theirs.sortRecipes !== undefined || source.sortRecipes === undefined || !isUnsorted(theirs)) return theirs
-  return { ...theirs, sortRecipes: source.sortRecipes }
+  if (!isUnsorted(theirs) || source.sortRecipes === undefined) return theirs
+  const list = theirs.sortRecipes
+  if (list === undefined) return { ...theirs, sortRecipes: source.sortRecipes }
+  const withGoals = new Set(source.sortRecipes.filter((r) => r.pullOut.includes('GOALS')).map((r) => r.id))
+  const lost = (r: SortRecipe) => r.goals === undefined && withGoals.has(r.id) && !r.pullOut.includes('GOALS')
+  if (!list.some(lost)) return theirs
+  return { ...theirs, sortRecipes: list.map((r) => (lost(r) ? sortRecipe({ ...r, pullOut: [...r.pullOut, 'GOALS'] }) : r)) }
 }
 
 // ---- Pile signs ----

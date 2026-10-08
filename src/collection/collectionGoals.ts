@@ -416,6 +416,23 @@ export function goalHits(goals: CollectionGoal[], collections: Collection[], dec
 /** "Goal: Duskmourn uncommons 41/92" */
 export const hitLine = (h: GoalHit) => `Goal: ${h.name} ${h.have}/${h.need}`
 
+// ---- Friends' Activity ----
+
+/** A completed goal as friends' Activity shows it: its name, kind, how many cards it took and a card to show (a Scryfall id). */
+export interface GoalActivity { goalId: string; name: string; kind: GoalKind; cards: number; cover: string | null }
+
+/**
+ * [goal], just completed, for friends' Activity: its copies as [p] counts them (all of them, as the
+ * goal is complete) and the card to show — its most valuable printing with a known price, else its
+ * first with a printing.
+ */
+export function goalActivityOf(goal: CollectionGoal, p: GoalProgress): GoalActivity {
+  const printed = p.lines.filter((l) => !!l.scryfallId)
+  const priced = printed.filter((l) => l.usd !== null)
+  const cover = priced.length > 0 ? priced.reduce((best, l) => (l.usd! > best.usd! ? l : best)) : printed[0]
+  return { goalId: goal.id, name: goal.name, kind: goal.kind, cards: p.need, cover: cover?.scryfallId ?? null }
+}
+
 // ---- Wishlist and trades ----
 
 /** A missing card for the Wishlist: [quantity] copies wanted. */
