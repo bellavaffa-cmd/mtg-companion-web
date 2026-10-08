@@ -1,0 +1,1366 @@
+{
+ "about": "The scanner learning from corrections: the same cases in both apps (web tests/scan/scanCorrections.test.ts, Android ScanCorrectionsTest.kt). Each scenario runs its steps on one list, starting empty.",
+ "keys": [
+  {
+   "reading": {
+    "read": "Lightning Bolt",
+    "set": "M10",
+    "number": "146",
+    "recognizedId": "x",
+    "recognizedName": "Lightning Bolt"
+   },
+   "misread": "lightningbolt|m10:146",
+   "printing": "~lightningbolt"
+  },
+  {
+   "reading": {
+    "read": "  Delver of Secrets ",
+    "set": null,
+    "number": null,
+    "recognizedId": "d1",
+    "recognizedName": "Delver of Secrets // Insectile Aberration"
+   },
+   "misread": "delverofsecrets||=d1",
+   "printing": "~delverofsecrets"
+  },
+  {
+   "reading": {
+    "read": "Lim-Dûl's Vault",
+    "set": "ALL",
+    "number": null,
+    "recognizedId": "ldv",
+    "recognizedName": "Lim-Dûl's Vault"
+   },
+   "misread": "limdûlsvault|all|=ldv",
+   "printing": "~limdûlsvault"
+  },
+  {
+   "reading": {
+    "read": "Sol Ring",
+    "set": null,
+    "number": "1",
+    "recognizedId": "sr",
+    "recognizedName": "Sol Ring"
+   },
+   "misread": "solring||=sr",
+   "printing": "~solring"
+  }
+ ],
+ "scenarios": [
+  {
+   "name": "a misread set code and number is put right from the first correction, and un-correcting drops it",
+   "steps": [
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "Counterspell",
+      "set": "mh2",
+      "number": "267",
+      "recognizedId": "cs-mh2-267",
+      "recognizedName": "Counterspell"
+     },
+     "expect": null
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Counterspell",
+      "set": "mh2",
+      "number": "267",
+      "recognizedId": "cs-mh2-267",
+      "recognizedName": "Counterspell"
+     },
+     "card": {
+      "id": "cs-dmr-51",
+      "name": "Counterspell",
+      "set": "dmr",
+      "collectorNumber": "51"
+     },
+     "now": 1000
+    },
+    {
+     "op": "expect",
+     "entries": [
+      {
+       "key": "counterspell|mh2:267",
+       "kind": "MISREAD",
+       "scryfallId": "cs-dmr-51",
+       "count": 1,
+       "used": 0
+      }
+     ]
+    },
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "Counterspell",
+      "set": "mh2",
+      "number": "267",
+      "recognizedId": "cs-mh2-267",
+      "recognizedName": "Counterspell"
+     },
+     "expect": {
+      "key": "counterspell|mh2:267",
+      "kind": "MISREAD",
+      "scryfallId": "cs-dmr-51"
+     }
+    },
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "COUNTERSPELL!",
+      "set": "MH2",
+      "number": "267",
+      "recognizedId": "cs-mh2-267",
+      "recognizedName": "Counterspell"
+     },
+     "expect": {
+      "key": "counterspell|mh2:267",
+      "kind": "MISREAD",
+      "scryfallId": "cs-dmr-51"
+     }
+    },
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "Counterspell",
+      "set": "mh2",
+      "number": "268",
+      "recognizedId": "cs-mh2-268",
+      "recognizedName": "Counterspell"
+     },
+     "expect": null
+    },
+    {
+     "op": "used",
+     "key": "counterspell|mh2:267",
+     "now": 2000
+    },
+    {
+     "op": "expect",
+     "entries": [
+      {
+       "key": "counterspell|mh2:267",
+       "kind": "MISREAD",
+       "scryfallId": "cs-dmr-51",
+       "count": 1,
+       "used": 1
+      }
+     ]
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Counterspell",
+      "set": "mh2",
+      "number": "267",
+      "recognizedId": "cs-mh2-267",
+      "recognizedName": "Counterspell"
+     },
+     "card": {
+      "id": "cs-mh2-267",
+      "name": "Counterspell",
+      "set": "mh2",
+      "collectorNumber": "267"
+     },
+     "learned": "counterspell|mh2:267",
+     "now": 3000
+    },
+    {
+     "op": "expect",
+     "entries": []
+    }
+   ]
+  },
+  {
+   "name": "a card taken for another: with the set unread, the wrong answer is part of the key",
+   "steps": [
+    {
+     "op": "record",
+     "reading": {
+      "read": "Kird Ape",
+      "set": null,
+      "number": null,
+      "recognizedId": "kird-ape",
+      "recognizedName": "Kird Ape"
+     },
+     "card": {
+      "id": "kird-chieftain",
+      "name": "Kird Chieftain",
+      "set": "ths",
+      "collectorNumber": "162"
+     },
+     "now": 10
+    },
+    {
+     "op": "expect",
+     "entries": [
+      {
+       "key": "kirdape||=kird-ape",
+       "kind": "MISREAD",
+       "scryfallId": "kird-chieftain",
+       "count": 1,
+       "used": 0
+      }
+     ]
+    },
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "Kird Ape",
+      "set": null,
+      "number": null,
+      "recognizedId": "kird-ape",
+      "recognizedName": "Kird Ape"
+     },
+     "expect": {
+      "key": "kirdape||=kird-ape",
+      "kind": "MISREAD",
+      "scryfallId": "kird-chieftain"
+     }
+    },
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "Kird Ape",
+      "set": null,
+      "number": null,
+      "recognizedId": "kird-ape-2",
+      "recognizedName": "Kird Ape"
+     },
+     "expect": null
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Kird Ape",
+      "set": null,
+      "number": null,
+      "recognizedId": "kird-ape",
+      "recognizedName": "Kird Ape"
+     },
+     "card": {
+      "id": "kird-ape-4ed",
+      "name": "Kird Ape",
+      "set": "4ed",
+      "collectorNumber": "211"
+     },
+     "learned": "kirdape||=kird-ape",
+     "now": 20
+    },
+    {
+     "op": "expect",
+     "entries": [
+      {
+       "key": "~kirdape",
+       "kind": "PRINTING",
+       "scryfallId": "kird-ape-4ed",
+       "count": 1,
+       "used": 0
+      }
+     ]
+    },
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "Kird Ape",
+      "set": null,
+      "number": null,
+      "recognizedId": "kird-ape",
+      "recognizedName": "Kird Ape"
+     },
+     "expect": null
+    }
+   ]
+  },
+  {
+   "name": "a printing picked twice for a name whose set won't read is preferred, and only while the set is unread",
+   "steps": [
+    {
+     "op": "record",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "card": {
+      "id": "plains-dmu-262",
+      "name": "Plains",
+      "set": "dmu",
+      "collectorNumber": "262"
+     },
+     "now": 100
+    },
+    {
+     "op": "expect",
+     "entries": [
+      {
+       "key": "~plains",
+       "kind": "PRINTING",
+       "scryfallId": "plains-dmu-262",
+       "count": 1,
+       "used": 0
+      }
+     ]
+    },
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "expect": null
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "card": {
+      "id": "plains-dmu-262",
+      "name": "Plains",
+      "set": "dmu",
+      "collectorNumber": "262"
+     },
+     "now": 200
+    },
+    {
+     "op": "expect",
+     "entries": [
+      {
+       "key": "~plains",
+       "kind": "PRINTING",
+       "scryfallId": "plains-dmu-262",
+       "count": 2,
+       "used": 0
+      }
+     ]
+    },
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "expect": {
+      "key": "~plains",
+      "kind": "PRINTING",
+      "scryfallId": "plains-dmu-262"
+     }
+    },
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "PLAINS",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-m21",
+      "recognizedName": "Plains"
+     },
+     "expect": {
+      "key": "~plains",
+      "kind": "PRINTING",
+      "scryfallId": "plains-dmu-262"
+     }
+    },
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "Plains",
+      "set": "fdn",
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "expect": null
+    },
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-dmu-262",
+      "recognizedName": "Plains"
+     },
+     "expect": null
+    },
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "Island",
+      "set": null,
+      "number": null,
+      "recognizedId": "island-fdn",
+      "recognizedName": "Island"
+     },
+     "expect": null
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "card": {
+      "id": "plains-one-267",
+      "name": "Plains",
+      "set": "one",
+      "collectorNumber": "267"
+     },
+     "now": 300
+    },
+    {
+     "op": "expect",
+     "entries": [
+      {
+       "key": "~plains",
+       "kind": "PRINTING",
+       "scryfallId": "plains-one-267",
+       "count": 1,
+       "used": 0
+      }
+     ]
+    },
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "expect": null
+    }
+   ]
+  },
+  {
+   "name": "un-correcting: a printing picked and then put back counts one less; a learned one picked back goes",
+   "steps": [
+    {
+     "op": "record",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "card": {
+      "id": "plains-dmu-262",
+      "name": "Plains",
+      "set": "dmu",
+      "collectorNumber": "262"
+     },
+     "now": 100
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "card": {
+      "id": "plains-fdn",
+      "name": "Plains",
+      "set": "fdn",
+      "collectorNumber": "272"
+     },
+     "now": 110
+    },
+    {
+     "op": "expect",
+     "entries": []
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "card": {
+      "id": "plains-dmu-262",
+      "name": "Plains",
+      "set": "dmu",
+      "collectorNumber": "262"
+     },
+     "now": 120
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "card": {
+      "id": "plains-dmu-262",
+      "name": "Plains",
+      "set": "dmu",
+      "collectorNumber": "262"
+     },
+     "now": 130
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "card": {
+      "id": "plains-dmu-262",
+      "name": "Plains",
+      "set": "dmu",
+      "collectorNumber": "262"
+     },
+     "now": 140
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "card": {
+      "id": "plains-fdn",
+      "name": "Plains",
+      "set": "fdn",
+      "collectorNumber": "272"
+     },
+     "now": 150
+    },
+    {
+     "op": "expect",
+     "entries": [
+      {
+       "key": "~plains",
+       "kind": "PRINTING",
+       "scryfallId": "plains-dmu-262",
+       "count": 2,
+       "used": 0
+      }
+     ]
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "card": {
+      "id": "plains-fdn",
+      "name": "Plains",
+      "set": "fdn",
+      "collectorNumber": "272"
+     },
+     "learned": "~plains",
+     "now": 160
+    },
+    {
+     "op": "expect",
+     "entries": []
+    }
+   ]
+  },
+  {
+   "name": "a learned misread corrected again is replaced; the same correction made twice counts twice",
+   "steps": [
+    {
+     "op": "record",
+     "reading": {
+      "read": "Lightning Bolt",
+      "set": "m10",
+      "number": "146",
+      "recognizedId": "bolt-m10",
+      "recognizedName": "Lightning Bolt"
+     },
+     "card": {
+      "id": "bolt-2xm",
+      "name": "Lightning Bolt",
+      "set": "2xm",
+      "collectorNumber": "117"
+     },
+     "now": 50
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Lightning Bolt",
+      "set": "m10",
+      "number": "146",
+      "recognizedId": "bolt-m10",
+      "recognizedName": "Lightning Bolt"
+     },
+     "card": {
+      "id": "bolt-2xm",
+      "name": "Lightning Bolt",
+      "set": "2xm",
+      "collectorNumber": "117"
+     },
+     "now": 60
+    },
+    {
+     "op": "expect",
+     "entries": [
+      {
+       "key": "lightningbolt|m10:146",
+       "kind": "MISREAD",
+       "scryfallId": "bolt-2xm",
+       "count": 2,
+       "used": 0
+      }
+     ]
+    },
+    {
+     "op": "lookup",
+     "reading": {
+      "read": "Lightning Bolt",
+      "set": "m10",
+      "number": "146",
+      "recognizedId": "bolt-m10",
+      "recognizedName": "Lightning Bolt"
+     },
+     "expect": {
+      "key": "lightningbolt|m10:146",
+      "kind": "MISREAD",
+      "scryfallId": "bolt-2xm"
+     }
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Lightning Bolt",
+      "set": "m10",
+      "number": "146",
+      "recognizedId": "bolt-m10",
+      "recognizedName": "Lightning Bolt"
+     },
+     "card": {
+      "id": "bolt-clb",
+      "name": "Lightning Bolt",
+      "set": "clb",
+      "collectorNumber": "187"
+     },
+     "learned": "lightningbolt|m10:146",
+     "now": 70
+    },
+    {
+     "op": "expect",
+     "entries": [
+      {
+       "key": "lightningbolt|m10:146",
+       "kind": "MISREAD",
+       "scryfallId": "bolt-clb",
+       "count": 1,
+       "used": 0
+      }
+     ]
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "card": {
+      "id": "plains-dmu-262",
+      "name": "Plains",
+      "set": "dmu",
+      "collectorNumber": "262"
+     },
+     "now": 80
+    },
+    {
+     "op": "forget",
+     "key": "lightningbolt|m10:146"
+    },
+    {
+     "op": "expect",
+     "entries": [
+      {
+       "key": "~plains",
+       "kind": "PRINTING",
+       "scryfallId": "plains-dmu-262",
+       "count": 1,
+       "used": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "newest first",
+   "steps": [
+    {
+     "op": "record",
+     "reading": {
+      "read": "Lightning Bolt",
+      "set": "m10",
+      "number": "146",
+      "recognizedId": "bolt-m10",
+      "recognizedName": "Lightning Bolt"
+     },
+     "card": {
+      "id": "bolt-2xm",
+      "name": "Lightning Bolt",
+      "set": "2xm",
+      "collectorNumber": "117"
+     },
+     "now": 50
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Kird Ape",
+      "set": null,
+      "number": null,
+      "recognizedId": "kird-ape",
+      "recognizedName": "Kird Ape"
+     },
+     "card": {
+      "id": "kird-chieftain",
+      "name": "Kird Chieftain",
+      "set": "ths",
+      "collectorNumber": "162"
+     },
+     "now": 40
+    },
+    {
+     "op": "record",
+     "reading": {
+      "read": "Plains",
+      "set": null,
+      "number": null,
+      "recognizedId": "plains-fdn",
+      "recognizedName": "Plains"
+     },
+     "card": {
+      "id": "plains-dmu-262",
+      "name": "Plains",
+      "set": "dmu",
+      "collectorNumber": "262"
+     },
+     "now": 60
+    },
+    {
+     "op": "expect",
+     "entries": [
+      {
+       "key": "~plains",
+       "kind": "PRINTING",
+       "scryfallId": "plains-dmu-262",
+       "count": 1,
+       "used": 0
+      },
+      {
+       "key": "lightningbolt|m10:146",
+       "kind": "MISREAD",
+       "scryfallId": "bolt-2xm",
+       "count": 1,
+       "used": 0
+      },
+      {
+       "key": "kirdape||=kird-ape",
+       "kind": "MISREAD",
+       "scryfallId": "kird-chieftain",
+       "count": 1,
+       "used": 0
+      }
+     ]
+    },
+    {
+     "op": "used",
+     "key": "kirdape||=kird-ape",
+     "now": 70
+    },
+    {
+     "op": "expect",
+     "entries": [
+      {
+       "key": "kirdape||=kird-ape",
+       "kind": "MISREAD",
+       "scryfallId": "kird-chieftain",
+       "count": 1,
+       "used": 1
+      },
+      {
+       "key": "~plains",
+       "kind": "PRINTING",
+       "scryfallId": "plains-dmu-262",
+       "count": 1,
+       "used": 0
+      },
+      {
+       "key": "lightningbolt|m10:146",
+       "kind": "MISREAD",
+       "scryfallId": "bolt-2xm",
+       "count": 1,
+       "used": 0
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "merge": [
+  {
+   "name": "none anywhere stays left out",
+   "base": null,
+   "mine": null,
+   "theirs": null,
+   "minePreferred": true,
+   "expect": null
+  },
+  {
+   "name": "only one side has any",
+   "base": null,
+   "mine": [
+    {
+     "key": "a",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "A",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 0,
+     "lastUsed": 10
+    }
+   ],
+   "theirs": null,
+   "minePreferred": false,
+   "expect": [
+    [
+     "a",
+     "A",
+     10
+    ]
+   ]
+  },
+  {
+   "name": "added on both sides: both, newest first",
+   "base": [],
+   "mine": [
+    {
+     "key": "a",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "A",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 0,
+     "lastUsed": 10
+    }
+   ],
+   "theirs": [
+    {
+     "key": "b",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "B",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 0,
+     "lastUsed": 20
+    }
+   ],
+   "minePreferred": true,
+   "expect": [
+    [
+     "b",
+     "B",
+     20
+    ],
+    [
+     "a",
+     "A",
+     10
+    ]
+   ]
+  },
+  {
+   "name": "both have it: the one used last wins",
+   "base": [
+    {
+     "key": "a",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "A",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 0,
+     "lastUsed": 5
+    }
+   ],
+   "mine": [
+    {
+     "key": "a",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "A1",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 0,
+     "lastUsed": 10
+    }
+   ],
+   "theirs": [
+    {
+     "key": "a",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "A2",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 0,
+     "lastUsed": 20
+    }
+   ],
+   "minePreferred": true,
+   "expect": [
+    [
+     "a",
+     "A2",
+     20
+    ]
+   ]
+  },
+  {
+   "name": "a tie goes to whichever side is preferred",
+   "base": [],
+   "mine": [
+    {
+     "key": "a",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "A1",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 0,
+     "lastUsed": 10
+    }
+   ],
+   "theirs": [
+    {
+     "key": "a",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "A2",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 0,
+     "lastUsed": 10
+    }
+   ],
+   "minePreferred": true,
+   "expect": [
+    [
+     "a",
+     "A1",
+     10
+    ]
+   ]
+  },
+  {
+   "name": "a tie goes to whichever side is preferred (theirs)",
+   "base": [],
+   "mine": [
+    {
+     "key": "a",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "A1",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 0,
+     "lastUsed": 10
+    }
+   ],
+   "theirs": [
+    {
+     "key": "a",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "A2",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 0,
+     "lastUsed": 10
+    }
+   ],
+   "minePreferred": false,
+   "expect": [
+    [
+     "a",
+     "A2",
+     10
+    ]
+   ]
+  },
+  {
+   "name": "forgotten on one side stays forgotten",
+   "base": [
+    {
+     "key": "a",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "A",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 0,
+     "lastUsed": 10
+    },
+    {
+     "key": "b",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "B",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 0,
+     "lastUsed": 10
+    }
+   ],
+   "mine": [
+    {
+     "key": "b",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "B",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 0,
+     "lastUsed": 10
+    }
+   ],
+   "theirs": [
+    {
+     "key": "a",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "A",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 0,
+     "lastUsed": 10
+    },
+    {
+     "key": "b",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "B",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 0,
+     "lastUsed": 10
+    }
+   ],
+   "minePreferred": false,
+   "expect": [
+    [
+     "b",
+     "B",
+     10
+    ]
+   ]
+  },
+  {
+   "name": "forgotten on one side but used since on the other comes back",
+   "base": [
+    {
+     "key": "a",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "A",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 0,
+     "lastUsed": 10
+    }
+   ],
+   "mine": [],
+   "theirs": [
+    {
+     "key": "a",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "A",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 1,
+     "lastUsed": 30
+    }
+   ],
+   "minePreferred": true,
+   "expect": [
+    [
+     "a",
+     "A",
+     30
+    ]
+   ]
+  },
+  {
+   "name": "Forget all (or a reset) on one side clears it everywhere",
+   "base": [
+    {
+     "key": "a",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "A",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 0,
+     "lastUsed": 10
+    },
+    {
+     "key": "b",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "B",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 0,
+     "lastUsed": 12
+    }
+   ],
+   "mine": [
+    {
+     "key": "a",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "A",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 0,
+     "lastUsed": 10
+    },
+    {
+     "key": "b",
+     "kind": "MISREAD",
+     "read": "Read",
+     "wrongId": "w",
+     "wrongName": "Wrong",
+     "scryfallId": "B",
+     "name": "Card",
+     "set": "set",
+     "collectorNumber": "1",
+     "count": 1,
+     "used": 0,
+     "lastUsed": 12
+    }
+   ],
+   "theirs": [],
+   "minePreferred": true,
+   "expect": []
+  }
+ ],
+ "cap": {
+  "mine": [
+   0,
+   400
+  ],
+  "theirs": [
+   400,
+   550
+  ],
+  "kept": 500,
+  "oldestKept": "k050",
+  "newest": "k549"
+ },
+ "lines": [
+  {
+   "entry": {
+    "key": "counterspell|mh2:267",
+    "kind": "MISREAD",
+    "read": "Counterspell",
+    "readSet": "mh2",
+    "readNumber": "267",
+    "wrongId": "cs-mh2-267",
+    "wrongName": "Counterspell",
+    "scryfallId": "cs-dmr-51",
+    "name": "Counterspell",
+    "set": "dmr",
+    "collectorNumber": "51",
+    "count": 1,
+    "used": 0,
+    "lastUsed": 1
+   },
+   "read": "“Counterspell” (MH2 #267), taken for Counterspell",
+   "corrected": "Counterspell · DMR #51",
+   "used": "Corrected once · not used yet"
+  },
+  {
+   "entry": {
+    "key": "kirdape||=kird-ape",
+    "kind": "MISREAD",
+    "read": "Kird Ape",
+    "wrongId": "kird-ape",
+    "wrongName": "Kird Ape",
+    "scryfallId": "kird-chieftain",
+    "name": "Kird Chieftain",
+    "set": "ths",
+    "collectorNumber": "162",
+    "count": 3,
+    "used": 1,
+    "lastUsed": 1
+   },
+   "read": "“Kird Ape”, taken for Kird Ape",
+   "corrected": "Kird Chieftain · THS #162",
+   "used": "Corrected 3 times · used once"
+  },
+  {
+   "entry": {
+    "key": "~plains",
+    "kind": "PRINTING",
+    "read": "Plains",
+    "wrongId": "plains-fdn",
+    "wrongName": "Plains",
+    "scryfallId": "plains-dmu-262",
+    "name": "Plains",
+    "set": "dmu",
+    "collectorNumber": "262",
+    "count": 2,
+    "used": 3,
+    "lastUsed": 1
+   },
+   "read": "Plains, set unread",
+   "corrected": "Plains · DMU #262",
+   "used": "Corrected twice · used 3 times"
+  },
+  {
+   "entry": {
+    "key": "~plains",
+    "kind": "PRINTING",
+    "read": "Plains",
+    "wrongId": "plains-fdn",
+    "wrongName": "Plains",
+    "scryfallId": "plains-dmu-262",
+    "name": "Plains",
+    "set": "dmu",
+    "collectorNumber": "262",
+    "count": 1,
+    "used": 0,
+    "lastUsed": 1
+   },
+   "read": "Plains, set unread",
+   "corrected": "Plains · DMU #262",
+   "used": "Picked once · preferred once picked twice"
+  }
+ ]
+}

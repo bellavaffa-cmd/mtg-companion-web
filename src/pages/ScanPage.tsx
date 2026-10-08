@@ -63,6 +63,7 @@ import { onlyFoilFinish } from '../scan/scanSounds'
 import { useMoney } from '../money/currency'
 import { addedMove, putAwayMove } from '../collection/copyHistory'
 import { recordMoves } from '../collection/copyHistoryStore'
+import { correctionsOf, forgetCorrection, lookupCorrection, markUsed, recordCorrection, withCorrections, type Applied, type ScanReading } from '../scan/scanCorrections'
 import '../collection/storage.css'
 
 /** A card's shape: the guide box matches it. */
@@ -545,8 +546,38 @@ export function ScanPage() {
   // The row whose art is being chosen, when the printing was guessed from the name.
   const [pickingArt, setPickingArt] = useState<ScanRow | null>(null)
 
+  // The scanner learns from corrections (scan/scanCorrections.ts): what each scan read, by its id, so a
+  // printing picked for it later is remembered against that read; and the scans a learned correction
+  // put right, with its key, for their "Learned" tag.
+  const correctionsNow = useRef(correctionsOf(collections))
+  correctionsNow.current = correctionsOf(collections)
+  const readings = useRef(new Map<number, ScanReading>())
+  const [learned, setLearned] = useState<Record<number, string>>({})
+  /** A learned correction put another scan right (read by the camera loop). */
+  const usedCorrection = useRef((key: string) => changeStorage((c) => withCorrections(c, markUsed(correctionsOf(c), key, Date.now()))))
+  usedCorrection.current = (key: string) => changeStorage((c) => withCorrections(c, markUsed(correctionsOf(c), key, Date.now())))
+  /** The scan whose "Learned" tag was tapped. */
+  const [learnedOpen, setLearnedOpen] = useState<{ id: number; name: string; recipe: boolean } | null>(null)
+  /** Scan [id] changed by hand to [card]: learned against what the scanner read for it. */
+  const learnFrom = (id: number, card: ScryfallCard) => {
+    const reading = readings.current.get(id)
+    if (!reading) return
+    const key = learned[id] ?? null
+    const ref = { id: card.id, name: card.name, set: card.set ?? '', collectorNumber: card.collector_number ?? '' }
+    changeStorage((c) => withCorrections(c, recordCorrection(correctionsOf(c), reading, ref, Date.now(), key)))
+    if (key !== null) setLearned(({ [id]: _gone, ...rest }) => rest)
+  }
+  /** "Forget it": the correction that put scan [id] right is forgotten; the scan stays as it is. */
+  const forgetLearned = (id: number) => {
+    const key = learned[id]
+    if (key === undefined) return
+    changeStorage((c) => withCorrections(c, forgetCorrection(correctionsOf(c), key)))
+    setLearned((m) => Object.fromEntries(Object.entries(m).filter(([, k]) => k !== key)))
+    setStatus('Forgotten — the scanner goes by what it reads again')
+  }
+
   /** Every scan is its own row, newest first, so a card read twice shows twice. */
-  const addScanned = (card: ScryfallCard, exact = false): number => {
+  const addScanned = (card: ScryfallCard, exact = false, note = ''): number => {
     const id = nextScanId++
     // While a box label's sheet is up, cards wait.
     if (labelShown.current) return id
@@ -573,9 +604,9 @@ export function ScanPage() {
       const row: ScanRow = { id, card, foil: false, at: Date.now(), exact }
       const next = [row, ...list]
       const copy = copyNumber(next, row)
-      const text = copy > 1
+      const text = (copy > 1
         ? `${card.name} again — copy ${copy}${scannedTwiceOver(next, row) ? ', scanned just now' : ''}`
-        : `Added ${card.name}`
+        : `Added ${card.name}`) + note
       const rarity = rarityLabel(card.rarity)
       setStatusRarity(rarity ? { status: text, rarity } : null)
       setStatus(text)
@@ -878,14 +909,33 @@ export function ScanPage() {
             // With the card index, the look also checks a printing the small print named.
             const bySight = mode.matchesArt && flat && recognizerReady() ? await sightPrinting(flat, card, setCode, !!printing) : null
             if (stopped) break
+            // What was read, as read — kept before the look overrules it, as the key a correction is learned by.
+            const reading: ScanReading = {
+              read: step.name, set: printing?.set ?? setCode, number: printing?.number ?? null,
+              recognizedId: (bySight?.card ?? card).id, recognizedName: (bySight?.card ?? card).name,
+            }
             if (bySight?.overruled) printing = null
             const matchesArt = !printing && mode.matchesArt
             const look = !matchesArt || (flat && recognizerReady()) ? null : flat ? flatSignatures(flat) : cameraSignatures(video, box)
-            const added = bySight?.card ?? card
-            devLog(`added ${added.name} ${added.set} #${added.collector_number} (${printing ? 'small print' : bySight ? (bySight.certain ? 'by sight, certain' : 'by sight, best guess') : 'usual printing'})`)
-            const id = addScanned(added, !!printing || bySight?.certain === true)
+            let added = bySight?.card ?? card
+            // Corrected before: the card it really was, instead (scan/scanCorrections.ts).
+            let fix: Applied | null = lookupCorrection(correctionsNow.current, reading)
+            if (fix) {
+              const fixedId = fix.scryfallId
+              const fixed = printingById.get(fixedId) ?? (await getCardsByIds([fixedId]).catch(() => []))[0]
+              if (fixed) { printingById.set(fixed.id, fixed); added = fixed } else fix = null
+            }
+            if (stopped) break
+            devLog(`added ${added.name} ${added.set} #${added.collector_number} (${fix ? `learned, ${fix.kind}` : printing ? 'small print' : bySight ? (bySight.certain ? 'by sight, certain' : 'by sight, best guess') : 'usual printing'})`)
+            const id = addScanned(added, fix !== null || !!printing || bySight?.certain === true, fix ? ' · learned from your correction' : '')
+            readings.current.set(id, reading)
+            if (fix) {
+              const key = fix.key
+              setLearned((m) => ({ ...m, [id]: key }))
+              usedCorrection.current(key)
+            }
             // Put away already: the printing is matched on the card's name, so it's left as it is.
-            if (look && !putAwayCard.current && !checkCard.current && !sortCard.current) void matchArt(id, card, look, setCode)
+            if (look && !fix && !putAwayCard.current && !checkCard.current && !sortCard.current) void matchArt(id, card, look, setCode)
           } catch (e) {
             if (stopped) break
             tracker.failed()
@@ -969,6 +1019,8 @@ export function ScanPage() {
   }
   /** The printing on a row, swapped for the art the user picked. */
   const setPrinting = (id: number, card: ScryfallCard) => {
+    const was = scanned.find((s) => s.id === id)
+    if (was && was.card.id !== card.id) learnFrom(id, card)
     setScanned((list) => list.map((s) => (s.id === id ? withPrinting(s, card, true) : s)))
     setPickingArt(null)
   }
@@ -1160,6 +1212,8 @@ export function ScanPage() {
             rate={money.rate}
             onUndo={() => { changeLast(() => null); handsFree.current.rescan(); setStatus('Last card taken back') }}
             onWrong={() => setWrongCard(true)}
+            learned={(() => { const last = recipe.scans.at(-1); return !!last && learned[last.id] !== undefined })()}
+            onLearned={() => { const last = recipe.scans.at(-1); if (last) setLearnedOpen({ id: last.id, name: last.name, recipe: true }) }}
             onSend={sendTo}
             onPutInDeck={putInDeckNow}
             onApart={toggleApart}
@@ -1296,6 +1350,11 @@ export function ScanPage() {
                   <div className="cmain">
                     <div className="cname">{s.card.name}</div>
                     <div className="cmeta">
+                      {learned[s.id] !== undefined && (
+                        <button type="button" className="chip scan-art" onClick={() => setLearnedOpen({ id: s.id, name: s.card.name, recipe: false })} aria-label={`Learned from your correction: ${s.card.name}`}>
+                          <Icon name="school" aria-hidden />Learned
+                        </button>
+                      )}
                       {!s.exact && (
                         <button type="button" className="chip scan-art" onClick={() => setPickingArt(s)}>
                           <Icon name="image_search" aria-hidden />Best guess · pick art
@@ -1306,7 +1365,9 @@ export function ScanPage() {
                           {justNow ? `copy ${copy} · scanned just now` : `copy ${copy}`}
                         </span>
                       )}
-                      <span>{printingName(s.card)}</span>
+                      {s.exact
+                        ? <button type="button" className="link" style={{ padding: 0 }} aria-label={`${printingName(s.card)} — change printing`} onClick={() => setPickingArt(s)}>{printingName(s.card)}</button>
+                        : <span>{printingName(s.card)}</span>}
                     </div>
                     {canBeFoil(s.card) && (
                       <button type="button" className="chip scan-foil" aria-pressed={s.foil} aria-label={`Foil: ${s.card.name}`} onClick={() => toggleFoil(s.id)}>
@@ -1373,12 +1434,35 @@ export function ScanPage() {
           <p className="muted" style={{ margin: 0 }}>Right card, wrong printing: pick the one you're holding. A different card: rescan it — it's taken off its pile first.</p>
         </Dialog>
       )}
+      {learnedOpen && (
+        <Dialog
+          title="Learned"
+          onDismiss={() => setLearnedOpen(null)}
+          actions={<>
+            <button type="button" className="btn line" onClick={() => { const open = learnedOpen; setLearnedOpen(null); forgetLearned(open.id) }}>Forget it</button>
+            <button
+              type="button"
+              className="btn gold"
+              onClick={() => {
+                const open = learnedOpen
+                setLearnedOpen(null)
+                if (open.recipe) setPickingRecipeArt(true)
+                else { const row = scanned.find((s) => s.id === open.id); if (row) setPickingArt(row) }
+              }}
+            >Pick another printing</button>
+          </>}
+        >
+          <p className="muted" style={{ margin: 0 }}>You corrected this before, so it went in as {learnedOpen.name}. Forget it, and the scanner goes by what it reads again.</p>
+        </Dialog>
+      )}
       {pickingRecipeArt && recipe?.scans.at(-1) && (
         <PrintingPicker
           name={recipe.scans.at(-1)!.name}
           currentId={recipe.scans.at(-1)!.scryfallId}
           onPick={(card) => {
             setPickingRecipeArt(false)
+            const last = recipeNow.current?.scans.at(-1)
+            if (last && last.scryfallId !== card.id) learnFrom(last.id, card)
             changeLast((last, rest) => { recipeCards.current.set(last.id, card); return resort(last, rest, recipeCardOf(card, last.card), card) })
           }}
           onClose={() => setPickingRecipeArt(false)}

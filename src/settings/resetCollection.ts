@@ -3,9 +3,9 @@
 //
 //  - Cards only: every binder and the Unsorted pile emptied (their cards' places, prices to watch and
 //    copies to sell go with the cards). Binders, storage places, the Wishlist, decks, sealed product,
-//    graded cards, gear and loans stay.
+//    graded cards, gear, loans and what the scanner learned (scan/scanCorrections.ts) stay.
 //  - Collection: every card, every binder but the Unsorted pile and the Wishlist (which stay, empty),
-//    the storage places, sealed product, graded cards, gear and loans. Decks stay, and so does card
+//    the storage places, sealed product, graded cards, gear, loans and what the scanner learned. Decks stay, and so does card
 //    price history — it's market data, not the collection.
 //  - Everything: the collection and every deck, with the decks' history and games logged. Settings,
 //    friends and the account stay.
@@ -27,12 +27,12 @@ export const RESET_SCOPES: { id: ResetScope; title: string; detail: string }[] =
   {
     id: 'cards',
     title: 'Cards only',
-    detail: 'Empties every binder and the Unsorted pile. Your binders, storage places, Wishlist, decks, sealed product, graded cards, gear and loans stay.',
+    detail: 'Empties every binder and the Unsorted pile. Your binders, storage places, Wishlist, decks, sealed product, graded cards, gear, loans and what the scanner learned stay.',
   },
   {
     id: 'collection',
     title: 'Collection',
-    detail: 'Every card and binder, storage places, sealed product, graded cards, gear, loans, and your copies’ photos and history. The Unsorted pile and Wishlist stay, empty. Decks and card prices stay.',
+    detail: 'Every card and binder, storage places, sealed product, graded cards, gear, loans, what the scanner learned from your corrections, and your copies’ photos and history. The Unsorted pile and Wishlist stay, empty. Decks and card prices stay.',
   },
   {
     id: 'everything',
@@ -128,6 +128,7 @@ function emptiedPile(c: Collection, whole: boolean): Collection {
     ...(c.sealed !== undefined ? { sealed: [] } : {}),
     ...(c.graded !== undefined ? { graded: [] } : {}),
     ...(c.gear !== undefined ? { gear: [] } : {}),
+    ...(c.scanCorrections !== undefined ? { scanCorrections: [] } : {}),
   }
 }
 

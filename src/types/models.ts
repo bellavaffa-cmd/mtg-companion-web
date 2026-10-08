@@ -5,6 +5,7 @@
 import type { ScryfallCard } from './scryfall'
 import type { DeckHistoryEntry } from '../decks/deckHistory'
 import type { SortRecipe } from '../collection/sortRecipes'
+import type { ScanCorrection } from '../scan/scanCorrections'
 
 export interface DeckCardEntry {
   scryfallId: string
@@ -432,6 +433,12 @@ export interface Collection {
    * none are left — so a pile with no "sortRecipes" key was saved by an app that doesn't know about them.
    */
   sortRecipes?: SortRecipe[]
+  /**
+   * The Unsorted pile only: what the scanner has learned from the user's corrections (see
+   * scan/scanCorrections.ts). Rides along like [sortRecipes] and merges entry by entry, the one used
+   * last winning. Left out until the first is learned; then kept, as [] once none are left.
+   */
+  scanCorrections?: ScanCorrection[]
 }
 
 // The pile's "sealed" and "graded" as JSON — locally and in sync, the Android app's exactly:
