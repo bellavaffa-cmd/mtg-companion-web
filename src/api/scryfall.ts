@@ -180,14 +180,20 @@ export async function getCollection(identifiers: CardIdentifier[]): Promise<{ da
   }
 }
 
-/**
- * Every printing of a card, newest first — the alternate arts, the borderless one, the Secret Lair.
- * Empty when Scryfall knows no such card.
- */
 /** Pages of printings to follow at most. A basic land runs to five; nothing runs to ten. */
 const MOST_PRINTING_PAGES = 10
 
-export async function getPrintings(name: string, set?: string): Promise<ScryfallCard[]> {
+/**
+ * Every printing of a card, newest first — the alternate arts, the borderless one, the Secret Lair.
+ * Empty when Scryfall knows no such card. [onPage] hears each page as it comes — the printings so
+ * far, how many Scryfall says there are, and whether more are coming — so the printing picker shows
+ * the first ones while the rest of a basic land's hundreds load.
+ */
+export async function getPrintings(
+  name: string,
+  set?: string,
+  onPage?: (soFar: ScryfallCard[], total: number | undefined, more: boolean) => void,
+): Promise<ScryfallCard[]> {
   // [set] narrows it to that one set's printings — a handful, in one request.
   const q = `!"${name}"` + (set ? ` set:${set.toLowerCase()}` : '')
   const query = new URLSearchParams({ q, unique: 'prints', order: 'released', dir: 'desc' })
@@ -200,6 +206,7 @@ export async function getPrintings(name: string, set?: string): Promise<Scryfall
     const json = await res.json()
     all.push(...((json.data ?? []) as ScryfallCard[]))
     next = json.has_more ? (json.next_page as string) : null
+    onPage?.([...all], typeof json.total_cards === 'number' ? json.total_cards : undefined, !!next && page + 1 < MOST_PRINTING_PAGES)
   }
   return all
 }

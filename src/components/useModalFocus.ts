@@ -40,11 +40,14 @@ export function useModalFocus(ref: RefObject<HTMLElement | null>, onClose: () =>
     }
   }, [returnFocus])
 
-  // Into the layer on opening. An input that focused itself keeps it.
+  // Into the layer on opening. An input that focused itself keeps it; one marked
+  // data-no-initial-focus (the printing picker's search, opened by a tap: no keyboard over the art)
+  // is passed over.
   useEffect(() => {
     const el = ref.current
     if (!el || el.contains(document.activeElement)) return
-    ;(el.querySelector<HTMLElement>(FOCUSABLE) ?? el).focus()
+    const first = [...el.querySelectorAll<HTMLElement>(FOCUSABLE)].find((c) => !c.hasAttribute('data-no-initial-focus'))
+    ;(first ?? el).focus()
   }, [ref, focusKey])
 
   // Tab and Shift+Tab go round the layer's own controls rather than out to the page behind it.

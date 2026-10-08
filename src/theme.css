@@ -5058,3 +5058,31 @@ label.field-label.reset-type {
   text-align: center;
   font-size: 0.8125rem;
 }
+
+/* The printing picker's search (components/PrintingPicker.tsx): above the tiles, with how many match. */
+.printing-search {
+  height: 44px;
+  margin-bottom: 6px;
+}
+
+.printing-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.printing-search-count {
+  font-size: 0.75rem;
+  margin: 0 4px 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.printing-search-empty {
+  padding: 18px 4px;
+}
+
+/* A printing's set name, small under its code and number. */
+.card-cell-set {
+  font-size: 0.6875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
