@@ -253,4 +253,13 @@ export class ScanTracker {
   added(cardName: string) {
     this.lastAdded = cardName
   }
+
+  /**
+   * The picture just changed under the card — the zoom moved — so the reads so far no longer count
+   * towards a steady one. The card already added stays added.
+   */
+  settle() {
+    this.steadyReads = 0
+    this.lastRead = null
+  }
 }

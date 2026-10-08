@@ -15,7 +15,10 @@ import { useKeepAwake } from '../components/useKeepAwake'
 import { TopBar } from '../components/TopBar'
 import { hasTorch, torchConstraints } from '../scan/torch'
 import { cardNameIndex, MIN_MATCH } from '../scan/cardNames'
-import { guideInVideo, zoomFor } from '../scan/guide'
+import { guideInVideo } from '../scan/guide'
+import { defaultZoom } from '../scan/scanZoom'
+import { useScanZoom } from '../components/useScanZoom'
+import { ScanZoomControl } from '../components/ScanZoomControl'
 import { cameraSignatures, decideInSet, matchPrinting, measurePrintings, type ArtSignature } from '../scan/printingMatch'
 import { readCardName, readSmallPrint, STRIP_STYLES, titleReader, type Box, type StripStyle } from '../scan/ocr'
 import { flatCanvas, flatSignatures, flattenCard, wholeCard, type FlatCard } from '../scan/flatCard'
@@ -103,6 +106,9 @@ const PILE_KEY = 'mtgweb_scan_pile'
 
 /** Fast or Accurate, kept on this device for next time. */
 const MODE_KEY = 'mtgweb_scan_mode'
+
+/** The zoom last scanned at, kept on this device for next time (see useScanZoom). */
+const ZOOM_KEY = 'mtgweb_scan_zoom'
 
 function loadPile(): ScanRow[] {
   try {
@@ -475,6 +481,13 @@ export function ScanPage() {
   const guideRef = useRef<HTMLDivElement>(null)
   const scanNow = useRef(false)
   const [camera, setCamera] = useState<Camera>('starting')
+  /** Set by the camera loop: a zoom change starts the steady reads again (the picture just moved). */
+  const settleReads = useRef<() => void>(() => {})
+  // Zoomed in so the card fills the frame from where it is comfortable to hold it, which is what
+  // decides whether the printing can be read off the card or has to be guessed from its name (see
+  // SCAN_ZOOM) — and the − / + chip, a pinch or ctrl + wheel to change it (useScanZoom).
+  const zoom = useScanZoom({ storageKey: ZOOM_KEY, defaultFor: defaultZoom, onZoomChange: () => settleReads.current() })
+  const attachZoom = zoom.attach
   // The camera's light, when it has one (see scan/torch.ts), and whether it's on.
   const [torch, setTorch] = useState<{ track: MediaStreamTrack; on: boolean } | null>(null)
   const [mode, setMode] = useState<ScanMode>(() => {
@@ -668,6 +681,7 @@ export function ScanPage() {
       stream?.getTracks().forEach((t) => t.stop())
       stream = null
       setTorch(null)
+      attachZoom(null)
     }
     const onVisibility = () => {
       if (!document.hidden) setCameraAttempt((n) => n + 1)
@@ -680,18 +694,9 @@ export function ScanPage() {
         if (cancelled) { s.getTracks().forEach((t) => t.stop()); return }
         stream = s
         s.getVideoTracks().forEach((t) => t.addEventListener('ended', () => { if (!cancelled && stream === s) setCamera('failed') }))
-        // Zoomed in so the card fills the frame from where it is comfortable to hold it, which is
-        // what decides whether the printing can be read off the card or has to be guessed from its
-        // name (see SCAN_ZOOM). Asked for once the stream is running, because only then does the
-        // camera say what zoom it has; a camera with none — most laptops — is left alone.
-        s.getVideoTracks().forEach((t) => {
-          const range = (t.getCapabilities?.() as { zoom?: { min?: number; max?: number } } | undefined)?.zoom
-          const ratio = zoomFor(range)
-          if (ratio === null) return
-          // Zoom is real and widely supported but still outside the DOM types, hence the cast.
-          // Not every browser that reports zoom will accept it, so a refusal is not a failed camera.
-          void t.applyConstraints({ advanced: [{ zoom: ratio }] } as unknown as MediaTrackConstraints).catch(() => {})
-        })
+        // The zoom, asked for once the stream is running, because only then does the camera say
+        // what zoom it has; a camera with none — most laptops — is left alone, with no control.
+        attachZoom(s.getVideoTracks()[0] ?? null)
         // The light, when this camera has one; it starts off, as the camera does.
         const lit = s.getVideoTracks().find((t) => hasTorch(t.getCapabilities?.()))
         setTorch(lit ? { track: lit, on: false } : null)
@@ -712,7 +717,7 @@ export function ScanPage() {
       document.removeEventListener('visibilitychange', onVisibility)
       release()
     }
-  }, [cameraAttempt])
+  }, [cameraAttempt, attachZoom])
 
   // Reading: one frame at a time, as fast as the reader manages. A card is looked up once its name
   // reads the same twice, and not again while it stays in view (ScanTracker).
@@ -720,6 +725,7 @@ export function ScanPage() {
     if (camera !== 'on') return
     let stopped = false
     const tracker = new ScanTracker(() => SCAN_MODES[modeRef.current].steadyReads)
+    settleReads.current = () => { tracker.settle(); handsFree.current.settle() }
     const found = new Map<string, ScryfallCard>()
     void (async () => {
       let names
@@ -743,6 +749,9 @@ export function ScanPage() {
         const guide = guideRef.current
         const box = video && guide && !document.hidden ? guideInVideo(video, guide) : null
         if (!video || !box) { await sleep(300); continue }
+        // Mid-pinch the picture is moving under the card: nothing is read, let alone taken, until
+        // the fingers are off (the reads then start again from nothing — see settleReads).
+        if (zoom.pinching.current) { await sleep(BETWEEN_READS_MS); continue }
         const read = await readCardName(video, box, names).catch(() => null)
         if (stopped) break
         setSeen(read?.seen ?? '')
@@ -881,8 +890,8 @@ export function ScanPage() {
         await sleep(BETWEEN_READS_MS)
       }
     })()
-    return () => { stopped = true }
-  }, [camera])
+    return () => { stopped = true; settleReads.current = () => {} }
+  }, [camera, zoom.pinching])
 
   // QR codes, alongside cards and from the start (they don't wait for the card reader): one of the
   // app's opens where it leads — a friend's code asks to add them.
@@ -1076,13 +1085,19 @@ export function ScanPage() {
             <Icon name="expand_more" aria-hidden />
           </button>
         )}
-        <div className="scan-view" data-no-pull>
+        <div
+          ref={zoom.viewRef}
+          className={zoom.range ? 'scan-view zoomable' : 'scan-view'}
+          data-no-pull
+          {...(zoom.range ? { tabIndex: 0, role: 'group', 'aria-label': 'Camera — pinch, or press + and −, to zoom' } : {})}
+        >
           <video ref={videoRef} className="scan-video" playsInline muted autoPlay />
           <div className="scan-guide-wrap">
             <div ref={guideRef} className="scan-guide" style={{ aspectRatio: String(CARD_ASPECT) }} key={flash}>
               <div className="scan-guide-title" />
             </div>
           </div>
+          {camera === 'on' && <ScanZoomControl zoom={zoom} />}
           {camera !== 'on' && (
             <div className="scan-camera-note">
               <Icon name={camera === 'starting' ? 'photo_camera' : 'no_photography'} />

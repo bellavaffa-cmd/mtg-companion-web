@@ -723,6 +723,15 @@ export class HandsFreeCapture {
   /** Whether a card is held (taken, and not yet gone from the frame). */
   get holding(): boolean { return this.held !== null }
 
+  /**
+   * The picture just changed — the zoom moved — so the frames held still so far start again. The
+   * card already taken is still held, and isn't taken twice.
+   */
+  settle() {
+    this.steady = 0
+    this.lastRead = null
+  }
+
   /** Forget the card in view: it can be taken again. */
   rescan() {
     this.held = null

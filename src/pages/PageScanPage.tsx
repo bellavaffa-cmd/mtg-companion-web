@@ -13,6 +13,8 @@ import {
   readCell, recordedLine, recordedOnPage, recordPage, type CellCard, type PageCell,
 } from '../collection/pageScan'
 import { guideInVideo } from '../scan/guide'
+import { useScanZoom } from '../components/useScanZoom'
+import { ScanZoomControl } from '../components/ScanZoomControl'
 import { cardNameIndex } from '../scan/cardNames'
 import { readCardName, type Box } from '../scan/ocr'
 import { flattenCard } from '../scan/flatCard'
@@ -65,6 +67,11 @@ async function readPage(source: HTMLCanvasElement, area: Box, pockets: number): 
 
 type Camera = 'starting' | 'on' | 'denied' | 'unsupported' | 'failed'
 
+/** The zoom a page was last scanned at, kept on this device (see useScanZoom). */
+const PAGE_ZOOM_KEY = 'mtgweb_page_scan_zoom'
+/** A page starts wide — as wide as the camera goes — since a whole page needs every pixel it can get. */
+const widest = (range: { min: number }) => range.min
+
 export function PageScanPage() {
   const { id = '' } = useParams<{ id: string }>()
   const [params] = useSearchParams()
@@ -84,12 +91,15 @@ export function PageScanPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const guideRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  // Zoom, for a camera that has it: a page held far off can be brought closer (useScanZoom).
+  const zoom = useScanZoom({ storageKey: PAGE_ZOOM_KEY, defaultFor: widest, thing: 'page' })
+  const attachZoom = zoom.attach
   useKeepAwake(phase !== 'results')
 
   // The model and index start loading now, so the first page doesn't wait for them.
   useEffect(() => { void loadRecognizer().catch(() => undefined) }, [])
 
-  // The camera, wide (no zoom): a whole page needs every pixel it can get.
+  // The camera, wide unless zoomed in by hand: a whole page needs every pixel it can get.
   useEffect(() => {
     let stream: MediaStream | null = null
     let cancelled = false
@@ -102,6 +112,7 @@ export function PageScanPage() {
       .then((s) => {
         if (cancelled) { s.getTracks().forEach((t) => t.stop()); return }
         stream = s
+        attachZoom(s.getVideoTracks()[0] ?? null)
         const video = videoRef.current
         if (video) {
           video.srcObject = s
@@ -117,8 +128,9 @@ export function PageScanPage() {
     return () => {
       cancelled = true
       stream?.getTracks().forEach((t) => t.stop())
+      attachZoom(null)
     }
-  }, [])
+  }, [attachZoom])
 
   if (!place) {
     return (
@@ -223,7 +235,12 @@ export function PageScanPage() {
         <div className="page-scan">
           {phase !== 'results' ? (
             <>
-              <div className="scan-view page-scan-view" data-no-pull>
+              <div
+                ref={zoom.viewRef}
+                className={zoom.range ? 'scan-view page-scan-view zoomable' : 'scan-view page-scan-view'}
+                data-no-pull
+                {...(zoom.range ? { tabIndex: 0, role: 'group', 'aria-label': 'Camera — pinch, or press + and −, to zoom' } : {})}
+              >
                 <video ref={videoRef} className="scan-video" playsInline muted autoPlay />
                 <div className="scan-guide-wrap">
                   <div
@@ -244,6 +261,7 @@ export function PageScanPage() {
                     {camera === 'failed' && 'The camera stopped or didn’t start. Choose a photo of the page instead.'}
                   </div>
                 )}
+                {camera === 'on' && phase === 'camera' && <ScanZoomControl zoom={zoom} />}
                 {phase === 'reading' && <div className="scan-camera-note" role="status"><Icon name="hourglass_top" />Reading the pockets…</div>}
               </div>
               <p className={message ? 'page-scan-msg warn' : 'page-scan-msg'} role="status">

@@ -2832,6 +2832,60 @@ html {
 @keyframes scan-found {
   from { border-color: var(--gold); box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.35), 0 0 0 6px rgba(230, 180, 90, 0.5); }
 }
+/* Zoom over the preview (components/ScanZoomControl.tsx): only for a camera that can zoom. The
+   preview takes the pinch itself then, rather than the page. */
+.scan-view.zoomable { touch-action: none; }
+.scan-view:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.scan-zoom {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+.scan-zoom-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+}
+.scan-zoom-btn,
+.scan-zoom-chip {
+  min-width: 44px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.scan-zoom-chip { min-width: 64px; background: rgba(255, 255, 255, 0.14); }
+.scan-zoom-btn:disabled { opacity: 0.4; cursor: default; }
+.scan-zoom-btn:not(:disabled):active,
+.scan-zoom-chip:active { background: rgba(255, 255, 255, 0.28); }
+.scan-zoom-btn:focus-visible,
+.scan-zoom-chip:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.scan-zoom-hint {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
 .scan-camera-note {
   position: absolute;
   inset: 0;
