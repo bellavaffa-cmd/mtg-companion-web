@@ -69,6 +69,9 @@ import { addedMove, putAwayMove } from '../collection/copyHistory'
 import { recordMoves } from '../collection/copyHistoryStore'
 import { correctionsOf, forgetCorrection, lookupCorrection, markUsed, recordCorrection, withCorrections, type Applied, type ScanReading } from '../scan/scanCorrections'
 import '../collection/storage.css'
+import { LastScannedPanel, lastScanned, lastScannedSpoken, loadShowLastScanned, type PanelSession } from '../components/LastScannedPanel'
+import { HeldPrintingWatch, type ScanHow } from '../scan/scanCardPanel'
+import { looksLikeSameCard, samePrinting, type Printing } from '../scan/scanLogic'
 
 /** A card's shape: the guide box matches it. */
 const CARD_ASPECT = 63 / 88
@@ -143,6 +146,14 @@ function savePile(rows: ScanRow[]): number {
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * The Last scanned panel's scans (components/LastScannedPanel.tsx): kept while the app is open, like
+ * the scan ids, so looking at a card's details and coming back finds the panel where it was.
+ */
+let panelMemory: PanelSession = { rows: [], how: {} }
+/** How often the small print of the card still held is read, for the panel's "Camera reads …". */
+const HELD_READ_EVERY_MS = 500
 
 /** One card put away this session (put-away mode): what happened to it, and how to take it back. */
 interface PutAwayRow {
@@ -553,6 +564,18 @@ export function ScanPage() {
   const [picking, setPicking] = useState(false)
   // The row whose art is being chosen, when the printing was guessed from the name.
   const [pickingArt, setPickingArt] = useState<ScanRow | null>(null)
+  // The Last scanned panel (Settings › Scanner › Show last scanned card): this session's scans and how
+  // each was identified, and the printing the camera steadily reads off the card still held.
+  const [showPanel] = useState(loadShowLastScanned)
+  const showPanelNow = useRef(showPanel)
+  const [panel, setPanelState] = useState<PanelSession>(() => panelMemory)
+  const setPanel = (change: (p: PanelSession) => PanelSession) => setPanelState((p) => { panelMemory = change(p); return panelMemory })
+  const noteHow = (id: number, how: ScanHow) => setPanel((p) => ({ ...p, how: { ...p.how, [id]: how } }))
+  const [cameraReads, setCameraReads] = useState<{ id: number; printing: Printing } | null>(null)
+  const cameraReadsNow = useRef(cameraReads)
+  /** The plain scan just added: the panel's card, while the camera still holds it. */
+  const lastPlainId = useRef<number | null>(null)
+  const heldRow = useRef<number | null>(null)
 
   // The scanner learns from corrections (scan/scanCorrections.ts): what each scan read, by its id, so a
   // printing picked for it later is remembered against that read; and the scans a learned correction
@@ -622,6 +645,8 @@ export function ScanPage() {
       setFlash((n) => n + 1)
       return id
     }
+    lastPlainId.current = id
+    setPanel((p) => ({ ...p, rows: [...p.rows, id] }))
     setScanned((list) => {
       const row: ScanRow = { id, card, foil: false, at: Date.now(), exact }
       const next = [row, ...list]
@@ -655,6 +680,8 @@ export function ScanPage() {
         s.id === id && s.card.id === scanned.id && !s.exact ? withPrinting(s, pick, only) : s
       )))
       if (pick.id !== scanned.id) setStatus(`${scanned.name} — ${how}`)
+      // Unless it was put right by hand meanwhile (then the row was left as it was, too).
+      setPanel((p) => (p.how[id] === 'PICKED' || p.how[id] === 'LEARNED' ? p : { ...p, how: { ...p.how, [id]: 'SIGHT' } }))
     }
     // When the small print gave the set code but not the number, it narrows things first: the name
     // says which card, the set code which of its printings are in play, and the whole card's look —
@@ -793,6 +820,13 @@ export function ScanPage() {
     const smallPrintStreak = new SmallPrintStreak()
     settleReads.current = () => { tracker.settle(); handsFree.current.settle() }
     const found = new Map<string, ScryfallCard>()
+    // The Last scanned panel: the small print of the card still held, read now and then (see below).
+    const heldWatch = new HeldPrintingWatch()
+    let lastHeldRead = 0
+    const stopWatchingHeld = () => {
+      heldWatch.reset()
+      if (cameraReadsNow.current) { cameraReadsNow.current = null; setCameraReads(null) }
+    }
     void (async () => {
       let names
       try {
@@ -871,6 +905,26 @@ export function ScanPage() {
           ? tracker.onRead(title, forced)
           : handsFreeNow && !labelShown.current && handsFree.current.onRead(title) && title ? { kind: 'lookup' as const, name: title } : { kind: 'wait' as const }
         if (forced && !read?.match) setStatus("Couldn't read a name there — hold the card flat and still, or type it below.")
+        // The card just added, still held: its small print, read every so often, tells the Last scanned
+        // panel which printing the camera sees — it flashes when that's not the one it shows. Only while
+        // it's that card (same name, not gone); anything else and the panel is told nothing.
+        const holding = tracker.holding
+        if (!holding || heldRow.current === null || handsFreeNow !== null || step.kind === 'lookup' || (title && !looksLikeSameCard(title, holding))) {
+          stopWatchingHeld()
+        } else if (title && showPanelNow.current && SCAN_MODES[modeRef.current].readsSmallPrint && performance.now() - lastHeldRead >= HELD_READ_EVERY_MS) {
+          lastHeldRead = performance.now()
+          const flat = flattenCard(video, box)
+          const strip = flat ? flatCanvas(flat) : null
+          const text = strip ? await readSmallPrint(strip, wholeCard(strip), STRIP_STYLES[0]).catch(() => '') : ''
+          if (stopped) break
+          const seenNow = heldWatch.see(parseSetAndNumber(text))
+          const id = heldRow.current
+          const was = cameraReadsNow.current
+          if (seenNow && id !== null && (!was || was.id !== id || !samePrinting(was.printing, seenNow))) {
+            cameraReadsNow.current = { id, printing: seenNow }
+            setCameraReads(cameraReadsNow.current)
+          }
+        }
         if (step.kind === 'lookup') {
           // What the camera actually read, to hold the card it found up against.
           const seenNow = read?.seen?.trim() || step.name
@@ -985,6 +1039,9 @@ export function ScanPage() {
             devLog(`added ${added.name} ${added.set} #${added.collector_number} (${fix ? `learned, ${fix.kind}` : printing ? 'small print' : bySight ? (bySight.certain ? 'by sight, certain' : 'by sight, best guess') : 'usual printing'})`)
             const id = addScanned(added, fix !== null || !!printing || bySight?.certain === true, fix ? ' · learned from your correction' : '')
             readings.current.set(id, reading)
+            noteHow(id, fix ? 'LEARNED' : printing && !bySight ? 'SMALL_PRINT' : seenBySight ? 'SIGHT' : 'NAME')
+            heldRow.current = lastPlainId.current === id ? id : null
+            stopWatchingHeld()
             if (fix) {
               const key = fix.key
               setLearned((m) => ({ ...m, [id]: key }))
@@ -1059,7 +1116,7 @@ export function ScanPage() {
       // The same matching as scanning, which copes with typos better than Scryfall's fuzzy search
       // ("sol rng" is Sol Ring there, Oathsworn Giant here); that search is the fallback.
       const match = (await cardNameIndex().catch(() => null))?.match(name)
-      addScanned(match && match.score >= MIN_MATCH ? await getByExactName(match.name) : await getByFuzzyName(name))
+      noteHow(addScanned(match && match.score >= MIN_MATCH ? await getByExactName(match.name) : await getByFuzzyName(name)), 'NAME')
       setTyped('')
     } catch (e) {
       setStatus(e instanceof OfflineError ? "You're offline — cards can't be looked up until the connection is back." : `No card called “${name}”.`)
@@ -1079,6 +1136,7 @@ export function ScanPage() {
     if (was && was.card.id !== card.id) learnFrom(id, card)
     setScanned((list) => list.map((s) => (s.id === id ? withPrinting(s, card, true) : s)))
     setPickingArt(null)
+    noteHow(id, 'PICKED')
   }
 
   /** Wrong card? The sort's newest card is [card] after all: learned, and sorted again into its pile. */
@@ -1092,6 +1150,28 @@ export function ScanPage() {
   const removeScan = (id: number) => {
     setScanned((list) => list.filter((s) => s.id !== id))
   }
+
+  /** The Last scanned panel's Undo: that scan off the pile; the panel goes back to the scan before it. */
+  const undoScan = (row: ScanRow) => {
+    removeScan(row.id)
+    setPanel((p) => ({ ...p, rows: p.rows.filter((r) => r !== row.id) }))
+    setStatus(`${row.card.name} taken off the list`)
+  }
+
+  /** "Use FIN 307": the scan becomes the printing the camera reads off the card, as a printing picked by hand. */
+  const applyCameraPrinting = async (row: ScanRow, read: Printing) => {
+    let card: ScryfallCard | null = null
+    for (const number of new Set([read.number, plainNumber(read.number)])) {
+      card = await getBySetAndNumber(read.set, number).catch(() => null)
+      if (card && sameCardName(row.card.name, card.name)) break
+      card = null
+    }
+    if (!card) { setStatus(`Couldn't find ${read.set.toUpperCase()} #${read.number} for ${row.card.name}`); return }
+    setPrinting(row.id, card)
+    setStatus(`${card.name} — now ${card.set?.toUpperCase()} #${card.collector_number}`)
+  }
+  const panelOn = showPanel && !target && !tickKind && !checkPlace && !sortMode && !recipeMode
+  const panelRow = panelOn ? lastScanned(panel, scanned) : null
 
   const total = scanned.length
   // The nav bar and the sidebar are the app's own links: caught here, asked about, then followed.
@@ -1239,6 +1319,26 @@ export function ScanPage() {
             </div>
           )}
         </div>
+
+        {panelOn && (
+          <div className="sr-only" aria-live="polite" aria-atomic="true">{panelRow ? lastScannedSpoken(panelRow, panel.how[panelRow.id], money) : ''}</div>
+        )}
+        {panelRow && (
+          <LastScannedPanel
+            row={panelRow}
+            pile={scanned}
+            how={panel.how[panelRow.id]}
+            cameraReads={cameraReads?.id === panelRow.id ? cameraReads.printing : null}
+            collections={collections}
+            decks={decks}
+            money={money}
+            onOpen={() => navigate(`/card/${encodeURIComponent(panelRow.card.name)}?id=${panelRow.card.id}`)}
+            onChangePrinting={() => setPickingArt(panelRow)}
+            onUndo={() => undoScan(panelRow)}
+            onFoil={() => toggleFoil(panelRow.id)}
+            onUseCamera={(read) => void applyCameraPrinting(panelRow, read)}
+          />
+        )}
 
         <div className="scan-status">
           <div aria-live="polite" aria-atomic="true">

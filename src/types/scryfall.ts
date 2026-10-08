@@ -68,6 +68,8 @@ export interface ScryfallCard {
   reserved?: boolean
   /** Printed with art over the whole card. */
   full_art?: boolean
+  /** The printing's language ("en", "ja"…): the scanner's Last scanned panel shows it as printed. */
+  lang?: string
   /** As printed: "3", "*", "1+*". Strings, so a non-number stays as it is. */
   power?: string
   toughness?: string
