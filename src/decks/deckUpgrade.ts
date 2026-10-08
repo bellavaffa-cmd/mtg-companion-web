@@ -128,7 +128,7 @@ export function upgradeScore(card: UpgradeCard, edhrec: boolean): number {
 const round2 = (n: number) => Math.round(n * 100) / 100
 
 /** 12345 → "12,345". */
-export function grouped(n: number): string {
+export function withThousands(n: number): string {
   const digits = String(Math.trunc(Math.abs(n)))
   let out = ''
   for (let i = 0; i < digits.length; i++) {
@@ -160,9 +160,9 @@ export function upgradeReason(cut: UpgradeDeckCard, add: UpgradeOwnedCard, role:
     out += cut.inclusion != null ? `${cut.name} in ${cut.inclusion}%.` : `${cut.name} isn't on EDHREC's list for it.`
   } else {
     const parts: string[] = []
-    if (add.edhrecRank != null && cut.edhrecRank != null) parts.push(`${add.name} ranks #${grouped(add.edhrecRank)} on EDHREC, ${cut.name} #${grouped(cut.edhrecRank)}`)
-    else if (add.edhrecRank != null) parts.push(`${add.name} ranks #${grouped(add.edhrecRank)} on EDHREC`)
-    if (add.cmc != null && cut.cmc != null && add.cmc < cut.cmc) parts.push(`${add.name} costs ${grouped(cut.cmc - add.cmc)} less`)
+    if (add.edhrecRank != null && cut.edhrecRank != null) parts.push(`${add.name} ranks #${withThousands(add.edhrecRank)} on EDHREC, ${cut.name} #${withThousands(cut.edhrecRank)}`)
+    else if (add.edhrecRank != null) parts.push(`${add.name} ranks #${withThousands(add.edhrecRank)} on EDHREC`)
+    if (add.cmc != null && cut.cmc != null && add.cmc < cut.cmc) parts.push(`${add.name} costs ${withThousands(cut.cmc - add.cmc)} less`)
     out += parts.length > 0 ? `; ${parts.join('; ')}.` : '.'
   }
   if (cut.replaceable) out += ` You marked ${cut.name} as a cut.`

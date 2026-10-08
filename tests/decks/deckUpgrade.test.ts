@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
-  applyUpgrades, bracketWarning, grouped, ownedSources, pairKey, shortCommander, upgradeRoleOf, upgradeScore, upgradeSummary, upgradeSwaps, withUpgrade,
+  applyUpgrades, bracketWarning, withThousands, ownedSources, pairKey, shortCommander, upgradeRoleOf, upgradeScore, upgradeSummary, upgradeSwaps, withUpgrade,
   type UpgradeDeckCard, type UpgradeInput, type UpgradeOwnedCard,
 } from '../../src/decks/deckUpgrade.ts'
 import type { Collection, Deck, DeckCardEntry } from '../../src/types/models.ts'
@@ -64,9 +64,9 @@ test('the shared cases: the summary of the swaps that keep the bracket', () => {
 })
 
 test('words and numbers', () => {
-  assert.equal(grouped(9000), '9,000')
-  assert.equal(grouped(1234567), '1,234,567')
-  assert.equal(grouped(12), '12')
+  assert.equal(withThousands(9000), '9,000')
+  assert.equal(withThousands(1234567), '1,234,567')
+  assert.equal(withThousands(12), '12')
   assert.equal(shortCommander('Krenko, Mob Boss'), 'Krenko')
   assert.equal(shortCommander('Esika, God of the Tree // The Prismatic Bridge'), 'Esika')
   assert.equal(pairKey(' Mind Stone', "Jeska's Will "), "mind stone>jeska's will")
