@@ -12,7 +12,7 @@ import { isLimited } from '../decks/limited'
 import { entryFromCard } from '../decks/newDeck'
 import { useMoney } from '../money/currency'
 import { useSync } from '../sync/SyncContext'
-import { tagsOf, useRoleTags } from '../tags/roleTags'
+import { cachedIdentity, tagsOf, useRoleTags } from '../tags/roleTags'
 import { GAME_MODES_USING_COMMANDER, type Deck, type GameMode } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 import type { DeckCardData } from './DeckStats'
@@ -58,7 +58,10 @@ export function DeckUpgrade({ deck, cardsById, onExpand }: {
   const identity = useMemo(() => {
     const from = usesCommander ? commanders : deck.cards.filter((c) => !isLandType(c.typeLine))
     if (usesCommander && commanders.length === 0) return null
-    const letters = from.map((c) => dataOf(c.scryfallId)?.color_identity)
+    const letters = from.map((c) => {
+      const known = cachedIdentity(c.name)
+      return dataOf(c.scryfallId)?.color_identity ?? (known != null ? [...known] : undefined)
+    })
     if (usesCommander && letters.some((l) => l == null)) return undefined
     return [...new Set(letters.flatMap((l) => l ?? []))].join('')
     // eslint-disable-next-line react-hooks/exhaustive-deps
