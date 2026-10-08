@@ -6,7 +6,7 @@
 import { useSyncExternalStore } from 'react'
 import type { SocialArea } from './live'
 
-let counts: Readonly<Record<SocialArea, number>> = { trades: 0, friends: 0, loans: 0, nights: 0, household: 0 }
+let counts: Readonly<Record<SocialArea, number>> = { trades: 0, friends: 0, loans: 0, nights: 0, household: 0, activity: 0 }
 const listeners = new Set<() => void>()
 
 /** Marks [areas] changed. */

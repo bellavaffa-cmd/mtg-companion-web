@@ -7,9 +7,10 @@
 import type { FriendLink, Inbox, Overview, Trade, TradeStatus } from './api'
 import { awaitingMyUpdate } from './tradeLogic'
 
-export type SocialArea = 'trades' | 'friends' | 'loans' | 'nights' | 'household'
+/** 'activity': friends' Activity — a friend completed a goal (20261008110000_goal_activity.sql). */
+export type SocialArea = 'trades' | 'friends' | 'loans' | 'nights' | 'household' | 'activity'
 
-export const SOCIAL_AREAS: readonly SocialArea[] = ['trades', 'friends', 'loans', 'nights', 'household']
+export const SOCIAL_AREAS: readonly SocialArea[] = ['trades', 'friends', 'loans', 'nights', 'household', 'activity']
 
 /** Pings that arrive together become one reload. */
 export const DEBOUNCE_MS = 300
@@ -19,7 +20,7 @@ export const POLL_MS = 60_000
 /** Whether the area is part of social_overview (trades, friends), so a ping reloads it. */
 export const inOverview = (area: SocialArea) => area === 'trades' || area === 'friends'
 
-const BY_WHAT: Record<string, SocialArea> = { trade: 'trades', friends: 'friends', loan: 'loans', night: 'nights', household: 'household' }
+const BY_WHAT: Record<string, SocialArea> = { trade: 'trades', friends: 'friends', loan: 'loans', night: 'nights', household: 'household', activity: 'activity' }
 
 /** The area a live event on the dm channel is about, or null for one that isn't a social change. */
 export function socialAreaFor(event: string, payload: unknown): SocialArea | null {

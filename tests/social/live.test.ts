@@ -49,6 +49,7 @@ test('each ping reloads its area', () => {
   assert.equal(ping('loan'), 'loans')
   assert.equal(ping('night'), 'nights')
   assert.equal(ping('household'), 'household')
+  assert.equal(ping('activity'), 'activity')
   assert.equal(ping('something new'), null)
   assert.equal(socialAreaFor('social', null), null)
   assert.equal(socialAreaFor('social', { what: 3 }), null)
