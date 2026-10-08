@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
   bagNamesOf, bringCards, defaultSources, mergeWants, nightDecksUse, nightWantsOf, parseTradeNight, priceIdsNeeded, suggestTrade, suggestedTrades,
-  tableLine, theyWantFromYou, tradeTable, wantedHere,
+  nightTableLine, theyWantFromYou, tradeTable, wantedHere,
   type NightCard, type NightList, type NightSource, type NightSuggestion, type NightWant, type TheyWantRow, type WantedHereRow,
 } from '../../src/social/tradeNights.ts'
 import type { CardPrice } from '../../src/social/tradeFairness.ts'
@@ -56,8 +56,8 @@ test('every suggestion is fair', () => {
 test('trade table: agreed, then waiting, then done; closed ones left out', () => {
   const rows = tradeTable(V.table.trades, V.table.me)
   assert.deepEqual(rows.map((r) => ({ id: r.trade.id, other: r.other, state: r.state })), V.table.expect)
-  assert.equal(tableLine(rows), V.table.line)
-  assert.equal(tableLine([]), null)
+  assert.equal(nightTableLine(rows), V.table.line)
+  assert.equal(nightTableLine([]), null)
 })
 
 test('wants from the library: wishlist, cards decks are missing, unfinished goals', () => {

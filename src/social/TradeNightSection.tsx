@@ -8,7 +8,7 @@ import { useAreaChanges } from './liveChanges'
 import { useOverview } from './SocialContext'
 import { useTradePrices } from './tradePrices'
 import {
-  asNightList, BAG_SOURCE_NAME, bagNamesOf, bringCards, defaultSources, nightDecksUse, nightWantsOf, priceIdsNeeded, suggestedTrades, tableLine,
+  asNightList, BAG_SOURCE_NAME, bagNamesOf, bringCards, defaultSources, nightDecksUse, nightWantsOf, priceIdsNeeded, suggestedTrades, nightTableLine,
   theyWantFromYou, tradeTable, wantedHere, WANT_DECK, WANT_WISHLIST,
   type NightList, type NightSource, type TradeNight,
 } from './tradeNights'
@@ -175,7 +175,7 @@ export function TradeNightSection({ nightId, me, going }: { nightId: string; me:
 
       {table.length > 0 && (
         <>
-          <div className="tn-label">Trade table · {tableLine(table)}</div>
+          <div className="tn-label">Trade table · {nightTableLine(table)}</div>
           {table.map((r) => {
             const mineGive = r.trade.from_user === me ? r.trade.give : r.trade.want
             const mineGet = r.trade.from_user === me ? r.trade.want : r.trade.give

@@ -297,7 +297,7 @@ export function tradeTable(trades: Trade[], me: string): TableRow[] {
 }
 
 /** "3 agreed · 1 waiting" — or null when the table is empty. */
-export function tableLine(rows: TableRow[]): string | null {
+export function nightTableLine(rows: TableRow[]): string | null {
   if (rows.length === 0) return null
   const n = (s: TableState) => rows.filter((r) => r.state === s).length
   const parts = [n('agreed') > 0 ? `${n('agreed')} agreed` : null, n('waiting') > 0 ? `${n('waiting')} waiting` : null, n('done') > 0 ? `${n('done')} done` : null]
