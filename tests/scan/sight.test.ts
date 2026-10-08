@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import type { IndexMatch } from '../../src/scan/cardIndex.ts'
-import { cardBySight, choosePrinting, looksLikeAnotherCard, printingBySight, sameCard, smallPrintAgrees } from '../../src/scan/sight.ts'
+import type { IndexEntry, IndexMatch } from '../../src/scan/cardIndex.ts'
+import { cardBySight, choosePrinting, looksLikeAnotherCard, printingBySight, sameCard, smallPrintAgrees, smallPrintStands } from '../../src/scan/sight.ts'
 
 // Decisions from what the card looks like. The Android app has the same checks — see SightTest.kt.
 
@@ -74,3 +74,16 @@ test("a small print misread as another real printing is caught by the card's loo
   // Nothing to go on: the small print stands.
   assert.equal(smallPrintAgrees(null, named), true)
 })
+
+test('a printing named by its small print alone stands when the look bears it out', () => {
+  const forest: IndexEntry = { row: 900, id: 'fin306', face: 0, name: 'Forest', set: 'fin', number: '306', group: 77 }
+  const itself: IndexMatch = { ...forest, score: 0.82 }
+  // The look agrees: it's that Forest.
+  assert.ok(smallPrintStands(forest, [itself, m('Forest', 78, 0.8)], itself, [itself]))
+  // The look plainly says it's another card altogether: a misread number named the wrong card.
+  const weak: IndexMatch = { ...forest, score: 0.4 }
+  assert.ok(!smallPrintStands(forest, [weak], weak, [m('Lightning Bolt', 5, 0.9), m('Lightning Bolt', 6, 0.85)]))
+  // Or another Forest, by far.
+  assert.ok(!smallPrintStands(forest, [m('Forest', 78, 0.9)], { ...forest, score: 0.6 }, []))
+})
+

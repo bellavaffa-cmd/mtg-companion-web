@@ -35,35 +35,109 @@ export function cleanTitle(text: string): string | null {
 // honest is that the language has to be one actually printed on cards. A printing read wrong can't
 // slip through anyway: it's only kept if it names the card the title read (sameCardName). Mirrors
 // the Android app's data/SmallPrintParse.kt.
-const SET_AND_LANGUAGE = /\b([A-Z0-9]{3,5})(?:\s*[^\sA-Za-z0-9]\s*|\s+)(?:EN|DE|ES|FR|IT|JA|JP|KO|KR|PT|RU|CS|CT|ZH|PH)(?![a-z])/
+//
+// The number sits on the line above the set code ("L 0306   FFIX" over "FIN • EN"), or on the same
+// line when the reader runs the two together, and that is how the two are paired: a strip holding a
+// second card's small print too (a pile, the card underneath peeking out) used to pair one card's
+// set code with the other's number, simply because each was the first of its kind read.
+const LANGUAGES = 'EN|DE|ES|FR|IT|JA|JP|KO|KR|PT|RU|CS|CT|ZH|PH'
+const SET_AND_LANGUAGE = new RegExp(`\\b([A-Z0-9]{3,5})(?:\\s*[^\\sA-Za-z0-9]\\s*|\\s+)(?:${LANGUAGES})(?![a-z])`)
+// The same read in lowercase ("dsk • en") — only with a mark between the two, since without one any
+// short word before "en" or "de" would pass for a set code.
+const SET_AND_LANGUAGE_LOWER = new RegExp(`\\b([A-Za-z0-9]{3,5})\\s*[^\\sA-Za-z0-9]\\s*(?:${LANGUAGES.toLowerCase()})(?![a-z])`)
 // The rarity letter can come out lowercase ("u"), and the number's zeros as the letter o ("oo21"),
-// so o counts as a zero — but only in a number with a real digit in it.
-const RARITY_NUMBER = /\b(?:[CURMSPLT][a-z]?|[curmsplt])\s+((?=[0-9Oo]*\d)[0-9Oo]{1,4})\b/
-const NUMBER_OF_TOTAL = /\b(\d{1,4})\s*\/\s*\d{1,4}\b/
+// so o counts as a zero — but only in a number with a real digit in it. Up to four digits (Secret
+// Lair runs into the thousands), with the letter or star a promo's number ends in ("0123p", "0001★").
+const RARITY_NUMBER = /\b(?:[CURMSPLT][a-z]?|[curmsplt])\s+((?=[0-9Oo]*\d)[0-9Oo]{1,4}(?:[psabcde★](?![A-Za-z0-9]))?)(?![A-Za-z0-9])/
+const NUMBER_OF_TOTAL = /\b(\d{1,4}[psab★]?)\s*\/\s*\d{1,4}\b/
+
+export interface Printing { set: string; number: string }
+
+/** A set code read off one line, lowercase. */
+function setOnLine(line: string): string | null {
+  const m = SET_AND_LANGUAGE.exec(line) ?? SET_AND_LANGUAGE_LOWER.exec(line)
+  return m ? m[1].toLowerCase() : null
+}
+
+/** A collector number read off one line: zeros read as o put right, leading zeros dropped. */
+function numberOnLine(line: string): string | null {
+  const raw = RARITY_NUMBER.exec(line)?.[1] ?? NUMBER_OF_TOTAL.exec(line)?.[1]
+  if (!raw) return null
+  const digits = /^[0-9Oo]+/.exec(raw)![0]
+  return digits.replace(/[Oo]/g, '0').replace(/^0+(?=\d)/, '') + raw.slice(digits.length)
+}
+
+const distinct = (xs: (string | null)[]) => [...new Set(xs.filter((x): x is string => !!x))]
 
 /**
- * The exact printing from the small print at the bottom of a card: its set code and collector number
- * (leading zeros dropped), or null when either can't be read with confidence — the card is then
- * found by name. Ported from the Android app's extractSetAndNumber.
+ * Every printing the small print in [text] names: each set code with the number on its own line or
+ * the line just above it. More than one means more than one card's small print was read.
  */
+export function smallPrintReadings(text: string): Printing[] {
+  const lines = text.split('\n')
+  const out: Printing[] = []
+  lines.forEach((line, i) => {
+    const set = setOnLine(line)
+    if (!set) return
+    const number = numberOnLine(line) ?? (i > 0 ? numberOnLine(lines[i - 1]) : null)
+    if (number && !out.some((p) => p.set === set && p.number === number)) out.push({ set, number })
+  })
+  return out
+}
+
 /**
  * Just the set code from the small print (lowercase), whether or not the collector number read. The
  * set code is short and bold and reads far more often than the number beside it; on its own it
  * narrows a card's printings to the few in that set, and the card's look can settle which of those
- * it is. Mirrors the Android app's parseSetCode in data/SmallPrintParse.kt.
+ * it is. Null when two different set codes were read — two cards, and no telling which is which.
+ * Mirrors the Android app's parseSetCode in data/SmallPrintParse.kt.
  */
 export function parseSetCode(text: string): string | null {
-  const set = text.split('\n').map((l) => SET_AND_LANGUAGE.exec(l)?.[1]).find(Boolean)
-  return set ? set.toLowerCase() : null
+  const sets = distinct(text.split('\n').map(setOnLine))
+  return sets.length === 1 ? sets[0] : null
 }
 
-export function parseSetAndNumber(text: string): { set: string; number: string } | null {
+/**
+ * The exact printing from the small print at the bottom of a card: its set code (lowercase) and
+ * collector number (leading zeros dropped), or null when either can't be read with confidence — the
+ * card is then found by name. Set code and number come from the same card's small print (see
+ * smallPrintReadings); two different printings read is no printing. When the two didn't sit
+ * together, they're still paired if each was read once and only once.
+ */
+export function parseSetAndNumber(text: string): Printing | null {
+  const readings = smallPrintReadings(text)
+  if (readings.length === 1) return readings[0]
+  if (readings.length > 1) return null
   const lines = text.split('\n')
-  const set = lines.map((l) => SET_AND_LANGUAGE.exec(l)?.[1]).find(Boolean)
-  if (!set) return null
-  const number = lines.map((l) => RARITY_NUMBER.exec(l)?.[1]).find(Boolean) ?? lines.map((l) => NUMBER_OF_TOTAL.exec(l)?.[1]).find(Boolean)
-  if (!number) return null
-  return { set: set.toLowerCase(), number: number.replace(/[Oo]/g, '0').replace(/^0+(?=\d)/, '') }
+  const sets = distinct(lines.map(setOnLine))
+  const numbers = distinct(lines.map(numberOnLine))
+  return sets.length === 1 && numbers.length === 1 ? { set: sets[0], number: numbers[0] } : null
+}
+
+/** [number] without the letter or star a promo's number ends in — "123p" is tried as "123" too. */
+export const plainNumber = (number: string) => number.replace(/[^0-9]+$/, '')
+
+/** Whether two set-and-number reads name the same printing: leading zeros and case don't count. */
+export function samePrinting(a: Printing, b: Printing): boolean {
+  const n = (x: string) => x.replace(/^0+(?=.)/, '').toLowerCase()
+  return a.set.toLowerCase() === b.set.toLowerCase() && n(a.number) === n(b.number)
+}
+
+/**
+ * A printing read off the small print on its own — with the title unread — is only acted on once the
+ * same one has been read twice running: one read is too easily one misread digit.
+ */
+export class SmallPrintStreak {
+  private last: Printing | null = null
+
+  /** [read] (null when nothing read) seen now: the printing, once it's the same as last time. */
+  see(read: Printing | null): Printing | null {
+    const before = this.last
+    this.last = read
+    return read && before && samePrinting(read, before) ? read : null
+  }
+
+  reset() { this.last = null }
 }
 
 const letters = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')

@@ -47,6 +47,7 @@ export class CardIndex {
   private readonly numbers: string[]
   private byName: Map<string, number[]> | null = null
   private byId: Map<string, number[]> | null = null
+  private bySetNumber: Map<string, number[]> | null = null
 
   constructor(buffer: ArrayBuffer) {
     const view = new DataView(buffer)
@@ -106,6 +107,27 @@ export class CardIndex {
     const out = new Int8Array(this.dim)
     for (let d = 0; d < this.dim; d++) out[d] = Math.max(-127, Math.min(127, Math.round((z[d] / norm) * this.scale)))
     return out
+  }
+
+  /**
+   * The printing the small print names — set code [set] (any case: "fin", "FIN", "2X2", "40K") and
+   * collector number [number] ("0306" and "306" alike) — its front face, or null when the index
+   * holds no such printing. A promo's letter ("123p") is tried without it too.
+   */
+  printingAt(set: string, number: string): IndexEntry | null {
+    const key = (s: string, n: string) => `${s.toLowerCase()}:${n.replace(/^0+(?=.)/, '').toLowerCase()}`
+    if (!this.bySetNumber) {
+      this.bySetNumber = new Map()
+      for (let r = 0; r < this.count; r++) {
+        const k = key(this.sets[this.setOf_[r]], this.numbers[this.numberOf[r]])
+        const list = this.bySetNumber.get(k)
+        if (list) list.push(r)
+        else this.bySetNumber.set(k, [r])
+      }
+    }
+    const rows = this.bySetNumber.get(key(set, number)) ?? this.bySetNumber.get(key(set, number.replace(/[^0-9]+$/, '')))
+    if (!rows) return null
+    return rows.map((r) => this.entry(r)).sort((a, b) => a.face - b.face)[0]
   }
 
   /** The set code of row [row]'s printing. */

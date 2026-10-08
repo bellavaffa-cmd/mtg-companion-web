@@ -49,6 +49,9 @@ export function loadRecognizer(): Promise<Loaded> {
   return loading
 }
 
+/** The printing the small print named, from the index on the device (see CardIndex.printingAt) — null until it's loaded. */
+export const printingAt = (set: string, number: string) => loaded?.index.printingAt(set, number) ?? null
+
 /** Whether the model and index are loaded and ready — without starting to load them. */
 export const recognizerReady = () => loaded !== null
 

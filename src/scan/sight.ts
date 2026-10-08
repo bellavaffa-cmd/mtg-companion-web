@@ -103,3 +103,14 @@ export function looksLikeAnotherCard(readName: string, named: IndexMatch[], anyw
   const own = named[0]?.score ?? -1
   return sight.score - own >= SIGHT_NAME_MARGIN ? sight : null
 }
+
+/**
+ * Whether the printing a card's small print named ([entry], found in the index by its set code and
+ * number) can stand for the card when its title couldn't be read: the look doesn't plainly say it's
+ * some other card, and it bears that printing out (smallPrintAgrees). [named], [printing] and
+ * [anywhere] are what the index made of the card asked about [entry]'s name and id. Mirrors the
+ * Android app's smallPrintStands in data/Sight.kt.
+ */
+export function smallPrintStands(entry: IndexEntry, named: IndexMatch[], printing: IndexMatch | null, anywhere: IndexMatch[]): boolean {
+  return !looksLikeAnotherCard(entry.name, named, anywhere) && smallPrintAgrees(printing, named)
+}

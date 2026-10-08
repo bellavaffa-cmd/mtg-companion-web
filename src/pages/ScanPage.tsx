@@ -23,13 +23,14 @@ import { defaultZoom } from '../scan/scanZoom'
 import { useScanZoom } from '../components/useScanZoom'
 import { loadAutoCamera, useAutoCamera } from '../components/useAutoCamera'
 import { ScanZoomControl } from '../components/ScanZoomControl'
-import { cameraSignatures, decideInSet, matchPrinting, measurePrintings, type ArtSignature } from '../scan/printingMatch'
+import { cameraSignatures, cardShaped, decideInSet, matchPrinting, measurePrintings, type ArtSignature } from '../scan/printingMatch'
 import { readCardName, readSmallPrint, STRIP_STYLES, titleReader, type Box, type StripStyle } from '../scan/ocr'
 import { flatCanvas, flatSignatures, flattenCard, wholeCard, type FlatCard } from '../scan/flatCard'
-import { loadRecognizer, recognize, recognizerReady } from '../scan/cardRecognizer'
-import { cardBySight, choosePrinting, looksLikeAnotherCard, smallPrintAgrees } from '../scan/sight'
+import { loadRecognizer, printingAt, recognize, recognizerReady } from '../scan/cardRecognizer'
+import type { IndexEntry } from '../scan/cardIndex'
+import { cardBySight, choosePrinting, looksLikeAnotherCard, smallPrintAgrees, smallPrintStands } from '../scan/sight'
 import { regularInSet } from '../collection/printings'
-import { confirmRead, parseSetAndNumber, parseSetCode, sameCardName, SCAN_MODES, scanModeOf, ScanTracker, type ScanMode } from '../scan/scanLogic'
+import { confirmRead, parseSetAndNumber, parseSetCode, plainNumber, sameCardName, SCAN_MODES, scanModeOf, ScanTracker, SmallPrintStreak, type ScanMode } from '../scan/scanLogic'
 import { appLinkPath, qrReader } from '../scan/qr'
 import { copyNumber, grouped, onlyRepeats, repeatedCards, saveNewest, scannedTwiceOver, withPrinting, type ScanRow } from '../scan/scanLog'
 import { useSync } from '../sync/SyncContext'
@@ -789,6 +790,7 @@ export function ScanPage() {
     if (camera !== 'on') return
     let stopped = false
     const tracker = new ScanTracker(() => SCAN_MODES[modeRef.current].steadyReads)
+    const smallPrintStreak = new SmallPrintStreak()
     settleReads.current = () => { tracker.settle(); handsFree.current.settle() }
     const found = new Map<string, ScryfallCard>()
     void (async () => {
@@ -830,16 +832,36 @@ export function ScanPage() {
         // not-twice checks as a read title.
         let title = read?.match?.name ?? null
         let seenBySight = false
+        // The printing, when it was read off the small print with the title unread.
+        let printedHint: ReturnType<typeof parseSetAndNumber> = null
         titleless = title ? 0 : titleless + 1
+        if (title) smallPrintStreak.reset()
         if (!title && titleless >= SIGHT_AFTER_BLANK && recognizerReady()) {
           const flat = flattenCard(video, box)
           const seen = flat ? await recognize(flat).catch(() => null) : null
-          const sight = seen ? cardBySight(seen.anywhere) : null
+          let sight: IndexEntry | null = seen ? cardBySight(seen.anywhere) : null
+          // The small print says which printing it is as plainly as the title says which card: set
+          // code and number, looked up in the index on the device. Read here only when the look
+          // alone can't tell, since it's another read of the card; taken once it's read the same
+          // twice running, and only if the look bears it out.
+          if (!sight && flat && SCAN_MODES[modeRef.current].readsSmallPrint && !stopped) {
+            const strip = flatCanvas(flat)
+            const text = strip ? await readSmallPrint(strip, wholeCard(strip), STRIP_STYLES[0]).catch(() => '') : ''
+            const printed = smallPrintStreak.see(parseSetAndNumber(text))
+            const entry = printed ? printingAt(printed.set, printed.number) : null
+            if (printed && entry) {
+              const check = await recognize(flat, entry.name, entry.set, entry.id).catch(() => null)
+              if (!check || smallPrintStands(entry, check.named, check.printing, check.anywhere)) {
+                sight = entry
+                printedHint = printed
+              } else devLog(`title unread; small print said ${printed.set} #${printed.number} (${entry.name}), but it doesn't look like it`)
+            }
+          }
           if (stopped) break
           if (sight) {
             title = sight.name
             seenBySight = true
-            devLog(`title unread; by sight: ${sight.name} ${sight.set} #${sight.number} ${sight.score.toFixed(3)}`)
+            devLog(`title unread; ${printedHint ? 'by its small print' : 'by sight'}: ${sight.name} ${sight.set} #${sight.number}`)
           }
         }
         // Sorting with a recipe: a card is taken when it's held still and wasn't the card just taken
@@ -860,7 +882,7 @@ export function ScanPage() {
             let card: ScryfallCard | null = null
             // Which printing it is — the alternate art, the borderless one — is only knowable from
             // the tiny line at the bottom, so it's worth a few goes at reading it.
-            let printing: ReturnType<typeof parseSetAndNumber> = null
+            let printing: ReturnType<typeof parseSetAndNumber> = printedHint
             // The set code on its own, from the first read that got it, for when the number never reads.
             let setCode: string | null = null
             // The card itself, found by its edges and flattened while it's still in the frame: the
@@ -871,9 +893,12 @@ export function ScanPage() {
             // Fast scanning skips the close read and leaves the card as its usual printing. Should
             // the edges have been found wrong, the guide's strip is read too once the flattened
             // card gives no set code, so finding them never reads less than before.
-            const reads: [CanvasImageSource, Box, StripStyle][] = !mode.readsSmallPrint ? []
-              : flatStrip ? [...STRIP_STYLES.map((s): [CanvasImageSource, Box, StripStyle] => [flatStrip, wholeCard(flatStrip), s]), [video, box, STRIP_STYLES[0]]]
-              : STRIP_STYLES.map((s): [CanvasImageSource, Box, StripStyle] => [video, box, s])
+            // Off the guide, it's the bottom of the card the guide holds (card-shaped), not of the
+            // guide itself: the guide's bottom reached past the card, onto the next card of a pile.
+            const guideCard = cardShaped(box)
+            const reads: [CanvasImageSource, Box, StripStyle][] = !mode.readsSmallPrint || printing ? []
+              : flatStrip ? [...STRIP_STYLES.map((s): [CanvasImageSource, Box, StripStyle] => [flatStrip, wholeCard(flatStrip), s]), [video, guideCard, STRIP_STYLES[0]]]
+              : STRIP_STYLES.map((s): [CanvasImageSource, Box, StripStyle] => [video, guideCard, s])
             for (const [source, card, style] of reads) {
               if (source === video && flatStrip && setCode) break
               const text = await readSmallPrint(source, card, style).catch(() => '')
@@ -898,11 +923,17 @@ export function ScanPage() {
               devLog(`small print ${printing ? `read on retry ${tries}` : `still unread after ${tries} more`}`)
             }
             if (stopped) break
+            // Kept even when the number read too: should that printing turn out not to be the card (a
+            // misread number), the set code still narrows its printings to that set's.
+            if (printing) setCode ??= printing.set
             if (printing) {
-              const key = `${printing.set}:${printing.number}`
-              card = found.get(key) ?? await getBySetAndNumber(printing.set, printing.number).catch(() => null)
-              if (card && sameCardName(step.name, card.name)) found.set(key, card)
-              else card = null
+              // A promo's letter ("123p") may have been read where there is none; tried without it too.
+              for (const number of new Set([printing.number, plainNumber(printing.number)])) {
+                const key = `${printing.set}:${number}`
+                card = found.get(key) ?? await getBySetAndNumber(printing.set, number).catch(() => null)
+                if (card && sameCardName(step.name, card.name)) { found.set(key, card); break }
+                card = null
+              }
             }
             if (!card) {
               const byName = found.get(step.name) ?? await getByExactName(step.name)

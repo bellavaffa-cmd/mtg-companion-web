@@ -81,3 +81,16 @@ test('a search can be kept to the printings of one name, either face of a double
 test('something that is not a card index is refused', () => {
   assert.throws(() => new CardIndex(new ArrayBuffer(40)))
 })
+
+test('a printing is found by its small print, whatever the case and zeros', () => {
+  assert.equal(index.printingAt('MSC', '0213')?.id, ID(1))
+  assert.equal(index.printingAt('msc', '213')?.id, ID(1))
+  assert.equal(index.printingAt('2XM', '129')?.id, ID(3))
+  assert.equal(index.printingAt('SLD', '2330')?.id, ID(2))
+  // A promo's letter read where the index has none.
+  assert.equal(index.printingAt('MSC', '213p')?.id, ID(1))
+  assert.equal(index.printingAt('ISD', '51')?.name, 'Delver of Secrets // Insectile Aberration')
+  assert.equal(index.printingAt('MSC', '214'), null)
+  assert.equal(index.printingAt('FIN', '306'), null)
+})
+

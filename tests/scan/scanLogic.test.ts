@@ -1,7 +1,7 @@
 // The scanner's decisions (src/scan/scanLogic.ts), frame by frame.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { BLANK_FRAMES_TO_RESET, cleanTitle, confirmRead, looksLikeSameCard, parseSetAndNumber, parseSetCode, sameCardName, sameRead, SCAN_MODES, scanModeOf, ScanTracker, STEADY_READS } from '../../src/scan/scanLogic.ts'
+import { BLANK_FRAMES_TO_RESET, cleanTitle, confirmRead, looksLikeSameCard, parseSetAndNumber, parseSetCode, plainNumber, sameCardName, samePrinting, sameRead, SCAN_MODES, scanModeOf, ScanTracker, smallPrintReadings, SmallPrintStreak, STEADY_READS } from '../../src/scan/scanLogic.ts'
 
 test('the name is the first line with three letters, without the mana cost or stray marks', () => {
   assert.equal(cleanTitle('Lightning Bolt {R}'), 'Lightning Bolt')
@@ -220,3 +220,60 @@ test('a read turned down counts as nothing in view, so the card leaving and a co
   // So a second copy coming back is a new card.
   assert.deepEqual(steady('Sol Ring'), { kind: 'lookup', name: 'Sol Ring' })
 })
+
+// The owner's report from Android tester build 39: a Final Fantasy full-art Forest, its small print
+// plainly in view, went in as "Forest again — copy 3". These are the two lines exactly as printed.
+const FIN_FOREST = 'L 0306   FFIX\nFIN • EN  [paintbrush] ALAYNA DANNER'
+
+test("the Final Fantasy Forest's small print names its printing", () => {
+  // The game's code ("FFIX") on the number line is neither a set code nor in the way.
+  assert.deepEqual(parseSetAndNumber(FIN_FOREST), { set: 'fin', number: '306' })
+  assert.deepEqual(parseSetAndNumber('L 0306   FFIX\nFIN • EN  ALAYNA DANNER'), { set: 'fin', number: '306' })
+  assert.equal(parseSetCode(FIN_FOREST), 'fin')
+  // The bottom-right lines run on by the reader don't change it.
+  assert.deepEqual(parseSetAndNumber('L 0306 FFIX FF© SQUARE ENIX\nFIN • EN ALAYNA DANNER ™ & © 2025 Wizards of the Coast'), { set: 'fin', number: '306' })
+})
+
+test("a second card's small print in view is not paired with the first's", () => {
+  // The card underneath peeks out of the pile; its number read first used to go with the top card's set.
+  assert.deepEqual(parseSetAndNumber('FF© SQUARE ENIX\nL 0309   FFXII\nL 0306   FFIX\nFIN • EN  ALAYNA DANNER'), { set: 'fin', number: '306' })
+  // Both cards' small print read whole: no telling which is which, so no printing at all.
+  const both = `${FIN_FOREST}\nL 0307   FFX\nFIN • EN  SOMEONE ELSE`
+  assert.equal(parseSetAndNumber(both), null)
+  assert.deepEqual(smallPrintReadings(both), [{ set: 'fin', number: '306' }, { set: 'fin', number: '307' }])
+  // Two different set codes: neither is the card's for sure.
+  assert.equal(parseSetCode('FIN • EN\nDSK • EN'), null)
+})
+
+test('every layout of the small print reads', () => {
+  assert.deepEqual(parseSetAndNumber('0123/0277 R\nDSK • EN'), { set: 'dsk', number: '123' }) // number/total
+  assert.deepEqual(parseSetAndNumber('R 0123\nDSK • EN'), { set: 'dsk', number: '123' }) // rarity first
+  assert.deepEqual(parseSetAndNumber('M 1234\nSLD • EN'), { set: 'sld', number: '1234' }) // four digits
+  assert.deepEqual(parseSetAndNumber('R 0123p\nDSK • EN'), { set: 'dsk', number: '123p' }) // a promo's letter
+  assert.deepEqual(parseSetAndNumber('R 0001★\nSLD • EN'), { set: 'sld', number: '1★' })
+  assert.deepEqual(parseSetAndNumber('C 0012\n2X2 • EN'), { set: '2x2', number: '12' }) // digits in the set code
+  assert.deepEqual(parseSetAndNumber('R 0045\nM21 • EN'), { set: 'm21', number: '45' })
+  assert.deepEqual(parseSetAndNumber('R 0045\n40K • EN'), { set: '40k', number: '45' })
+  assert.deepEqual(parseSetAndNumber('U 0211\nPLST • EN'), { set: 'plst', number: '211' })
+  assert.deepEqual(parseSetAndNumber('R 0045\nDSK • JA'), { set: 'dsk', number: '45' }) // Japanese
+  assert.deepEqual(parseSetAndNumber('r 0045\ndsk • en'), { set: 'dsk', number: '45' }) // read in lowercase
+  // Lowercase without a mark between is just words.
+  assert.equal(parseSetAndNumber('r 0045\nthe en'), null)
+})
+
+test('the same printing whatever the zeros and case; a promo letter can be dropped', () => {
+  assert.ok(samePrinting({ set: 'FIN', number: '0306' }, { set: 'fin', number: '306' }))
+  assert.ok(!samePrinting({ set: 'fin', number: '306' }, { set: 'fin', number: '307' }))
+  assert.equal(plainNumber('123p'), '123')
+  assert.equal(plainNumber('1★'), '1')
+})
+
+test('a printing read with the title unread counts once it reads the same twice', () => {
+  const streak = new SmallPrintStreak()
+  assert.equal(streak.see({ set: 'fin', number: '306' }), null)
+  assert.deepEqual(streak.see({ set: 'fin', number: '0306' }), { set: 'fin', number: '0306' })
+  assert.equal(streak.see({ set: 'fin', number: '308' }), null) // a misread digit starts again
+  assert.equal(streak.see(null), null)
+  assert.equal(streak.see({ set: 'fin', number: '308' }), null)
+})
+
