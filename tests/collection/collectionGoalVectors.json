@@ -1,0 +1,1777 @@
+{
+ "about": "Collection goals: the same cases in both apps (tests/collection/collectionGoals.test.ts, CollectionGoalsTest.kt). fmt is \"$\" + the amount. Expectations are written by the web app's code and checked by hand.",
+ "library": {
+  "collections": [
+   {
+    "id": "unsorted",
+    "type": "OWNED",
+    "entries": [
+     {
+      "scryfallId": "u1",
+      "name": "Alpha Uncommon",
+      "quantity": 1,
+      "foilQuantity": 1
+     },
+     {
+      "scryfallId": "c1",
+      "name": "Epsilon Common",
+      "quantity": 3,
+      "foilQuantity": 0
+     },
+     {
+      "scryfallId": "lb1",
+      "name": "Lightning Bolt",
+      "quantity": 2,
+      "foilQuantity": 0
+     }
+    ]
+   },
+   {
+    "id": "b1",
+    "type": "OWNED",
+    "entries": [
+     {
+      "scryfallId": "u2",
+      "name": "Beta Uncommon",
+      "quantity": 0,
+      "foilQuantity": 2
+     },
+     {
+      "scryfallId": "lb2",
+      "name": "Lightning Bolt",
+      "quantity": 1,
+      "foilQuantity": 1
+     },
+     {
+      "scryfallId": "sv1",
+      "name": "Steam Vents",
+      "quantity": 4,
+      "foilQuantity": 0
+     }
+    ]
+   },
+   {
+    "id": "wishlist",
+    "type": "WISHLIST",
+    "entries": [
+     {
+      "scryfallId": "u2",
+      "name": "Beta Uncommon",
+      "quantity": 1,
+      "foilQuantity": 0
+     },
+     {
+      "scryfallId": "u3",
+      "name": "Gamma Uncommon",
+      "quantity": 5,
+      "foilQuantity": 0
+     },
+     {
+      "scryfallId": "sf1",
+      "name": "Sacred Foundry",
+      "quantity": 2,
+      "foilQuantity": 0
+     }
+    ]
+   }
+  ],
+  "decks": [
+   {
+    "id": "d1",
+    "name": "Krenko",
+    "ownership": "PHYSICAL",
+    "commander": {
+     "scryfallId": "kr",
+     "name": "Krenko, Mob Boss",
+     "quantity": 1
+    },
+    "cards": [
+     {
+      "scryfallId": "kr",
+      "name": "Krenko, Mob Boss",
+      "quantity": 1
+     },
+     {
+      "scryfallId": "gb",
+      "name": "Goblin Bushwhacker",
+      "quantity": 1
+     },
+     {
+      "scryfallId": "lb1",
+      "name": "Lightning Bolt",
+      "quantity": 1
+     },
+     {
+      "scryfallId": "m1",
+      "name": "Mountain",
+      "quantity": 20
+     },
+     {
+      "scryfallId": "sc",
+      "name": "Skullclamp",
+      "quantity": 1,
+      "proxyQuantity": 1
+     }
+    ],
+    "cameFrom": [
+     {
+      "name": "Krenko, Mob Boss",
+      "placeId": "p1",
+      "qty": 1,
+      "foil": true
+     },
+     {
+      "name": "Lightning Bolt",
+      "placeId": "p1",
+      "qty": 1,
+      "foil": true
+     },
+     {
+      "name": "Goblin Bushwhacker",
+      "placeId": "p1",
+      "qty": 1
+     }
+    ]
+   },
+   {
+    "id": "d2",
+    "name": "Proxies",
+    "ownership": "PROXY",
+    "cards": [
+     {
+      "scryfallId": "sv1",
+      "name": "Steam Vents",
+      "quantity": 2,
+      "proxyQuantity": 1
+     }
+    ]
+   },
+   {
+    "id": "d3",
+    "name": "Ideas",
+    "ownership": "VIRTUAL",
+    "cards": [
+     {
+      "scryfallId": "gb",
+      "name": "Goblin Bushwhacker",
+      "quantity": 4
+     }
+    ]
+   },
+   {
+    "id": "d4",
+    "name": "Sample",
+    "ownership": "PHYSICAL",
+    "sample": true,
+    "cards": [
+     {
+      "scryfallId": "lb1",
+      "name": "Lightning Bolt",
+      "quantity": 4
+     }
+    ]
+   }
+  ]
+ },
+ "goals": [
+  {
+   "id": "g-set",
+   "name": "Duskmourn uncommons",
+   "kind": "SET",
+   "setCode": "dsk",
+   "rarities": [
+    "uncommon"
+   ],
+   "cards": [
+    {
+     "name": "Alpha Uncommon",
+     "scryfallId": "u1",
+     "qty": 1,
+     "usd": 0.25,
+     "usdFoil": 1,
+     "rarity": "uncommon",
+     "number": "1"
+    },
+    {
+     "name": "Beta Uncommon",
+     "scryfallId": "u2",
+     "qty": 1,
+     "usd": 0.5,
+     "usdFoil": 2,
+     "rarity": "uncommon",
+     "number": "2"
+    },
+    {
+     "name": "Gamma Uncommon",
+     "scryfallId": "u3",
+     "qty": 1,
+     "rarity": "uncommon",
+     "number": "3"
+    },
+    {
+     "name": "Alpha Uncommon",
+     "scryfallId": "u1s",
+     "qty": 1,
+     "usd": 1.5,
+     "usdFoil": 4,
+     "rarity": "uncommon",
+     "number": "301"
+    }
+   ],
+   "createdAt": 1,
+   "updatedAt": 1
+  },
+  {
+   "id": "g-set-foil",
+   "name": "Duskmourn foil uncommons",
+   "kind": "SET",
+   "setCode": "dsk",
+   "rarities": [
+    "uncommon"
+   ],
+   "foil": true,
+   "cards": [
+    {
+     "name": "Alpha Uncommon",
+     "scryfallId": "u1",
+     "qty": 1,
+     "usd": 0.25,
+     "usdFoil": 1
+    },
+    {
+     "name": "Beta Uncommon",
+     "scryfallId": "u2",
+     "qty": 1,
+     "usd": 0.5,
+     "usdFoil": 2
+    },
+    {
+     "name": "Gamma Uncommon",
+     "scryfallId": "u3",
+     "qty": 1
+    },
+    {
+     "name": "Alpha Uncommon",
+     "scryfallId": "u1s",
+     "qty": 1,
+     "usd": 1.5,
+     "usdFoil": 4
+    }
+   ],
+   "createdAt": 1,
+   "updatedAt": 1
+  },
+  {
+   "id": "g-playset",
+   "name": "Shock lands",
+   "kind": "PLAYSET",
+   "cards": [
+    {
+     "name": "Lightning Bolt",
+     "qty": 4,
+     "usd": 1
+    },
+    {
+     "name": "Steam Vents",
+     "scryfallId": "sv1",
+     "qty": 4,
+     "usd": 12
+    },
+    {
+     "name": "Sacred Foundry",
+     "scryfallId": "sf1",
+     "qty": 4,
+     "usd": 8
+    }
+   ],
+   "createdAt": 2,
+   "updatedAt": 2
+  },
+  {
+   "id": "g-goblins",
+   "name": "Bushwhackers",
+   "kind": "PLAYSET",
+   "countDecks": true,
+   "cards": [
+    {
+     "name": "Goblin Bushwhacker",
+     "scryfallId": "gb",
+     "qty": 4,
+     "usd": 0.4
+    }
+   ],
+   "createdAt": 2,
+   "updatedAt": 2
+  },
+  {
+   "id": "g-deck-foil",
+   "name": "Foil Krenko",
+   "kind": "DECK",
+   "deckId": "d1",
+   "foil": true,
+   "countDecks": true,
+   "cards": [
+    {
+     "name": "Krenko, Mob Boss",
+     "scryfallId": "kr",
+     "qty": 1,
+     "usd": 2,
+     "usdFoil": 9
+    },
+    {
+     "name": "Skullclamp",
+     "scryfallId": "sc",
+     "qty": 1,
+     "usd": 1,
+     "usdFoil": 3
+    }
+   ],
+   "createdAt": 3,
+   "updatedAt": 3
+  },
+  {
+   "id": "g-deck-gone",
+   "name": "Foil Burn",
+   "kind": "DECK",
+   "deckId": "gone",
+   "foil": true,
+   "countDecks": true,
+   "cards": [
+    {
+     "name": "Lightning Bolt",
+     "scryfallId": "lb1",
+     "qty": 2
+    }
+   ],
+   "createdAt": 3,
+   "updatedAt": 3
+  },
+  {
+   "id": "g-custom",
+   "name": "Odds and ends",
+   "kind": "CUSTOM",
+   "countDecks": true,
+   "cards": [
+    {
+     "name": "Goblin Bushwhacker",
+     "qty": 2
+    },
+    {
+     "name": "lightning bolt",
+     "qty": 3
+    },
+    {
+     "name": "Beta Uncommon",
+     "qty": 1
+    },
+    {
+     "name": "Steam Vents",
+     "qty": 6,
+     "usd": 12
+    }
+   ],
+   "createdAt": 4,
+   "updatedAt": 4
+  },
+  {
+   "id": "g-done",
+   "name": "Commons",
+   "kind": "CUSTOM",
+   "cards": [
+    {
+     "name": "Epsilon Common",
+     "qty": 3
+    }
+   ],
+   "createdAt": 5,
+   "updatedAt": 5
+  },
+  {
+   "id": "g-was-done",
+   "name": "Old one",
+   "kind": "CUSTOM",
+   "cards": [
+    {
+     "name": "Zeta",
+     "qty": 1
+    }
+   ],
+   "createdAt": 5,
+   "updatedAt": 5,
+   "completedAt": 7
+  },
+  {
+   "id": "g-empty",
+   "name": "Nothing yet",
+   "kind": "CUSTOM",
+   "cards": [],
+   "createdAt": 6,
+   "updatedAt": 6
+  }
+ ],
+ "prices": {
+  "sf1": {
+   "usd": 10
+  },
+  "u3": {
+   "usdFoil": 0.75
+  }
+ },
+ "hits": [
+  {
+   "card": {
+    "scryfallId": "u3",
+    "name": "Gamma Uncommon"
+   },
+   "foil": false,
+   "pending": 1,
+   "expect": [
+    "Goal: Duskmourn uncommons 3/4"
+   ]
+  },
+  {
+   "card": {
+    "scryfallId": "u3",
+    "name": "Gamma Uncommon"
+   },
+   "foil": true,
+   "pending": 1,
+   "expect": [
+    "Goal: Duskmourn uncommons 3/4",
+    "Goal: Duskmourn foil uncommons 3/4"
+   ]
+  },
+  {
+   "card": {
+    "scryfallId": "u1",
+    "name": "Alpha Uncommon"
+   },
+   "foil": false,
+   "pending": 1,
+   "expect": []
+  },
+  {
+   "card": {
+    "scryfallId": "sf9",
+    "name": "Sacred Foundry"
+   },
+   "foil": false,
+   "pending": 3,
+   "expect": [
+    "Goal: Shock lands 11/12"
+   ]
+  },
+  {
+   "card": {
+    "scryfallId": "sf9",
+    "name": "Sacred Foundry"
+   },
+   "foil": false,
+   "pending": 5,
+   "expect": []
+  },
+  {
+   "card": {
+    "scryfallId": "gb",
+    "name": "Goblin Bushwhacker"
+   },
+   "foil": false,
+   "pending": 1,
+   "expect": [
+    "Goal: Bushwhackers 2/4",
+    "Goal: Odds and ends 11/12"
+   ]
+  },
+  {
+   "card": {
+    "scryfallId": "c1",
+    "name": "Epsilon Common"
+   },
+   "foil": false,
+   "pending": 1,
+   "expect": []
+  },
+  {
+   "card": {
+    "scryfallId": "sk",
+    "name": "Skullclamp"
+   },
+   "foil": true,
+   "pending": 1,
+   "expect": [
+    "Goal: Foil Krenko 3/4"
+   ]
+  }
+ ],
+ "wishlist": [
+  {
+   "goal": "g-set",
+   "expect": [
+    "Alpha Uncommon 1"
+   ]
+  },
+  {
+   "goal": "g-set-foil",
+   "expect": [
+    "Alpha Uncommon 1"
+   ]
+  },
+  {
+   "goal": "g-playset",
+   "expect": [
+    "Sacred Foundry 4"
+   ]
+  },
+  {
+   "goal": "g-custom",
+   "expect": [
+    "Goblin Bushwhacker 1",
+    "Steam Vents 1"
+   ]
+  },
+  {
+   "goal": "g-done",
+   "expect": []
+  }
+ ],
+ "normalize": [
+  {
+   "in": {
+    "id": "n1",
+    "name": "  Mixed  ",
+    "kind": "WHATEVER",
+    "foil": false,
+    "countDecks": false,
+    "setCode": "DSK",
+    "rarities": [
+     "rare"
+    ],
+    "deckId": "d1",
+    "cards": [
+     {
+      "name": " Lightning Bolt ",
+      "qty": 2
+     },
+     {
+      "name": "",
+      "qty": 1
+     },
+     {
+      "name": "lightning bolt",
+      "qty": 3,
+      "usd": 1
+     },
+     {
+      "name": "Opt",
+      "qty": 0
+     },
+     {
+      "name": "Island",
+      "qty": 150
+     }
+    ],
+    "createdAt": 1,
+    "updatedAt": 2
+   },
+   "out": {
+    "id": "n1",
+    "name": "Mixed",
+    "kind": "CUSTOM",
+    "cards": [
+     {
+      "name": "Lightning Bolt",
+      "qty": 5
+     },
+     {
+      "name": "Opt",
+      "qty": 1
+     },
+     {
+      "name": "Island",
+      "qty": 99
+     }
+    ],
+    "createdAt": 1,
+    "updatedAt": 2
+   }
+  },
+  {
+   "in": {
+    "id": "n2",
+    "name": "",
+    "kind": "SET",
+    "setCode": " DSK ",
+    "rarities": [
+     "Mythic",
+     "uncommon",
+     "special"
+    ],
+    "foil": true,
+    "deckId": "d1",
+    "cards": [
+     {
+      "name": "Alpha Uncommon",
+      "scryfallId": "u1",
+      "qty": 1,
+      "rarity": "UNCOMMON"
+     },
+     {
+      "name": "Alpha Uncommon",
+      "scryfallId": "u1s",
+      "qty": 1
+     },
+     {
+      "name": "Alpha Uncommon",
+      "scryfallId": "u1",
+      "qty": 1
+     }
+    ],
+    "createdAt": 1,
+    "updatedAt": 1,
+    "completedAt": 3
+   },
+   "out": {
+    "id": "n2",
+    "name": "Complete a set",
+    "kind": "SET",
+    "setCode": "dsk",
+    "rarities": [
+     "uncommon",
+     "mythic"
+    ],
+    "foil": true,
+    "cards": [
+     {
+      "name": "Alpha Uncommon",
+      "scryfallId": "u1",
+      "qty": 2,
+      "rarity": "uncommon"
+     },
+     {
+      "name": "Alpha Uncommon",
+      "scryfallId": "u1s",
+      "qty": 1
+     }
+    ],
+    "createdAt": 1,
+    "updatedAt": 1,
+    "completedAt": 3
+   }
+  },
+  {
+   "in": {
+    "id": "n3",
+    "name": "Krenko",
+    "kind": "DECK",
+    "deckId": "d1",
+    "foil": true,
+    "countDecks": true,
+    "cards": [],
+    "createdAt": 1,
+    "updatedAt": 1
+   },
+   "out": {
+    "id": "n3",
+    "name": "Krenko",
+    "kind": "DECK",
+    "foil": true,
+    "deckId": "d1",
+    "cards": [],
+    "countDecks": true,
+    "createdAt": 1,
+    "updatedAt": 1
+   }
+  }
+ ],
+ "setNames": [
+  {
+   "set": "Duskmourn",
+   "rarities": [
+    "uncommon"
+   ],
+   "foil": false,
+   "name": "Duskmourn uncommons"
+  },
+  {
+   "set": "Duskmourn",
+   "rarities": [],
+   "foil": false,
+   "name": "Complete Duskmourn"
+  },
+  {
+   "set": "Duskmourn",
+   "rarities": [],
+   "foil": true,
+   "name": "Complete Duskmourn in foil"
+  },
+  {
+   "set": "Duskmourn",
+   "rarities": [
+    "mythic",
+    "rare"
+   ],
+   "foil": true,
+   "name": "Duskmourn foil rares and mythics"
+  },
+  {
+   "set": "Duskmourn",
+   "rarities": [
+    "common",
+    "uncommon",
+    "rare"
+   ],
+   "foil": false,
+   "name": "Duskmourn commons, uncommons and rares"
+  },
+  {
+   "set": "Duskmourn",
+   "rarities": [
+    "common",
+    "uncommon",
+    "rare",
+    "mythic"
+   ],
+   "foil": false,
+   "name": "Complete Duskmourn"
+  }
+ ],
+ "setGoal": {
+  "set": {
+   "code": "DSK",
+   "name": "Duskmourn"
+  },
+  "cards": [
+   {
+    "id": "u1",
+    "name": "Alpha Uncommon",
+    "rarity": "uncommon",
+    "number": "1",
+    "imageUrl": "https://img/u1.jpg",
+    "usd": 0.25,
+    "usdFoil": 1
+   },
+   {
+    "id": "r1",
+    "name": "Delta Rare",
+    "rarity": "rare",
+    "number": "2",
+    "usd": 3
+   },
+   {
+    "id": "c1",
+    "name": "Epsilon Common",
+    "rarity": "common",
+    "number": "3"
+   },
+   {
+    "id": "m1",
+    "name": "Omega Mythic",
+    "rarity": "mythic",
+    "number": "4",
+    "usd": 20,
+    "usdFoil": 35
+   }
+  ],
+  "cases": [
+   {
+    "rarities": [
+     "rare",
+     "mythic"
+    ],
+    "foil": true,
+    "goal": {
+     "id": "s",
+     "name": "Duskmourn foil rares and mythics",
+     "kind": "SET",
+     "setCode": "dsk",
+     "rarities": [
+      "rare",
+      "mythic"
+     ],
+     "foil": true,
+     "cards": [
+      {
+       "name": "Delta Rare",
+       "scryfallId": "r1",
+       "qty": 1,
+       "usd": 3,
+       "rarity": "rare",
+       "number": "2"
+      },
+      {
+       "name": "Omega Mythic",
+       "scryfallId": "m1",
+       "qty": 1,
+       "usd": 20,
+       "usdFoil": 35,
+       "rarity": "mythic",
+       "number": "4"
+      }
+     ],
+     "createdAt": 10,
+     "updatedAt": 10
+    }
+   },
+   {
+    "rarities": [],
+    "foil": false,
+    "goal": {
+     "id": "s",
+     "name": "Complete Duskmourn",
+     "kind": "SET",
+     "setCode": "dsk",
+     "cards": [
+      {
+       "name": "Alpha Uncommon",
+       "scryfallId": "u1",
+       "qty": 1,
+       "imageUrl": "https://img/u1.jpg",
+       "usd": 0.25,
+       "usdFoil": 1,
+       "rarity": "uncommon",
+       "number": "1"
+      },
+      {
+       "name": "Delta Rare",
+       "scryfallId": "r1",
+       "qty": 1,
+       "usd": 3,
+       "rarity": "rare",
+       "number": "2"
+      },
+      {
+       "name": "Epsilon Common",
+       "scryfallId": "c1",
+       "qty": 1,
+       "rarity": "common",
+       "number": "3"
+      },
+      {
+       "name": "Omega Mythic",
+       "scryfallId": "m1",
+       "qty": 1,
+       "usd": 20,
+       "usdFoil": 35,
+       "rarity": "mythic",
+       "number": "4"
+      }
+     ],
+     "createdAt": 10,
+     "updatedAt": 10
+    }
+   }
+  ]
+ },
+ "deckGoals": [
+  {
+   "deckId": "d1",
+   "foil": true,
+   "goal": {
+    "id": "d",
+    "name": "Foil Krenko",
+    "kind": "DECK",
+    "foil": true,
+    "deckId": "d1",
+    "cards": [
+     {
+      "name": "Krenko, Mob Boss",
+      "scryfallId": "kr",
+      "qty": 1
+     },
+     {
+      "name": "Goblin Bushwhacker",
+      "scryfallId": "gb",
+      "qty": 1
+     },
+     {
+      "name": "Lightning Bolt",
+      "scryfallId": "lb1",
+      "qty": 1
+     },
+     {
+      "name": "Skullclamp",
+      "scryfallId": "sc",
+      "qty": 1
+     }
+    ],
+    "countDecks": true,
+    "createdAt": 10,
+    "updatedAt": 10
+   }
+  },
+  {
+   "deckId": "d1",
+   "foil": false,
+   "goal": {
+    "id": "d",
+    "name": "Own all of Krenko",
+    "kind": "DECK",
+    "deckId": "d1",
+    "cards": [
+     {
+      "name": "Krenko, Mob Boss",
+      "scryfallId": "kr",
+      "qty": 1
+     },
+     {
+      "name": "Goblin Bushwhacker",
+      "scryfallId": "gb",
+      "qty": 1
+     },
+     {
+      "name": "Lightning Bolt",
+      "scryfallId": "lb1",
+      "qty": 1
+     },
+     {
+      "name": "Skullclamp",
+      "scryfallId": "sc",
+      "qty": 1
+     }
+    ],
+    "countDecks": true,
+    "createdAt": 10,
+    "updatedAt": 10
+   }
+  }
+ ],
+ "merge": [
+  {
+   "about": "added on both sides: both kept, after the base's, by id",
+   "minePreferred": true,
+   "base": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 1
+    }
+   ],
+   "mine": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 1
+    },
+    {
+     "id": "m",
+     "name": "Mine",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 2,
+     "updatedAt": 2
+    }
+   ],
+   "theirs": [
+    {
+     "id": "c",
+     "name": "Theirs",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 2,
+     "updatedAt": 2
+    },
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 1
+    }
+   ],
+   "expect": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 1
+    },
+    {
+     "id": "c",
+     "name": "Theirs",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 2,
+     "updatedAt": 2
+    },
+    {
+     "id": "m",
+     "name": "Mine",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 2,
+     "updatedAt": 2
+    }
+   ]
+  },
+  {
+   "about": "deleted on one side stays deleted, even when the other changed it",
+   "minePreferred": false,
+   "base": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 1
+    },
+    {
+     "id": "b",
+     "name": "B",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 1
+    }
+   ],
+   "mine": [
+    {
+     "id": "b",
+     "name": "B",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 1
+    }
+   ],
+   "theirs": [
+    {
+     "id": "a",
+     "name": "A renamed",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 9
+    },
+    {
+     "id": "b",
+     "name": "B",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 1
+    }
+   ],
+   "expect": [
+    {
+     "id": "b",
+     "name": "B",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 1
+    }
+   ]
+  },
+  {
+   "about": "changed on one side only: that side's",
+   "minePreferred": true,
+   "base": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [
+      {
+       "name": "Opt",
+       "qty": 1
+      }
+     ],
+     "createdAt": 1,
+     "updatedAt": 1
+    }
+   ],
+   "mine": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [
+      {
+       "name": "Opt",
+       "qty": 1
+      }
+     ],
+     "createdAt": 1,
+     "updatedAt": 1
+    }
+   ],
+   "theirs": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [
+      {
+       "name": "Opt",
+       "qty": 4
+      }
+     ],
+     "createdAt": 1,
+     "updatedAt": 5
+    }
+   ],
+   "expect": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [
+      {
+       "name": "Opt",
+       "qty": 4
+      }
+     ],
+     "createdAt": 1,
+     "updatedAt": 5
+    }
+   ]
+  },
+  {
+   "about": "changed on both: the newer wins whole",
+   "minePreferred": true,
+   "base": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [
+      {
+       "name": "Opt",
+       "qty": 1
+      }
+     ],
+     "createdAt": 1,
+     "updatedAt": 1
+    }
+   ],
+   "mine": [
+    {
+     "id": "a",
+     "name": "Mine",
+     "kind": "CUSTOM",
+     "cards": [
+      {
+       "name": "Opt",
+       "qty": 1
+      }
+     ],
+     "createdAt": 1,
+     "updatedAt": 20
+    }
+   ],
+   "theirs": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [
+      {
+       "name": "Opt",
+       "qty": 4
+      }
+     ],
+     "createdAt": 1,
+     "updatedAt": 30
+    }
+   ],
+   "expect": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [
+      {
+       "name": "Opt",
+       "qty": 4
+      }
+     ],
+     "createdAt": 1,
+     "updatedAt": 30
+    }
+   ]
+  },
+  {
+   "about": "changed on both at the same time: minePreferred's side",
+   "minePreferred": false,
+   "base": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 1
+    }
+   ],
+   "mine": [
+    {
+     "id": "a",
+     "name": "Mine",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 20
+    }
+   ],
+   "theirs": [
+    {
+     "id": "a",
+     "name": "Theirs",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 20
+    }
+   ],
+   "expect": [
+    {
+     "id": "a",
+     "name": "Theirs",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 20
+    }
+   ]
+  },
+  {
+   "about": "completed on one side, renamed later on the other: renamed and still complete",
+   "minePreferred": true,
+   "base": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 1
+    }
+   ],
+   "mine": [
+    {
+     "id": "a",
+     "name": "Renamed",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 40
+    }
+   ],
+   "theirs": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 1,
+     "completedAt": 30
+    }
+   ],
+   "expect": [
+    {
+     "id": "a",
+     "name": "Renamed",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 40,
+     "completedAt": 30
+    }
+   ]
+  },
+  {
+   "about": "completed on both: the earlier completion",
+   "minePreferred": true,
+   "base": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 1
+    }
+   ],
+   "mine": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 1,
+     "completedAt": 35
+    }
+   ],
+   "theirs": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 1,
+     "completedAt": 30
+    }
+   ],
+   "expect": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 1,
+     "completedAt": 30
+    }
+   ]
+  },
+  {
+   "about": "the first goal on a device that had none: kept",
+   "minePreferred": true,
+   "base": null,
+   "mine": null,
+   "theirs": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 1
+    }
+   ],
+   "expect": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 1
+    }
+   ]
+  },
+  {
+   "about": "added on both sides with the same id: the newer",
+   "minePreferred": true,
+   "base": [],
+   "mine": [
+    {
+     "id": "a",
+     "name": "Mine",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 3
+    }
+   ],
+   "theirs": [
+    {
+     "id": "a",
+     "name": "Theirs",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 4
+    }
+   ],
+   "expect": [
+    {
+     "id": "a",
+     "name": "Theirs",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 4
+    }
+   ]
+  },
+  {
+   "about": "nobody has goals: left out",
+   "minePreferred": true,
+   "base": null,
+   "mine": null,
+   "theirs": null,
+   "expect": null
+  },
+  {
+   "about": "every goal deleted: kept as an empty list",
+   "minePreferred": true,
+   "base": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 1
+    }
+   ],
+   "mine": [],
+   "theirs": [
+    {
+     "id": "a",
+     "name": "A",
+     "kind": "CUSTOM",
+     "cards": [],
+     "createdAt": 1,
+     "updatedAt": 1
+    }
+   ],
+   "expect": []
+  }
+ ],
+ "missingLines": [
+  {
+   "goal": "g-set",
+   "line": "2 missing · about $2.25",
+   "progress": "2/4 · 50%"
+  },
+  {
+   "goal": "g-set-foil",
+   "line": "2 missing · about $4.75",
+   "progress": "2/4 · 50%"
+  },
+  {
+   "goal": "g-playset",
+   "line": "4 missing · about $40",
+   "progress": "8/12 · 66%"
+  },
+  {
+   "goal": "g-done",
+   "line": "Complete",
+   "progress": "3/3 · 100%"
+  },
+  {
+   "goal": "g-empty",
+   "line": "No cards yet",
+   "progress": "0/0 · 0%"
+  }
+ ],
+ "progress": [
+  {
+   "goal": "g-set",
+   "have": 2,
+   "need": 4,
+   "percent": 50,
+   "missingUsd": 2.25,
+   "unpriced": 0,
+   "complete": false,
+   "lines": [
+    {
+     "name": "Alpha Uncommon",
+     "need": 1,
+     "owned": 2,
+     "have": 1,
+     "missing": 0,
+     "usd": 0.25
+    },
+    {
+     "name": "Beta Uncommon",
+     "need": 1,
+     "owned": 2,
+     "have": 1,
+     "missing": 0,
+     "usd": 0.5
+    },
+    {
+     "name": "Gamma Uncommon",
+     "need": 1,
+     "owned": 0,
+     "have": 0,
+     "missing": 1,
+     "usd": 0.75
+    },
+    {
+     "name": "Alpha Uncommon",
+     "need": 1,
+     "owned": 0,
+     "have": 0,
+     "missing": 1,
+     "usd": 1.5
+    }
+   ]
+  },
+  {
+   "goal": "g-set-foil",
+   "have": 2,
+   "need": 4,
+   "percent": 50,
+   "missingUsd": 4.75,
+   "unpriced": 0,
+   "complete": false,
+   "lines": [
+    {
+     "name": "Alpha Uncommon",
+     "need": 1,
+     "owned": 1,
+     "have": 1,
+     "missing": 0,
+     "usd": 1
+    },
+    {
+     "name": "Beta Uncommon",
+     "need": 1,
+     "owned": 2,
+     "have": 1,
+     "missing": 0,
+     "usd": 2
+    },
+    {
+     "name": "Gamma Uncommon",
+     "need": 1,
+     "owned": 0,
+     "have": 0,
+     "missing": 1,
+     "usd": 0.75
+    },
+    {
+     "name": "Alpha Uncommon",
+     "need": 1,
+     "owned": 0,
+     "have": 0,
+     "missing": 1,
+     "usd": 4
+    }
+   ]
+  },
+  {
+   "goal": "g-playset",
+   "have": 8,
+   "need": 12,
+   "percent": 66,
+   "missingUsd": 40,
+   "unpriced": 0,
+   "complete": false,
+   "lines": [
+    {
+     "name": "Lightning Bolt",
+     "need": 4,
+     "owned": 4,
+     "have": 4,
+     "missing": 0,
+     "usd": 1
+    },
+    {
+     "name": "Steam Vents",
+     "need": 4,
+     "owned": 4,
+     "have": 4,
+     "missing": 0,
+     "usd": 12
+    },
+    {
+     "name": "Sacred Foundry",
+     "need": 4,
+     "owned": 0,
+     "have": 0,
+     "missing": 4,
+     "usd": 10
+    }
+   ]
+  },
+  {
+   "goal": "g-goblins",
+   "have": 1,
+   "need": 4,
+   "percent": 25,
+   "missingUsd": 1.2,
+   "unpriced": 0,
+   "complete": false,
+   "lines": [
+    {
+     "name": "Goblin Bushwhacker",
+     "need": 4,
+     "owned": 1,
+     "have": 1,
+     "missing": 3,
+     "usd": 0.4
+    }
+   ]
+  },
+  {
+   "goal": "g-deck-foil",
+   "have": 2,
+   "need": 4,
+   "percent": 50,
+   "missingUsd": 3,
+   "unpriced": 1,
+   "complete": false,
+   "lines": [
+    {
+     "name": "Krenko, Mob Boss",
+     "need": 1,
+     "owned": 1,
+     "have": 1,
+     "missing": 0,
+     "usd": 9
+    },
+    {
+     "name": "Goblin Bushwhacker",
+     "need": 1,
+     "owned": 0,
+     "have": 0,
+     "missing": 1,
+     "usd": null
+    },
+    {
+     "name": "Lightning Bolt",
+     "need": 1,
+     "owned": 2,
+     "have": 1,
+     "missing": 0,
+     "usd": null
+    },
+    {
+     "name": "Skullclamp",
+     "need": 1,
+     "owned": 0,
+     "have": 0,
+     "missing": 1,
+     "usd": 3
+    }
+   ]
+  },
+  {
+   "goal": "g-deck-gone",
+   "have": 2,
+   "need": 2,
+   "percent": 100,
+   "missingUsd": 0,
+   "unpriced": 0,
+   "complete": true,
+   "lines": [
+    {
+     "name": "Lightning Bolt",
+     "need": 2,
+     "owned": 2,
+     "have": 2,
+     "missing": 0,
+     "usd": null
+    }
+   ]
+  },
+  {
+   "goal": "g-custom",
+   "have": 10,
+   "need": 12,
+   "percent": 83,
+   "missingUsd": 12,
+   "unpriced": 1,
+   "complete": false,
+   "lines": [
+    {
+     "name": "Goblin Bushwhacker",
+     "need": 2,
+     "owned": 1,
+     "have": 1,
+     "missing": 1,
+     "usd": null
+    },
+    {
+     "name": "lightning bolt",
+     "need": 3,
+     "owned": 5,
+     "have": 3,
+     "missing": 0,
+     "usd": null
+    },
+    {
+     "name": "Beta Uncommon",
+     "need": 1,
+     "owned": 2,
+     "have": 1,
+     "missing": 0,
+     "usd": null
+    },
+    {
+     "name": "Steam Vents",
+     "need": 6,
+     "owned": 5,
+     "have": 5,
+     "missing": 1,
+     "usd": 12
+    }
+   ]
+  },
+  {
+   "goal": "g-done",
+   "have": 3,
+   "need": 3,
+   "percent": 100,
+   "missingUsd": 0,
+   "unpriced": 0,
+   "complete": true,
+   "lines": [
+    {
+     "name": "Epsilon Common",
+     "need": 3,
+     "owned": 3,
+     "have": 3,
+     "missing": 0,
+     "usd": null
+    }
+   ]
+  },
+  {
+   "goal": "g-was-done",
+   "have": 0,
+   "need": 1,
+   "percent": 0,
+   "missingUsd": 0,
+   "unpriced": 1,
+   "complete": false,
+   "lines": [
+    {
+     "name": "Zeta",
+     "need": 1,
+     "owned": 0,
+     "have": 0,
+     "missing": 1,
+     "usd": null
+    }
+   ]
+  },
+  {
+   "goal": "g-empty",
+   "have": 0,
+   "need": 0,
+   "percent": 0,
+   "missingUsd": 0,
+   "unpriced": 0,
+   "complete": false,
+   "lines": []
+  }
+ ],
+ "complete": {
+  "now": 100,
+  "done": [
+   "g-deck-gone",
+   "g-done"
+  ],
+  "completedAt": {
+   "g-set": null,
+   "g-set-foil": null,
+   "g-playset": null,
+   "g-goblins": null,
+   "g-deck-foil": null,
+   "g-deck-gone": 100,
+   "g-custom": null,
+   "g-done": 100,
+   "g-was-done": 7,
+   "g-empty": null
+  }
+ }
+}

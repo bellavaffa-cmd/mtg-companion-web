@@ -1,6 +1,6 @@
 // The Collection's home (the Android app's CollectionHome.kt): what the collection is worth, "Find a
 // card, a place or a deck", a tile for each part — All cards, Storage, Binders, Sets, Sealed and
-// graded, Loans and selling — the few things worth doing this week (from Upkeep) and Scan, Sort a
+// graded, Loans and selling — the collection goals nearest done, the few things worth doing this week (from Upkeep) and Scan, Sort a
 // pile and Import. The numbers are collectionHome.ts. The tabs it opens stay at /collections?tab=….
 
 import { useMemo, useState } from 'react'
@@ -16,6 +16,7 @@ import { upkeepHeadline, type UpkeepItem } from './upkeep'
 import { placesOf } from './storagePlaces'
 import { PlacePicker } from './StorageTab'
 import { useNewSetsLine } from './newSetsStore'
+import { GoalsHomeCard } from './GoalsUi'
 import './collectionHome.css'
 
 const TILE_ICONS: Record<HomeTileKey, string> = {
@@ -78,6 +79,8 @@ export function CollectionHome({ onImport }: { onImport: () => void }) {
         {sets.out > 0 && <span className="badge" aria-label={`${sets.out} followed ${sets.out === 1 ? 'set is' : 'sets are'} out`}>{sets.out}</span>}
         <Icon name="chevron_right" aria-hidden />
       </button>
+
+      <div className="rise" style={rise(3)}><GoalsHomeCard /></div>
 
       <section className="chome-todo rise" style={rise(3)} data-tour="home-todo">
         <div className="chome-head">

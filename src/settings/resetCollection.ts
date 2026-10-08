@@ -3,9 +3,9 @@
 //
 //  - Cards only: every binder and the Unsorted pile emptied (their cards' places, prices to watch and
 //    copies to sell go with the cards). Binders, storage places, the Wishlist, decks, sealed product,
-//    graded cards, gear and loans stay.
+//    graded cards, gear, loans and collection goals stay.
 //  - Collection: every card, every binder but the Unsorted pile and the Wishlist (which stay, empty),
-//    the storage places, sealed product, graded cards, gear and loans. Decks stay, and so does card
+//    the storage places, sealed product, graded cards, gear, loans and collection goals. Decks stay, and so does card
 //    price history — it's market data, not the collection.
 //  - Everything: the collection and every deck, with the decks' history and games logged. Settings,
 //    friends and the account stay.
@@ -27,12 +27,12 @@ export const RESET_SCOPES: { id: ResetScope; title: string; detail: string }[] =
   {
     id: 'cards',
     title: 'Cards only',
-    detail: 'Empties every binder and the Unsorted pile. Your binders, storage places, Wishlist, decks, sealed product, graded cards, gear and loans stay.',
+    detail: 'Empties every binder and the Unsorted pile. Your binders, storage places, Wishlist, decks, sealed product, graded cards, gear, loans and goals stay.',
   },
   {
     id: 'collection',
     title: 'Collection',
-    detail: 'Every card and binder, storage places, sealed product, graded cards, gear, loans, and your copies’ photos and history. The Unsorted pile and Wishlist stay, empty. Decks and card prices stay.',
+    detail: 'Every card and binder, storage places, sealed product, graded cards, gear, loans, goals, and your copies’ photos and history. The Unsorted pile and Wishlist stay, empty. Decks and card prices stay.',
   },
   {
     id: 'everything',
@@ -72,6 +72,7 @@ export interface ResetCounts {
   graded: number
   gear: number
   loans: number
+  goals: number
   decks: number
 }
 
@@ -92,6 +93,7 @@ export function resetCounts(lib: { decks: Deck[]; collections: Collection[] }, s
     graded: whole ? pile?.graded?.length ?? 0 : 0,
     gear: whole ? pile?.gear?.length ?? 0 : 0,
     loans: whole ? pile?.loans?.length ?? 0 : 0,
+    goals: whole ? pile?.collectionGoals?.length ?? 0 : 0,
     decks: scope === 'everything' ? lib.decks.length : 0,
   }
 }
@@ -112,6 +114,7 @@ export function resetCountsText(c: ResetCounts): string {
     c.graded > 0 ? `${c.graded.toLocaleString('en-GB')} graded` : '',
     c.gear > 0 ? count(c.gear, 'piece of gear', 'pieces of gear') : '',
     c.loans > 0 ? count(c.loans, 'loan', 'loans') : '',
+    c.goals > 0 ? count(c.goals, 'goal', 'goals') : '',
     c.decks > 0 ? count(c.decks, 'deck', 'decks') : '',
   ].filter(Boolean)
   return parts.length > 0 ? parts.join(' · ') : RESET_NOTHING
@@ -128,6 +131,7 @@ function emptiedPile(c: Collection, whole: boolean): Collection {
     ...(c.sealed !== undefined ? { sealed: [] } : {}),
     ...(c.graded !== undefined ? { graded: [] } : {}),
     ...(c.gear !== undefined ? { gear: [] } : {}),
+    ...(c.collectionGoals !== undefined ? { collectionGoals: [] } : {}),
   }
 }
 

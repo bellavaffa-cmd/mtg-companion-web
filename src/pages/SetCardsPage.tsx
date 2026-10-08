@@ -11,6 +11,7 @@ import { ArtImage, PillChip, rise, useBack } from '../components/kit'
 import { getSetCards, getSets } from '../api/scryfall'
 import { backImageUrl, biggerImageUrl, cardTags, displayImageUrl, type ScryfallCard } from '../types/scryfall'
 import { missingFromSet, ownedPrintings, type SetInfo } from '../collection/setCompletion'
+import { MakeSetGoalDialog } from '../collection/GoalsUi'
 
 type Show = 'all' | 'missing' | 'owned'
 
@@ -26,6 +27,7 @@ export function SetCardsPage() {
   const [attempt, setAttempt] = useState(0)
   const [show, setShow] = useState<Show>('all')
   const [message, setMessage] = useState<string | null>(null)
+  const [makingGoal, setMakingGoal] = useState(false)
   // Copies held of each printing, counted as All cards counts them.
   const owned = useMemo(() => ownedPrintings(collections, decks), [collections, decks])
 
@@ -88,11 +90,10 @@ export function SetCardsPage() {
                 <PillChip label="Missing" count={missing} selected={show === 'missing'} onClick={() => setShow('missing')} />
                 <PillChip label="Owned" count={have} selected={show === 'owned'} onClick={() => setShow('owned')} />
               </div>
-              {missing > 0 && (
-                <div>
-                  <button type="button" className="btn gold" onClick={addMissing}><Icon name="star" aria-hidden />Add missing to Wishlist</button>
-                </div>
-              )}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {missing > 0 && <button type="button" className="btn gold" onClick={addMissing}><Icon name="star" aria-hidden />Add missing to Wishlist</button>}
+                <button type="button" className="btn line" onClick={() => setMakingGoal(true)}><Icon name="flag" aria-hidden />Make this a goal</button>
+              </div>
               {message && <div className="muted">{message}</div>}
               {list.length < total && <div className="dim" style={{ fontSize: 12 }}>Showing {list.length} of the set's {total} cards Scryfall can search.</div>}
             </div>
@@ -119,6 +120,9 @@ export function SetCardsPage() {
           </>
         )}
       </div>
+      {makingGoal && cards && (
+        <MakeSetGoalDialog set={{ code: code.toLowerCase(), name: set?.name ?? code.toUpperCase() }} cards={cards} onClose={() => setMakingGoal(false)} />
+      )}
     </>
   )
 }

@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getByExactName, getByFuzzyName, getBySetAndNumber, getCardsByIds, getPrintings, OfflineError } from '../api/scryfall'
 import { canBeFoil, deckPlace, doneMessage } from '../collection/addTo'
+import { goalHits, goalsOf, hitLine } from '../collection/collectionGoals'
+import '../collection/goals.css'
 import { AddToSheet, type AddTarget } from '../components/AddToSheet'
 import { useAddCheck } from '../components/useAddCheck'
 import { useUndoBar } from '../components/useUndoBar'
@@ -510,6 +512,10 @@ export function ScanPage() {
   // A screen reader hears a recognised card's rarity with its line ("Added Sol Ring, Uncommon"); the
   // line on screen stays as it was. Kept with the line it goes with, so a later line doesn't get it.
   const [statusRarity, setStatusRarity] = useState<{ status: string; rarity: string } | null>(null)
+  // "Goal: Duskmourn uncommons 41/92" under a scanned card's line, when it moves a collection goal on.
+  const [goalNote, setGoalNote] = useState<{ status: string; line: string } | null>(null)
+  const goalLibrary = useRef({ collections, decks })
+  goalLibrary.current = { collections, decks }
   /** The line for a card just recognised, with its rarity for a screen reader. */
   const sayCard = (text: string, card: ScryfallCard) => {
     const rarity = rarityLabel(card.rarity)
@@ -579,6 +585,10 @@ export function ScanPage() {
       const rarity = rarityLabel(card.rarity)
       setStatusRarity(rarity ? { status: text, rarity } : null)
       setStatus(text)
+      // The goals this copy moves on, counting the copies of it already in the list (collectionGoals.ts).
+      const { collections: lib, decks: libDecks } = goalLibrary.current
+      const hits = goalHits(goalsOf(lib), lib, libDecks, { scryfallId: card.id, name: card.name }, false, copy)
+      setGoalNote(hits.length > 0 ? { status: text, line: hitLine(hits[0]) + (hits.length > 1 ? ` · +${hits.length - 1} more` : '') } : null)
       return next
     })
     setFlash((n) => n + 1)
@@ -1130,6 +1140,7 @@ export function ScanPage() {
             {(camera === 'on' && loading) || status}
             {!(camera === 'on' && loading) && statusRarity?.status === status && <span className="sr-only">, {statusRarity.rarity}</span>}
           </div>
+          {!(camera === 'on' && loading) && goalNote?.status === status && <div className="scan-goal"><Icon name="flag" aria-hidden />{goalNote.line}</div>}
           {!loading && camera === 'on' && <div className="scan-seen">Reading: {seen || '…'}</div>}
         </div>
 

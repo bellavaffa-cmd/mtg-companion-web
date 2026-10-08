@@ -5,6 +5,7 @@
 import type { ScryfallCard } from './scryfall'
 import type { DeckHistoryEntry } from '../decks/deckHistory'
 import type { SortRecipe } from '../collection/sortRecipes'
+import type { CollectionGoal } from '../collection/collectionGoals'
 
 export interface DeckCardEntry {
   scryfallId: string
@@ -432,6 +433,12 @@ export interface Collection {
    * none are left — so a pile with no "sortRecipes" key was saved by an app that doesn't know about them.
    */
   sortRecipes?: SortRecipe[]
+  /**
+   * The Unsorted pile only: the user's collection goals (see collection/collectionGoals.ts). Rides along
+   * like [sortRecipes] and merges goal by goal. Left out until the first one is saved; then kept, as []
+   * once none are left — so a pile with no "collectionGoals" key was saved by an app that doesn't know about them.
+   */
+  collectionGoals?: CollectionGoal[]
 }
 
 // The pile's "sealed" and "graded" as JSON — locally and in sync, the Android app's exactly:

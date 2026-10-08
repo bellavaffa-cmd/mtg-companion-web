@@ -32,6 +32,8 @@
 //    it was.
 //  - The sorting recipes (on the Unsorted pile, see collection/sortRecipes.ts) merge recipe by recipe;
 //    a pile saved by an app that doesn't know about recipes leaves them as they were.
+//  - The collection goals (on the Unsorted pile, see collection/collectionGoals.ts) merge goal by goal;
+//    a pile saved by an app that doesn't know about goals leaves them as they were.
 //  - A deck's primer, folder, archive flag and companion go to whoever changed them; each category's
 //    target the same, one by one; a card's categories merge like its tags. A deck saved by an app that
 //    doesn't know them leaves them as they were (decks/deckExtras.ts).
@@ -50,6 +52,7 @@ import { keepSealedFromOlderApp, mergeSealed } from '../collection/sealed'
 import { keepGradedFromOlderApp, mergeGraded } from '../collection/graded'
 import { keepGearFromOlderApp, mergeGear } from '../collection/gear'
 import { keepRecipesFromOlderApp, mergeRecipes } from '../collection/sortRecipes'
+import { keepGoalsFromOlderApp, mergeGoals } from '../collection/collectionGoals'
 import { keepDeckExtrasFromOlderApp, mergeDeckExtras } from '../decks/deckExtras'
 import { keepHistoryFromOlderApp, mergeHistory } from '../decks/deckHistory'
 // The phone keeps this many saved versions of a deck (DeckRepository.MAX_VERSIONS).
@@ -240,8 +243,9 @@ export function mergeCollection(base: Collection, mineIn: Collection, theirsIn: 
   // ...and one that doesn't know about a wishlist target's options left those as they were.
   // ...and one that doesn't know about sealed product, graded copies or gear left those as they were.
   // ...and one that doesn't know about sorting recipes left those as they were.
-  const mine = keepRecipesFromOlderApp(base, keepGearFromOlderApp(base, keepGradedFromOlderApp(base, keepSealedFromOlderApp(base, keepAlertOptionsFromOlderApp(base, keepForSaleFromOlderApp(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, mineIn)))))))))
-  const theirs = keepRecipesFromOlderApp(base, keepGearFromOlderApp(base, keepGradedFromOlderApp(base, keepSealedFromOlderApp(base, keepAlertOptionsFromOlderApp(base, keepForSaleFromOlderApp(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, theirsIn)))))))))
+  // ...and one that doesn't know about collection goals left those as they were.
+  const mine = keepGoalsFromOlderApp(base, keepRecipesFromOlderApp(base, keepGearFromOlderApp(base, keepGradedFromOlderApp(base, keepSealedFromOlderApp(base, keepAlertOptionsFromOlderApp(base, keepForSaleFromOlderApp(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, mineIn))))))))))
+  const theirs = keepGoalsFromOlderApp(base, keepRecipesFromOlderApp(base, keepGearFromOlderApp(base, keepGradedFromOlderApp(base, keepSealedFromOlderApp(base, keepAlertOptionsFromOlderApp(base, keepForSaleFromOlderApp(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, theirsIn))))))))))
   const placesIn = (list: CollectionEntry[]) => new Map(list.map((e) => [e.scryfallId, e]))
   const [b, m, t] = [placesIn(base.entries), placesIn(mine.entries), placesIn(theirs.entries)]
   // Each card's places line by line (one added on both sides keeps the other device's), then no more
@@ -264,7 +268,8 @@ export function mergeCollection(base: Collection, mineIn: Collection, theirsIn: 
   const graded = mergeGraded(base.graded, mine.graded, theirs.graded, minePreferred)
   const gear = mergeGear(base.gear, mine.gear, theirs.gear, minePreferred)
   const sortRecipes = mergeRecipes(base.sortRecipes, mine.sortRecipes, theirs.sortRecipes, minePreferred)
-  const { storagePlaces: _theirs, loans: _theirLoans, sealed: _theirSealed, graded: _theirGraded, gear: _theirGear, sortRecipes: _theirRecipes, ...rest } = theirs
+  const collectionGoals = mergeGoals(base.collectionGoals, mine.collectionGoals, theirs.collectionGoals, minePreferred)
+  const { storagePlaces: _theirs, loans: _theirLoans, sealed: _theirSealed, graded: _theirGraded, gear: _theirGear, sortRecipes: _theirRecipes, collectionGoals: _theirGoals, ...rest } = theirs
   return {
     ...rest,
     ...(storagePlaces !== undefined ? { storagePlaces } : {}),
@@ -273,6 +278,7 @@ export function mergeCollection(base: Collection, mineIn: Collection, theirsIn: 
     ...(graded !== undefined ? { graded } : {}),
     ...(gear !== undefined ? { gear } : {}),
     ...(sortRecipes !== undefined ? { sortRecipes } : {}),
+    ...(collectionGoals !== undefined ? { collectionGoals } : {}),
     name: pick(base.name, mine.name, theirs.name, minePreferred),
     type: pick(base.type, mine.type, theirs.type, minePreferred),
     createdAt: Math.min(mine.createdAt, theirs.createdAt),

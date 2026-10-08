@@ -24,6 +24,21 @@ export function WhoHasItSheet({ deck, onClose }: { deck: Deck; onClose: () => vo
   )
 }
 
+/**
+ * The same for any cards — a collection goal's missing ones: each with the friends whose shared
+ * binders hold a copy, and Ask to start a trade for it.
+ */
+export function WhoHasCardsSheet({ title, subtitle, cards, onClose }: {
+  title: string; subtitle?: string; cards: { scryfallId: string; name: string; imageUrl: string | null }[]; onClose: () => void
+}) {
+  const missing = useMemo(() => cards.map((c) => ({ ...c, quantity: 1 }) as DeckCardEntry), [cards])
+  return (
+    <PickerSheet title={title} subtitle={subtitle} onClose={onClose}>
+      <SocialGate>{(overview) => <WhoHasList overview={overview} missing={missing} />}</SocialGate>
+    </PickerSheet>
+  )
+}
+
 function WhoHasList({ overview, missing }: { overview: api.Overview; missing: DeckCardEntry[] }) {
   const navigate = useNavigate()
   const [hits, setHits] = useState<api.SharedCardHit[] | null>(null)
@@ -39,7 +54,7 @@ function WhoHasList({ overview, missing }: { overview: api.Overview; missing: De
     return () => { cancelled = true }
   }, [key])
 
-  if (missing.length === 0) return <div className="empty-state"><Icon name="task_alt" />You own every card in this deck.</div>
+  if (missing.length === 0) return <div className="empty-state"><Icon name="task_alt" />You have every card already.</div>
   if (error) return <div className="notice warn">{error}</div>
   if (!hits) return <div className="empty-state"><Icon name="hourglass_empty" />Looking through your friends' binders…</div>
 

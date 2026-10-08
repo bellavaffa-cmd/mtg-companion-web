@@ -1,0 +1,77 @@
+/* Collection goals (GoalsUi.tsx, pages/GoalsPage.tsx) */
+.goal-bar { display: block; height: 6px; border-radius: 999px; background: var(--g3); overflow: hidden; width: 100%; }
+.goal-bar.big { height: 10px; }
+.goal-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--gold); transition: width 0.4s ease; }
+.goal-bar.done > span { background: #5fbf7a; }
+
+.goal-list { display: flex; flex-direction: column; gap: 8px; max-width: 560px; }
+.goal-row {
+  width: 100%; padding: 12px 14px; border: 0; border-radius: 14px; background: var(--g1); color: inherit; font: inherit;
+  text-align: left; display: flex; flex-direction: column; gap: 6px; cursor: pointer; min-width: 0;
+}
+.goal-row-top { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.goal-row-top b { flex: 1; font-size: 0.9375rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.goal-num { font-family: var(--num); font-size: 0.8125rem; color: var(--t1); white-space: nowrap; }
+.goal-num .icon { color: #5fbf7a; font-size: 18px; }
+.goal-row-sub { font-size: 0.75rem; color: var(--t1); }
+.goal-empty { border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; width: 100%; }
+.goal-empty .icon { color: var(--gold); }
+
+.goal-options { display: flex; flex-direction: column; gap: 10px; }
+.goal-check { display: flex; gap: 10px; align-items: flex-start; font-size: 0.875rem; }
+.goal-check input { width: 22px; height: 22px; margin: 0; accent-color: var(--gold); flex: none; }
+.goal-check > span { flex: 1; }
+.goal-preview { font-size: 0.8125rem; }
+
+.goal-page { max-width: 560px; padding-bottom: 40px; }
+.goal-hero { padding: 16px; border-radius: 18px; background: var(--g1); display: flex; flex-direction: column; gap: 8px; }
+.goal-hero .big-num { font-family: var(--num); font-size: 1.75rem; line-height: 1; }
+.goal-hero .big-num small { font-size: 0.875rem; color: var(--t1); margin-left: 6px; font-family: var(--ui); }
+.goal-hero .sub { font-size: 0.8125rem; color: var(--t1); }
+.goal-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.goal-actions .btn { flex: 1 1 160px; justify-content: center; }
+.goal-cards { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.goal-card { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--g1); border: 0; color: inherit; font: inherit; text-align: left; width: 100%; cursor: pointer; }
+.goal-card .thumb { width: 44px; height: 32px; border-radius: 6px; flex: none; object-fit: cover; }
+.goal-card .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.goal-card .txt b { font-size: 0.875rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.goal-card .txt span { font-size: 0.75rem; color: var(--t1); }
+.goal-card .qty { font-family: var(--num); font-size: 0.875rem; white-space: nowrap; }
+.goal-card.have .qty { color: #5fbf7a; }
+.goal-picked { display: flex; flex-direction: column; gap: 6px; }
+.goal-picked-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: var(--g1); font-size: 0.875rem; }
+.goal-picked-row span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.goal-picked-row input { width: 56px; }
+.goal-sets { display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow: auto; }
+.goal-sets button { text-align: left; }
+
+/* The celebration when a goal completes */
+.goal-party { position: fixed; inset: 0; pointer-events: none; z-index: 400; display: flex; align-items: flex-end; justify-content: center; padding: 16px 16px calc(88px + env(safe-area-inset-bottom)); }
+.goal-party-card {
+  pointer-events: auto; display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 16px; border-radius: 18px;
+  background: #2a2210; box-shadow: inset 0 0 0 1px rgba(230, 180, 94, 0.6), 0 10px 30px rgba(0, 0, 0, 0.45); max-width: 520px; width: 100%;
+  animation: goal-pop 0.35s ease-out;
+}
+.goal-party-card > .icon { color: var(--gold); font-size: 28px; }
+.goal-party-text { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.goal-party-text b { font-size: 0.9375rem; }
+.goal-party-text span { font-size: 0.8125rem; color: #d9c79f; overflow: hidden; text-overflow: ellipsis; }
+.goal-confetti { position: absolute; inset: 0; overflow: hidden; }
+.goal-confetti i {
+  position: absolute; top: -12px; left: var(--x); width: 8px; height: 12px; border-radius: 2px; background: var(--c);
+  animation: goal-fall 2.4s cubic-bezier(0.2, 0.6, 0.4, 1) var(--d) forwards; opacity: 0;
+}
+@keyframes goal-fall {
+  0% { transform: translateY(0) rotate(0); opacity: 1; }
+  100% { transform: translateY(105vh) rotate(540deg); opacity: 0.2; }
+}
+@keyframes goal-pop { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .goal-confetti { display: none; }
+  .goal-party-card { animation: none; }
+  .goal-bar > span { transition: none; }
+}
+
+/* The scanner's line when a card moves a goal on */
+.scan-goal { display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; color: var(--gold); }
+.scan-goal .icon { font-size: 14px; }
