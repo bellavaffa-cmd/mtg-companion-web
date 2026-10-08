@@ -1093,11 +1093,20 @@
   },
   "friendWants": {
    "goblin chieftain": [
-    "Priya"
+    {
+     "id": "u-priya",
+     "name": "Priya"
+    }
    ],
    "lightning bolt": [
-    "Priya",
-    "Jo"
+    {
+     "id": "u-priya",
+     "name": "Priya"
+    },
+    {
+     "id": "u-jo",
+     "name": "Jo"
+    }
    ]
   },
   "binders": [

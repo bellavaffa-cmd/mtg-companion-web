@@ -416,8 +416,14 @@ function RecipeSummaryView() {
   const lastAt = session.scans.reduce((n, s) => Math.max(n, s.at ?? 0), 0)
   const minutes = lastAt > session.startedAt ? Math.max(1, Math.round((lastAt - session.startedAt) / 60000)) : 0
   const friendsPile = derived.piles.find((p) => p.key === 'S:FRIENDS')
-  const byFriend = new Map<string, typeof session.scans>()
-  for (const s of session.scans) if (friendsPile && s.pile === friendsPile.number && s.reason?.kind === 'FRIENDS') byFriend.set(s.reason.friend, [...(byFriend.get(s.reason.friend) ?? []), s])
+  // The friends pile, friend by friend: their user id, name and cards.
+  const byFriend = new Map<string, { name: string; scans: typeof session.scans }>()
+  for (const s of session.scans) {
+    if (!friendsPile || s.pile !== friendsPile.number || s.reason?.kind !== 'FRIENDS' || s.filed) continue
+    const f = byFriend.get(s.reason.friendId) ?? { name: s.reason.friend, scans: [] }
+    f.scans.push(s)
+    byFriend.set(s.reason.friendId, f)
+  }
   const fileWords = fileLine(session.recipe, derived.piles, session.scans, placesOf(collections).map((p) => ({ id: p.id, name: p.name })))
   const update = (next: typeof session) => { saveRecipeSession(next); setSession(next) }
   const fileAll = () => {
@@ -469,12 +475,12 @@ function RecipeSummaryView() {
             <button type="button" className="link" onClick={() => setChoosingPile(true)}>Check a pile (rescan to catch mistakes)</button>
             {friendsPile && byFriend.size > 0 && (
               <>
-                <span className="dim">Offer pile {friendsPile.number} to {[...byFriend.keys()].join(' and ')}:</span>
+                <span className="dim">Offer pile {friendsPile.number} to {[...byFriend.values()].map((f) => f.name).join(' and ')}:</span>
                 <div className="recipe-chips">
-                  {[...byFriend].map(([friend, scans]) => (
-                    <button key={friend} type="button" className="btn line"
-                      onClick={() => navigate(`/trades/new?to=${encodeURIComponent(friend)}`, { state: { give: scans.map((s) => ({ scryfallId: s.scryfallId, name: s.name, imageUrl: s.entry.imageUrl, foil: !!s.card.foil, quantity: 1 })) } })}
-                    >Offer to {friend}</button>
+                  {[...byFriend].map(([id, f]) => (
+                    <button key={id} type="button" className="btn line"
+                      onClick={() => navigate(`/trades/new?to=${encodeURIComponent(id)}`, { state: { give: f.scans.map((s) => ({ scryfallId: s.scryfallId, name: s.name, imageUrl: s.entry.imageUrl, foil: !!s.card.foil, quantity: 1 })) } })}
+                    >Offer to {f.name}</button>
                   ))}
                 </div>
               </>

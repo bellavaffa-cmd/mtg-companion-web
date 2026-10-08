@@ -7,7 +7,7 @@
 import { useMoney } from '../money/currency'
 import {
   alsoLine, APART_LABELS, cardLine, otherPile, ownedLine, reasonLine,
-  type ApartKind, type DerivedPiles, type PileChoice, type SmartContext,
+  type ApartKind, type DerivedPiles, type RecipeChoice, type SmartContext,
 } from './sortRecipes'
 import type { RecipeSessionState, RecipeVoice } from './recipeSession'
 import './recipes.css'
@@ -20,7 +20,7 @@ interface Props {
   rate: number
   onUndo: () => void
   onWrong: () => void
-  onSend: (choice: PileChoice) => void
+  onSend: (choice: RecipeChoice) => void
   onPutInDeck: () => void
   onApart: (kind: ApartKind) => void
   onDone: () => void

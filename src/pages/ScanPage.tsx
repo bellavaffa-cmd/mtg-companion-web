@@ -48,12 +48,13 @@ import { loadPiles, loadSort, saveSort } from '../collection/sortSession'
 import { SortPilePanel } from '../collection/SortPilePanel'
 import {
   apartOf, checkPileCard, deckNeedsOf, derivePiles, fileRecipe, friendWantsOf, HandsFreeCapture, orderedBinders, ownedOf, pileFor, reasonsFor,
-  sortCard as sortRecipeCard, spokenPile, type ApartKind, type PileChoice, type RecipeCard, type RecipeScan, type SmartContext,
+  sortCard as sortRecipeCard, spokenPile, type ApartKind, type RecipeChoice, type RecipeCard, type RecipeScan, type SmartContext,
 } from '../collection/sortRecipes'
 import { loadRecipeSession, loadVoice, saveRecipeSession, sayOutLoud, type RecipeSessionState } from '../collection/recipeSession'
 import { RecipeScanPanel } from '../collection/RecipeScanPanel'
 import { useCardData } from '../collection/cardData'
 import { tradeMatches, type TradeMatch } from '../social/more'
+import { useOverview } from '../social/SocialContext'
 import { onlyFoilFinish } from '../scan/scanSounds'
 import { useMoney } from '../money/currency'
 import { addedMove, putAwayMove } from '../collection/copyHistory'
@@ -335,6 +336,7 @@ export function ScanPage() {
   const sortingWith = recipe?.recipe
   const derived = useMemo(() => (sortingWith ? derivePiles(sortingWith, (n) => money.formatLocal(n, Number.isInteger(n))) : null), [sortingWith, money])
   const [matches, setMatches] = useState<TradeMatch[]>([])
+  const { person } = useOverview()
   useEffect(() => {
     if (!recipeMode) return
     let off = false
@@ -348,11 +350,11 @@ export function ScanPage() {
   const smart = useMemo<SmartContext>(() => (recipeMode
     ? {
       deckNeeds: deckNeedsOf(collections, decks),
-      friendWants: friendWantsOf(matches),
+      friendWants: friendWantsOf(matches, (id) => { const p = person(id); return p ? p.display_name || p.username : null }),
       binders: orderedBinders(collections, (id) => { const c = binderData?.get(id); return c ? cardFactsOf(c) : null }),
       owned: ownedOf(collections, decks),
     }
-    : NO_CONTEXT), [recipeMode, collections, decks, matches, binderData])
+    : NO_CONTEXT), [recipeMode, collections, decks, matches, binderData, person])
   /** The cards of this sort as Scryfall has them, by scan, for Wrong card? and Put in deck now. */
   const recipeCards = useRef(new Map<number, ScryfallCard>())
   const [wrongCard, setWrongCard] = useState(false)
@@ -419,7 +421,7 @@ export function ScanPage() {
     const rc: RecipeCard = kind === 'FOIL' ? { ...c, foil: !on } : kind === 'FOREIGN' ? { ...c, lang: on ? 'en' : 'xx' } : { ...c, played: !on }
     return resort(last, rest, rc)
   })
-  const sendTo = (choice: PileChoice) => changeLast((last) => ({ ...last, pile: choice.pile, key: choice.key, reason: choice.reason, also: choice.also }))
+  const sendTo = (choice: RecipeChoice) => changeLast((last) => ({ ...last, pile: choice.pile, key: choice.key, reason: choice.reason, also: choice.also }))
   const putInDeckNow = () => {
     const now = recipeNow.current
     const last = now?.scans.at(-1)

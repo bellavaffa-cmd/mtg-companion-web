@@ -162,7 +162,7 @@ export const isTemplate = (r: SortRecipe): boolean => r.id.startsWith('tpl-')
 // ---- The piles ----
 
 /** One bucket of a level: its key in a pile's key, its words, and a colour for its band (null: none of its own). */
-export interface Bucket { key: string; label: string; band: string | null }
+export interface RecipeBucket { key: string; label: string; band: string | null }
 
 /** Writes an amount in the user's currency: "$2", "€5". */
 export type Fmt = (amount: number) => string
@@ -184,7 +184,7 @@ export const RECIPE_PILE_COLOURS = ['#e6b45e', '#e2694a', '#5bcb8f', '#6aa8f0', 
 const letterBefore = (c: string) => String.fromCharCode(c.charCodeAt(0) - 1)
 
 /** A level's buckets, in order. */
-export function levelBuckets(level: SplitLevel, fmt: Fmt): Bucket[] {
+export function levelBuckets(level: SplitLevel, fmt: Fmt): RecipeBucket[] {
   const l = splitLevel(level)
   switch (l.by) {
     case 'VALUE': {
@@ -371,12 +371,12 @@ export function bucketOf(level: SplitLevel, card: RecipeCard, rate: number): str
 /** Why a card goes in a smart pile. */
 export type SortReason =
   | { kind: 'DECKS'; deckId: string; deck: string }
-  | { kind: 'FRIENDS'; friend: string }
+  | { kind: 'FRIENDS'; friend: string; friendId: string }
   | { kind: 'BINDER'; placeId: string; binder: string; page: number; slot: number }
   | { kind: 'TRADE'; copy: number }
 
 /** The pile a card goes in, why (a smart pile's reason), and the other smart reasons that applied. */
-export interface PileChoice { pile: number; key: string; reason: SortReason | null; also: SortReason[] }
+export interface RecipeChoice { pile: number; key: string; reason: SortReason | null; also: SortReason[] }
 
 /** The key of the levels' pile [card] goes in (before the cap). */
 export function levelKey(recipe: SortRecipe, card: RecipeCard, rate: number): string {
@@ -403,7 +403,7 @@ export const apartOf = (card: RecipeCard): ApartKind[] => [
  * reasonsFor finds them, in priority order) is for; else the first keep-apart pile it is; else its
  * levels' pile ("Everything else" past the cap). [rate]: the user's currency per US dollar.
  */
-export function pileFor(recipe: SortRecipe, derived: DerivedPiles, card: RecipeCard, reasons: SortReason[], rate: number): PileChoice {
+export function pileFor(recipe: SortRecipe, derived: DerivedPiles, card: RecipeCard, reasons: SortReason[], rate: number): RecipeChoice {
   const r = sortRecipe(recipe)
   const byKey = (key: string) => derived.piles.find((p) => p.key === key)
   const reason = reasons.find((x) => r.pullOut.includes(x.kind)) ?? null
@@ -425,6 +425,9 @@ export function pileFor(recipe: SortRecipe, derived: DerivedPiles, card: RecipeC
 /** A deck that needs a card, and how many copies. */
 export interface DeckNeed { deckId: string; deck: string; qty: number }
 
+/** A friend who wants a card: their user id and the name they go by. */
+export interface FriendWant { id: string; name: string }
+
 /**
  * A binder kept in order: its pockets in use with their cards' facts, the names in it (lowercase, its
  * loose copies too) and the sets it collects — a card of one of those sets not in it yet fills a gap.
@@ -439,22 +442,22 @@ export interface OrderedBinder {
   sets: string[]
 }
 
-/** What the smart piles go by: deck needs and friends' wants by card name (nameKey), the binders in order, copies owned by name. */
+/** What the smart piles go by: deck needs and friends' wants by card name (recipeNameKey), the binders in order, copies owned by name. */
 export interface SmartContext {
   deckNeeds: Record<string, DeckNeed[]>
-  friendWants: Record<string, string[]>
+  friendWants: Record<string, FriendWant[]>
   binders: OrderedBinder[]
   owned: Record<string, number>
 }
 
 /** A card's name as the lookups key it: lowercase, its front face. */
-export const nameKey = (name: string): string => name.trim().toLowerCase().split(' // ')[0].trim()
+export const recipeNameKey = (name: string): string => name.trim().toLowerCase().split(' // ')[0].trim()
 
 /** Each card the decks need, by name: missing from a deck (copies short), or on its Considering list (one). */
 export function deckNeedsOf(collections: Collection[], decks: Deck[]): Record<string, DeckNeed[]> {
   const out: Record<string, DeckNeed[]> = {}
   const want = (name: string, d: Deck, qty: number) => {
-    const list = out[nameKey(name)] ?? (out[nameKey(name)] = [])
+    const list = out[recipeNameKey(name)] ?? (out[recipeNameKey(name)] = [])
     const had = list.find((n) => n.deckId === d.id)
     if (had) had.qty += qty
     else list.push({ deckId: d.id, deck: d.name, qty })
@@ -467,13 +470,18 @@ export function deckNeedsOf(collections: Collection[], decks: Deck[]): Record<st
   return out
 }
 
-/** The friends wanting each card, by name, from the trade matches (what their wishlists want of yours). */
-export function friendWantsOf(matches: { friend: string; they_want: { name: string }[] }[]): Record<string, string[]> {
-  const out: Record<string, string[]> = {}
+/**
+ * The friends wanting each card, by name, from the trade matches (what their wishlists want of yours).
+ * [nameOf]: a friend's name by their user id — null for someone who isn't a friend now, left out.
+ */
+export function friendWantsOf(matches: { friend: string; they_want: { name: string }[] }[], nameOf: (id: string) => string | null): Record<string, FriendWant[]> {
+  const out: Record<string, FriendWant[]> = {}
   for (const m of matches) {
+    const name = nameOf(m.friend)
+    if (!name) continue
     for (const w of m.they_want) {
-      const list = out[nameKey(w.name)] ?? (out[nameKey(w.name)] = [])
-      if (!list.includes(m.friend)) list.push(m.friend)
+      const list = out[recipeNameKey(w.name)] ?? (out[recipeNameKey(w.name)] = [])
+      if (!list.some((f) => f.id === m.friend)) list.push({ id: m.friend, name })
     }
   }
   return out
@@ -496,7 +504,7 @@ export function orderedBinders(collections: Collection[], factsOf: (scryfallId: 
       rule: place.sortRule,
       pockets: pocketsOf(place),
       occupied: binderPockets(place, cards).map((p) => ({ index: p.index, facts: facts(p.cards[0].entry.scryfallId, p.cards[0].entry.name) })),
-      names: uniq(cards.map((c) => nameKey(c.entry.name))),
+      names: uniq(cards.map((c) => recipeNameKey(c.entry.name))),
       sets,
     })
   }
@@ -537,15 +545,15 @@ export interface RecipeScan {
  * binder's gap is filled once, and every copy scanned counts as owned.
  */
 export function reasonsFor(ctx: SmartContext, card: RecipeCard, scans: RecipeScan[]): SortReason[] {
-  const k = nameKey(card.name)
-  const same = scans.filter((s) => nameKey(s.name) === k)
+  const k = recipeNameKey(card.name)
+  const same = scans.filter((s) => recipeNameKey(s.name) === k)
   const out: SortReason[] = []
   for (const need of ctx.deckNeeds[k] ?? []) {
     const taken = same.filter((s) => s.reason?.kind === 'DECKS' && s.reason.deckId === need.deckId).length
     if (need.qty > taken) out.push({ kind: 'DECKS', deckId: need.deckId, deck: need.deck })
   }
-  for (const friend of ctx.friendWants[k] ?? []) {
-    if (!same.some((s) => s.reason?.kind === 'FRIENDS' && s.reason.friend === friend)) out.push({ kind: 'FRIENDS', friend })
+  for (const f of ctx.friendWants[k] ?? []) {
+    if (!same.some((s) => s.reason?.kind === 'FRIENDS' && s.reason.friendId === f.id)) out.push({ kind: 'FRIENDS', friend: f.name, friendId: f.id })
   }
   const set = (card.set ?? '').toLowerCase()
   for (const b of ctx.binders) {
@@ -567,7 +575,7 @@ export function reasonsFor(ctx: SmartContext, card: RecipeCard, scans: RecipeSca
 }
 
 /** The pile for one more card of a session, and why: reasonsFor, then pileFor. */
-export function sortCard(recipe: SortRecipe, derived: DerivedPiles, ctx: SmartContext, card: RecipeCard, scans: RecipeScan[], rate: number): PileChoice {
+export function sortCard(recipe: SortRecipe, derived: DerivedPiles, ctx: SmartContext, card: RecipeCard, scans: RecipeScan[], rate: number): RecipeChoice {
   return pileFor(recipe, derived, card, reasonsFor(ctx, card, scans), rate)
 }
 
@@ -576,7 +584,7 @@ export function sortCard(recipe: SortRecipe, derived: DerivedPiles, ctx: SmartCo
  * a different kind) — or, when none, the pile it would go in without a smart pile. Null when that's
  * the pile it's in already.
  */
-export function otherPile(recipe: SortRecipe, derived: DerivedPiles, scan: Pick<RecipeScan, 'card' | 'pile' | 'reason' | 'also'>, rate: number): PileChoice | null {
+export function otherPile(recipe: SortRecipe, derived: DerivedPiles, scan: Pick<RecipeScan, 'card' | 'pile' | 'reason' | 'also'>, rate: number): RecipeChoice | null {
   const r = sortRecipe(recipe)
   const reasons = [...(scan.reason ? [scan.reason] : []), ...(scan.also ?? [])]
   const next = reasons.find((x) => x.kind !== scan.reason?.kind && r.pullOut.includes(x.kind) && (!scan.reason || SMART_KINDS.indexOf(x.kind) > SMART_KINDS.indexOf(scan.reason.kind)))
@@ -625,7 +633,7 @@ export function alsoLine(r: SortReason): string {
 
 /** "You own 3 already" — copies owned before this one, the session's included; null for none. */
 export function ownedLine(ctx: SmartContext, name: string, scans: RecipeScan[]): string | null {
-  const n = (ctx.owned[nameKey(name)] ?? 0) + scans.filter((s) => nameKey(s.name) === nameKey(name)).length
+  const n = (ctx.owned[recipeNameKey(name)] ?? 0) + scans.filter((s) => recipeNameKey(s.name) === recipeNameKey(name)).length
   return n > 0 ? `You own ${n} already` : null
 }
 
@@ -788,11 +796,11 @@ export interface PileCheck { belongs: boolean; line: string; goes: number | null
  * than have been checked already ([checked]: the names checked so far that belonged).
  */
 export function checkPileCard(derived: DerivedPiles, scans: RecipeScan[], pile: number, checked: string[], name: string): PileCheck {
-  const k = nameKey(name)
-  const inPile = scans.filter((s) => s.pile === pile && nameKey(s.name) === k).length
-  const done = checked.filter((n) => nameKey(n) === k).length
+  const k = recipeNameKey(name)
+  const inPile = scans.filter((s) => s.pile === pile && recipeNameKey(s.name) === k).length
+  const done = checked.filter((n) => recipeNameKey(n) === k).length
   if (inPile > done) return { belongs: true, line: `Belongs in pile ${pile}`, goes: pile }
-  const other = scans.find((s) => s.pile !== pile && nameKey(s.name) === k)
+  const other = scans.find((s) => s.pile !== pile && recipeNameKey(s.name) === k)
   if (!other) return { belongs: false, line: "Doesn't belong — not sorted this time", goes: null }
   const p = derived.piles.find((x) => x.number === other.pile)
   return { belongs: false, line: `Doesn't belong — pile ${other.pile}${p ? ` · ${p.name}` : ''}`, goes: other.pile }

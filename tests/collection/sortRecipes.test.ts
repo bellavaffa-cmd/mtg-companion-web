@@ -195,7 +195,7 @@ test('send to pile N instead: the next smart pile that wants it, else its own pi
   const d = derivePiles(recipe, fmt)
   const card: RecipeCard = { name: 'Goblin Chieftain', colors: ['R'], typeLine: 'Creature', usd: 0.6 }
   const deck = { kind: 'DECKS' as const, deckId: 'k', deck: 'Krenko' }
-  const friend = { kind: 'FRIENDS' as const, friend: 'Priya' }
+  const friend = { kind: 'FRIENDS' as const, friend: 'Priya', friendId: 'u-priya' }
   assert.equal(otherPile(recipe, d, { card, pile: 1, reason: deck, also: [friend] }, 1)?.pile, 2)
   assert.deepEqual(otherPile(recipe, d, { card, pile: 1, reason: deck, also: [friend] }, 1)?.also, [deck])
   // Nothing else wants it: the pile it'd go in without the smart piles.
@@ -230,7 +230,13 @@ test('what the smart piles go by: deck needs, friends’ wants, binders in order
     ],
   }]
   assert.deepEqual(deckNeedsOf(cols, [krenko]), { 'goblin matron': [{ deckId: 'k', deck: 'Krenko', qty: 2 }], fling: [{ deckId: 'k', deck: 'Krenko', qty: 1 }] })
-  assert.deepEqual(friendWantsOf([{ friend: 'Priya', they_want: [{ name: 'Shock' }, { name: 'Opt' }] }, { friend: 'Jo', they_want: [{ name: 'shock' }] }]), { shock: ['Priya', 'Jo'], opt: ['Priya'] })
+  const names: Record<string, string> = { 'u-priya': 'Priya', 'u-jo': 'Jo' }
+  assert.deepEqual(
+    friendWantsOf([
+      { friend: 'u-priya', they_want: [{ name: 'Shock' }, { name: 'Opt' }] }, { friend: 'u-jo', they_want: [{ name: 'shock' }] }, { friend: 'u-gone', they_want: [{ name: 'Opt' }] },
+    ], (id) => names[id] ?? null),
+    { shock: [{ id: 'u-priya', name: 'Priya' }, { id: 'u-jo', name: 'Jo' }], opt: [{ id: 'u-priya', name: 'Priya' }] },
+  )
   const facts = (id: string) => (id === 'a1' ? { name: 'Acrobat', set: 'dsk', collectorNumber: '1' } : id === 'z9' ? { name: 'Zimone', set: 'DSK', collectorNumber: '40' } : null)
   assert.deepEqual(orderedBinders(cols, facts), [{
     placeId: 'dsk', name: 'Duskmourn', rule: 'SET', pockets: 9, occupied: [{ index: 0, facts: { name: 'Acrobat', set: 'dsk', collectorNumber: '1' } }],
