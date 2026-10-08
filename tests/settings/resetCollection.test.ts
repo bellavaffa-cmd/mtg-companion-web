@@ -31,6 +31,11 @@ function library(): Library {
         sealed: [{ id: 's1', name: 'Box', kind: 'PLAY_BOX', count: 1, createdAt: 1 } as never],
         graded: [{ id: 'g1', scryfallId: 'z', name: 'z', company: 'PSA', grade: '10', createdAt: 1 } as never],
         gear: [{ id: 'k1', kind: 'DICE', name: 'Dice', count: 6, createdAt: 1 } as never],
+        scanCorrections: [{
+          key: 'm:lightnin bolt', kind: 'MISREAD', read: 'Lightnin Bolt', wrongId: 'x', wrongName: 'X',
+          scryfallId: 'bolt', name: 'Lightning Bolt', set: 'm10', collectorNumber: '146', count: 1, used: 0, lastUsed: 1,
+        }],
+        collectionGoals: [{ id: 'goal1', name: 'Shock lands', kind: 'CUSTOM', cards: [{ name: 'Steam Vents', qty: 1 }], createdAt: 1, updatedAt: 1 } as never],
       }),
       binder('wishlist', [card('w', 1)], { type: 'WISHLIST', name: 'Wishlist' }),
       binder('b1', [card('b', 1000), card('c', 399)]),
@@ -51,17 +56,21 @@ test('Cards only empties the binders and the pile, and keeps everything else', (
   assert.equal(pile.sealed?.length, 1)
   assert.equal(pile.graded?.length, 1)
   assert.equal(pile.gear?.length, 1)
+  // Collection goals and what the scanner learned stay too.
+  assert.equal(pile.collectionGoals?.length, 1)
+  assert.equal(pile.scanCorrections?.length, 1)
   assert.deepEqual(after.deleted ?? {}, {})
   // Unchanged binders stay the same objects, so the sync has nothing to send for them.
   assert.equal(after.collections[3], before.collections[3])
 })
 
-test('Collection removes binders, places, sealed, graded, gear and loans; the pile and Wishlist stay, empty', () => {
+test('Collection removes binders, places, sealed, graded, gear, loans, goals and learned corrections; the pile and Wishlist stay, empty', () => {
   const after = resetLibrary(library(), 'collection', 100)
   assert.equal(after.decks.length, 3)
   assert.deepEqual(after.collections.map((c) => c.id), ['unsorted', 'wishlist'])
   const [pile, wishlist] = after.collections
   assert.deepEqual([pile.entries, pile.storagePlaces, pile.loans, pile.sealed, pile.graded, pile.gear], [[], [], [], [], [], []])
+  assert.deepEqual([pile.collectionGoals, pile.scanCorrections], [[], []])
   assert.deepEqual(wishlist.entries, [])
   // Noted as deleted, as deleting them by hand does, so the sync sends their deletion.
   assert.deepEqual(after.deleted, { 'collection:b1': 100, 'collection:b2': 100, 'collection:w2': 100 })
@@ -70,6 +79,8 @@ test('Collection removes binders, places, sealed, graded, gear and loans; the pi
 test('Everything removes every deck too, with its games; samples go without being noted', () => {
   const after = resetLibrary(library(), 'everything', 100)
   assert.deepEqual(after.decks, [])
+  const pile = after.collections.find((c) => c.id === 'unsorted')!
+  assert.deepEqual([pile.collectionGoals, pile.scanCorrections], [[], []])
   assert.deepEqual(Object.keys(after.deleted ?? {}).sort(), ['collection:b1', 'collection:b2', 'collection:w2', 'deck:d1', 'deck:d2'])
 })
 
@@ -81,8 +92,8 @@ test('a pile that never had places or loans gets none: absent stays absent', () 
 test('what will go, counted and said', () => {
   const lib = library()
   assert.equal(resetCountsText(resetCounts(lib, 'cards')), '1,402 copies in 1 binder')
-  assert.equal(resetCountsText(resetCounts(lib, 'collection')), '1,402 copies in 3 binders · 2 wishlist cards · 2 places · 1 sealed · 1 graded · 1 piece of gear · 1 loan')
-  assert.equal(resetCountsText(resetCounts(lib, 'everything')), '1,402 copies in 3 binders · 2 wishlist cards · 2 places · 1 sealed · 1 graded · 1 piece of gear · 1 loan · 3 decks')
+  assert.equal(resetCountsText(resetCounts(lib, 'collection')), '1,402 copies in 3 binders · 2 wishlist cards · 2 places · 1 sealed · 1 graded · 1 piece of gear · 1 loan · 1 goal')
+  assert.equal(resetCountsText(resetCounts(lib, 'everything')), '1,402 copies in 3 binders · 2 wishlist cards · 2 places · 1 sealed · 1 graded · 1 piece of gear · 1 loan · 1 goal · 3 decks')
   assert.equal(resetCountsText(resetCounts({ decks: [], collections: [binder('unsorted', [])] }, 'everything')), RESET_NOTHING)
   assert.equal(resetCountsText(resetCounts({ decks: [], collections: [binder('unsorted', [card('a', 1)])] }, 'cards')), '1 copy')
 })
@@ -117,6 +128,7 @@ test('an emptied pile merged with an older copy from another device stays empty'
     assert.deepEqual(merged.entries, [])
     assert.deepEqual(merged.storagePlaces, [])
     assert.deepEqual([merged.loans, merged.sealed, merged.graded, merged.gear], [[], [], [], []])
+    assert.deepEqual([merged.collectionGoals, merged.scanCorrections], [[], []])
     // And the same seen from the other device.
     assert.deepEqual(mergeCollection(base, theirs, mine, !minePreferred).entries, [])
   }

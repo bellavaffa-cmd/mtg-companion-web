@@ -6,6 +6,7 @@ import { CardHoverPreview } from './components/CardHoverPreview'
 import { Layout } from './components/Layout'
 import { UndoProvider } from './components/UndoBar'
 import { ResetUndoBar } from './settings/ResetUndoBar'
+import { GoalWatcher } from './collection/GoalsUi'
 import { AddCheckProvider } from './components/AddCheckDialog'
 import { HomePage } from './pages/HomePage'
 import { CollectionsPage } from './pages/CollectionsPage'
@@ -68,6 +69,9 @@ const SharedItemPage = lazy(() => import('./pages/SharedItemPage').then((m) => (
 const FriendSharedPage = lazy(() => import('./social/SharedFriends').then((m) => ({ default: m.FriendSharedPage })))
 const SharedCollectionPage = lazy(() => import('./pages/SharedItemPage').then((m) => ({ default: m.SharedCollectionPage })))
 const TradesPage = lazy(() => import('./pages/TradesPage').then((m) => ({ default: m.TradesPage })))
+const GoalsPage = lazy(() => import('./pages/GoalsPage').then((m) => ({ default: m.GoalsPage })))
+const GoalPage = lazy(() => import('./pages/GoalsPage').then((m) => ({ default: m.GoalPage })))
+const NewGoalPage = lazy(() => import('./pages/GoalsPage').then((m) => ({ default: m.NewGoalPage })))
 const SortRecipesPage = lazy(() => import('./pages/SortRecipesPage').then((m) => ({ default: m.SortRecipesPage })))
 const TradeComposerPage = lazy(() => import('./pages/TradeComposerPage').then((m) => ({ default: m.TradeComposerPage })))
 const PageScanPage = lazy(() => import('./pages/PageScanPage').then((m) => ({ default: m.PageScanPage })))
@@ -98,6 +102,8 @@ export default function App() {
         <CommunityRulesHost />
         {/* Undo for Reset collection (Settings › Data and speed), on every screen while it's offered. */}
         <ResetUndoBar />
+        {/* Notices a collection goal completing, wherever the cards came from, and celebrates. */}
+        <GoalWatcher />
         {/* The Undo bar after a card goes into a deck or binder, on every screen. */}
         <UndoProvider>
         {/* The check before a card goes into a deck, asked wherever it's added from. */}
@@ -108,6 +114,9 @@ export default function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/collections" element={<CollectionsPage />} />
             <Route path="/collections/find" element={<FindAnythingPage />} />
+            <Route path="/collections/goals" element={<GoalsPage />} />
+            <Route path="/collections/goals/new" element={<NewGoalPage />} />
+            <Route path="/collections/goals/:id" element={<GoalPage />} />
             <Route path="/collections/:id" element={<CollectionDetailPage />} />
             <Route path="/collections/tag/:tagId" element={<TagBinderPage />} />
             <Route path="/collections/set/:code" element={<SetCardsPage />} />

@@ -257,6 +257,8 @@ export function restoreLibrary(current: Library, backup: BackupFile, mode: Resto
       ...(m.graded ? { graded: byId(m.graded, here.graded, saved.graded) } : {}),
       ...(m.gear ? { gear: byId(m.gear, here.gear, saved.gear) } : {}),
       ...(m.sortRecipes ? { sortRecipes: byId(m.sortRecipes, here.sortRecipes, saved.sortRecipes) } : {}),
+      ...(m.scanCorrections ? { scanCorrections: inOrder(m.scanCorrections, here.scanCorrections ?? [], saved.scanCorrections ?? [], (x) => x.key) } : {}),
+      ...(m.collectionGoals ? { collectionGoals: byId(m.collectionGoals, here.collectionGoals, saved.collectionGoals) } : {}),
     }
   })
   // Restored, so no longer deleted: the sync sends them again.

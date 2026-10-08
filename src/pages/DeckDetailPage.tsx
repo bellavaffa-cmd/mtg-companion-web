@@ -25,6 +25,7 @@ import { addableCards } from '../decks/addSearch'
 import { CARD_FILTERS, CARD_FILTER_LABELS, filterCounts, noMatchMessage, passesFilter, type CardFilter } from '../decks/comboPieces'
 import { ExportDeckDialog } from '../components/ExportDeckDialog'
 import { ShareDialog } from '../social/ShareDialog'
+import { MakeDeckGoalDialog } from '../collection/GoalsUi'
 import { WhoHasItSheet } from '../social/WhoHasIt'
 import { missingCards } from '../decks/missing'
 import { canPair, secondCommanderKind, SECOND_COMMANDER_NOUN, type SecondCommanderKind } from '../decks/pairing'
@@ -147,6 +148,7 @@ export function DeckDetailPage() {
   const [showExport, setShowExport] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [whoHas, setWhoHas] = useState(false)
+  const [makingGoal, setMakingGoal] = useState(false)
   const [goldfish, setGoldfish] = useState(false)
   const [printingProxies, setPrintingProxies] = useState(false)
   // "Compare with…": first the picker (a deck or a saved version), then the comparison itself.
@@ -912,6 +914,7 @@ export function DeckDetailPage() {
               : []),
             { label: 'Print proxies…', icon: 'print', detail: 'Nine to a page at real size, to cut out', onClick: () => setPrintingProxies(true) },
             { label: 'Who has it?', icon: 'person_search', detail: "Friends who own the cards you're missing", onClick: () => setWhoHas(true) },
+            { label: 'Make this a goal', icon: 'flag', detail: 'Foil every card, or own every card — with its progress', onClick: () => setMakingGoal(true) },
             ...(missing.length > 0
               ? [{
                   label: 'Buy missing cards',
@@ -1112,6 +1115,7 @@ export function DeckDetailPage() {
       {filing && <FolderDialog deck={deck} onClose={() => setFiling(false)} />}
       {sharing && <ShareDialog kind="deck" itemId={deck.id} name={deck.name} onClose={() => setSharing(false)} />}
       {whoHas && <WhoHasItSheet deck={deck} onClose={() => setWhoHas(false)} />}
+      {makingGoal && <MakeDeckGoalDialog deck={deck} onClose={() => setMakingGoal(false)} />}
       {comparePicking && (
         <ComparePickerDialog
           deck={deck} decks={decks}

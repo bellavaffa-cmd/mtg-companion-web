@@ -8,6 +8,7 @@ import type { Library } from '../../src/sync/cloudSync.ts'
 import type { Collection, CollectionEntry, Deck, DeckCardEntry } from '../../src/types/models.ts'
 import type { CopyMove } from '../../src/collection/copyHistory.ts'
 import type { CopyPhoto } from '../../src/collection/copyPhotos.ts'
+import type { ScanCorrection } from '../../src/scan/scanCorrections.ts'
 import { bigCollection, ownedCopies } from '../perf/bigCollection.ts'
 
 // Backup and restore: one file with everything, read back the same; a file from a newer version is
@@ -122,6 +123,22 @@ test('merging keeps where copies are here, and adds the backup places and loans 
   assert.deepEqual(pile.entries[0].places, [{ placeId: 'new', qty: 1 }])
   assert.deepEqual(pile.storagePlaces!.map((p) => p.id).sort(), ['new', 'old'])
   assert.deepEqual(pile.loans!.map((l) => l.id).sort(), ['L1', 'L2'])
+})
+
+test("merging keeps what the scanner learned here, and brings back the backup's corrections that are missing", () => {
+  const fix = (key: string, lastUsed: number, to = 'bolt-m10'): ScanCorrection => ({
+    key, kind: 'MISREAD', read: key, wrongId: 'x', wrongName: 'X', scryfallId: to, name: 'Lightning Bolt',
+    set: 'm10', collectorNumber: '146', count: 1, used: 0, lastUsed,
+  })
+  const then: Library = { decks: [], collections: [binder('unsorted', [], { scanCorrections: [fix('old', 5), fix('both', 1, 'bolt-then')] })] }
+  const now: Library = { decks: [], collections: [binder('unsorted', [], { scanCorrections: [fix('new', 9), fix('both', 7, 'bolt-now')] })] }
+  const backup = reread(backupOf(then))
+  assert.deepEqual(backup.collections[0].scanCorrections, then.collections[0].scanCorrections)
+  const pile = restoreLibrary(now, backup, 'merge').collections[0]
+  // Here's order first, then what only the backup has; the one used last wins where both have it.
+  assert.deepEqual(pile.scanCorrections!.map((c) => c.key), ['new', 'both', 'old'])
+  assert.equal(pile.scanCorrections!.find((c) => c.key === 'both')!.scryfallId, 'bolt-now')
+  assert.deepEqual(restoreLibrary(now, backup, 'replace').collections[0].scanCorrections, then.collections[0].scanCorrections)
 })
 
 test('replacing puts each deck and binder back as it was in the backup, keeping ones made since', () => {
