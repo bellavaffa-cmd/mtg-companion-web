@@ -5,15 +5,19 @@
 
 import { useEffect, useState } from 'react'
 import { getCardsByIds, getSets, searchCards } from '../api/scryfall'
-import { cardTags, displayImageUrl, type ScryfallCard } from '../types/scryfall'
+import { cardTags, displayImageUrl, displayOracleText, type ScryfallCard } from '../types/scryfall'
+import { cachedTags, tagLabel, tagsFor } from '../tags/roleTags'
 import type { Deck } from '../types/models'
 import type { SetInfo } from './setCompletion'
-import { addDays, listable, releaseSets, setsToAnnounce, type SetCard } from './newSets'
+import { addDays, commanderDecks, deckProfile, listable, releaseSets, setsToAnnounce, type DeckProfile, type SetCard } from './newSets'
+import { fitsByCard, mayTellReveals, revealNews } from './spoilers'
 import { today } from './valueHistory'
 
 const FOLLOWED_KEY = 'mtgweb_followed_sets'
 const TOLD_KEY = 'mtgweb_sets_told'
 const SETS_KEY = 'mtgweb_release_sets'
+const REVEALS_SEEN_KEY = 'mtgweb_reveals_seen'
+const REVEALS_TOLD_KEY = 'mtgweb_reveals_told_at'
 const FRESH_MS = 12 * 60 * 60 * 1000
 /** Pages of a set's cards to read at most: 175 a page, so a big set and its extras. */
 const MAX_PAGES = 6
@@ -82,23 +86,30 @@ export async function loadReleaseSets(): Promise<SetInfo[]> {
   return sets
 }
 
-/** [card] as the matching keeps it. */
+/** [card] as the matching keeps it — with the role tags its rules text shows (Tagger hasn't tagged a new card yet). */
 export function setCardOf(card: ScryfallCard): SetCard {
   return {
     id: card.id, name: card.name, typeLine: card.type_line ?? '', colorIdentity: card.color_identity ?? [], tags: cardTags(card),
     imageUrl: displayImageUrl(card), rarity: card.rarity ?? null,
+    roles: tagsFor(undefined, displayOracleText(card) ?? '', new Map()).map(tagLabel),
+    releasedAt: card.released_at ?? null,
+    usd: card.prices?.usd ?? null,
+    commanderLegality: card.legalities?.commander ?? null,
   }
 }
 
 const cardsCache = new Map<string, { at: number; cards: SetCard[] }>()
 
-/** The cards Scryfall has for [code] so far, one of each (no basic lands), in the set's order. */
+/**
+ * The cards Scryfall has for [code] so far — every printing (showcase frames and all), no basic
+ * lands — the most recently revealed first.
+ */
 export async function loadSetCards(code: string): Promise<SetCard[]> {
   const kept = cardsCache.get(code)
   if (kept && Date.now() - kept.at < FRESH_MS) return kept.cards
   const cards: SetCard[] = []
   for (let page = 1; page <= MAX_PAGES; page++) {
-    const result = await searchCards(`e:${code.toLowerCase()} -t:basic`, page, 'set', 'asc')
+    const result = await searchCards(`e:${code.toLowerCase()} -t:basic`, page, 'spoiled', 'desc', 'prints')
     cards.push(...result.cards.map(setCardOf))
     if (!result.hasMore) break
   }
@@ -150,4 +161,78 @@ export function useNewSetsLine(): { line: string; out: number } {
   const { upcoming, recent } = releaseSets(all, now)
   const parts = [upcoming.length > 0 && `${upcoming.length} coming soon`, recent.length > 0 && `${recent.length} just out`].filter(Boolean)
   return { line: parts.length > 0 ? parts.join(' · ') : 'No new sets right now', out: setsToAnnounce(f, all, now, t).length }
+}
+
+/** A deck's profile for matching, with its cards' role tags where they've been looked up (tags/roleTags.ts). */
+export const profileOf = (deck: Deck, identity: string[]): DeckProfile =>
+  deckProfile(deck, identity, (name) => cachedTags(name)?.map(tagLabel))
+
+function readSeen(): Record<string, string[]> {
+  try { return (JSON.parse(localStorage.getItem(REVEALS_SEEN_KEY) ?? '{}') as Record<string, string[]>) ?? {} } catch { return {} }
+}
+
+/** The revealed cards (ids) already seen that fit a deck, by set: what's new is told (revealNews). */
+export function revealsSeen(code: string): Set<string> | null {
+  const list = readSeen()[code]
+  return Array.isArray(list) ? new Set(list) : null
+}
+
+/** [ids] seen for [code] — on its page, or told in Home's banner. */
+export function markRevealsSeen(code: string, ids: Iterable<string>) {
+  const all = readSeen()
+  const had = new Set(all[code] ?? [])
+  const before = had.size
+  for (const id of ids) had.add(id)
+  if (all[code] && had.size === before) return
+  all[code] = [...had]
+  try { localStorage.setItem(REVEALS_SEEN_KEY, JSON.stringify(all)) } catch { /* this visit only */ }
+}
+
+function revealsToldAt(): number | null {
+  const at = Number(localStorage.getItem(REVEALS_TOLD_KEY) ?? 0)
+  return at > 0 ? at : null
+}
+
+/** One followed set's newly revealed cards that fit the user's decks. */
+export interface RevealNewsItem { set: SetInfo; count: number }
+
+/**
+ * Home's spoiler news: followed sets not out yet (or just out) with cards revealed since last time
+ * that fit one of [decks] — worked out once a day at most (the Android app's notification). A set
+ * looked at for the first time only notes what's there. Empty while it's worked out, or offline.
+ */
+export function useRevealNews(decks: Deck[]): { news: RevealNewsItem[]; dismiss: () => void } {
+  const { followed: f } = useFollowed()
+  const [news, setNews] = useState<RevealNewsItem[]>([])
+  const commander = commanderDecks(decks)
+  const commanderKey = commander.map((d) => `${d.id}:${d.commander?.scryfallId}:${d.partnerCommander?.scryfallId ?? ''}`).join(',')
+  useEffect(() => {
+    if (f.size === 0 || commander.length === 0 || !mayTellReveals(revealsToldAt(), Date.now())) return
+    let cancelled = false
+    ;(async () => {
+      const now = today()
+      const { upcoming, recent } = releaseSets(await loadReleaseSets(), now)
+      const watched = [...upcoming, ...recent].filter((s) => f.has(s.code) && s.cardCount > 0)
+      if (watched.length === 0) return
+      const identities = await commanderIdentities(commander)
+      const profiles = commander.flatMap((d) => { const id = identities.get(d.id); return id ? [profileOf(d, id)] : [] })
+      const fitting: [SetInfo, string[]][] = []
+      for (const set of watched) fitting.push([set, [...fitsByCard(await loadSetCards(set.code), profiles, now).keys()]])
+      // Left before it was worked out: nothing is marked seen, so the next visit tells it.
+      if (cancelled) return
+      const out: RevealNewsItem[] = []
+      for (const [set, ids] of fitting) {
+        const fresh = revealNews(revealsSeen(set.code), ids)
+        markRevealsSeen(set.code, ids)
+        if (fresh.length > 0) out.push({ set, count: fresh.length })
+      }
+      if (out.length === 0) return
+      try { localStorage.setItem(REVEALS_TOLD_KEY, String(Date.now())) } catch { /* this visit only */ }
+      setNews(out)
+    })().catch(() => {})
+    return () => { cancelled = true }
+    // commanderKey stands for the decks' commanders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [f, commanderKey])
+  return { news, dismiss: () => setNews([]) }
 }

@@ -20,7 +20,8 @@ import { isWishlist } from '../collection/wishlist'
 import { usePriceAlertHits } from '../collection/priceAlerts'
 import type { AlertHit } from '../collection/priceAlertRules'
 import { useCollectionValue } from '../collection/valueHistory'
-import { markTold, useSetsToAnnounce } from '../collection/newSetsStore'
+import { markTold, useRevealNews, useSetsToAnnounce } from '../collection/newSetsStore'
+import { revealNewsTitle } from '../collection/spoilers'
 import { useMoney } from '../money/currency'
 import { proxySwaps } from '../decks/proxies'
 import { isAndroid } from './GetAppPage'
@@ -150,6 +151,19 @@ export function HomePage() {
       </button>
     </div>
   )
+  // Cards revealed for a followed set that fit the user's decks — once a day at most (collection/spoilers.ts).
+  const reveals = useRevealNews(decks)
+  const revealBanner = reveals.news.length > 0 && (
+    <div className="banner rise" style={{ ...rise(1), marginBottom: 0 }}>
+      <Icon name="auto_awesome" />
+      <button type="button" className="banner-text" onClick={() => { reveals.dismiss(); navigate(reveals.news.length === 1 ? `/new-sets/${reveals.news[0].set.code}` : '/new-sets') }}>
+        {revealNewsTitle(reveals.news)}
+      </button>
+      <button type="button" className="icon-btn" aria-label="Close" onClick={reveals.dismiss}>
+        <Icon name="close" />
+      </button>
+    </div>
+  )
   // Proxies you've since bought for real: worth saying here, rather than only inside the deck.
   const swaps = useMemo(() => proxySwaps(collections, decks), [collections, decks])
   const swapBanner = swaps.length > 0 && (
@@ -244,9 +258,9 @@ export function HomePage() {
           )}
           {seatBanner}
           {alertBanner}
-        {setBanner}
           {setBanner}
-            {swapBanner}
+          {revealBanner}
+          {swapBanner}
           {appBanner}
           {samplesBar}
           {getStarted && <GetStartedCard facts={welcomeFacts} className="rise" style={rise(1)} />}
@@ -342,7 +356,9 @@ export function HomePage() {
         )}
         {seatBanner}
         {alertBanner}
-            {swapBanner}
+        {setBanner}
+        {revealBanner}
+        {swapBanner}
         {appBanner}
         {samplesBar}
         {getStarted && <GetStartedCard facts={welcomeFacts} className="rise" style={{ ...rise(1), marginBottom: 10 }} />}

@@ -49,6 +49,7 @@ import { sameJson } from './canonicalJson'
 import { keepPlaceSizes, keepPlacesFromOlderApp, mergeCopyPlaces, mergePlaceLists, tidied } from '../collection/storagePlaces'
 import { keepForSaleFromOlderApp } from '../collection/selling'
 import { keepAlertOptionsFromOlderApp } from '../collection/wishlistTargets'
+import { keepPreReleaseFromOlderApp } from '../collection/spoilers'
 import { keepCameFromFromOlderApp, mergeCameFrom } from '../collection/pullList'
 import { keepLoansFromOlderApp, mergeLoans } from '../collection/loans'
 import { keepSealedFromOlderApp, mergeSealed } from '../collection/sealed'
@@ -245,11 +246,12 @@ export function mergeCollection(base: Collection, mineIn: Collection, theirsIn: 
   // ...and one that doesn't know about loans left those as they were.
   // ...and one that doesn't know about place sizes or copies to sell left those as they were.
   // ...and one that doesn't know about a wishlist target's options left those as they were.
+  // ...and one that doesn't know about cards wanted from spoilers left their release date as it was.
   // ...and one that doesn't know about sealed product, graded copies or gear left those as they were.
   // ...and one that doesn't know about sorting recipes left those as they were.
   // ...and one that doesn't know about collection goals left those as they were.
-  const mine = keepGoalsFromOlderApp(base, keepCorrectionsFromOlderApp(base, keepRecipesFromOlderApp(base, keepGearFromOlderApp(base, keepGradedFromOlderApp(base, keepSealedFromOlderApp(base, keepAlertOptionsFromOlderApp(base, keepForSaleFromOlderApp(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, mineIn)))))))))))
-  const theirs = keepGoalsFromOlderApp(base, keepCorrectionsFromOlderApp(base, keepRecipesFromOlderApp(base, keepGearFromOlderApp(base, keepGradedFromOlderApp(base, keepSealedFromOlderApp(base, keepAlertOptionsFromOlderApp(base, keepForSaleFromOlderApp(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, theirsIn)))))))))))
+  const mine = keepGoalsFromOlderApp(base, keepCorrectionsFromOlderApp(base, keepRecipesFromOlderApp(base, keepGearFromOlderApp(base, keepGradedFromOlderApp(base, keepSealedFromOlderApp(base, keepAlertOptionsFromOlderApp(base, keepPreReleaseFromOlderApp(base, keepForSaleFromOlderApp(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, mineIn))))))))))))
+  const theirs = keepGoalsFromOlderApp(base, keepCorrectionsFromOlderApp(base, keepRecipesFromOlderApp(base, keepGearFromOlderApp(base, keepGradedFromOlderApp(base, keepSealedFromOlderApp(base, keepAlertOptionsFromOlderApp(base, keepPreReleaseFromOlderApp(base, keepForSaleFromOlderApp(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, theirsIn))))))))))))
   const placesIn = (list: CollectionEntry[]) => new Map(list.map((e) => [e.scryfallId, e]))
   const [b, m, t] = [placesIn(base.entries), placesIn(mine.entries), placesIn(theirs.entries)]
   // Each card's places line by line (one added on both sides keeps the other device's), then no more
