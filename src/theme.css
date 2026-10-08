@@ -2871,7 +2871,18 @@ html {
   font-variant-numeric: tabular-nums;
   cursor: pointer;
 }
-.scan-zoom-chip { min-width: 64px; background: rgba(255, 255, 255, 0.14); }
+.scan-zoom-chip { min-width: 64px; background: rgba(255, 255, 255, 0.14); padding: 0 10px; }
+.scan-zoom-chip.auto { display: flex; gap: 6px; }
+.scan-zoom-auto {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #000;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 .scan-zoom-btn:disabled { opacity: 0.4; cursor: default; }
 .scan-zoom-btn:not(:disabled):active,
 .scan-zoom-chip:active { background: rgba(255, 255, 255, 0.28); }

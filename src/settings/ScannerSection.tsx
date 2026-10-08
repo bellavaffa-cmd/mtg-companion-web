@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMoney } from '../money/currency'
 import { previewCue, setScanSound, useScanSound } from '../scan/scanFeedback'
+import { useAutoCameraSetting } from '../components/useAutoCamera'
 import { parseThreshold, SOUND_MODE_LABELS, type ScanCue, type ScanSoundMode } from '../scan/scanSounds'
 
 /** Play all's buttons, in the order Play all plays them. The Android app's ScannerSection.kt. */
@@ -31,9 +32,10 @@ function Switch({ on, title, note, onChange }: { on: boolean; title: string; not
   )
 }
 
-/** Settings › Scanner: the sound and buzz when the scanner recognises a card (scan/scanFeedback.ts). */
+/** Settings › Scanner: the sound and buzz when the scanner recognises a card (scan/scanFeedback.ts), and auto zoom and focus. */
 export function ScannerSection() {
   const s = useScanSound()
+  const [autoCamera, setAutoCamera] = useAutoCameraSetting()
   const money = useMoney()
   const [threshold, setThreshold] = useState(String(s.threshold))
   useEffect(() => { setThreshold(String(s.threshold)) }, [s.threshold])
@@ -114,6 +116,13 @@ export function ScannerSection() {
         title="Play in silent mode"
         note="Off: the sounds stay quiet while the phone is on silent or vibrate."
         onChange={(silent) => setScanSound({ silent })}
+      />
+      <div className="settings-divider" />
+      <Switch
+        on={autoCamera}
+        title="Auto zoom and focus"
+        note="Zooms to fit the card in the frame and keeps it in focus, on cameras that allow it. Zooming by hand takes over until you tap the zoom chip."
+        onChange={setAutoCamera}
       />
       <div className="settings-divider" />
       <div className="settings-row">

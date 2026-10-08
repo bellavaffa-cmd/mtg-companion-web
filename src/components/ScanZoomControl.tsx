@@ -3,7 +3,7 @@
 
 import { Icon } from './Icon'
 import type { ScanZoom } from './useScanZoom'
-import { canStepZoom, zoomLabel } from '../scan/scanZoom'
+import { canStepZoom, zoomLabel, zoomSpoken } from '../scan/scanZoom'
 
 /** The chip over the preview: − 1.8× +, and the hint past the lens switch. Nothing without zoom. */
 export function ScanZoomControl({ zoom }: { zoom: ScanZoom }) {
@@ -19,18 +19,22 @@ export function ScanZoomControl({ zoom }: { zoom: ScanZoom }) {
         </button>
         <button
           type="button"
-          className="scan-zoom-chip"
-          aria-label={`Zoom ${label} — reset to ${zoomLabel(zoom.defaultZoom)}`}
-          title={`Tap to go back to ${zoomLabel(zoom.defaultZoom)}`}
+          className={zoom.auto ? 'scan-zoom-chip auto' : 'scan-zoom-chip'}
+          aria-label={`${zoomSpoken(zoom.zoom)}${zoom.auto ? ', auto' : ''} — reset to ${zoomLabel(zoom.defaultZoom)}${zoom.autoEnabled ? ' with auto zoom' : ''}`}
+          title={zoom.auto
+            ? 'Auto zoom: follows the card. − or + (or a pinch) takes over by hand.'
+            : `Tap to go back to ${zoomLabel(zoom.defaultZoom)}${zoom.autoEnabled ? ' with auto zoom' : ''}`}
           onClick={zoom.reset}
         >
           <span aria-hidden>{label}</span>
+          {zoom.auto && <span className="scan-zoom-auto" aria-hidden>Auto</span>}
         </button>
         <button type="button" className="scan-zoom-btn" aria-label="Zoom in" disabled={!canStepZoom(zoom.zoom, 1, range)} onClick={() => zoom.step(1)}>
           <Icon name="add" aria-hidden />
         </button>
       </div>
-      <span className="sr-only" aria-live="polite">Zoom {label}</span>
+      {/* Auto zoom moves often: said once as it starts, not at every nudge. */}
+      <span className="sr-only" aria-live="polite">{zoom.auto ? 'Auto zoom' : zoomSpoken(zoom.zoom)}</span>
     </div>
   )
 }

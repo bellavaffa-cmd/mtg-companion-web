@@ -5,10 +5,19 @@
 // The pure part, mirrored by the Android app's data/ScanZoom.kt. The page wiring is
 // components/useScanZoom.tsx.
 
-import { LENS_SWITCH_ZOOM, zoomFor } from './guide'
+import { LENS_SWITCH_ZOOM, SCAN_ZOOM, zoomFor } from './guide'
 
-/** How far one press of − or + moves the zoom. */
-export const ZOOM_STEP = 0.25
+/** How far one press of − or + moves the zoom below [ZOOM_COARSE_FROM]… */
+export const ZOOM_FINE_STEP = 0.25
+
+/** …and from there up, where a quarter is too small to see. */
+export const ZOOM_COARSE_STEP = 0.5
+
+/** Where the steps get bigger. */
+export const ZOOM_COARSE_FROM = 3
+
+/** How near two ratios are to count as the same (rounding, a pinch landing on a step). */
+const ZOOM_EPSILON = 0.01
 
 /** What a camera says about its zoom: always min < max; step 0 when it gave none. */
 export interface ZoomRange {
@@ -41,13 +50,20 @@ export function clampZoom(zoom: number, range: ZoomRange): number {
 }
 
 /**
- * One press of − (direction -1) or + (1): to the next quarter in that direction (1.8 → 2.0 or 1.75),
- * so the chip reads round numbers after the first press. A camera whose own step is coarser than a
- * quarter moves by that step instead, so a press always does something until the end of the range.
+ * One press of − (direction -1) or + (1): to the next step in that direction — 1.8× to 2× or 1.75×,
+ * 3× to 3.5× or 2.75× — so the chip reads round numbers after the first press (the Android app's
+ * zoomIn / zoomOut). A camera whose own step is coarser moves by that step instead, so a press
+ * always does something until the end of the range.
  */
 export function stepZoom(current: number, direction: 1 | -1, range: ZoomRange): number {
-  const grid = current / ZOOM_STEP
-  const next = (direction > 0 ? Math.floor(grid + 1e-6) + 1 : Math.ceil(grid - 1e-6) - 1) * ZOOM_STEP
+  let next: number
+  if (direction > 0) {
+    const step = current + ZOOM_EPSILON >= ZOOM_COARSE_FROM ? ZOOM_COARSE_STEP : ZOOM_FINE_STEP
+    next = (Math.floor((current + ZOOM_EPSILON) / step) + 1) * step
+  } else {
+    const step = current - ZOOM_EPSILON > ZOOM_COARSE_FROM ? ZOOM_COARSE_STEP : ZOOM_FINE_STEP
+    next = (Math.ceil((current - ZOOM_EPSILON) / step) - 1) * step
+  }
   const z = clampZoom(next, range)
   if (Math.abs(z - current) > 1e-6 || range.step <= 0) return z
   return clampZoom(current + direction * range.step, range)
@@ -77,19 +93,32 @@ export function wheelZoom(current: number, deltaY: number, deltaMode: number, ra
 }
 
 /**
- * The zoom a card scan starts at, and goes back to when the chip is tapped: SCAN_ZOOM as the camera
- * can give it (zoomFor), on the camera's step, and never past the lens switch.
+ * Where a scanner starts, and where tapping the chip takes it: [preferred], as the camera can give it
+ * (zoomFor), on the camera's step, and under the lens switch. SCAN_ZOOM for a card; 1× for a binder
+ * page (PageScanPage). The Android app's defaultZoom.
  */
-export function defaultZoom(range: ZoomRange): number {
-  const z = clampZoom(zoomFor(range) ?? range.min, range)
-  if (z > LENS_SWITCH_ZOOM && range.step > 0 && z - range.step >= range.min) return tidy(z - range.step)
+export function defaultZoom(range: ZoomRange, preferred = SCAN_ZOOM): number {
+  const wanted = preferred === SCAN_ZOOM ? zoomFor(range) ?? range.min : Math.min(preferred, LENS_SWITCH_ZOOM)
+  const z = clampZoom(wanted, range)
+  if (z >= LENS_SWITCH_ZOOM - ZOOM_EPSILON / 2 && range.step > 0 && z - range.step >= range.min) return tidy(z - range.step)
   return z
 }
 
-/** The chip's text: "1.8×", "2.0×", "1.75×". */
+/** The number on the chip: quarters exactly, anything else to a tenth — "1.8", "2", "2.25". */
+function zoomNumber(zoom: number): string {
+  const hundredths = Math.round(zoom * 100)
+  if (hundredths % 25 === 0 && hundredths % 10 !== 0) return (hundredths / 100).toFixed(2)
+  return String(Math.round(zoom * 10) / 10)
+}
+
+/** The chip's text: "1.8×", "2×", "2.25×" (the Android app's zoomLabel). */
 export function zoomLabel(zoom: number): string {
-  const z = tidy(zoom)
-  return `${Number.isInteger(z * 10) ? z.toFixed(1) : z.toFixed(2)}×`
+  return `${zoomNumber(zoom)}×`
+}
+
+/** What a screen reader says for it: "Zoom 1.8 times" (the Android app's zoomSpoken). */
+export function zoomSpoken(zoom: number): string {
+  return `Zoom ${zoomNumber(zoom)} times`
 }
 
 /**
@@ -98,7 +127,7 @@ export function zoomLabel(zoom: number): string {
  * [thing] is what is held: a card, or a binder page.
  */
 export function zoomHint(zoom: number, thing = 'card'): string | null {
-  return zoom > LENS_SWITCH_ZOOM + 1e-6 ? `Hold the ${thing} farther away` : null
+  return zoom >= LENS_SWITCH_ZOOM - ZOOM_EPSILON / 2 ? `Hold the ${thing} farther away` : null
 }
 
 /** A zoom kept from last time, as stored; null when there's none or it isn't one. */

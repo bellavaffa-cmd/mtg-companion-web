@@ -3,7 +3,11 @@
 // preview has focus. A camera with no zoom gets none of it, and no control is shown.
 //
 // The zoom shown is always the last one the camera took: a refused one (applyConstraints rejects) is
-// let go quietly. The last zoom is kept on this device for next time.
+// let go quietly. A zoom chosen by hand is kept on this device for next time.
+//
+// With auto zoom on (Settings › Scanner, scan/autoCamera.ts) the zoom follows the card by itself, until
+// it's moved by hand; tapping the chip goes back to the default with auto zoom on again. A zoom kept
+// from last time was chosen by hand, so it opens with auto zoom off; the chip clears it.
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { clampZoom, pinchZoom, savedZoom, startZoom, stepZoom, wheelZoom, zoomHint, zoomRangeOf, type ZoomRange } from '../scan/scanZoom'
@@ -17,6 +21,8 @@ interface Options {
   thing?: string
   /** Called each time the camera takes a new zoom — the picture under the card just changed. */
   onZoomChange?: () => void
+  /** Whether the zoom may follow the card by itself (the setting); off for a page scan. */
+  autoEnabled?: boolean
 }
 
 export interface ScanZoom {
@@ -24,6 +30,8 @@ export interface ScanZoom {
   range: ZoomRange | null
   /** The zoom the camera last took. */
   zoom: number
+  /** The same, for the camera loop. */
+  zoomNow: RefObject<number>
   /** The zoom tapping the chip goes back to. */
   defaultZoom: number
   hint: string | null
@@ -31,7 +39,16 @@ export interface ScanZoom {
   pinching: RefObject<boolean>
   /** The stream's video track, once it's running (null when it stops). */
   attach: (track: MediaStreamTrack | null) => void
+  /** Whether the zoom is following the card by itself now. */
+  auto: boolean
+  /** Whether auto zoom is switched on at all (the setting). */
+  autoEnabled: boolean
+  /** The same, for the camera loop. */
+  autoRef: RefObject<boolean>
+  /** A zoom chosen by hand: auto zoom goes off. */
   set: (zoom: number) => void
+  /** A zoom chosen by auto zoom: ignored once it's off. */
+  autoSet: (zoom: number) => void
   step: (direction: 1 | -1) => void
   reset: () => void
   /** For the preview element: pinch, ctrl + wheel and keys are listened for on it. */
@@ -45,7 +62,7 @@ const zoomSetting = (track: MediaStreamTrack): number | undefined => (track.getS
 /** How long after a trackpad's last pinch event it counts as still pinching. */
 const WHEEL_SETTLE_MS = 250
 
-export function useScanZoom({ storageKey, defaultFor, thing = 'card', onZoomChange }: Options): ScanZoom {
+export function useScanZoom({ storageKey, defaultFor, thing = 'card', onZoomChange, autoEnabled = false }: Options): ScanZoom {
   const [range, setRange] = useState<ZoomRange | null>(null)
   const [zoom, setZoom] = useState(1)
   const [view, setView] = useState<HTMLElement | null>(null)
@@ -58,8 +75,15 @@ export function useScanZoom({ storageKey, defaultFor, thing = 'card', onZoomChan
   const busy = useRef(false)
   const pending = useRef<number | null>(null)
   const pinching = useRef(false)
-  const options = useRef({ storageKey, defaultFor, onZoomChange })
-  options.current = { storageKey, defaultFor, onZoomChange }
+  const [auto, setAuto] = useState(autoEnabled)
+  const autoRef = useRef(autoEnabled)
+  const options = useRef({ storageKey, defaultFor, onZoomChange, autoEnabled })
+  options.current = { storageKey, defaultFor, onZoomChange, autoEnabled }
+  /** Whether the zoom being asked for was chosen by hand, and so is kept for next time. */
+  const byHand = useRef(false)
+  const autoTo = useCallback((on: boolean) => { autoRef.current = on; setAuto(on) }, [])
+  // The setting switched off while scanning (another tab): auto zoom stops.
+  useEffect(() => { if (!autoEnabled) autoTo(false) }, [autoEnabled, autoTo])
 
   /** One request at a time, newest wins: a pinch asks every frame, and answers mustn't land out of order. */
   const request = useCallback((z: number) => {
@@ -76,7 +100,9 @@ export function useScanZoom({ storageKey, defaultFor, thing = 'card', onZoomChan
         if (track.current !== t) return
         accepted.current = next
         setZoom(next)
-        try { localStorage.setItem(options.current.storageKey, String(next)) } catch { /* private mode: it just isn't kept */ }
+        if (byHand.current) {
+          try { localStorage.setItem(options.current.storageKey, String(next)) } catch { /* private mode: it just isn't kept */ }
+        }
         options.current.onZoomChange?.()
       })
       // Not every browser that reports zoom will take it: the last zoom it took stays shown.
@@ -106,17 +132,35 @@ export function useScanZoom({ storageKey, defaultFor, thing = 'card', onZoomChan
     setZoom(now)
     let kept: number | null = null
     try { kept = savedZoom(localStorage.getItem(options.current.storageKey)) } catch { /* nothing kept */ }
+    byHand.current = false
+    autoTo(options.current.autoEnabled && kept === null)
     request(startZoom(kept, options.current.defaultFor(r), r))
-  }, [request])
+  }, [request, autoTo])
 
+  /** A zoom chosen by hand: kept, and auto zoom goes off. */
+  const manual = useCallback((z: number) => {
+    byHand.current = true
+    if (autoRef.current) autoTo(false)
+    request(z)
+  }, [request, autoTo])
+  const autoSet = useCallback((z: number) => {
+    if (!autoRef.current || pinching.current) return
+    byHand.current = false
+    request(z)
+  }, [request])
   const step = useCallback((direction: 1 | -1) => {
     const r = rangeRef.current
-    if (r) request(stepZoom(wanted.current, direction, r))
-  }, [request])
+    if (r) manual(stepZoom(wanted.current, direction, r))
+  }, [manual])
+  /** Back to the default, with auto zoom on again (when it's switched on) and nothing kept. */
   const reset = useCallback(() => {
     const r = rangeRef.current
-    if (r) request(options.current.defaultFor(r))
-  }, [request])
+    if (!r) return
+    try { localStorage.removeItem(options.current.storageKey) } catch { /* nothing kept */ }
+    byHand.current = false
+    autoTo(options.current.autoEnabled)
+    request(options.current.defaultFor(r))
+  }, [request, autoTo])
 
   // Pinch, ctrl + wheel and keys, on the preview — only when there's a zoom to change.
   useEffect(() => {
@@ -142,7 +186,7 @@ export function useScanZoom({ storageKey, defaultFor, thing = 'card', onZoomChan
       fingers.set(e.pointerId, { x: e.clientX, y: e.clientY })
       if (fingers.size === 2 && start && rangeRef.current) {
         e.preventDefault()
-        request(pinchZoom(start.zoom, start.distance, distance(), rangeRef.current))
+        manual(pinchZoom(start.zoom, start.distance, distance(), rangeRef.current))
       }
     }
     const up = (e: PointerEvent) => {
@@ -161,7 +205,7 @@ export function useScanZoom({ storageKey, defaultFor, thing = 'card', onZoomChan
       pinching.current = true
       clearTimeout(wheelTimer)
       wheelTimer = setTimeout(() => { pinching.current = false; options.current.onZoomChange?.() }, WHEEL_SETTLE_MS)
-      request(wheelZoom(wanted.current, e.deltaY, e.deltaMode, rangeRef.current))
+      manual(wheelZoom(wanted.current, e.deltaY, e.deltaMode, rangeRef.current))
     }
     const key = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return
@@ -187,16 +231,21 @@ export function useScanZoom({ storageKey, defaultFor, thing = 'card', onZoomChan
       view.removeEventListener('wheel', wheel)
       view.removeEventListener('keydown', key)
     }
-  }, [view, range, request, step])
+  }, [view, range, manual, step])
 
   return {
     range,
     zoom,
+    zoomNow: accepted,
     defaultZoom: range ? defaultFor(range) : 1,
     hint: range ? zoomHint(zoom, thing) : null,
     pinching,
+    auto: auto && !!range,
+    autoEnabled: autoEnabled && !!range,
+    autoRef,
     attach,
-    set: request,
+    set: manual,
+    autoSet,
     step,
     reset,
     viewRef: setView,

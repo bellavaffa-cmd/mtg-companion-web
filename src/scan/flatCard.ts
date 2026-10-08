@@ -6,6 +6,7 @@
 
 import { findCards, flatten, greyOf, scaledQuad, type CardQuad } from './cardEdges'
 import type { Box } from './ocr'
+import { sharpness } from './autoCamera'
 import { cardShaped, GRID_H, GRID_W, PRINTING_INSET, signatureFromPixels, type ArtSignature } from './printingMatch'
 
 /** How wide the picture is shrunk to for finding the edges: plenty to place them, and quick. */
@@ -86,6 +87,55 @@ export function flattenCard(source: CanvasImageSource, guide: Box): FlatCard | n
   }, OUTLINES)
   if (!found.length) return null
   return { px: fctx.getImageData(0, 0, aw, ah).data, width: aw, height: ah, quads: found.map((q) => scaledQuad(q, 1 / scale)), x: ax, y: ay }
+}
+
+/** Canvases reused frame after frame by [cardInView]. */
+let viewSmall: HTMLCanvasElement | null = null
+let viewCrop: HTMLCanvasElement | null = null
+/** The size of the patch at the card's centre its sharpness is measured on, in the camera's own pixels. */
+const SHARP_PATCH = 160
+
+/**
+ * Where the card is in [source] (near [guide], both in the source's pixels) and how sharp it is, for
+ * auto zoom and focus (scan/autoCamera.ts) — or null when its edges can't be made out. Cheap enough
+ * for every frame: the edges are found on a small copy, as in [flattenCard], with nothing kept at full
+ * size but a patch from the card's middle, measured at the camera's own resolution — where blur shows.
+ */
+export function cardInView(source: CanvasImageSource, guide: Box): { quad: CardQuad; sharpness: number } | null {
+  const { w, h } = sizeOf(source)
+  if (!w || !h) return null
+  const expected = cardShaped(guide)
+  const ax = Math.max(0, Math.floor(expected.x - expected.width * SEARCH_SLACK))
+  const ay = Math.max(0, Math.floor(expected.y - expected.height * SEARCH_SLACK))
+  const aw = Math.min(w, Math.ceil(expected.x + expected.width * (1 + SEARCH_SLACK))) - ax
+  const ah = Math.min(h, Math.ceil(expected.y + expected.height * (1 + SEARCH_SLACK))) - ay
+  if (aw < 40 || ah < 40) return null
+  const scale = SEARCH_W / aw
+  const sw = SEARCH_W
+  const sh = Math.max(1, Math.round(ah * scale))
+  viewSmall ??= document.createElement('canvas')
+  if (viewSmall.width !== sw || viewSmall.height !== sh) { viewSmall.width = sw; viewSmall.height = sh }
+  const sctx = viewSmall.getContext('2d', { willReadFrequently: true })
+  if (!sctx) return null
+  sctx.imageSmoothingQuality = 'high'
+  sctx.drawImage(source, ax, ay, aw, ah, 0, 0, sw, sh)
+  const found = findCards(greyOf(sctx.getImageData(0, 0, sw, sh).data), sw, sh, {
+    x: (expected.x - ax) * scale, y: (expected.y - ay) * scale, width: expected.width * scale, height: expected.height * scale,
+  }, 1)
+  if (!found.length) return null
+  const quad = scaledQuad(found[0], 1 / scale, ax, ay)
+  const cx = (quad.topLeft.x + quad.topRight.x + quad.bottomRight.x + quad.bottomLeft.x) / 4
+  const cy = (quad.topLeft.y + quad.topRight.y + quad.bottomRight.y + quad.bottomLeft.y) / 4
+  const pw = Math.min(SHARP_PATCH, w)
+  const ph = Math.min(SHARP_PATCH, h)
+  const px = Math.round(Math.min(Math.max(cx - pw / 2, 0), w - pw))
+  const py = Math.round(Math.min(Math.max(cy - ph / 2, 0), h - ph))
+  viewCrop ??= document.createElement('canvas')
+  if (viewCrop.width !== pw || viewCrop.height !== ph) { viewCrop.width = pw; viewCrop.height = ph }
+  const cctx = viewCrop.getContext('2d', { willReadFrequently: true })
+  if (!cctx) return { quad, sharpness: 1 }
+  cctx.drawImage(source, px, py, pw, ph, 0, 0, pw, ph)
+  return { quad, sharpness: sharpness(greyOf(cctx.getImageData(0, 0, pw, ph).data), pw, ph) }
 }
 
 /**

@@ -14,6 +14,8 @@ import {
 } from '../collection/pageScan'
 import { guideInVideo } from '../scan/guide'
 import { useScanZoom } from '../components/useScanZoom'
+import { loadAutoCamera, useAutoCamera } from '../components/useAutoCamera'
+import { defaultZoom, type ZoomRange } from '../scan/scanZoom'
 import { ScanZoomControl } from '../components/ScanZoomControl'
 import { cardNameIndex } from '../scan/cardNames'
 import { readCardName, type Box } from '../scan/ocr'
@@ -69,8 +71,8 @@ type Camera = 'starting' | 'on' | 'denied' | 'unsupported' | 'failed'
 
 /** The zoom a page was last scanned at, kept on this device (see useScanZoom). */
 const PAGE_ZOOM_KEY = 'mtgweb_page_scan_zoom'
-/** A page starts wide — as wide as the camera goes — since a whole page needs every pixel it can get. */
-const widest = (range: { min: number }) => range.min
+/** A page starts wide (1×), since a whole page needs every pixel it can get. */
+const pageZoom = (range: ZoomRange) => defaultZoom(range, 1)
 
 export function PageScanPage() {
   const { id = '' } = useParams<{ id: string }>()
@@ -92,8 +94,11 @@ export function PageScanPage() {
   const guideRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   // Zoom, for a camera that has it: a page held far off can be brought closer (useScanZoom).
-  const zoom = useScanZoom({ storageKey: PAGE_ZOOM_KEY, defaultFor: widest, thing: 'page' })
+  const zoom = useScanZoom({ storageKey: PAGE_ZOOM_KEY, defaultFor: pageZoom, thing: 'page' })
   const attachZoom = zoom.attach
+  // Continuous focus and exposure, where the camera has them and auto focus is on (Settings › Scanner).
+  const [autoFocus] = useState(loadAutoCamera)
+  const attachFocus = useAutoCamera(zoom, autoFocus, () => {}).attach
   useKeepAwake(phase !== 'results')
 
   // The model and index start loading now, so the first page doesn't wait for them.
@@ -113,6 +118,7 @@ export function PageScanPage() {
         if (cancelled) { s.getTracks().forEach((t) => t.stop()); return }
         stream = s
         attachZoom(s.getVideoTracks()[0] ?? null)
+        attachFocus(s.getVideoTracks()[0] ?? null)
         const video = videoRef.current
         if (video) {
           video.srcObject = s
@@ -129,8 +135,9 @@ export function PageScanPage() {
       cancelled = true
       stream?.getTracks().forEach((t) => t.stop())
       attachZoom(null)
+      attachFocus(null)
     }
-  }, [attachZoom])
+  }, [attachZoom, attachFocus])
 
   if (!place) {
     return (

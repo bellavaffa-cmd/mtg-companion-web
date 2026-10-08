@@ -18,6 +18,7 @@ import { cardNameIndex, MIN_MATCH } from '../scan/cardNames'
 import { guideInVideo } from '../scan/guide'
 import { defaultZoom } from '../scan/scanZoom'
 import { useScanZoom } from '../components/useScanZoom'
+import { loadAutoCamera, useAutoCamera } from '../components/useAutoCamera'
 import { ScanZoomControl } from '../components/ScanZoomControl'
 import { cameraSignatures, decideInSet, matchPrinting, measurePrintings, type ArtSignature } from '../scan/printingMatch'
 import { readCardName, readSmallPrint, STRIP_STYLES, titleReader, type Box, type StripStyle } from '../scan/ocr'
@@ -485,9 +486,13 @@ export function ScanPage() {
   const settleReads = useRef<() => void>(() => {})
   // Zoomed in so the card fills the frame from where it is comfortable to hold it, which is what
   // decides whether the printing can be read off the card or has to be guessed from its name (see
-  // SCAN_ZOOM) — and the − / + chip, a pinch or ctrl + wheel to change it (useScanZoom).
-  const zoom = useScanZoom({ storageKey: ZOOM_KEY, defaultFor: defaultZoom, onZoomChange: () => settleReads.current() })
+  // SCAN_ZOOM) — and the − / + chip, a pinch or ctrl + wheel to change it (useScanZoom). With auto
+  // zoom and focus (Settings › Scanner) the zoom follows the card and focus is kept on it (useAutoCamera).
+  const [autoCamera] = useState(loadAutoCamera)
+  const zoom = useScanZoom({ storageKey: ZOOM_KEY, defaultFor: defaultZoom, autoEnabled: autoCamera, onZoomChange: () => settleReads.current() })
+  const auto = useAutoCamera(zoom, autoCamera, () => settleReads.current())
   const attachZoom = zoom.attach
+  const { attach: attachAuto, onFrame: autoFrame, adjusting: autoAdjusting } = auto
   // The camera's light, when it has one (see scan/torch.ts), and whether it's on.
   const [torch, setTorch] = useState<{ track: MediaStreamTrack; on: boolean } | null>(null)
   const [mode, setMode] = useState<ScanMode>(() => {
@@ -682,6 +687,7 @@ export function ScanPage() {
       stream = null
       setTorch(null)
       attachZoom(null)
+      attachAuto(null)
     }
     const onVisibility = () => {
       if (!document.hidden) setCameraAttempt((n) => n + 1)
@@ -697,6 +703,8 @@ export function ScanPage() {
         // The zoom, asked for once the stream is running, because only then does the camera say
         // what zoom it has; a camera with none — most laptops — is left alone, with no control.
         attachZoom(s.getVideoTracks()[0] ?? null)
+        // Continuous focus and exposure, where it has them and auto focus is on.
+        attachAuto(s.getVideoTracks()[0] ?? null)
         // The light, when this camera has one; it starts off, as the camera does.
         const lit = s.getVideoTracks().find((t) => hasTorch(t.getCapabilities?.()))
         setTorch(lit ? { track: lit, on: false } : null)
@@ -717,7 +725,7 @@ export function ScanPage() {
       document.removeEventListener('visibilitychange', onVisibility)
       release()
     }
-  }, [cameraAttempt, attachZoom])
+  }, [cameraAttempt, attachZoom, attachAuto])
 
   // Reading: one frame at a time, as fast as the reader manages. A card is looked up once its name
   // reads the same twice, and not again while it stays in view (ScanTracker).
@@ -751,9 +759,12 @@ export function ScanPage() {
         if (!video || !box) { await sleep(300); continue }
         // Mid-pinch the picture is moving under the card: nothing is read, let alone taken, until
         // the fingers are off (the reads then start again from nothing — see settleReads).
-        if (zoom.pinching.current) { await sleep(BETWEEN_READS_MS); continue }
+        // The same while the focus is being run again.
+        if (zoom.pinching.current || autoAdjusting.current) { await sleep(BETWEEN_READS_MS); continue }
         const read = await readCardName(video, box, names).catch(() => null)
         if (stopped) break
+        // Auto zoom and focus look at the same frame: where the card is, and whether it's sharp.
+        autoFrame(video, box, !!read?.match)
         setSeen(read?.seen ?? '')
         const forced = scanNow.current
         scanNow.current = false
@@ -891,7 +902,7 @@ export function ScanPage() {
       }
     })()
     return () => { stopped = true; settleReads.current = () => {} }
-  }, [camera, zoom.pinching])
+  }, [camera, zoom.pinching, autoAdjusting, autoFrame])
 
   // QR codes, alongside cards and from the start (they don't wait for the card reader): one of the
   // app's opens where it leads — a friend's code asks to add them.

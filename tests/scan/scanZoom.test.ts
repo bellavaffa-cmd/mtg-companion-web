@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
-  canStepZoom, clampZoom, defaultZoom, pinchZoom, savedZoom, startZoom, stepZoom, wheelZoom, ZOOM_STEP, zoomHint, zoomLabel, zoomRangeOf,
+  canStepZoom, clampZoom, defaultZoom, pinchZoom, savedZoom, startZoom, stepZoom, wheelZoom, ZOOM_FINE_STEP, zoomHint, zoomLabel, zoomRangeOf, zoomSpoken,
   type ZoomRange,
 } from '../../src/scan/scanZoom.ts'
 import { LENS_SWITCH_ZOOM, SCAN_ZOOM } from '../../src/scan/guide.ts'
@@ -35,8 +35,12 @@ test('the zoom is held within the range and on the camera\'s step', () => {
   assert.equal(clampZoom(2.7, { min: 1, max: 3, step: 0.5 }), 2.5)
 })
 
-test('− and + go a quarter at a time, onto round numbers', () => {
-  assert.equal(ZOOM_STEP, 0.25)
+test('− and + go a quarter at a time, onto round numbers, and a half from 3×', () => {
+  assert.equal(ZOOM_FINE_STEP, 0.25)
+  assert.equal(stepZoom(3, 1, smooth), 3.5)
+  assert.equal(stepZoom(3, -1, smooth), 2.75)
+  assert.equal(stepZoom(3.5, -1, smooth), 3)
+  assert.equal(stepZoom(2.75, 1, smooth), 3)
   assert.equal(stepZoom(SCAN_ZOOM, 1, smooth), 2)
   assert.equal(stepZoom(SCAN_ZOOM, -1, smooth), 1.75)
   assert.equal(stepZoom(2, 1, smooth), 2.25)
@@ -75,14 +79,17 @@ test('ctrl + wheel: up zooms in, down zooms out, and a mouse notch is held back'
 
 test('the chip reads the zoom', () => {
   assert.equal(zoomLabel(1.8), '1.8×')
-  assert.equal(zoomLabel(2), '2.0×')
+  assert.equal(zoomLabel(2), '2×')
   assert.equal(zoomLabel(1.75), '1.75×')
-  assert.equal(zoomLabel(2.0500000001), '2.05×')
+  assert.equal(zoomLabel(2.25), '2.25×')
+  assert.equal(zoomLabel(2.0500000001), '2.1×')
+  assert.equal(zoomSpoken(1.8), 'Zoom 1.8 times')
 })
 
 test('past the lens switch it says to hold the card farther away; the default never does', () => {
   assert.equal(zoomHint(SCAN_ZOOM), null)
-  assert.equal(zoomHint(LENS_SWITCH_ZOOM), null)
+  assert.equal(zoomHint(2.75), null)
+  assert.equal(zoomHint(LENS_SWITCH_ZOOM), 'Hold the card farther away')
   assert.equal(zoomHint(3), 'Hold the card farther away')
   assert.equal(zoomHint(3, 'page'), 'Hold the page farther away')
   for (const range of [phone, smooth, { min: 1, max: 2, step: 0.5 }, { min: 0.5, max: 10, step: 0.01 }, { min: 2.5, max: 6, step: 0.5 }]) {
@@ -93,6 +100,9 @@ test('past the lens switch it says to hold the card farther away; the default ne
 test('the default is SCAN_ZOOM when the camera can give it', () => {
   assert.equal(defaultZoom(phone), SCAN_ZOOM)
   assert.equal(defaultZoom({ min: 1, max: 1.5, step: 0 }), 1.5)
+  // A binder page starts wide.
+  assert.equal(defaultZoom(phone, 1), 1)
+  assert.equal(defaultZoom({ min: 0.5, max: 10, step: 0.1 }, 1), 1)
 })
 
 test('the zoom kept from last time is used, within this camera\'s range', () => {
