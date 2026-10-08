@@ -4,6 +4,7 @@
 
 import type { ScryfallCard } from './scryfall'
 import type { DeckHistoryEntry } from '../decks/deckHistory'
+import type { SortRecipe } from '../collection/sortRecipes'
 
 export interface DeckCardEntry {
   scryfallId: string
@@ -425,6 +426,12 @@ export interface Collection {
    * the first item; then kept, as [] once none are left.
    */
   gear?: GearItem[]
+  /**
+   * The Unsorted pile only: the user's own sorting recipes (see collection/sortRecipes.ts). Rides along
+   * like [gear] and merges recipe by recipe. Left out until the first one is saved; then kept, as [] once
+   * none are left — so a pile with no "sortRecipes" key was saved by an app that doesn't know about them.
+   */
+  sortRecipes?: SortRecipe[]
 }
 
 // The pile's "sealed" and "graded" as JSON — locally and in sync, the Android app's exactly:

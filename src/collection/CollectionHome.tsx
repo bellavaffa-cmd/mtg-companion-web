@@ -96,7 +96,7 @@ export function CollectionHome({ onImport }: { onImport: () => void }) {
 
       <div className="chome-quick rise" style={rise(4)}>
         <button type="button" className="btn line" onClick={() => navigate('/scan')}><Icon name="photo_camera" aria-hidden />Scan</button>
-        <button type="button" className="btn line" onClick={() => navigate('/scan?sort')}><Icon name="call_split" aria-hidden />Sort a pile</button>
+        <button type="button" className="btn line" onClick={() => navigate('/sort')}><Icon name="call_split" aria-hidden />Sort a pile</button>
         <button type="button" className="btn line" onClick={onImport}><Icon name="playlist_add" aria-hidden />Import</button>
       </div>
 

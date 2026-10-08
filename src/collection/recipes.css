@@ -1,0 +1,72 @@
+/* Sorting recipes (SortRecipesPage.tsx, RecipeScanPanel.tsx) */
+.recipe-page { padding-bottom: 110px; max-width: 560px; }
+.recipe-h { margin: 16px 0 6px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; color: var(--t1); text-transform: uppercase; }
+.recipe-list { display: flex; flex-direction: column; gap: 8px; }
+.recipe-card { width: 100%; padding: 14px; border: 0; border-radius: 16px; background: var(--g1); color: inherit; font: inherit; text-align: left; display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.recipe-card .txt { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.recipe-card b { font-size: 0.9375rem; }
+.recipe-card .sub { font-size: 0.8125rem; color: var(--t1); }
+.recipe-card.mine { background: #2a2210; box-shadow: inset 0 0 0 1px rgba(230, 180, 94, 0.5); }
+.recipe-card.mine .sub { color: #d9c79f; }
+.recipe-card .tag { font-size: 0.75rem; color: var(--gold); font-weight: 700; }
+.recipe-note { margin-top: 14px; display: flex; gap: 10px; align-items: center; font-size: 0.8125rem; color: var(--t1); }
+.recipe-box { padding: 12px 14px; border-radius: 14px; background: var(--g1); display: flex; flex-direction: column; gap: 10px; }
+.recipe-box label { display: flex; gap: 10px; align-items: center; font-size: 0.875rem; }
+.recipe-box label > span { flex: 1; }
+.recipe-box input[type='checkbox'] { width: 22px; height: 22px; margin: 0; accent-color: var(--gold); flex: none; }
+.recipe-level { padding: 12px 14px; border-radius: 14px; background: var(--g1); display: flex; flex-direction: column; gap: 10px; }
+.recipe-level-h { display: flex; align-items: center; gap: 10px; }
+.recipe-level-h .n { width: 26px; height: 26px; border-radius: 13px; background: var(--g2); font-weight: 800; font-size: 0.8125rem; display: flex; align-items: center; justify-content: center; flex: none; }
+.recipe-level-h .n.first { background: var(--gold); color: var(--gold-ink); }
+.recipe-level-h .txt { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.recipe-level-h .txt span { font-size: 0.75rem; color: var(--t1); }
+.recipe-add { min-height: 44px; border: 1px dashed var(--g3); border-radius: 14px; background: transparent; color: var(--t1); font: 600 0.875rem var(--ui); cursor: pointer; }
+.recipe-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.recipe-foot { display: flex; align-items: center; gap: 8px; }
+.recipe-foot .count { flex: 1; font-size: 0.8125rem; color: var(--t1); }
+.pile-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.pile-tile { padding: 10px; border: 0; border-radius: 12px; background: var(--g1); color: inherit; font: inherit; text-align: left; border-top: 4px solid var(--band); display: flex; flex-direction: column; gap: 2px; min-width: 0; cursor: pointer; }
+.pile-tile .num { font-family: var(--num); font-size: 1.875rem; line-height: 1; }
+.pile-tile .nm { font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; }
+.pile-tile .to { font-size: 0.6875rem; color: var(--t2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recipe-hear { margin-top: 14px; padding: 14px; border-radius: 16px; background: var(--g1); display: flex; flex-direction: column; gap: 10px; }
+.recipe-hear h2 { margin: 0; font-size: 0.9375rem; font-weight: 800; }
+.recipe-hear label { display: flex; align-items: center; gap: 10px; font-size: 0.875rem; }
+.recipe-hear label > span { flex: 1; }
+.recipe-hear input { width: 22px; height: 22px; margin: 0; accent-color: var(--gold); }
+.recipe-hear .dim { font-size: 0.75rem; color: var(--t1); }
+
+/* The scanner while sorting with a recipe */
+.rscan { margin-top: 12px; border-radius: 22px; background: color-mix(in srgb, var(--band) 14%, #0b0d12); border: 2px solid var(--band); overflow: hidden; color: #f1eee6; }
+.rscan-band { height: 10px; background: var(--band); }
+.rscan-main { padding: 14px 18px 14px; display: flex; align-items: center; gap: 16px; }
+.rscan-num { font-family: var(--num); font-size: 7.5rem; line-height: 0.85; color: color-mix(in srgb, var(--band) 70%, #fff); flex: none; }
+.rscan-txt { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rscan-pile { font-family: var(--num); font-size: 2.125rem; line-height: 1; letter-spacing: 0.02em; text-transform: uppercase; overflow-wrap: anywhere; }
+.rscan-pile.reason { font-size: 1.75rem; }
+.rscan-txt b { font-size: 0.9375rem; }
+.rscan-txt .line { font-size: 0.8125rem; color: #b7c0cf; }
+.rscan-also { margin: 0 18px 12px; padding: 10px 12px; border-radius: 12px; background: rgba(0, 0, 0, 0.3); display: flex; flex-direction: column; gap: 6px; font-size: 0.8125rem; }
+.rscan-also .h { color: #d9c79f; }
+.rscan-apart { padding: 0 18px 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+.rscan-bar { padding: 4px 18px; border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.rscan-bar button { border: 0; background: transparent; color: var(--gold); font: 700 0.8125rem var(--ui); padding: 0; min-height: 44px; cursor: pointer; }
+.rscan-bar button:disabled { color: var(--t2); cursor: default; }
+.rscan-bar .last { flex: 1; text-align: right; color: #a7b8d3; font-size: 0.8125rem; }
+.rscan-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rscan-chip { min-height: 32px; padding: 0 12px; border-radius: 16px; background: var(--g2); font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+.rscan-chip .dot { width: 8px; height: 8px; border-radius: 4px; background: var(--ok); }
+.rscan-chip .dot.off { background: var(--t2); }
+
+/* Done: what went where */
+.rsum-rows { display: flex; flex-direction: column; gap: 6px; font-size: 0.875rem; }
+.rsum-row { padding: 10px 12px; border-radius: 12px; background: var(--g1); display: flex; align-items: center; gap: 10px; }
+.rsum-row .num { min-width: 32px; font-family: var(--num); font-size: 1.5rem; }
+.rsum-row .nm { flex: 1; }
+.rsum-row .dim { color: var(--t1); text-align: right; }
+.rsum-miss { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: #2a1d14; display: flex; align-items: center; gap: 10px; font-size: 0.875rem; }
+.rsum-miss span { flex: 1; }
+.rsum-file { margin-top: 12px; padding: 14px; border-radius: 16px; background: var(--g1); display: flex; flex-direction: column; gap: 8px; }
+.rsum-file h2 { margin: 0; font-size: 0.9375rem; font-weight: 800; }
+.rsum-file .dim { font-size: 0.8125rem; color: var(--t1); }
+.rsum-file .link { align-self: flex-start; padding: 0; min-height: 32px; text-align: left; }

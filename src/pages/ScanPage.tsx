@@ -46,6 +46,16 @@ import { cardsIn, placePath } from '../collection/storagePlaces'
 import { fileEveryPile, nextPile, ownedCounts, wantedByDecks, type FiledPiles, type SortScan, type SortSession } from '../collection/sortPiles'
 import { loadPiles, loadSort, saveSort } from '../collection/sortSession'
 import { SortPilePanel } from '../collection/SortPilePanel'
+import {
+  apartOf, checkPileCard, deckNeedsOf, derivePiles, fileRecipe, friendWantsOf, HandsFreeCapture, orderedBinders, ownedOf, pileFor, reasonsFor,
+  sortCard as sortRecipeCard, spokenPile, type ApartKind, type PileChoice, type RecipeCard, type RecipeScan, type SmartContext,
+} from '../collection/sortRecipes'
+import { loadRecipeSession, loadVoice, saveRecipeSession, sayOutLoud, type RecipeSessionState } from '../collection/recipeSession'
+import { RecipeScanPanel } from '../collection/RecipeScanPanel'
+import { useCardData } from '../collection/cardData'
+import { tradeMatches, type TradeMatch } from '../social/more'
+import { onlyFoilFinish } from '../scan/scanSounds'
+import { useMoney } from '../money/currency'
 import { addedMove, putAwayMove } from '../collection/copyHistory'
 import { recordMoves } from '../collection/copyHistoryStore'
 import '../collection/storage.css'
@@ -134,6 +144,29 @@ interface PutAwayRow {
   label: string
   step: PutAwayStep | null
 }
+
+const priceOf = (s: string | null | undefined): number | null => { const n = s ? Number(s) : NaN; return Number.isFinite(n) ? n : null }
+
+/** What a sorting recipe needs to know of a scanned card (collection/sortRecipes.ts). */
+const recipeCardOf = (card: ScryfallCard, was?: RecipeCard): RecipeCard => ({
+  name: card.name,
+  colors: card.colors ?? card.card_faces?.[0]?.colors ?? [],
+  colorIdentity: card.color_identity ?? [],
+  typeLine: card.type_line ?? card.card_faces?.[0]?.type_line ?? null,
+  set: card.set ?? null,
+  collectorNumber: card.collector_number ?? null,
+  cmc: card.cmc ?? null,
+  rarity: card.rarity ?? null,
+  usd: priceOf(card.prices?.usd),
+  usdFoil: priceOf(card.prices?.usd_foil),
+  // The camera can't see foil; a printing that's only foil is. The rest the card's own switches say.
+  foil: was?.foil ?? onlyFoilFinish(card.finishes),
+  lang: was?.lang ?? 'en',
+  played: was?.played ?? false,
+})
+
+/** Nothing for the smart piles to go by (not sorting with a recipe). */
+const NO_CONTEXT: SmartContext = { deckNeeds: {}, friendWants: {}, binders: [], owned: {} }
 
 /** A scanned card as a new binder entry, with no copies yet — as the scanner's Add to… makes it. */
 const entryOf = (card: ScryfallCard) => ({
@@ -284,6 +317,130 @@ export function ScanPage() {
     setSort({ ...now, scans: [] })
     showUndo({ message: `Filed ${n} ${n === 1 ? 'card' : 'cards'}${now.source.trim() ? ` from ${now.source.trim()}` : ''}` })
   }
+  // Recipe mode (?recipe): sorting with a recipe (collection/sortRecipes.ts) — each card goes in its
+  // pile, shown big and said out loud, and taken without a tap when the recipe's switch says so
+  // (HandsFreeCapture). The sort is kept in this browser (recipeSession.ts), so a restart doesn't lose
+  // it; Done opens what went where (SortRecipesPage.tsx's summary). With a pile to check, each card is
+  // checked against that pile instead.
+  const recipeMode = params.has('recipe') && !target && !checkPlace && !tickKind && !sortMode
+  const money = useMoney()
+  const [recipe, setRecipeState] = useState<RecipeSessionState | null>(() => (params.has('recipe') ? loadRecipeSession() : null))
+  const recipeNow = useRef(recipe)
+  const setRecipe = (next: RecipeSessionState | null) => { recipeNow.current = next; saveRecipeSession(next); setRecipeState(next) }
+  const voice = useMemo(loadVoice, [])
+  /** Read by the camera loop: whether cards are taken without a tap. Null when not sorting with a recipe. */
+  const handsFreeOn = useRef<boolean | null>(null)
+  handsFreeOn.current = recipeMode && recipe ? voice.auto : null
+  const handsFree = useRef(new HandsFreeCapture())
+  const sortingWith = recipe?.recipe
+  const derived = useMemo(() => (sortingWith ? derivePiles(sortingWith, (n) => money.formatLocal(n, Number.isInteger(n))) : null), [sortingWith, money])
+  const [matches, setMatches] = useState<TradeMatch[]>([])
+  useEffect(() => {
+    if (!recipeMode) return
+    let off = false
+    tradeMatches().then((m) => { if (!off) setMatches(m) }).catch(() => { /* signed out or offline: no friends' wants */ })
+    return () => { off = true }
+  }, [recipeMode])
+  const binderIds = useMemo(() => (recipeMode
+    ? placesOf(collections).filter((p) => p.kind === 'BINDER' && p.sortRule).flatMap((p) => cardsIn(collections, p.id).map((c) => c.entry.scryfallId))
+    : []), [recipeMode, collections])
+  const binderData = useCardData(binderIds)
+  const smart = useMemo<SmartContext>(() => (recipeMode
+    ? {
+      deckNeeds: deckNeedsOf(collections, decks),
+      friendWants: friendWantsOf(matches),
+      binders: orderedBinders(collections, (id) => { const c = binderData?.get(id); return c ? cardFactsOf(c) : null }),
+      owned: ownedOf(collections, decks),
+    }
+    : NO_CONTEXT), [recipeMode, collections, decks, matches, binderData])
+  /** The cards of this sort as Scryfall has them, by scan, for Wrong card? and Put in deck now. */
+  const recipeCards = useRef(new Map<number, ScryfallCard>())
+  const [wrongCard, setWrongCard] = useState(false)
+  const [pickingRecipeArt, setPickingRecipeArt] = useState(false)
+  /** The pile in words, said out loud and buzzed: a smart pile buzzes twice. */
+  const announce = (pileNumber: number, reason: RecipeScan['reason'], name: string) => {
+    const pile = derived?.piles.find((p) => p.number === pileNumber)
+    if (!pile) return
+    if (voice.speak) sayOutLoud(spokenPile(pile, reason ?? null))
+    navigator.vibrate?.(reason ? [40, 60, 40] : 30)
+    setStatusRarity(null)
+    setStatus(`Pile ${pile.number}, ${pile.name} — ${name}`)
+  }
+  const recipeCard = useRef<((card: ScryfallCard, id: number) => void) | null>(null)
+  recipeCard.current = recipeMode && recipe && derived
+    ? (card, id) => {
+      const now = recipeNow.current
+      if (!now || !derived) return
+      handsFree.current.captured(card.name)
+      // Checking a pile: does this card belong in it?
+      if (now.checking) {
+        const c = now.checking
+        const verdict = checkPileCard(derived, now.scans, c.pile, c.checked, card.name)
+        setRecipe({ ...now, checking: { ...c, checked: verdict.belongs ? [...c.checked, card.name] : c.checked, flagged: verdict.belongs ? c.flagged : [...c.flagged, { name: card.name, line: verdict.line }] } })
+        if (voice.speak) sayOutLoud(verdict.belongs ? 'Belongs' : verdict.goes ? `No — pile ${verdict.goes}` : "No — not sorted")
+        navigator.vibrate?.(verdict.belongs ? 30 : [80, 60, 80])
+        setStatus(`${card.name} — ${verdict.line}`)
+        return
+      }
+      const rc = recipeCardOf(card)
+      // A card already put with its deck is in the collection now, so the collection counts it, not the sort.
+      const choice = sortRecipeCard(now.recipe, derived, smart, rc, now.scans.filter((x) => !x.filed), money.rate)
+      recipeCards.current.set(id, card)
+      const scan: RecipeScan = {
+        id, scryfallId: card.id, name: card.name, setName: card.set_name ?? null, card: rc, facts: cardFactsOf(card), entry: entryOf(card),
+        pile: choice.pile, key: choice.key, reason: choice.reason, also: choice.also, at: Date.now(),
+      }
+      setRecipe({ ...now, scans: [...now.scans, scan] })
+      announce(choice.pile, choice.reason, card.name)
+    }
+    : null
+  /** The newest scan of the sort, replaced (re-sorted, sent elsewhere…). */
+  const changeLast = (change: (last: RecipeScan, rest: RecipeScan[]) => RecipeScan | null) => {
+    const now = recipeNow.current
+    const last = now?.scans.at(-1)
+    if (!now || !last) return
+    const rest = now.scans.slice(0, -1)
+    const next = change(last, rest)
+    setRecipe({ ...now, scans: next ? [...rest, next] : rest })
+    if (next && (next.pile !== last.pile || next.reason !== last.reason)) announce(next.pile, next.reason, next.name)
+  }
+  /** The newest card sorted again as [card] (another printing, or now foil…). */
+  const resort = (last: RecipeScan, rest: RecipeScan[], rc: RecipeCard, card?: ScryfallCard): RecipeScan => {
+    const now = recipeNow.current!
+    const choice = pileFor(now.recipe, derived!, rc, reasonsFor(smart, rc, rest.filter((x) => !x.filed)), money.rate)
+    return {
+      ...last, ...(card ? { scryfallId: card.id, name: card.name, setName: card.set_name ?? null, facts: cardFactsOf(card), entry: entryOf(card) } : {}),
+      card: rc, pile: choice.pile, key: choice.key, reason: choice.reason, also: choice.also,
+    }
+  }
+  const toggleApart = (kind: ApartKind) => changeLast((last, rest) => {
+    const c = last.card
+    const on = apartOf(c).includes(kind)
+    const rc: RecipeCard = kind === 'FOIL' ? { ...c, foil: !on } : kind === 'FOREIGN' ? { ...c, lang: on ? 'en' : 'xx' } : { ...c, played: !on }
+    return resort(last, rest, rc)
+  })
+  const sendTo = (choice: PileChoice) => changeLast((last) => ({ ...last, pile: choice.pile, key: choice.key, reason: choice.reason, also: choice.also }))
+  const putInDeckNow = () => {
+    const now = recipeNow.current
+    const last = now?.scans.at(-1)
+    if (!now || !last || last.reason?.kind !== 'DECKS' || !derived) return
+    const deck = decks.find((d) => d.id === (last.reason as { deckId: string }).deckId)
+    const card = recipeCards.current.get(last.id)
+    // A deck that holds its own copies takes the card into its list; otherwise it's yours now, for the deck's pull list.
+    if (deck?.ownership === 'PHYSICAL' && card) addCardToDeck(deck.id, card, 1, false)
+    else changeStorage((c) => fileRecipe(c, now.recipe, derived, [last]).collections)
+    setRecipe({ ...now, scans: [...now.scans.slice(0, -1), { ...last, filed: true }] })
+    setStatus(`${last.name} — put with ${deck?.name ?? 'its deck'}`)
+  }
+  const recipeMiss = (seen: string) => {
+    const now = recipeNow.current
+    if (!now || now.checking) return
+    const before = now.misses.at(-1)
+    if (before && before.seen === seen && Date.now() - before.at < 10_000) return
+    setRecipe({ ...now, misses: [...now.misses, { at: Date.now(), seen }] })
+  }
+  const recipeMissRef = useRef(recipeMiss)
+  recipeMissRef.current = recipeMiss
   // A box label read by the camera: what it offers, over the camera (PlaceLabelSheet).
   const [labelId, setLabelId] = useState<string | null>(null)
   const labelShown = useRef<string | null>(null)
@@ -376,7 +533,9 @@ export function ScanPage() {
     countAction('card_scanned')
     // Its sound and buzz (Settings › Scanner): by rarity, or a sting for a valuable card.
     cardRecognised(card)
-    const modeCard = sortCard.current
+    const modeCard = recipeCard.current
+      ? () => recipeCard.current?.(card, id)
+      : sortCard.current
       ? () => sortCard.current?.(card, id)
       : tickCard.current
         ? () => tickCard.current?.(card)
@@ -605,7 +764,12 @@ export function ScanPage() {
             devLog(`title unread; by sight: ${sight.name} ${sight.set} #${sight.number} ${sight.score.toFixed(3)}`)
           }
         }
-        const step = tracker.onRead(title, forced)
+        // Sorting with a recipe: a card is taken when it's held still and wasn't the card just taken
+        // (HandsFreeCapture) — or, with that switched off, only with Scan now.
+        const handsFreeNow = handsFreeOn.current
+        const step = handsFreeNow === null || forced
+          ? tracker.onRead(title, forced)
+          : handsFreeNow && !labelShown.current && handsFree.current.onRead(title) && title ? { kind: 'lookup' as const, name: title } : { kind: 'wait' as const }
         if (forced && !read?.match) setStatus("Couldn't read a name there — hold the card flat and still, or type it below.")
         if (step.kind === 'lookup') {
           // What the camera actually read, to hold the card it found up against.
@@ -675,6 +839,10 @@ export function ScanPage() {
             const confirmation = forced || seenBySight ? 'yes' : confirmRead(seenNow, card.name, card.flavor_name)
             if (confirmation !== 'yes') {
               tracker.unconfirmed()
+              if (handsFreeOn.current !== null) {
+                handsFree.current.missed()
+                if (confirmation === 'different') recipeMissRef.current(seenNow)
+              }
               setStatus(confirmation === 'partial'
                 ? `Only read “${seenNow}” — hold the whole card in the frame, its name in the gold strip.`
                 : `Read “${seenNow}”, which looks like ${card.flavor_name ?? card.name} — hold the card still and try again.`)
@@ -699,6 +867,10 @@ export function ScanPage() {
           } catch (e) {
             if (stopped) break
             tracker.failed()
+            if (handsFreeOn.current !== null) {
+              handsFree.current.missed()
+              if (!(e instanceof OfflineError)) recipeMissRef.current(step.name)
+            }
             setStatus(e instanceof OfflineError
               ? "You're offline — cards can't be looked up until the connection is back."
               : `Didn't find “${step.name}” — keep scanning…`)
@@ -851,7 +1023,7 @@ export function ScanPage() {
   return (
     <>
       <TopBar
-        title={target ? 'Put away' : tickKind ? 'Scan to tick' : checkPlace ? 'Check' : sortMode ? 'Sorting a new pile' : 'Scan'}
+        title={target ? 'Put away' : tickKind ? 'Scan to tick' : checkPlace ? 'Check' : sortMode ? 'Sorting a new pile' : recipeMode && recipe ? `Sorting: ${recipe.recipe.name}` : 'Scan'}
         onBack={() => (scanned.length > 0 && !target && !tickKind && !checkPlace ? setLeaving(() => back) : back())}
         actions={
           <>
@@ -945,6 +1117,28 @@ export function ScanPage() {
         </form>
 
         {sortMode && sort && <SortPilePanel session={sort} onChange={setSort} onDone={fileSort} />}
+        {recipeMode && !recipe && (
+          <div className="empty-state" style={{ marginTop: 12 }}>
+            <div>Pick a recipe to sort with first.</div>
+            <button type="button" className="btn gold" onClick={() => navigate('/sort')}>Pick a recipe</button>
+          </div>
+        )}
+        {recipeMode && recipe && derived && (
+          <RecipeScanPanel
+            session={recipe}
+            derived={derived}
+            ctx={smart}
+            voice={voice}
+            rate={money.rate}
+            onUndo={() => { changeLast(() => null); handsFree.current.rescan(); setStatus('Last card taken back') }}
+            onWrong={() => setWrongCard(true)}
+            onSend={sendTo}
+            onPutInDeck={putInDeckNow}
+            onApart={toggleApart}
+            onDone={() => navigate('/sort?summary')}
+            onFinishCheck={() => { const now = recipeNow.current; if (now) setRecipe({ ...now, checking: null }); navigate('/sort?summary') }}
+          />
+        )}
         {target && (() => {
           // A place with a size that's full, or nearly (collection/boxSpace.ts).
           const space = spaceOf(target, collections)
@@ -1139,6 +1333,29 @@ export function ScanPage() {
         />
       )}
 
+      {wrongCard && recipe?.scans.at(-1) && (
+        <Dialog
+          title={`Not ${recipe.scans.at(-1)!.name}?`}
+          onDismiss={() => setWrongCard(false)}
+          actions={<>
+            <button type="button" className="btn line" onClick={() => { setWrongCard(false); setPickingRecipeArt(true) }}>Pick the printing</button>
+            <button type="button" className="btn gold" onClick={() => { changeLast(() => null); handsFree.current.rescan(); setWrongCard(false); setStatus('Show the card again') }}>Rescan it</button>
+          </>}
+        >
+          <p className="muted" style={{ margin: 0 }}>Right card, wrong printing: pick the one you're holding. A different card: rescan it — it's taken off its pile first.</p>
+        </Dialog>
+      )}
+      {pickingRecipeArt && recipe?.scans.at(-1) && (
+        <PrintingPicker
+          name={recipe.scans.at(-1)!.name}
+          currentId={recipe.scans.at(-1)!.scryfallId}
+          onPick={(card) => {
+            setPickingRecipeArt(false)
+            changeLast((last, rest) => { recipeCards.current.set(last.id, card); return resort(last, rest, recipeCardOf(card, last.card), card) })
+          }}
+          onClose={() => setPickingRecipeArt(false)}
+        />
+      )}
       {pickingArt && (
         <PrintingPicker
           name={pickingArt.card.name}

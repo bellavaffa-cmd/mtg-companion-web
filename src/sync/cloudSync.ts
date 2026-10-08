@@ -19,6 +19,7 @@ import { keepLoansFromOlderApp } from '../collection/loans'
 import { keepSealedFromOlderApp } from '../collection/sealed'
 import { keepGradedFromOlderApp } from '../collection/graded'
 import { keepGearFromOlderApp } from '../collection/gear'
+import { keepRecipesFromOlderApp } from '../collection/sortRecipes'
 import { keepDeckExtrasFromOlderApp } from '../decks/deckExtras'
 import { keepHistoryFromOlderApp } from '../decks/deckHistory'
 import { syncable } from '../onboarding/onboarding'
@@ -426,7 +427,7 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
         : row.kind === 'deck'
           ? { ...mine, cards: [], considering: [], sideboard: [], tags: [], gameResults: [], versions: [], cameFrom: undefined }
           // The places too: each device's own, kept as additions rather than the cloud's replacing them.
-          : { ...mine, entries: [], storagePlaces: undefined, loans: undefined, sealed: undefined, graded: undefined, gear: undefined }
+          : { ...mine, entries: [], storagePlaces: undefined, loans: undefined, sealed: undefined, graded: undefined, gear: undefined, sortRecipes: undefined }
       const merged = row.kind === 'deck'
         ? mergeDeck(base as Deck, mine as Deck, JSON.parse(theirJson) as Deck, (localEdit ?? 0) > row.edited_ms)
         : mergeCollection(base as Collection, mine as Collection, JSON.parse(theirJson) as Collection, (localEdit ?? 0) > row.edited_ms)
@@ -454,8 +455,9 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
     const healed = mineJson === undefined
       ? theirs
       : row.kind === 'collection'
-        // ...and the pile saved without its sealed product, graded copies or gear (collection/sealed.ts, graded.ts, gear.ts).
-        ? keepGearFromOlderApp(JSON.parse(mineJson) as Collection, keepGradedFromOlderApp(JSON.parse(mineJson) as Collection, keepSealedFromOlderApp(JSON.parse(mineJson) as Collection, keepAlertOptionsFromOlderApp(JSON.parse(mineJson) as Collection, keepForSaleFromOlderApp(JSON.parse(mineJson) as Collection, keepPlaceSizes(JSON.parse(mineJson) as Collection, keepLoansFromOlderApp(JSON.parse(mineJson) as Collection, keepLastChecked(JSON.parse(mineJson) as Collection, keepPlacesFromOlderApp(JSON.parse(mineJson) as Collection, theirs as Collection)))))))))
+        // ...and the pile saved without its sealed product, graded copies or gear (collection/sealed.ts, graded.ts, gear.ts),
+        // or its sorting recipes (collection/sortRecipes.ts).
+        ? keepRecipesFromOlderApp(JSON.parse(mineJson) as Collection, keepGearFromOlderApp(JSON.parse(mineJson) as Collection, keepGradedFromOlderApp(JSON.parse(mineJson) as Collection, keepSealedFromOlderApp(JSON.parse(mineJson) as Collection, keepAlertOptionsFromOlderApp(JSON.parse(mineJson) as Collection, keepForSaleFromOlderApp(JSON.parse(mineJson) as Collection, keepPlaceSizes(JSON.parse(mineJson) as Collection, keepLoansFromOlderApp(JSON.parse(mineJson) as Collection, keepLastChecked(JSON.parse(mineJson) as Collection, keepPlacesFromOlderApp(JSON.parse(mineJson) as Collection, theirs as Collection))))))))))
         // ...and its primer, folder, archive flag, companion and categories (decks/deckExtras.ts).
         // ...and its history (decks/deckHistory.ts).
         : keepHistoryFromOlderApp(JSON.parse(mineJson) as Deck, keepDeckExtrasFromOlderApp(JSON.parse(mineJson) as Deck, keepCameFromFromOlderApp(JSON.parse(mineJson) as Deck, theirs as Deck)))
@@ -676,7 +678,7 @@ export function applyRescue(library: Library, rescue: Rescue): Library {
           ? JSON.parse(kept.base)
           : isDeck
             ? { ...mine, cards: [], considering: [], sideboard: [], tags: [], gameResults: [], versions: [], cameFrom: undefined }
-            : { ...mine, entries: [], storagePlaces: undefined, loans: undefined, sealed: undefined, graded: undefined, gear: undefined }
+            : { ...mine, entries: [], storagePlaces: undefined, loans: undefined, sealed: undefined, graded: undefined, gear: undefined, sortRecipes: undefined }
         next = isDeck
           ? mergeDeck(base as Deck, mine as Deck, current as Deck, true)
           : mergeCollection(base as Collection, mine as Collection, current as Collection, true)

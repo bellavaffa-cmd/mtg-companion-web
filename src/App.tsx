@@ -68,6 +68,7 @@ const SharedItemPage = lazy(() => import('./pages/SharedItemPage').then((m) => (
 const FriendSharedPage = lazy(() => import('./social/SharedFriends').then((m) => ({ default: m.FriendSharedPage })))
 const SharedCollectionPage = lazy(() => import('./pages/SharedItemPage').then((m) => ({ default: m.SharedCollectionPage })))
 const TradesPage = lazy(() => import('./pages/TradesPage').then((m) => ({ default: m.TradesPage })))
+const SortRecipesPage = lazy(() => import('./pages/SortRecipesPage').then((m) => ({ default: m.SortRecipesPage })))
 const TradeComposerPage = lazy(() => import('./pages/TradeComposerPage').then((m) => ({ default: m.TradeComposerPage })))
 const PageScanPage = lazy(() => import('./pages/PageScanPage').then((m) => ({ default: m.PageScanPage })))
 const MessagesPage = lazy(() => import('./pages/MessagesPage').then((m) => ({ default: m.MessagesPage })))
@@ -156,6 +157,7 @@ export default function App() {
             <Route path="/search" element={<SearchPage />} />
             <Route path="/card/:name" element={<CardPage />} />
             <Route path="/scan" element={<ScanPage />} />
+            <Route path="/sort" element={<SortRecipesPage />} />
             <Route path="/account" element={<AccountPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/settings/:section" element={<SettingsSectionPage />} />

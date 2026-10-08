@@ -1,0 +1,2733 @@
+{
+ "about": "Sorting recipes: the same cases in both apps (tests/collection/sortRecipes.test.ts, SortRecipesTest.kt). fmt is \"$\" + the amount.",
+ "derive": [
+  {
+   "recipe": {
+    "id": "r1",
+    "name": "My bulk boxes",
+    "pullOut": [
+     "DECKS",
+     "FRIENDS",
+     "BINDER",
+     "TRADE"
+    ],
+    "levels": [
+     {
+      "by": "VALUE",
+      "cuts": [
+       2
+      ],
+      "restOn": true
+     },
+     {
+      "by": "COLOUR"
+     }
+    ],
+    "apart": [
+     "FOIL",
+     "FOREIGN"
+    ],
+    "createdAt": 1
+   },
+   "piles": [
+    "1 S:DECKS Decks need #e6b45e",
+    "2 S:FRIENDS Friends want #e6b45e",
+    "3 S:BINDER Binder gaps #e6b45e",
+    "4 S:TRADE To trade #e6b45e",
+    "5 A:FOIL Foils #9fd6ff",
+    "6 A:FOREIGN Not English #f07fa8",
+    "7 L:v0 $2 and up #b98cf0",
+    "8 L:v1/W White #f3efe0",
+    "9 L:v1/U Blue #4d8fe0",
+    "10 L:v1/B Black #6f6a78",
+    "11 L:v1/R Red #e0674d",
+    "12 L:v1/G Green #5fbf7a",
+    "13 L:v1/M Multicolour #d8b56a",
+    "14 L:v1/C Colourless and lands #a7a8b3"
+   ],
+   "wanted": 14,
+   "capped": false,
+   "warning": null,
+   "line": "Value $2+ apart · then colour · 14 piles"
+  },
+  {
+   "recipe": {
+    "id": "r2",
+    "name": "Commander by colour",
+    "pullOut": [
+     "DECKS",
+     "FRIENDS",
+     "BINDER"
+    ],
+    "levels": [
+     {
+      "by": "COLOUR",
+      "lands": true
+     }
+    ],
+    "apart": [],
+    "createdAt": 1
+   },
+   "piles": [
+    "1 S:DECKS Decks need #e6b45e",
+    "2 S:FRIENDS Friends want #e6b45e",
+    "3 S:BINDER Binder gaps #e6b45e",
+    "4 L:W White #f3efe0",
+    "5 L:U Blue #4d8fe0",
+    "6 L:B Black #6f6a78",
+    "7 L:R Red #e0674d",
+    "8 L:G Green #5fbf7a",
+    "9 L:M Multicolour #d8b56a",
+    "10 L:C Colourless #a7a8b3",
+    "11 L:L Lands #b08b5a"
+   ],
+   "wanted": 11,
+   "capped": false,
+   "warning": null,
+   "line": "Colour · 11 piles"
+  },
+  {
+   "recipe": {
+    "id": "r3",
+    "name": "Rares by value",
+    "pullOut": [],
+    "levels": [
+     {
+      "by": "VALUE",
+      "cuts": [
+       1,
+       20,
+       5
+      ]
+     }
+    ],
+    "apart": [],
+    "createdAt": 1
+   },
+   "piles": [
+    "1 L:v0 $20+ #b98cf0",
+    "2 L:v1 $5–$20 #b98cf0",
+    "3 L:v2 $1–$5 #b98cf0",
+    "4 L:v3 under $1 #b98cf0"
+   ],
+   "wanted": 4,
+   "capped": false,
+   "warning": null,
+   "line": "Value · 4 piles"
+  },
+  {
+   "recipe": {
+    "id": "r4",
+    "name": "Needs",
+    "pullOut": [
+     "DECKS",
+     "FRIENDS",
+     "BINDER",
+     "TRADE"
+    ],
+    "levels": [],
+    "apart": [],
+    "createdAt": 1
+   },
+   "piles": [
+    "1 S:DECKS Decks need #e6b45e",
+    "2 S:FRIENDS Friends want #e6b45e",
+    "3 S:BINDER Binder gaps #e6b45e",
+    "4 S:TRADE To trade #e6b45e",
+    "5 L:all Bulk #c58af0"
+   ],
+   "wanted": 5,
+   "capped": false,
+   "warning": null,
+   "line": "Decks need · Friends want · Binder gaps · To trade · 5 piles"
+  },
+  {
+   "recipe": {
+    "id": "r5",
+    "name": "Too many",
+    "pullOut": [
+     "DECKS",
+     "FRIENDS",
+     "BINDER"
+    ],
+    "levels": [
+     {
+      "by": "SET",
+      "sets": [
+       "DSK",
+       "blb",
+       "otj",
+       "mkm",
+       "lci"
+      ]
+     },
+     {
+      "by": "TYPE"
+     }
+    ],
+    "apart": [],
+    "createdAt": 1
+   },
+   "piles": [
+    "1 S:DECKS Decks need #e6b45e",
+    "2 S:FRIENDS Friends want #e6b45e",
+    "3 S:BINDER Binder gaps #e6b45e",
+    "4 L:dsk/creatures DSK · Creatures #6aa8f0",
+    "5 L:dsk/planeswalkers DSK · Planeswalkers #c58af0",
+    "6 L:dsk/battles DSK · Battles #f07fa8",
+    "7 L:dsk/instants DSK · Instants #e6b45e",
+    "8 L:dsk/sorceries DSK · Sorceries #e2694a",
+    "9 L:dsk/artifacts DSK · Artifacts #5bcb8f",
+    "10 L:dsk/enchantments DSK · Enchantments #6aa8f0",
+    "11 L:dsk/lands DSK · Lands #c58af0",
+    "12 L:dsk/other DSK · Other #f07fa8",
+    "13 L:blb/creatures BLB · Creatures #e6b45e",
+    "14 L:blb/planeswalkers BLB · Planeswalkers #e2694a",
+    "15 L:blb/battles BLB · Battles #5bcb8f",
+    "16 L:blb/instants BLB · Instants #6aa8f0",
+    "17 L:blb/sorceries BLB · Sorceries #c58af0",
+    "18 L:blb/artifacts BLB · Artifacts #f07fa8",
+    "19 L:blb/enchantments BLB · Enchantments #e6b45e",
+    "20 L:blb/lands BLB · Lands #e2694a",
+    "21 L:blb/other BLB · Other #5bcb8f",
+    "22 L:otj/creatures OTJ · Creatures #6aa8f0",
+    "23 L:otj/planeswalkers OTJ · Planeswalkers #c58af0",
+    "24 L:rest Everything else #f07fa8"
+   ],
+   "wanted": 57,
+   "capped": true,
+   "warning": "That makes 57 piles — only 24 fit, so the last ones share pile 24, “Everything else”.",
+   "line": "Set · then card type · 24 piles"
+  },
+  {
+   "recipe": {
+    "id": "r6",
+    "name": "Rarity then MV",
+    "pullOut": [
+     "TRADE"
+    ],
+    "levels": [
+     {
+      "by": "RARITY"
+     },
+     {
+      "by": "MANA_VALUE",
+      "cuts": [
+       0,
+       3,
+       5
+      ]
+     }
+    ],
+    "apart": [
+     "PLAYED"
+    ],
+    "createdAt": 1
+   },
+   "piles": [
+    "1 S:TRADE To trade #e6b45e",
+    "2 A:PLAYED Played #c9a27a",
+    "3 L:mythic/m0 Mythic · MV 0–2 #e2694a",
+    "4 L:mythic/m1 Mythic · MV 3–4 #e2694a",
+    "5 L:mythic/m2 Mythic · MV 5+ #e2694a",
+    "6 L:rare/m0 Rare · MV 0–2 #e6b45e",
+    "7 L:rare/m1 Rare · MV 3–4 #e6b45e",
+    "8 L:rare/m2 Rare · MV 5+ #e6b45e",
+    "9 L:uncommon/m0 Uncommon · MV 0–2 #c0c6d0",
+    "10 L:uncommon/m1 Uncommon · MV 3–4 #c0c6d0",
+    "11 L:uncommon/m2 Uncommon · MV 5+ #c0c6d0",
+    "12 L:common/m0 Common · MV 0–2 #6f6a78",
+    "13 L:common/m1 Common · MV 3–4 #6f6a78",
+    "14 L:common/m2 Common · MV 5+ #6f6a78"
+   ],
+   "wanted": 14,
+   "capped": false,
+   "warning": null,
+   "line": "Rarity · then mana value · 14 piles"
+  },
+  {
+   "recipe": {
+    "id": "r7",
+    "name": "Three levels",
+    "pullOut": [],
+    "levels": [
+     {
+      "by": "IDENTITY"
+     },
+     {
+      "by": "NAME",
+      "letters": [
+       "m",
+       "A"
+      ]
+     },
+     {
+      "by": "NUMBER",
+      "cuts": [
+       100
+      ]
+     },
+     {
+      "by": "TYPE"
+     }
+    ],
+    "apart": [],
+    "createdAt": 1
+   },
+   "piles": [
+    "1 L:W/n0/c0 White · A–L · #1–99 #f3efe0",
+    "2 L:W/n0/c1 White · A–L · #100+ #f3efe0",
+    "3 L:W/n1/c0 White · M–Z · #1–99 #f3efe0",
+    "4 L:W/n1/c1 White · M–Z · #100+ #f3efe0",
+    "5 L:U/n0/c0 Blue · A–L · #1–99 #4d8fe0",
+    "6 L:U/n0/c1 Blue · A–L · #100+ #4d8fe0",
+    "7 L:U/n1/c0 Blue · M–Z · #1–99 #4d8fe0",
+    "8 L:U/n1/c1 Blue · M–Z · #100+ #4d8fe0",
+    "9 L:B/n0/c0 Black · A–L · #1–99 #6f6a78",
+    "10 L:B/n0/c1 Black · A–L · #100+ #6f6a78",
+    "11 L:B/n1/c0 Black · M–Z · #1–99 #6f6a78",
+    "12 L:B/n1/c1 Black · M–Z · #100+ #6f6a78",
+    "13 L:R/n0/c0 Red · A–L · #1–99 #e0674d",
+    "14 L:R/n0/c1 Red · A–L · #100+ #e0674d",
+    "15 L:R/n1/c0 Red · M–Z · #1–99 #e0674d",
+    "16 L:R/n1/c1 Red · M–Z · #100+ #e0674d",
+    "17 L:G/n0/c0 Green · A–L · #1–99 #5fbf7a",
+    "18 L:G/n0/c1 Green · A–L · #100+ #5fbf7a",
+    "19 L:G/n1/c0 Green · M–Z · #1–99 #5fbf7a",
+    "20 L:G/n1/c1 Green · M–Z · #100+ #5fbf7a",
+    "21 L:M/n0/c0 Multicolour · A–L · #1–99 #d8b56a",
+    "22 L:M/n0/c1 Multicolour · A–L · #100+ #d8b56a",
+    "23 L:M/n1/c0 Multicolour · M–Z · #1–99 #d8b56a",
+    "24 L:rest Everything else #f07fa8"
+   ],
+   "wanted": 28,
+   "capped": true,
+   "warning": "That makes 28 piles — only 24 fit, so the last ones share pile 24, “Everything else”.",
+   "line": "Colour identity · then A–Z · then collector number · 24 piles"
+  }
+ ],
+ "labels": [
+  {
+   "level": {
+    "by": "VALUE",
+    "cuts": [
+     20,
+     5,
+     1
+    ]
+   },
+   "labels": [
+    "v0 $20+",
+    "v1 $5–$20",
+    "v2 $1–$5",
+    "v3 under $1"
+   ],
+   "line": "$20+ · $5–$20 · $1–$5 · under $1"
+  },
+  {
+   "level": {
+    "by": "VALUE",
+    "cuts": [
+     2
+    ],
+    "restOn": true
+   },
+   "labels": [
+    "v0 $2 and up",
+    "v1 under $2"
+   ],
+   "line": "$2 and up apart, rest continue"
+  },
+  {
+   "level": {
+    "by": "COLOUR"
+   },
+   "labels": [
+    "W White",
+    "U Blue",
+    "B Black",
+    "R Red",
+    "G Green",
+    "M Multicolour",
+    "C Colourless and lands"
+   ],
+   "line": "W · U · B · R · G · Multi · Colourless/lands"
+  },
+  {
+   "level": {
+    "by": "COLOUR",
+    "lands": true
+   },
+   "labels": [
+    "W White",
+    "U Blue",
+    "B Black",
+    "R Red",
+    "G Green",
+    "M Multicolour",
+    "C Colourless",
+    "L Lands"
+   ],
+   "line": "W · U · B · R · G · Multi · Colourless · Lands"
+  },
+  {
+   "level": {
+    "by": "IDENTITY"
+   },
+   "labels": [
+    "W White",
+    "U Blue",
+    "B Black",
+    "R Red",
+    "G Green",
+    "M Multicolour",
+    "C Colourless"
+   ],
+   "line": "W · U · B · R · G · Multi · Colourless"
+  },
+  {
+   "level": {
+    "by": "SET",
+    "sets": [
+     "dsk",
+     "blb"
+    ]
+   },
+   "labels": [
+    "dsk DSK",
+    "blb BLB",
+    "other Other sets"
+   ],
+   "line": "DSK · BLB · Other sets"
+  },
+  {
+   "level": {
+    "by": "SET"
+   },
+   "labels": [
+    "other Other sets"
+   ],
+   "line": "One pile per set you name"
+  },
+  {
+   "level": {
+    "by": "MANA_VALUE"
+   },
+   "labels": [
+    "m0 MV 0–1",
+    "m1 MV 2",
+    "m2 MV 3",
+    "m3 MV 4",
+    "m4 MV 5+"
+   ],
+   "line": "MV 0–1 · MV 2 · MV 3 · MV 4 · MV 5+"
+  },
+  {
+   "level": {
+    "by": "MANA_VALUE",
+    "cuts": [
+     3,
+     0,
+     3
+    ]
+   },
+   "labels": [
+    "m0 MV 0–2",
+    "m1 MV 3+"
+   ],
+   "line": "MV 0–2 · MV 3+"
+  },
+  {
+   "level": {
+    "by": "RARITY"
+   },
+   "labels": [
+    "mythic Mythic",
+    "rare Rare",
+    "uncommon Uncommon",
+    "common Common"
+   ],
+   "line": "Mythic · Rare · Uncommon · Common"
+  },
+  {
+   "level": {
+    "by": "TYPE"
+   },
+   "labels": [
+    "creatures Creatures",
+    "planeswalkers Planeswalkers",
+    "battles Battles",
+    "instants Instants",
+    "sorceries Sorceries",
+    "artifacts Artifacts",
+    "enchantments Enchantments",
+    "lands Lands",
+    "other Other"
+   ],
+   "line": "Creatures · Planeswalkers · Battles · Instants · Sorceries · Artifacts · Enchantments · Lands · Other"
+  },
+  {
+   "level": {
+    "by": "NAME"
+   },
+   "labels": [
+    "n0 A–E",
+    "n1 F–K",
+    "n2 L–Q",
+    "n3 R–Z"
+   ],
+   "line": "A–E · F–K · L–Q · R–Z"
+  },
+  {
+   "level": {
+    "by": "NAME",
+    "letters": [
+     "a",
+     "n",
+     "Z"
+    ]
+   },
+   "labels": [
+    "n0 A–M",
+    "n1 N–Y",
+    "n2 Z"
+   ],
+   "line": "A–M · N–Y · Z"
+  },
+  {
+   "level": {
+    "by": "NUMBER"
+   },
+   "labels": [
+    "c0 #1–99",
+    "c1 #100–199",
+    "c2 #200–299",
+    "c3 #300+"
+   ],
+   "line": "#1–99 · #100–199 · #200–299 · #300+"
+  }
+ ],
+ "buckets": [
+  {
+   "level": {
+    "by": "VALUE",
+    "cuts": [
+     20,
+     5,
+     1
+    ]
+   },
+   "rate": 1,
+   "card": {
+    "name": "A",
+    "usd": 20
+   },
+   "key": "v0"
+  },
+  {
+   "level": {
+    "by": "VALUE",
+    "cuts": [
+     20,
+     5,
+     1
+    ]
+   },
+   "rate": 1,
+   "card": {
+    "name": "A",
+    "usd": 19.99
+   },
+   "key": "v1"
+  },
+  {
+   "level": {
+    "by": "VALUE",
+    "cuts": [
+     20,
+     5,
+     1
+    ]
+   },
+   "rate": 0.9,
+   "card": {
+    "name": "A",
+    "usd": 5.3
+   },
+   "key": "v2"
+  },
+  {
+   "level": {
+    "by": "VALUE",
+    "cuts": [
+     20,
+     5,
+     1
+    ]
+   },
+   "rate": 0.9,
+   "card": {
+    "name": "A",
+    "usd": 5.6
+   },
+   "key": "v1"
+  },
+  {
+   "level": {
+    "by": "VALUE",
+    "cuts": [
+     20,
+     5,
+     1
+    ]
+   },
+   "rate": 1,
+   "card": {
+    "name": "A",
+    "usd": 0.5
+   },
+   "key": "v3"
+  },
+  {
+   "level": {
+    "by": "VALUE",
+    "cuts": [
+     20,
+     5,
+     1
+    ]
+   },
+   "rate": 1,
+   "card": {
+    "name": "A",
+    "usd": null
+   },
+   "key": "v3"
+  },
+  {
+   "level": {
+    "by": "VALUE",
+    "cuts": [
+     20,
+     5,
+     1
+    ]
+   },
+   "rate": 1,
+   "card": {
+    "name": "A",
+    "usd": 0.5,
+    "usdFoil": 30,
+    "foil": true
+   },
+   "key": "v0"
+  },
+  {
+   "level": {
+    "by": "VALUE",
+    "cuts": [
+     20,
+     5,
+     1
+    ]
+   },
+   "rate": 1,
+   "card": {
+    "name": "A",
+    "usd": null,
+    "usdFoil": 7
+   },
+   "key": "v1"
+  },
+  {
+   "level": {
+    "by": "VALUE",
+    "cuts": [
+     20,
+     5,
+     1
+    ]
+   },
+   "rate": 150,
+   "card": {
+    "name": "A",
+    "usd": 0.2
+   },
+   "key": "v0"
+  },
+  {
+   "level": {
+    "by": "COLOUR"
+   },
+   "rate": 1,
+   "card": {
+    "name": "Island",
+    "typeLine": "Basic Land — Island",
+    "colors": []
+   },
+   "key": "C"
+  },
+  {
+   "level": {
+    "by": "COLOUR",
+    "lands": true
+   },
+   "rate": 1,
+   "card": {
+    "name": "Island",
+    "typeLine": "Basic Land — Island",
+    "colors": []
+   },
+   "key": "L"
+  },
+  {
+   "level": {
+    "by": "COLOUR"
+   },
+   "rate": 1,
+   "card": {
+    "name": "Niv",
+    "typeLine": "Legendary Creature — Dragon",
+    "colors": [
+     "U",
+     "R"
+    ]
+   },
+   "key": "M"
+  },
+  {
+   "level": {
+    "by": "COLOUR"
+   },
+   "rate": 1,
+   "card": {
+    "name": "Sol Ring",
+    "typeLine": "Artifact",
+    "colors": []
+   },
+   "key": "C"
+  },
+  {
+   "level": {
+    "by": "COLOUR"
+   },
+   "rate": 1,
+   "card": {
+    "name": "Delver",
+    "typeLine": "Creature — Human Wizard // Creature — Insect",
+    "colors": [
+     "U"
+    ]
+   },
+   "key": "U"
+  },
+  {
+   "level": {
+    "by": "IDENTITY"
+   },
+   "rate": 1,
+   "card": {
+    "name": "Command Tower",
+    "typeLine": "Land",
+    "colorIdentity": []
+   },
+   "key": "C"
+  },
+  {
+   "level": {
+    "by": "IDENTITY"
+   },
+   "rate": 1,
+   "card": {
+    "name": "Thing",
+    "colorIdentity": [
+     "G"
+    ]
+   },
+   "key": "G"
+  },
+  {
+   "level": {
+    "by": "IDENTITY"
+   },
+   "rate": 1,
+   "card": {
+    "name": "Thing",
+    "colorIdentity": [
+     "G",
+     "W"
+    ]
+   },
+   "key": "M"
+  },
+  {
+   "level": {
+    "by": "SET",
+    "sets": [
+     "dsk",
+     "blb"
+    ]
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "set": "DSK"
+   },
+   "key": "dsk"
+  },
+  {
+   "level": {
+    "by": "SET",
+    "sets": [
+     "dsk",
+     "blb"
+    ]
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "set": "woe"
+   },
+   "key": "other"
+  },
+  {
+   "level": {
+    "by": "SET",
+    "sets": [
+     "dsk",
+     "blb"
+    ]
+   },
+   "rate": 1,
+   "card": {
+    "name": "X"
+   },
+   "key": "other"
+  },
+  {
+   "level": {
+    "by": "MANA_VALUE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "cmc": 0
+   },
+   "key": "m0"
+  },
+  {
+   "level": {
+    "by": "MANA_VALUE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "cmc": 1
+   },
+   "key": "m0"
+  },
+  {
+   "level": {
+    "by": "MANA_VALUE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "cmc": 2.5
+   },
+   "key": "m1"
+  },
+  {
+   "level": {
+    "by": "MANA_VALUE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "cmc": 16
+   },
+   "key": "m4"
+  },
+  {
+   "level": {
+    "by": "MANA_VALUE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X"
+   },
+   "key": "m0"
+  },
+  {
+   "level": {
+    "by": "RARITY"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "rarity": "mythic"
+   },
+   "key": "mythic"
+  },
+  {
+   "level": {
+    "by": "RARITY"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "rarity": "special"
+   },
+   "key": "common"
+  },
+  {
+   "level": {
+    "by": "RARITY"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "rarity": "uncommon"
+   },
+   "key": "uncommon"
+  },
+  {
+   "level": {
+    "by": "TYPE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "typeLine": "Artifact Creature — Golem"
+   },
+   "key": "creatures"
+  },
+  {
+   "level": {
+    "by": "TYPE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "typeLine": "Kindred Instant — Goblin"
+   },
+   "key": "instants"
+  },
+  {
+   "level": {
+    "by": "TYPE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "typeLine": "Conspiracy"
+   },
+   "key": "other"
+  },
+  {
+   "level": {
+    "by": "NAME"
+   },
+   "rate": 1,
+   "card": {
+    "name": "Zur the Enchanter"
+   },
+   "key": "n3"
+  },
+  {
+   "level": {
+    "by": "NAME"
+   },
+   "rate": 1,
+   "card": {
+    "name": "Æther Vial"
+   },
+   "key": "n0"
+  },
+  {
+   "level": {
+    "by": "NAME"
+   },
+   "rate": 1,
+   "card": {
+    "name": "Fblthp"
+   },
+   "key": "n1"
+  },
+  {
+   "level": {
+    "by": "NAME"
+   },
+   "rate": 1,
+   "card": {
+    "name": "Eladamri"
+   },
+   "key": "n0"
+  },
+  {
+   "level": {
+    "by": "NAME"
+   },
+   "rate": 1,
+   "card": {
+    "name": "lotus petal"
+   },
+   "key": "n2"
+  },
+  {
+   "level": {
+    "by": "NAME"
+   },
+   "rate": 1,
+   "card": {
+    "name": "\"Ach! Hans, Run!\""
+   },
+   "key": "n0"
+  },
+  {
+   "level": {
+    "by": "NAME",
+    "letters": [
+     "a",
+     "n",
+     "Z"
+    ]
+   },
+   "rate": 1,
+   "card": {
+    "name": "Zur"
+   },
+   "key": "n2"
+  },
+  {
+   "level": {
+    "by": "NAME",
+    "letters": [
+     "a",
+     "n",
+     "Z"
+    ]
+   },
+   "rate": 1,
+   "card": {
+    "name": "Mox"
+   },
+   "key": "n0"
+  },
+  {
+   "level": {
+    "by": "NUMBER"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "collectorNumber": "123a"
+   },
+   "key": "c1"
+  },
+  {
+   "level": {
+    "by": "NUMBER"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "collectorNumber": "99"
+   },
+   "key": "c0"
+  },
+  {
+   "level": {
+    "by": "NUMBER"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "collectorNumber": "★5"
+   },
+   "key": "c0"
+  },
+  {
+   "level": {
+    "by": "NUMBER"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "collectorNumber": "0300"
+   },
+   "key": "c3"
+  },
+  {
+   "level": {
+    "by": "NUMBER"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X"
+   },
+   "key": "c0"
+  }
+ ],
+ "ctx": {
+  "deckNeeds": {
+   "goblin chieftain": [
+    {
+     "deckId": "k",
+     "deck": "Krenko goblins",
+     "qty": 1
+    }
+   ],
+   "sol ring": [
+    {
+     "deckId": "a",
+     "deck": "Atraxa, Praetors' Voice",
+     "qty": 1
+    },
+    {
+     "deckId": "k",
+     "deck": "Krenko goblins",
+     "qty": 2
+    }
+   ]
+  },
+  "friendWants": {
+   "goblin chieftain": [
+    "Priya"
+   ],
+   "lightning bolt": [
+    "Priya",
+    "Jo"
+   ]
+  },
+  "binders": [
+   {
+    "placeId": "dsk",
+    "name": "Duskmourn",
+    "rule": "SET",
+    "pockets": 9,
+    "occupied": [
+     {
+      "index": 0,
+      "facts": {
+       "name": "Acrobat",
+       "set": "dsk",
+       "collectorNumber": "1"
+      }
+     },
+     {
+      "index": 1,
+      "facts": {
+       "name": "Bottomless Pool",
+       "set": "dsk",
+       "collectorNumber": "5"
+      }
+     },
+     {
+      "index": 9,
+      "facts": {
+       "name": "Zimone",
+       "set": "dsk",
+       "collectorNumber": "40"
+      }
+     }
+    ],
+    "names": [
+     "acrobat",
+     "bottomless pool",
+     "zimone"
+    ],
+    "sets": [
+     "dsk"
+    ]
+   }
+  ],
+  "owned": {
+   "shock": 4,
+   "goblin chieftain": 3,
+   "sol ring": 1
+  }
+ },
+ "session": [
+  {
+   "name": "Goblin Chieftain",
+   "colors": [
+    "R"
+   ],
+   "typeLine": "Creature — Goblin",
+   "rarity": "rare",
+   "usd": 0.6,
+   "set": "m10"
+  },
+  {
+   "name": "Goblin Chieftain",
+   "colors": [
+    "R"
+   ],
+   "typeLine": "Creature — Goblin",
+   "rarity": "rare",
+   "usd": 0.6,
+   "set": "m10"
+  },
+  {
+   "name": "Goblin Chieftain",
+   "colors": [
+    "R"
+   ],
+   "typeLine": "Creature — Goblin",
+   "rarity": "rare",
+   "usd": 0.6,
+   "set": "m10"
+  },
+  {
+   "name": "Lightning Bolt",
+   "colors": [
+    "R"
+   ],
+   "typeLine": "Instant",
+   "rarity": "common",
+   "usd": 1.5,
+   "set": "m21",
+   "usdFoil": 4,
+   "foil": true
+  },
+  {
+   "name": "Lightning Bolt",
+   "colors": [
+    "R"
+   ],
+   "typeLine": "Instant",
+   "rarity": "common",
+   "usd": 1.5,
+   "set": "m21"
+  },
+  {
+   "name": "Counterspell",
+   "colors": [
+    "U"
+   ],
+   "typeLine": "Instant",
+   "rarity": "uncommon",
+   "usd": 1.2,
+   "set": "dmr"
+  },
+  {
+   "name": "Unholy Annex",
+   "colors": [
+    "B"
+   ],
+   "typeLine": "Enchantment — Room",
+   "rarity": "rare",
+   "usd": 3,
+   "set": "dsk",
+   "collectorNumber": "3"
+  },
+  {
+   "name": "Fear of Exposure",
+   "colors": [
+    "G"
+   ],
+   "typeLine": "Enchantment Creature",
+   "rarity": "common",
+   "usd": 0.2,
+   "set": "dsk",
+   "collectorNumber": "2"
+  },
+  {
+   "name": "Unholy Annex",
+   "colors": [
+    "B"
+   ],
+   "typeLine": "Enchantment — Room",
+   "rarity": "rare",
+   "usd": 3,
+   "set": "dsk",
+   "collectorNumber": "3"
+  },
+  {
+   "name": "Acrobat",
+   "colors": [
+    "W"
+   ],
+   "typeLine": "Instant",
+   "rarity": "common",
+   "usd": 0.1,
+   "set": "dsk",
+   "collectorNumber": "1"
+  },
+  {
+   "name": "Shock",
+   "colors": [
+    "R"
+   ],
+   "typeLine": "Instant",
+   "rarity": "common",
+   "usd": 0.2,
+   "set": "m21"
+  },
+  {
+   "name": "Island",
+   "colors": [],
+   "typeLine": "Basic Land — Island",
+   "rarity": "common",
+   "usd": 0.1,
+   "set": "m21",
+   "lang": "ja"
+  },
+  {
+   "name": "Island",
+   "colors": [],
+   "typeLine": "Basic Land — Island",
+   "rarity": "common",
+   "usd": 0.1,
+   "set": "m21"
+  },
+  {
+   "name": "Black Lotus",
+   "colors": [],
+   "typeLine": "Artifact",
+   "rarity": "rare",
+   "usd": 20000,
+   "set": "lea"
+  },
+  {
+   "name": "Mystery Card",
+   "colors": [],
+   "typeLine": "Artifact",
+   "rarity": "common",
+   "usd": null,
+   "set": "m21"
+  },
+  {
+   "name": "Niv-Mizzet, Parun",
+   "colors": [
+    "U",
+    "R"
+   ],
+   "typeLine": "Legendary Creature — Dragon",
+   "rarity": "rare",
+   "usd": 1.99,
+   "set": "m21"
+  },
+  {
+   "name": "Sol Ring",
+   "colors": [],
+   "typeLine": "Artifact",
+   "rarity": "uncommon",
+   "usd": 1.5,
+   "set": "m21",
+   "foil": true
+  },
+  {
+   "name": "Sol Ring",
+   "colors": [],
+   "typeLine": "Artifact",
+   "rarity": "uncommon",
+   "usd": 1.5,
+   "set": "m21"
+  },
+  {
+   "name": "Sol Ring",
+   "colors": [],
+   "typeLine": "Artifact",
+   "rarity": "uncommon",
+   "usd": 1.5,
+   "set": "m21"
+  },
+  {
+   "name": "Sol Ring",
+   "colors": [],
+   "typeLine": "Artifact",
+   "rarity": "uncommon",
+   "usd": 1.5,
+   "set": "m21"
+  },
+  {
+   "name": "Swords to Plowshares",
+   "colors": [
+    "W"
+   ],
+   "typeLine": "Instant",
+   "rarity": "common",
+   "usd": 2,
+   "set": "m21",
+   "lang": "de"
+  }
+ ],
+ "sessions": [
+  {
+   "recipe": {
+    "id": "r1",
+    "name": "My bulk boxes",
+    "pullOut": [
+     "DECKS",
+     "FRIENDS",
+     "BINDER",
+     "TRADE"
+    ],
+    "levels": [
+     {
+      "by": "VALUE",
+      "cuts": [
+       2
+      ],
+      "restOn": true
+     },
+     {
+      "by": "COLOUR"
+     }
+    ],
+    "apart": [
+     "FOIL",
+     "FOREIGN"
+    ],
+    "createdAt": 1
+   },
+   "rate": 1,
+   "expect": [
+    {
+     "pile": 1,
+     "key": "S:DECKS",
+     "reason": "KRENKO NEEDS IT",
+     "also": [
+      "Priya wants one"
+     ],
+     "spoken": "One, Krenko needs it",
+     "line": "Rare · $0.6 · missing from Krenko goblins"
+    },
+    {
+     "pile": 2,
+     "key": "S:FRIENDS",
+     "reason": "PRIYA WANTS IT",
+     "also": [
+      "5th copy · trade"
+     ],
+     "spoken": "Two, Priya wants it",
+     "line": "Rare · $0.6 · M10"
+    },
+    {
+     "pile": 4,
+     "key": "S:TRADE",
+     "reason": "6th COPY · TRADE",
+     "also": [],
+     "spoken": "Four, trade",
+     "line": "Rare · $0.6 · M10"
+    },
+    {
+     "pile": 2,
+     "key": "S:FRIENDS",
+     "reason": "PRIYA WANTS IT",
+     "also": [
+      "Jo wants one"
+     ],
+     "spoken": "Two, Priya wants it",
+     "line": "Common · $4 · M21"
+    },
+    {
+     "pile": 2,
+     "key": "S:FRIENDS",
+     "reason": "JO WANTS IT",
+     "also": [],
+     "spoken": "Two, Jo wants it",
+     "line": "Common · $1.5 · M21"
+    },
+    {
+     "pile": 9,
+     "key": "L:v1/U",
+     "reason": null,
+     "also": [],
+     "spoken": "Nine, blue",
+     "line": "Uncommon · $1.2 · DMR"
+    },
+    {
+     "pile": 3,
+     "key": "S:BINDER",
+     "reason": "NEW FOR DUSKMOURN BINDER · p1 s2",
+     "also": [],
+     "spoken": "Three, new for Duskmourn binder",
+     "line": "Rare · $3 · DSK"
+    },
+    {
+     "pile": 3,
+     "key": "S:BINDER",
+     "reason": "NEW FOR DUSKMOURN BINDER · p1 s2",
+     "also": [],
+     "spoken": "Three, new for Duskmourn binder",
+     "line": "Common · $0.2 · DSK"
+    },
+    {
+     "pile": 7,
+     "key": "L:v0",
+     "reason": null,
+     "also": [],
+     "spoken": "Seven, $2 and up",
+     "line": "Rare · $3 · DSK"
+    },
+    {
+     "pile": 8,
+     "key": "L:v1/W",
+     "reason": null,
+     "also": [],
+     "spoken": "Eight, white",
+     "line": "Common · $0.1 · DSK"
+    },
+    {
+     "pile": 4,
+     "key": "S:TRADE",
+     "reason": "5th COPY · TRADE",
+     "also": [],
+     "spoken": "Four, trade",
+     "line": "Common · $0.2 · M21"
+    },
+    {
+     "pile": 6,
+     "key": "A:FOREIGN",
+     "reason": null,
+     "also": [],
+     "spoken": "Six, not English",
+     "line": "Common · $0.1 · M21"
+    },
+    {
+     "pile": 14,
+     "key": "L:v1/C",
+     "reason": null,
+     "also": [],
+     "spoken": "Fourteen, colourless and lands",
+     "line": "Common · $0.1 · M21"
+    },
+    {
+     "pile": 7,
+     "key": "L:v0",
+     "reason": null,
+     "also": [],
+     "spoken": "Seven, $2 and up",
+     "line": "Rare · $20000 · LEA"
+    },
+    {
+     "pile": 14,
+     "key": "L:v1/C",
+     "reason": null,
+     "also": [],
+     "spoken": "Fourteen, colourless and lands",
+     "line": "Common · No price · M21"
+    },
+    {
+     "pile": 13,
+     "key": "L:v1/M",
+     "reason": null,
+     "also": [],
+     "spoken": "Thirteen, multicolour",
+     "line": "Rare · $1.99 · M21"
+    },
+    {
+     "pile": 1,
+     "key": "S:DECKS",
+     "reason": "ATRAXA NEEDS IT",
+     "also": [
+      "Krenko goblins needs it"
+     ],
+     "spoken": "One, Atraxa needs it",
+     "line": "Uncommon · $1.5 · missing from Atraxa, Praetors' Voice"
+    },
+    {
+     "pile": 1,
+     "key": "S:DECKS",
+     "reason": "KRENKO NEEDS IT",
+     "also": [],
+     "spoken": "One, Krenko needs it",
+     "line": "Uncommon · $1.5 · missing from Krenko goblins"
+    },
+    {
+     "pile": 1,
+     "key": "S:DECKS",
+     "reason": "KRENKO NEEDS IT",
+     "also": [],
+     "spoken": "One, Krenko needs it",
+     "line": "Uncommon · $1.5 · missing from Krenko goblins"
+    },
+    {
+     "pile": 4,
+     "key": "S:TRADE",
+     "reason": "5th COPY · TRADE",
+     "also": [],
+     "spoken": "Four, trade",
+     "line": "Uncommon · $1.5 · M21"
+    },
+    {
+     "pile": 6,
+     "key": "A:FOREIGN",
+     "reason": null,
+     "also": [],
+     "spoken": "Six, not English",
+     "line": "Common · $2 · M21"
+    }
+   ],
+   "summary": {
+    "cards": 21,
+    "usd": 20025.19,
+    "rows": [
+     "1-1 Decks need 4 5.1 Krenko 3, Atraxa 1",
+     "2-2 Friends want 3 6.1 Priya 2, Jo 1",
+     "3-3 Binder gaps 2 3.2 Duskmourn",
+     "4-4 To trade 3 2.3",
+     "6-6 Not English 2 2.1",
+     "7-7 $2 and up 2 20003",
+     "8-14 Bulk by colour 5 3.39"
+    ]
+   },
+   "checks": [
+    {
+     "pile": 1,
+     "names": [
+      "Goblin Chieftain",
+      "Goblin Chieftain",
+      "Shock",
+      "Sol Ring"
+     ],
+     "lines": [
+      "Belongs in pile 1",
+      "Doesn't belong — pile 2 · Friends want",
+      "Doesn't belong — pile 4 · To trade",
+      "Belongs in pile 1"
+     ]
+    },
+    {
+     "pile": 14,
+     "names": [
+      "Island",
+      "Mystery Card"
+     ],
+     "lines": [
+      "Belongs in pile 14",
+      "Belongs in pile 14"
+     ]
+    }
+   ]
+  },
+  {
+   "recipe": {
+    "id": "r2",
+    "name": "Commander by colour",
+    "pullOut": [
+     "DECKS",
+     "FRIENDS",
+     "BINDER"
+    ],
+    "levels": [
+     {
+      "by": "COLOUR",
+      "lands": true
+     }
+    ],
+    "apart": [],
+    "createdAt": 1
+   },
+   "rate": 1,
+   "expect": [
+    {
+     "pile": 1,
+     "key": "S:DECKS",
+     "reason": "KRENKO NEEDS IT",
+     "also": [
+      "Priya wants one"
+     ],
+     "spoken": "One, Krenko needs it",
+     "line": "Rare · $0.6 · missing from Krenko goblins"
+    },
+    {
+     "pile": 2,
+     "key": "S:FRIENDS",
+     "reason": "PRIYA WANTS IT",
+     "also": [
+      "5th copy · trade"
+     ],
+     "spoken": "Two, Priya wants it",
+     "line": "Rare · $0.6 · M10"
+    },
+    {
+     "pile": 7,
+     "key": "L:R",
+     "reason": null,
+     "also": [
+      "6th copy · trade"
+     ],
+     "spoken": "Seven, red",
+     "line": "Rare · $0.6 · M10"
+    },
+    {
+     "pile": 2,
+     "key": "S:FRIENDS",
+     "reason": "PRIYA WANTS IT",
+     "also": [
+      "Jo wants one"
+     ],
+     "spoken": "Two, Priya wants it",
+     "line": "Common · $4 · M21"
+    },
+    {
+     "pile": 2,
+     "key": "S:FRIENDS",
+     "reason": "JO WANTS IT",
+     "also": [],
+     "spoken": "Two, Jo wants it",
+     "line": "Common · $1.5 · M21"
+    },
+    {
+     "pile": 5,
+     "key": "L:U",
+     "reason": null,
+     "also": [],
+     "spoken": "Five, blue",
+     "line": "Uncommon · $1.2 · DMR"
+    },
+    {
+     "pile": 3,
+     "key": "S:BINDER",
+     "reason": "NEW FOR DUSKMOURN BINDER · p1 s2",
+     "also": [],
+     "spoken": "Three, new for Duskmourn binder",
+     "line": "Rare · $3 · DSK"
+    },
+    {
+     "pile": 3,
+     "key": "S:BINDER",
+     "reason": "NEW FOR DUSKMOURN BINDER · p1 s2",
+     "also": [],
+     "spoken": "Three, new for Duskmourn binder",
+     "line": "Common · $0.2 · DSK"
+    },
+    {
+     "pile": 6,
+     "key": "L:B",
+     "reason": null,
+     "also": [],
+     "spoken": "Six, black",
+     "line": "Rare · $3 · DSK"
+    },
+    {
+     "pile": 4,
+     "key": "L:W",
+     "reason": null,
+     "also": [],
+     "spoken": "Four, white",
+     "line": "Common · $0.1 · DSK"
+    },
+    {
+     "pile": 7,
+     "key": "L:R",
+     "reason": null,
+     "also": [
+      "5th copy · trade"
+     ],
+     "spoken": "Seven, red",
+     "line": "Common · $0.2 · M21"
+    },
+    {
+     "pile": 11,
+     "key": "L:L",
+     "reason": null,
+     "also": [],
+     "spoken": "Eleven, lands",
+     "line": "Common · $0.1 · M21"
+    },
+    {
+     "pile": 11,
+     "key": "L:L",
+     "reason": null,
+     "also": [],
+     "spoken": "Eleven, lands",
+     "line": "Common · $0.1 · M21"
+    },
+    {
+     "pile": 10,
+     "key": "L:C",
+     "reason": null,
+     "also": [],
+     "spoken": "Ten, colourless",
+     "line": "Rare · $20000 · LEA"
+    },
+    {
+     "pile": 10,
+     "key": "L:C",
+     "reason": null,
+     "also": [],
+     "spoken": "Ten, colourless",
+     "line": "Common · No price · M21"
+    },
+    {
+     "pile": 9,
+     "key": "L:M",
+     "reason": null,
+     "also": [],
+     "spoken": "Nine, multicolour",
+     "line": "Rare · $1.99 · M21"
+    },
+    {
+     "pile": 1,
+     "key": "S:DECKS",
+     "reason": "ATRAXA NEEDS IT",
+     "also": [
+      "Krenko goblins needs it"
+     ],
+     "spoken": "One, Atraxa needs it",
+     "line": "Uncommon · $1.5 · missing from Atraxa, Praetors' Voice"
+    },
+    {
+     "pile": 1,
+     "key": "S:DECKS",
+     "reason": "KRENKO NEEDS IT",
+     "also": [],
+     "spoken": "One, Krenko needs it",
+     "line": "Uncommon · $1.5 · missing from Krenko goblins"
+    },
+    {
+     "pile": 1,
+     "key": "S:DECKS",
+     "reason": "KRENKO NEEDS IT",
+     "also": [],
+     "spoken": "One, Krenko needs it",
+     "line": "Uncommon · $1.5 · missing from Krenko goblins"
+    },
+    {
+     "pile": 10,
+     "key": "L:C",
+     "reason": null,
+     "also": [
+      "5th copy · trade"
+     ],
+     "spoken": "Ten, colourless",
+     "line": "Uncommon · $1.5 · M21"
+    },
+    {
+     "pile": 4,
+     "key": "L:W",
+     "reason": null,
+     "also": [],
+     "spoken": "Four, white",
+     "line": "Common · $2 · M21"
+    }
+   ],
+   "summary": {
+    "cards": 21,
+    "usd": 20025.19,
+    "rows": [
+     "1-1 Decks need 4 5.1 Krenko 3, Atraxa 1",
+     "2-2 Friends want 3 6.1 Priya 2, Jo 1",
+     "3-3 Binder gaps 2 3.2 Duskmourn",
+     "4-11 Bulk by colour 12 20010.79"
+    ]
+   },
+   "checks": [
+    {
+     "pile": 1,
+     "names": [
+      "Goblin Chieftain",
+      "Goblin Chieftain",
+      "Shock",
+      "Sol Ring"
+     ],
+     "lines": [
+      "Belongs in pile 1",
+      "Doesn't belong — pile 2 · Friends want",
+      "Doesn't belong — pile 7 · Red",
+      "Belongs in pile 1"
+     ]
+    },
+    {
+     "pile": 11,
+     "names": [
+      "Island",
+      "Mystery Card"
+     ],
+     "lines": [
+      "Belongs in pile 11",
+      "Doesn't belong — pile 10 · Colourless"
+     ]
+    }
+   ]
+  },
+  {
+   "recipe": {
+    "id": "r6",
+    "name": "Rarity then MV",
+    "pullOut": [
+     "TRADE"
+    ],
+    "levels": [
+     {
+      "by": "RARITY"
+     },
+     {
+      "by": "MANA_VALUE",
+      "cuts": [
+       0,
+       3,
+       5
+      ]
+     }
+    ],
+    "apart": [
+     "PLAYED"
+    ],
+    "createdAt": 1
+   },
+   "rate": 1,
+   "expect": [
+    {
+     "pile": 6,
+     "key": "L:rare/m0",
+     "reason": null,
+     "also": [
+      "Krenko goblins needs it",
+      "Priya wants one"
+     ],
+     "spoken": "Six, rare, MV 0–2",
+     "line": "Rare · $0.6 · M10"
+    },
+    {
+     "pile": 1,
+     "key": "S:TRADE",
+     "reason": "5th COPY · TRADE",
+     "also": [
+      "Krenko goblins needs it",
+      "Priya wants one"
+     ],
+     "spoken": "One, trade",
+     "line": "Rare · $0.6 · M10"
+    },
+    {
+     "pile": 1,
+     "key": "S:TRADE",
+     "reason": "6th COPY · TRADE",
+     "also": [
+      "Krenko goblins needs it",
+      "Priya wants one"
+     ],
+     "spoken": "One, trade",
+     "line": "Rare · $0.6 · M10"
+    },
+    {
+     "pile": 12,
+     "key": "L:common/m0",
+     "reason": null,
+     "also": [
+      "Priya wants one",
+      "Jo wants one"
+     ],
+     "spoken": "Twelve, common, MV 0–2",
+     "line": "Common · $4 · M21"
+    },
+    {
+     "pile": 12,
+     "key": "L:common/m0",
+     "reason": null,
+     "also": [
+      "Priya wants one",
+      "Jo wants one"
+     ],
+     "spoken": "Twelve, common, MV 0–2",
+     "line": "Common · $1.5 · M21"
+    },
+    {
+     "pile": 9,
+     "key": "L:uncommon/m0",
+     "reason": null,
+     "also": [],
+     "spoken": "Nine, uncommon, MV 0–2",
+     "line": "Uncommon · $1.2 · DMR"
+    },
+    {
+     "pile": 6,
+     "key": "L:rare/m0",
+     "reason": null,
+     "also": [
+      "New for Duskmourn binder · p1 s2"
+     ],
+     "spoken": "Six, rare, MV 0–2",
+     "line": "Rare · $3 · DSK"
+    },
+    {
+     "pile": 12,
+     "key": "L:common/m0",
+     "reason": null,
+     "also": [
+      "New for Duskmourn binder · p1 s2"
+     ],
+     "spoken": "Twelve, common, MV 0–2",
+     "line": "Common · $0.2 · DSK"
+    },
+    {
+     "pile": 6,
+     "key": "L:rare/m0",
+     "reason": null,
+     "also": [
+      "New for Duskmourn binder · p1 s2"
+     ],
+     "spoken": "Six, rare, MV 0–2",
+     "line": "Rare · $3 · DSK"
+    },
+    {
+     "pile": 12,
+     "key": "L:common/m0",
+     "reason": null,
+     "also": [],
+     "spoken": "Twelve, common, MV 0–2",
+     "line": "Common · $0.1 · DSK"
+    },
+    {
+     "pile": 1,
+     "key": "S:TRADE",
+     "reason": "5th COPY · TRADE",
+     "also": [],
+     "spoken": "One, trade",
+     "line": "Common · $0.2 · M21"
+    },
+    {
+     "pile": 12,
+     "key": "L:common/m0",
+     "reason": null,
+     "also": [],
+     "spoken": "Twelve, common, MV 0–2",
+     "line": "Common · $0.1 · M21"
+    },
+    {
+     "pile": 12,
+     "key": "L:common/m0",
+     "reason": null,
+     "also": [],
+     "spoken": "Twelve, common, MV 0–2",
+     "line": "Common · $0.1 · M21"
+    },
+    {
+     "pile": 6,
+     "key": "L:rare/m0",
+     "reason": null,
+     "also": [],
+     "spoken": "Six, rare, MV 0–2",
+     "line": "Rare · $20000 · LEA"
+    },
+    {
+     "pile": 12,
+     "key": "L:common/m0",
+     "reason": null,
+     "also": [],
+     "spoken": "Twelve, common, MV 0–2",
+     "line": "Common · No price · M21"
+    },
+    {
+     "pile": 6,
+     "key": "L:rare/m0",
+     "reason": null,
+     "also": [],
+     "spoken": "Six, rare, MV 0–2",
+     "line": "Rare · $1.99 · M21"
+    },
+    {
+     "pile": 9,
+     "key": "L:uncommon/m0",
+     "reason": null,
+     "also": [
+      "Atraxa, Praetors' Voice needs it",
+      "Krenko goblins needs it"
+     ],
+     "spoken": "Nine, uncommon, MV 0–2",
+     "line": "Uncommon · $1.5 · M21"
+    },
+    {
+     "pile": 9,
+     "key": "L:uncommon/m0",
+     "reason": null,
+     "also": [
+      "Atraxa, Praetors' Voice needs it",
+      "Krenko goblins needs it"
+     ],
+     "spoken": "Nine, uncommon, MV 0–2",
+     "line": "Uncommon · $1.5 · M21"
+    },
+    {
+     "pile": 9,
+     "key": "L:uncommon/m0",
+     "reason": null,
+     "also": [
+      "Atraxa, Praetors' Voice needs it",
+      "Krenko goblins needs it"
+     ],
+     "spoken": "Nine, uncommon, MV 0–2",
+     "line": "Uncommon · $1.5 · M21"
+    },
+    {
+     "pile": 1,
+     "key": "S:TRADE",
+     "reason": "5th COPY · TRADE",
+     "also": [
+      "Atraxa, Praetors' Voice needs it",
+      "Krenko goblins needs it"
+     ],
+     "spoken": "One, trade",
+     "line": "Uncommon · $1.5 · M21"
+    },
+    {
+     "pile": 12,
+     "key": "L:common/m0",
+     "reason": null,
+     "also": [],
+     "spoken": "Twelve, common, MV 0–2",
+     "line": "Common · $2 · M21"
+    }
+   ],
+   "summary": {
+    "cards": 21,
+    "usd": 20025.19,
+    "rows": [
+     "1-1 To trade 4 2.9",
+     "3-14 Bulk by rarity 17 20022.29"
+    ]
+   },
+   "checks": [
+    {
+     "pile": 1,
+     "names": [
+      "Goblin Chieftain",
+      "Goblin Chieftain",
+      "Shock",
+      "Sol Ring"
+     ],
+     "lines": [
+      "Belongs in pile 1",
+      "Belongs in pile 1",
+      "Belongs in pile 1",
+      "Belongs in pile 1"
+     ]
+    },
+    {
+     "pile": 14,
+     "names": [
+      "Island",
+      "Mystery Card"
+     ],
+     "lines": [
+      "Doesn't belong — pile 12 · Common · MV 0–2",
+      "Doesn't belong — pile 12 · Common · MV 0–2"
+     ]
+    }
+   ]
+  },
+  {
+   "recipe": {
+    "id": "r8",
+    "name": "My bulk boxes",
+    "pullOut": [],
+    "levels": [
+     {
+      "by": "VALUE",
+      "cuts": [
+       2
+      ],
+      "restOn": true
+     },
+     {
+      "by": "COLOUR"
+     }
+    ],
+    "apart": [
+     "FOIL",
+     "FOREIGN"
+    ],
+    "createdAt": 1
+   },
+   "rate": 0.5,
+   "expect": [
+    {
+     "pile": 7,
+     "key": "L:v1/R",
+     "reason": null,
+     "also": [
+      "Krenko goblins needs it",
+      "Priya wants one"
+     ],
+     "spoken": "Seven, red",
+     "line": "Rare · $0.6 · M10"
+    },
+    {
+     "pile": 7,
+     "key": "L:v1/R",
+     "reason": null,
+     "also": [
+      "Krenko goblins needs it",
+      "Priya wants one",
+      "5th copy · trade"
+     ],
+     "spoken": "Seven, red",
+     "line": "Rare · $0.6 · M10"
+    },
+    {
+     "pile": 7,
+     "key": "L:v1/R",
+     "reason": null,
+     "also": [
+      "Krenko goblins needs it",
+      "Priya wants one",
+      "6th copy · trade"
+     ],
+     "spoken": "Seven, red",
+     "line": "Rare · $0.6 · M10"
+    },
+    {
+     "pile": 1,
+     "key": "A:FOIL",
+     "reason": null,
+     "also": [
+      "Priya wants one",
+      "Jo wants one"
+     ],
+     "spoken": "One, foils",
+     "line": "Common · $4 · M21"
+    },
+    {
+     "pile": 7,
+     "key": "L:v1/R",
+     "reason": null,
+     "also": [
+      "Priya wants one",
+      "Jo wants one"
+     ],
+     "spoken": "Seven, red",
+     "line": "Common · $1.5 · M21"
+    },
+    {
+     "pile": 5,
+     "key": "L:v1/U",
+     "reason": null,
+     "also": [],
+     "spoken": "Five, blue",
+     "line": "Uncommon · $1.2 · DMR"
+    },
+    {
+     "pile": 6,
+     "key": "L:v1/B",
+     "reason": null,
+     "also": [
+      "New for Duskmourn binder · p1 s2"
+     ],
+     "spoken": "Six, black",
+     "line": "Rare · $3 · DSK"
+    },
+    {
+     "pile": 8,
+     "key": "L:v1/G",
+     "reason": null,
+     "also": [
+      "New for Duskmourn binder · p1 s2"
+     ],
+     "spoken": "Eight, green",
+     "line": "Common · $0.2 · DSK"
+    },
+    {
+     "pile": 6,
+     "key": "L:v1/B",
+     "reason": null,
+     "also": [
+      "New for Duskmourn binder · p1 s2"
+     ],
+     "spoken": "Six, black",
+     "line": "Rare · $3 · DSK"
+    },
+    {
+     "pile": 4,
+     "key": "L:v1/W",
+     "reason": null,
+     "also": [],
+     "spoken": "Four, white",
+     "line": "Common · $0.1 · DSK"
+    },
+    {
+     "pile": 7,
+     "key": "L:v1/R",
+     "reason": null,
+     "also": [
+      "5th copy · trade"
+     ],
+     "spoken": "Seven, red",
+     "line": "Common · $0.2 · M21"
+    },
+    {
+     "pile": 2,
+     "key": "A:FOREIGN",
+     "reason": null,
+     "also": [],
+     "spoken": "Two, not English",
+     "line": "Common · $0.1 · M21"
+    },
+    {
+     "pile": 10,
+     "key": "L:v1/C",
+     "reason": null,
+     "also": [],
+     "spoken": "Ten, colourless and lands",
+     "line": "Common · $0.1 · M21"
+    },
+    {
+     "pile": 3,
+     "key": "L:v0",
+     "reason": null,
+     "also": [],
+     "spoken": "Three, $2 and up",
+     "line": "Rare · $20000 · LEA"
+    },
+    {
+     "pile": 10,
+     "key": "L:v1/C",
+     "reason": null,
+     "also": [],
+     "spoken": "Ten, colourless and lands",
+     "line": "Common · No price · M21"
+    },
+    {
+     "pile": 9,
+     "key": "L:v1/M",
+     "reason": null,
+     "also": [],
+     "spoken": "Nine, multicolour",
+     "line": "Rare · $1.99 · M21"
+    },
+    {
+     "pile": 1,
+     "key": "A:FOIL",
+     "reason": null,
+     "also": [
+      "Atraxa, Praetors' Voice needs it",
+      "Krenko goblins needs it"
+     ],
+     "spoken": "One, foils",
+     "line": "Uncommon · $1.5 · M21"
+    },
+    {
+     "pile": 10,
+     "key": "L:v1/C",
+     "reason": null,
+     "also": [
+      "Atraxa, Praetors' Voice needs it",
+      "Krenko goblins needs it"
+     ],
+     "spoken": "Ten, colourless and lands",
+     "line": "Uncommon · $1.5 · M21"
+    },
+    {
+     "pile": 10,
+     "key": "L:v1/C",
+     "reason": null,
+     "also": [
+      "Atraxa, Praetors' Voice needs it",
+      "Krenko goblins needs it"
+     ],
+     "spoken": "Ten, colourless and lands",
+     "line": "Uncommon · $1.5 · M21"
+    },
+    {
+     "pile": 10,
+     "key": "L:v1/C",
+     "reason": null,
+     "also": [
+      "Atraxa, Praetors' Voice needs it",
+      "Krenko goblins needs it",
+      "5th copy · trade"
+     ],
+     "spoken": "Ten, colourless and lands",
+     "line": "Uncommon · $1.5 · M21"
+    },
+    {
+     "pile": 2,
+     "key": "A:FOREIGN",
+     "reason": null,
+     "also": [],
+     "spoken": "Two, not English",
+     "line": "Common · $2 · M21"
+    }
+   ],
+   "summary": {
+    "cards": 21,
+    "usd": 20025.19,
+    "rows": [
+     "1-1 Foils 2 5.5",
+     "2-2 Not English 2 2.1",
+     "3-3 $2 and up 1 20000",
+     "4-10 Bulk by colour 16 17.59"
+    ]
+   },
+   "checks": [
+    {
+     "pile": 1,
+     "names": [
+      "Goblin Chieftain",
+      "Goblin Chieftain",
+      "Shock",
+      "Sol Ring"
+     ],
+     "lines": [
+      "Doesn't belong — pile 7 · Red",
+      "Doesn't belong — pile 7 · Red",
+      "Doesn't belong — pile 7 · Red",
+      "Belongs in pile 1"
+     ]
+    },
+    {
+     "pile": 10,
+     "names": [
+      "Island",
+      "Mystery Card"
+     ],
+     "lines": [
+      "Belongs in pile 10",
+      "Belongs in pile 10"
+     ]
+    }
+   ]
+  }
+ ],
+ "handsFree": [
+  {
+   "steady": 3,
+   "gap": 4,
+   "steps": [
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "captured": "Shock"
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    }
+   ],
+   "takes": [
+    false,
+    false,
+    true,
+    null,
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "steady": 3,
+   "gap": 4,
+   "steps": [
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "captured": "Shock"
+    },
+    {
+     "read": null
+    },
+    {
+     "read": null
+    },
+    {
+     "read": null
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "read": null
+    },
+    {
+     "read": null
+    },
+    {
+     "read": null
+    },
+    {
+     "read": null
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    }
+   ],
+   "takes": [
+    false,
+    false,
+    true,
+    null,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    true
+   ]
+  },
+  {
+   "steady": 3,
+   "gap": 4,
+   "steps": [
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "captured": "Shock"
+    },
+    {
+     "read": "Opt"
+    },
+    {
+     "read": "Opt"
+    },
+    {
+     "read": "Opt"
+    },
+    {
+     "captured": "Opt"
+    },
+    {
+     "read": "Opt"
+    }
+   ],
+   "takes": [
+    false,
+    false,
+    true,
+    null,
+    false,
+    false,
+    true,
+    null,
+    false
+   ]
+  },
+  {
+   "steady": 2,
+   "gap": 2,
+   "steps": [
+    {
+     "read": "Lightning Bo"
+    },
+    {
+     "read": "Lightning Bolt"
+    },
+    {
+     "read": "Lightning Bolt"
+    },
+    {
+     "captured": "Lightning Bolt"
+    },
+    {
+     "read": "Lightnlng Bolt"
+    },
+    {
+     "read": "Lightnlng Bolt"
+    },
+    {
+     "read": ""
+    },
+    {
+     "read": null
+    },
+    {
+     "read": "Lightning Bolt"
+    },
+    {
+     "read": "Lightning Bolt"
+    }
+   ],
+   "takes": [
+    false,
+    false,
+    true,
+    null,
+    false,
+    false,
+    false,
+    false,
+    false,
+    true
+   ]
+  },
+  {
+   "steady": 3,
+   "gap": 4,
+   "steps": [
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "rescan": true
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    }
+   ],
+   "takes": [
+    false,
+    false,
+    true,
+    false,
+    false,
+    null,
+    false,
+    false,
+    true
+   ]
+  },
+  {
+   "steady": 3,
+   "gap": 4,
+   "steps": [
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "read": null
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    },
+    {
+     "read": "Shock"
+    }
+   ],
+   "takes": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    true
+   ]
+  },
+  {
+   "steady": 2,
+   "gap": 3,
+   "steps": [
+    {
+     "read": "Lightning B"
+    },
+    {
+     "read": "Lightning B"
+    },
+    {
+     "missed": true
+    },
+    {
+     "read": "Lightning B"
+    },
+    {
+     "read": "Lightning B"
+    },
+    {
+     "read": "Lightning Bolt"
+    },
+    {
+     "read": "Lightning Bolt"
+    },
+    {
+     "captured": "Lightning Bolt"
+    },
+    {
+     "read": "Lightning B"
+    },
+    {
+     "read": null
+    },
+    {
+     "read": null
+    },
+    {
+     "read": "Lightning Bolt"
+    },
+    {
+     "read": "Lightning Bolt"
+    }
+   ],
+   "takes": [
+    false,
+    true,
+    null,
+    false,
+    false,
+    false,
+    true,
+    null,
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  }
+ ]
+}

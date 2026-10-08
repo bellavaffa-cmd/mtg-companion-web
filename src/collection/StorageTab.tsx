@@ -111,7 +111,7 @@ export function StorageTab() {
           <button type="button" className="btn line" onClick={() => navigate('/collections/setup')}><Icon name="inventory_2" aria-hidden />Set up storage</button>
         </div>
         <div className="place-actions rise" style={rise(6)}>
-          <button type="button" className="btn line" onClick={() => navigate('/scan?sort')}><Icon name="call_split" aria-hidden />Sort a new pile</button>
+          <button type="button" className="btn line" onClick={() => navigate('/sort')}><Icon name="call_split" aria-hidden />Sort a new pile</button>
           <button type="button" className="btn line" onClick={() => navigate('/collections/value')}><Icon name="payments" aria-hidden />Value by place</button>
         </div>
         <div className="place-actions rise" style={rise(6)}>
