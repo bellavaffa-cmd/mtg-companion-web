@@ -21,7 +21,8 @@ export function tidyFolder(name: string): string {
 /** The folder [deck] is in; null for none. */
 export const folderOf = (deck: Deck): string | null => (deck.folder ? tidyFolder(deck.folder) || null : null)
 
-export const isArchived = (deck: Deck): boolean => deck.archived === true
+// A cube (decks/cube.ts) is kept as a deck, always put away: it has its own list.
+export const isArchived = (deck: Deck): boolean => deck.archived === true || deck.gameMode === 'CUBE'
 
 /** The decks a picker offers: every one not archived. */
 export const activeDecks = (decks: Deck[]): Deck[] => decks.filter((d) => !isArchived(d))

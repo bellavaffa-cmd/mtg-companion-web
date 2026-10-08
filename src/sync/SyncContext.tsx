@@ -2,6 +2,7 @@ import { countAction } from '../usage/usage'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { withVersion } from '../decks/versions'
 import { withHistory } from '../decks/deckHistory'
+import { isCube } from '../decks/cube'
 import { historyContext } from '../decks/historyDevice'
 import { knownCards } from '../collection/cardData'
 import { collectionWithTags, deckWithTags, keepUserTags, ledgerWith, tidyTags } from '../collection/userTags'
@@ -343,7 +344,8 @@ function withVersions(before: Library, after: Library): Library {
     ...after,
     decks: after.decks.map((d) => {
       const prior = was.get(d.id)
-      if (prior === d) return d
+      // A cube keeps no versions or history: hundreds of cards a version would only bloat it (decks/cube.ts).
+      if (prior === d || isCube(d)) return d
       return withVersion(prior, d.sample ? d : withHistory(prior, d, ctx))
     }),
   }

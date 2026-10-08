@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { Icon } from '../components/Icon'
@@ -10,6 +10,7 @@ import { Dialog } from '../components/Dialog'
 import { useDeckChange } from '../components/DeckExtras'
 import { deckSections, folderNames, renamedFolder, tidyFolder, withFolder, withoutFolder } from '../decks/deckFolders'
 import { useDeckValueSampler } from '../decks/deckValueHistory'
+import { isCube } from '../decks/cube'
 import '../components/deckExtras.css'
 import { EmptyState } from '../components/EmptyState'
 import { PasteDeckDialog } from '../onboarding/PasteDeckDialog'
@@ -18,7 +19,9 @@ import { PasteDeckDialog } from '../onboarding/PasteDeckDialog'
 const FOLDED_KEY = 'mtgweb_deck_folders_folded'
 
 export function DecksPage() {
-  const { decks } = useSync()
+  const { decks: library } = useSync()
+  // Cubes are kept as decks but have their own list (pages/CubePage.tsx).
+  const decks = useMemo(() => library.filter((d) => !isCube(d)), [library])
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const [query, setQuery] = useState('')
@@ -95,12 +98,14 @@ export function DecksPage() {
         actions={wide ? (
           <>
             <button type="button" className="btn line" onClick={() => setMaking(true)} disabled={decks.length === 0}><Icon name="create_new_folder" />New folder</button>
+            <button type="button" className="btn line" onClick={() => navigate('/cubes')}><Icon name="grid_view" />Cubes</button>
             <button type="button" className="btn line" onClick={() => navigate('/precons')}><Icon name="inventory_2" />Precons</button>
             <button type="button" className="btn gold" onClick={() => navigate('/decks/new')}><Icon name="add" />New deck</button>
           </>
         ) : (
           <>
             {decks.length > 0 && <IconButton icon="create_new_folder" label="New folder" onClick={() => setMaking(true)} />}
+            <IconButton icon="grid_view" label="Cubes" onClick={() => navigate('/cubes')} />
             <IconButton icon="inventory_2" label="Precons" onClick={() => navigate('/precons')} />
             <IconButton icon="add" label="New deck" variant="gold" onClick={() => navigate('/decks/new')} />
           </>

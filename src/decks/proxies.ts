@@ -53,6 +53,8 @@ export function proxySwaps(collections: Collection[], decks: Deck[]): ProxySwap[
   const spare = spareCopies(collections)
   const out: ProxySwap[] = []
   for (const deck of decks) {
+    // A cube's proxies are filled from the collection by its own pull list, into the cube box (decks/cube.ts).
+    if (deck.gameMode === 'CUBE') continue
     for (const entry of deck.cards) {
       const proxies = proxyCopies(deck, entry)
       if (proxies === 0) continue

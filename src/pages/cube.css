@@ -1,0 +1,59 @@
+/* Cubes (CubePage.tsx) */
+.cube-page { display: flex; flex-direction: column; gap: 10px; max-width: 760px; }
+.cube-list { display: flex; flex-direction: column; gap: 8px; }
+.cube-tile {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left;
+  padding: 16px; border-radius: 18px; background: var(--surface); color: var(--text-primary); border: 1px solid var(--border);
+}
+.cube-tile span, .cube-small { font-size: 12px; color: var(--text-muted); }
+.cube-note {
+  text-align: left; padding: 12px 14px; border-radius: 16px; background: var(--surface); color: var(--text-primary);
+  border: 1px solid var(--border); font-size: 13px; line-height: 1.45;
+}
+.cube-note.warn { border-color: var(--warn); }
+.cube-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.cube-find { width: 100%; }
+.cube-rows { display: flex; flex-direction: column; gap: 6px; }
+.cube-row { display: flex; align-items: center; gap: 6px; padding: 4px 4px 4px 14px; border-radius: 14px; background: var(--surface); }
+.cube-row-main {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
+  background: none; border: 0; color: var(--text-primary); padding: 6px 0; cursor: pointer;
+}
+.cube-row-main b, .cube-row-main span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cube-state { font-size: 12px; color: var(--text-muted); }
+.cube-state.in_box { color: var(--ok); }
+.cube-state.proxy { color: var(--accent); }
+.cube-state.not_owned { color: var(--warn); }
+.cube-bar { display: flex; flex-direction: column; gap: 4px; padding: 4px 0; }
+.cube-bar-head { display: flex; justify-content: space-between; font-size: 14px; }
+.cube-bar-head b { color: var(--text-muted); font-weight: 600; }
+.cube-bar-track { height: 6px; border-radius: 3px; background: var(--surface2); overflow: hidden; }
+.cube-bar-track > div { height: 100%; background: var(--accent); }
+.cube-bar-track > div.over { background: var(--warn); }
+.cube-curve { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.cube-curve > div { display: flex; flex-direction: column; align-items: center; padding: 8px 0; border-radius: 10px; background: var(--surface); }
+.cube-curve span, .cube-curve small { font-size: 11px; color: var(--text-muted); }
+.cube-curve b { font-size: 18px; }
+.cube-box-head { display: flex; flex-direction: column; gap: 8px; }
+.cube-box-name { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cube-pull-group { display: flex; flex-direction: column; gap: 2px; }
+.cube-pull-title { color: var(--accent-light); font-weight: 700; font-size: 14px; margin-top: 6px; }
+.cube-pull-row { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
+.cube-pull-row input[type='checkbox'] { width: 20px; height: 20px; flex: none; }
+.cube-pull-row > span { display: flex; flex-direction: column; min-width: 0; }
+.cube-pull-row small { font-size: 12px; color: var(--text-muted); }
+.cube-pull-gap { width: 20px; flex: none; }
+.cube-draft { display: flex; flex-direction: column; gap: 8px; }
+.cube-stepper { display: flex; align-items: center; gap: 6px; }
+.cube-stepper span { flex: 1; }
+.cube-stepper b { min-width: 28px; text-align: center; font-size: 16px; }
+.cube-seat { display: flex; flex-direction: column; gap: 6px; }
+.cube-form { display: flex; flex-direction: column; gap: 10px; }
+.cube-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-muted); }
+.cube-form label.cube-check { flex-direction: row; align-items: center; gap: 8px; color: var(--text-primary); }
+.cube-form .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cube-two { display: flex; gap: 8px; }
+.cube-two > * { flex: 1; min-width: 0; }
+.cube-two > .btn { flex: none; }
+.cube-pick-list { max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; }
+.cube-paste { width: 100%; min-height: 160px; resize: vertical; font-family: inherit; }

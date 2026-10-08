@@ -34,7 +34,7 @@ import { CopyPhotoPage } from './pages/CopyPhotoPage'
 import { DecksPage } from './pages/DecksPage'
 import { PreconsPage } from './pages/PreconsPage'
 import { NewDeckPage } from './pages/NewDeckPage'
-import { DeckDetailPage } from './pages/DeckDetailPage'
+import { DeckRoute } from './pages/DeckRoute'
 import { SearchPage } from './pages/SearchPage'
 import { CardPage } from './pages/CardPage'
 import { AccountPage } from './pages/AccountPage'
@@ -66,6 +66,8 @@ const OpeningPacksPage = lazy(() => import('./collection/SpoilersUi').then((m) =
 const HouseholdPage = lazy(() => import('./pages/HouseholdPage').then((m) => ({ default: m.HouseholdPage })))
 const FriendsPage = lazy(() => import('./pages/FriendsPage').then((m) => ({ default: m.FriendsPage })))
 const FriendPage = lazy(() => import('./pages/FriendPage').then((m) => ({ default: m.FriendPage })))
+const CubesPage = lazy(() => import('./pages/CubePage').then((m) => ({ default: m.CubesPage })))
+const CubePage = lazy(() => import('./pages/CubePage').then((m) => ({ default: m.CubePage })))
 const SharedItemPage = lazy(() => import('./pages/SharedItemPage').then((m) => ({ default: m.SharedItemPage })))
 const FriendSharedPage = lazy(() => import('./social/SharedFriends').then((m) => ({ default: m.FriendSharedPage })))
 const SharedCollectionPage = lazy(() => import('./pages/SharedItemPage').then((m) => ({ default: m.SharedCollectionPage })))
@@ -145,7 +147,9 @@ export default function App() {
             <Route path="/collections/thin" element={<SpreadThinPage />} />
             <Route path="/decks" element={<DecksPage />} />
             <Route path="/decks/new" element={<NewDeckPage />} />
-            <Route path="/decks/:id" element={<DeckDetailPage />} />
+            <Route path="/decks/:id" element={<DeckRoute />} />
+            <Route path="/cubes" element={<CubesPage />} />
+            <Route path="/cubes/:id" element={<CubePage />} />
             <Route path="/decks/:id/pull" element={<PullListPage />} />
             <Route path="/decks/:id/put-back" element={<PutBackPage />} />
             <Route path="/decks/:id/history" element={<DeckHistoryPage />} />
