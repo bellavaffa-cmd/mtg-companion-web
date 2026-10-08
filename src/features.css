@@ -477,3 +477,87 @@
 .prose-page a { color: var(--gold); }
 .settings-links { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 18px; font-size: 0.9rem; }
 .settings-links a { color: var(--t2); }
+
+/* ---- Suggestions: upgrade with my cards ---- */
+
+.upgrade-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 0.8125rem;
+  color: var(--t2);
+}
+.upgrade-note .icon {
+  font-size: 1rem;
+  margin-top: 1px;
+}
+.upgrade-summary {
+  margin-bottom: 8px;
+  font-weight: 700;
+  color: var(--gold-light);
+}
+.upgrade-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.upgrade-row input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--gold);
+}
+.upgrade-pair {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  min-width: 0;
+}
+.upgrade-pair .icon {
+  font-size: 1rem;
+  color: var(--t2);
+}
+.upgrade-reason {
+  margin-top: 6px;
+  font-size: 0.875rem;
+}
+.upgrade-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 4px;
+  font-size: 0.78rem;
+}
+.upgrade-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.upgrade-meta .icon {
+  font-size: 0.95rem;
+}
+.upgrade-warn {
+  color: var(--cut);
+}
+.upgrade-swap.raises {
+  box-shadow: inset 0 0 0 1px var(--cut);
+}
+.upgrade-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 8px;
+}
+.upgrade-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 12px;
+}

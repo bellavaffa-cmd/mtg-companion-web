@@ -1,0 +1,126 @@
+{
+  "_about": "Upgrade with my cards (src/decks/deckUpgrade.ts). Run by tests/decks/deckUpgrade.test.ts and by the Android app's DeckUpgradeTest.kt (a copy in app/src/test/resources). A card's missing fields are their defaults: typeLine/cmc/usd/edhrecRank/inclusion/identity/heldBy/where/placeKey null, roles [], flags false, legal true, spare 0, scryfallId its name. summary: upgradeSummary of the swaps that keep the bracket, money as $ and the number (the money part left out at $0).",
+  "cases": [
+    {
+      "name": "Krenko with EDHREC: role pairs, marked cut first, keep and combo pieces never cut, bracket guard",
+      "input": {
+        "commander": "Krenko, Mob Boss",
+        "identity": "R",
+        "edhrec": true,
+        "bracket": { "gameChangers": 0, "combos": 0 },
+        "dismissed": ["wayfarer's bauble>jeska's will"],
+        "deck": [
+          { "name": "Krenko, Mob Boss", "typeLine": "Legendary Creature — Goblin Warrior", "cmc": 4, "commander": true, "roles": ["tokens"] },
+          { "name": "Wayfarer's Bauble", "typeLine": "Artifact", "cmc": 1, "roles": ["ramp", "land-ramp"], "inclusion": 22, "usd": 0.3 },
+          { "name": "Mind Stone", "typeLine": "Artifact", "cmc": 2, "roles": ["ramp", "mana-rock", "draw"], "inclusion": 40, "usd": 0.2 },
+          { "name": "Faithless Looting", "typeLine": "Sorcery", "cmc": 1, "roles": ["draw"], "inclusion": 15, "usd": 0.5 },
+          { "name": "Thrill of Possibility", "typeLine": "Instant", "cmc": 2, "roles": ["draw"], "inclusion": 3, "keep": true },
+          { "name": "Lightning Bolt", "typeLine": "Instant", "cmc": 1, "roles": ["removal", "burn"], "inclusion": 50, "usd": 1 },
+          { "name": "Shock", "typeLine": "Instant", "cmc": 1, "roles": ["removal"], "inclusion": 5, "comboPiece": true },
+          { "name": "Abrade", "typeLine": "Instant", "cmc": 2, "roles": ["removal"], "inclusion": 12, "usd": 0.25, "replaceable": true },
+          { "name": "Mountain", "typeLine": "Basic Land — Mountain", "roles": ["ramp"] }
+        ],
+        "owned": [
+          { "name": "Arcane Signet", "typeLine": "Artifact", "cmc": 2, "roles": ["ramp", "mana-rock"], "inclusion": 61, "usd": 0.5, "identity": "", "spare": 2, "where": "Red box › Artifacts", "placeKey": "place:red" },
+          { "name": "Fellwar Stone", "typeLine": "Artifact", "cmc": 2, "roles": ["ramp", "mana-rock"], "inclusion": 45, "usd": 0.6, "identity": "", "spare": 1, "where": "Artifacts binder p3 s5", "placeKey": "place:artifacts" },
+          { "name": "Jeska's Will", "typeLine": "Sorcery", "cmc": 3, "roles": ["ramp", "draw"], "inclusion": 70, "usd": 9, "identity": "R", "gameChanger": true, "spare": 1, "where": "Red box › Red", "placeKey": "place:red" },
+          { "name": "Big Score", "typeLine": "Instant", "cmc": 4, "roles": ["draw", "treasure"], "inclusion": 35, "usd": 0.4, "identity": "R", "heldBy": "Atraxa" },
+          { "name": "Chaos Warp", "typeLine": "Instant", "cmc": 3, "roles": ["removal"], "inclusion": 20, "usd": 1.5, "identity": "R", "spare": 1, "where": "Red box › Red", "placeKey": "place:red" },
+          { "name": "Pyrokinesis", "typeLine": "Instant", "cmc": 6, "roles": ["removal"], "inclusion": 65, "usd": 4, "identity": "R", "completesCombo": true, "spare": 1, "where": "Unsorted", "placeKey": "binder:unsorted" },
+          { "name": "Goblin Bombardment", "typeLine": "Enchantment", "cmc": 2, "roles": ["sacrifice-outlet"], "inclusion": 60, "identity": "R", "spare": 1 },
+          { "name": "Command Tower", "typeLine": "Land", "roles": ["ramp"], "inclusion": 90, "identity": "", "spare": 3 },
+          { "name": "Farseek", "typeLine": "Sorcery", "cmc": 2, "roles": ["ramp"], "inclusion": 80, "identity": "G", "spare": 1 },
+          { "name": "Ragavan, Nimble Pilferer", "typeLine": "Legendary Creature — Monkey Pirate", "cmc": 1, "roles": ["ramp"], "inclusion": 75, "identity": "R", "legal": false, "spare": 1 },
+          { "name": "Lightning Bolt", "typeLine": "Instant", "cmc": 1, "roles": ["removal"], "inclusion": 50, "identity": "R", "spare": 4 },
+          { "name": "Mystery Rock", "typeLine": "Artifact", "cmc": 1, "roles": ["ramp"], "inclusion": 99, "spare": 1 },
+          { "name": "Gone Rock", "typeLine": "Artifact", "cmc": 1, "roles": ["ramp"], "inclusion": 98, "identity": "" }
+        ]
+      },
+      "expect": [
+        { "key": "abrade>chaos warp", "role": "removal", "reason": "Both are removal; Chaos Warp is in 20% of Krenko decks, Abrade in 12%. You marked Abrade as a cut.", "where": "Red box › Red", "gain": 8, "priceDelta": 1.25, "raisesBracketTo": null },
+        { "key": "wayfarer's bauble>arcane signet", "role": "ramp", "reason": "Both are ramp; Arcane Signet is in 61% of Krenko decks, Wayfarer's Bauble in 22%.", "where": "Red box › Artifacts", "gain": 39, "priceDelta": 0.2, "raisesBracketTo": null },
+        { "key": "faithless looting>big score", "role": "draw", "reason": "Both are card draw; Big Score is in 35% of Krenko decks, Faithless Looting in 15%.", "where": "in Atraxa deck", "gain": 20, "priceDelta": -0.1, "raisesBracketTo": null },
+        { "key": "mind stone>jeska's will", "role": "ramp", "reason": "Both are ramp; Jeska's Will is in 70% of Krenko decks, Mind Stone in 40%.", "where": "Red box › Red", "gain": 30, "priceDelta": 8.8, "raisesBracketTo": 3 },
+        { "key": "lightning bolt>pyrokinesis", "role": "removal", "reason": "Both are removal; Pyrokinesis is in 65% of Krenko decks, Lightning Bolt in 50%.", "where": "Unsorted", "gain": 15, "priceDelta": 3, "raisesBracketTo": 3 }
+      ],
+      "summary": "3 upgrades from your cards · $2.4 of cards you already own · pull from 1 place"
+    },
+    {
+      "name": "Offline Modern deck: role and EDHREC rank against mana value, no bracket, not-on-list wording",
+      "input": {
+        "commander": null,
+        "identity": "UR",
+        "edhrec": false,
+        "bracket": null,
+        "dismissed": [],
+        "deck": [
+          { "name": "Opt", "typeLine": "Instant", "cmc": 1, "roles": ["draw"], "edhrecRank": 400, "usd": 0.1 },
+          { "name": "Divination", "typeLine": "Sorcery", "cmc": 3, "roles": ["draw"], "edhrecRank": 9000, "usd": 0.05 },
+          { "name": "Lightning Bolt", "typeLine": "Instant", "cmc": 1, "roles": ["removal"], "edhrecRank": 50, "usd": 1 },
+          { "name": "Flame Slash", "typeLine": "Sorcery", "cmc": 1, "roles": ["removal"], "edhrecRank": 3000 },
+          { "name": "Island", "typeLine": "Basic Land — Island" }
+        ],
+        "owned": [
+          { "name": "Consider", "typeLine": "Instant", "cmc": 1, "roles": ["draw"], "edhrecRank": 900, "usd": 0.1, "identity": "U", "spare": 3, "where": "Unsorted", "placeKey": "binder:unsorted" },
+          { "name": "Fiery Impulse", "typeLine": "Instant", "cmc": 1, "roles": ["removal"], "edhrecRank": 2000, "identity": "R", "spare": 1, "where": "Red box › Red", "placeKey": "place:red" },
+          { "name": "Counterspell", "typeLine": "Instant", "cmc": 2, "roles": ["counterspell"], "edhrecRank": 30, "identity": "U", "spare": 1 },
+          { "name": "Thoughtseize", "typeLine": "Sorcery", "cmc": 1, "roles": ["removal"], "edhrecRank": 100, "identity": "B", "spare": 1 },
+          { "name": "Expressive Iteration", "typeLine": "Sorcery", "cmc": 2, "roles": ["draw"], "edhrecRank": 1500, "identity": "UR", "legal": false, "spare": 1 }
+        ]
+      },
+      "expect": [
+        { "key": "divination>consider", "role": "draw", "reason": "Both are card draw; Consider ranks #900 on EDHREC, Divination #9,000; Consider costs 2 less.", "where": "Unsorted", "gain": 48.63, "priceDelta": 0.05, "raisesBracketTo": null }
+      ],
+      "summary": "1 upgrade from your cards · $0.1 of cards you already own · pull from 1 place"
+    },
+    {
+      "name": "Bracket 3 deck: a fourth Game Changer is kept aside as bracket 4; the others still get their cuts",
+      "input": {
+        "commander": "Kenrith, the Returned King",
+        "identity": "WUBRG",
+        "edhrec": true,
+        "bracket": { "gameChangers": 3, "combos": 1 },
+        "dismissed": [],
+        "deck": [
+          { "name": "Thought Vessel", "typeLine": "Artifact", "cmc": 2, "roles": ["ramp"], "inclusion": 30, "usd": 1 },
+          { "name": "Mind Stone", "typeLine": "Artifact", "cmc": 2, "roles": ["ramp"], "inclusion": 40, "usd": 0.2 },
+          { "name": "Rhystic Study", "typeLine": "Enchantment", "cmc": 3, "roles": ["draw"], "inclusion": 20, "gameChanger": true, "usd": 30 }
+        ],
+        "owned": [
+          { "name": "Mana Vault", "typeLine": "Artifact", "cmc": 1, "roles": ["ramp"], "inclusion": 80, "gameChanger": true, "identity": "", "usd": 100, "spare": 1, "where": "Binder of power p1 s1", "placeKey": "place:power" },
+          { "name": "Fellwar Stone", "typeLine": "Artifact", "cmc": 2, "roles": ["ramp"], "inclusion": 55, "identity": "", "spare": 1, "where": "Artifact box", "placeKey": "place:box" },
+          { "name": "Mystic Remora", "typeLine": "Enchantment", "cmc": 1, "roles": ["draw"], "inclusion": 45, "gameChanger": true, "identity": "U", "usd": 5, "spare": 1, "where": "Artifact box", "placeKey": "place:box" }
+        ]
+      },
+      "expect": [
+        { "key": "thought vessel>fellwar stone", "role": "ramp", "reason": "Both are ramp; Fellwar Stone is in 55% of Kenrith decks, Thought Vessel in 30%.", "where": "Artifact box", "gain": 25, "priceDelta": null, "raisesBracketTo": null },
+        { "key": "rhystic study>mystic remora", "role": "draw", "reason": "Both are card draw; Mystic Remora is in 45% of Kenrith decks, Rhystic Study in 20%.", "where": "Artifact box", "gain": 25, "priceDelta": -25, "raisesBracketTo": null },
+        { "key": "mind stone>mana vault", "role": "ramp", "reason": "Both are ramp; Mana Vault is in 80% of Kenrith decks, Mind Stone in 40%.", "where": "Binder of power p1 s1", "gain": 40, "priceDelta": 99.8, "raisesBracketTo": 4 }
+      ],
+      "summary": "2 upgrades from your cards · $5 of cards you already own · pull from 1 place"
+    },
+    {
+      "name": "Not on EDHREC's list, and nothing better",
+      "input": {
+        "commander": "Atraxa, Praetors' Voice",
+        "identity": "WUBG",
+        "edhrec": true,
+        "bracket": { "gameChangers": 0, "combos": 0 },
+        "dismissed": ["divination>opt"],
+        "deck": [
+          { "name": "Divination", "typeLine": "Sorcery", "cmc": 3, "roles": ["draw"] },
+          { "name": "Cultivate", "typeLine": "Sorcery", "cmc": 3, "roles": ["ramp"], "inclusion": 50 }
+        ],
+        "owned": [
+          { "name": "Opt", "typeLine": "Instant", "cmc": 1, "roles": ["draw"], "inclusion": 30, "identity": "U", "spare": 1, "where": "Blue box", "placeKey": "place:blue" },
+          { "name": "Night's Whisper", "typeLine": "Sorcery", "cmc": 2, "roles": ["draw"], "inclusion": 12, "identity": "B", "spare": 1, "where": "Black box", "placeKey": "place:black" },
+          { "name": "Kodama's Reach", "typeLine": "Sorcery", "cmc": 3, "roles": ["ramp"], "inclusion": 55, "identity": "G", "spare": 1 }
+        ]
+      },
+      "expect": [
+        { "key": "divination>night's whisper", "role": "draw", "reason": "Both are card draw; Night's Whisper is in 12% of Atraxa decks, Divination isn't on EDHREC's list for it.", "where": "Black box", "gain": 12, "priceDelta": null, "raisesBracketTo": null }
+      ],
+      "summary": "1 upgrade from your cards · pull from 1 place"
+    }
+  ]
+}

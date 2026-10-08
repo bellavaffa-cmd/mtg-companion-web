@@ -42,6 +42,7 @@ import { DeckSuggestions } from '../components/DeckSuggestions'
 import { ShareSwitch } from '../social/ShareDialog'
 import { ownedNameKeys } from '../collection/owned'
 import { DeckSwaps } from '../components/DeckSwaps'
+import { DeckUpgrade } from '../components/DeckUpgrade'
 import { DeckStats, deckFigures, useDeckCardData } from '../components/DeckStats'
 import { PlaytestDialog } from '../components/PlaytestDialog'
 import { ProxyPrintDialog } from '../components/ProxyPrintDialog'
@@ -659,11 +660,23 @@ export function DeckDetailPage() {
     </div>
   )
 
+  /** Suggestions, scrolled to "Upgrade with my cards" once it's drawn. */
+  const openUpgrade = () => {
+    let tries = 0
+    const look = () => {
+      const el = document.getElementById('deck-upgrade')
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      else if (tries++ < 20) setTimeout(look, 50)
+    }
+    setTimeout(look, 0)
+  }
   /** A suggestion the user likes goes into Considering, not into the deck. */
   const consider = (card: ScryfallCard) => addToDeck(card, true)
   const owned = ownedOnly ? ownedKeys : null
   const suggestions = (
     <>
+      <DeckUpgrade deck={deck} cardsById={cardData} onExpand={setZoomSuggestion} />
+      <div style={{ marginTop: 16 }} />
       <ShareSwitch label="Only cards I own" detail="Suggestions and budget swaps you have in your binders" on={ownedOnly} onChange={setOwnedOnly} />
       <DeckSwaps deck={deck} cardsById={cardData} roleTags={roleTags} owned={owned} onExpand={setZoomSuggestion} onMarkCut={markCut} />
       <div className="p-h" style={{ marginTop: 18 }}><h3>EDHREC suggestions</h3></div>
@@ -882,6 +895,9 @@ export function DeckDetailPage() {
           imageUrl={deck.commander?.imageUrl ?? null}
           actions={[
             { label: 'Share with friends', icon: 'group', detail: 'View only — friends, pods or a link', onClick: () => setSharing(true) },
+            ...(deck.cards.length > 0 && !limited
+              ? [{ label: 'Upgrade with my cards', icon: 'upgrade', detail: 'Swaps from cards you already own', onClick: () => { setTabName('Suggestions'); setDeckSheet(false); openUpgrade() } }]
+              : []),
             { label: 'Playtest', icon: 'playing_cards', detail: 'Mulligan, play or draw, then turns', onClick: () => setGoldfish(true) },
             { label: 'Compare with…', icon: 'compare_arrows', detail: 'Another deck or a saved version', onClick: () => setComparePicking(true) },
             { label: 'History', icon: 'history', detail: 'Every change to the list, and versions saved by name', onClick: () => navigate(`/decks/${deck.id}/history`) },
