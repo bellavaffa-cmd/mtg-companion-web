@@ -25,6 +25,7 @@ import { keepCorrectionsFromOlderApp } from '../scan/scanCorrections'
 import { keepGoalsFromOlderApp } from '../collection/collectionGoals'
 import { keepDeckExtrasFromOlderApp } from '../decks/deckExtras'
 import { keepHistoryFromOlderApp } from '../decks/deckHistory'
+import { keepCubeFromOlderApp } from '../decks/cube'
 import { syncable } from '../onboarding/onboarding'
 
 const STATE_KEY = 'mtgweb_cloud_state'
@@ -462,8 +463,8 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
         // or its sorting recipes (collection/sortRecipes.ts), what the scanner learned (scan/scanCorrections.ts), or its collection goals (collection/collectionGoals.ts).
         ? keepGoalsFromOlderApp(JSON.parse(mineJson) as Collection, keepCorrectionsFromOlderApp(JSON.parse(mineJson) as Collection, keepRecipesFromOlderApp(JSON.parse(mineJson) as Collection, keepGearFromOlderApp(JSON.parse(mineJson) as Collection, keepGradedFromOlderApp(JSON.parse(mineJson) as Collection, keepSealedFromOlderApp(JSON.parse(mineJson) as Collection, keepAlertOptionsFromOlderApp(JSON.parse(mineJson) as Collection, keepPreReleaseFromOlderApp(JSON.parse(mineJson) as Collection, keepForSaleFromOlderApp(JSON.parse(mineJson) as Collection, keepPlaceSizes(JSON.parse(mineJson) as Collection, keepLoansFromOlderApp(JSON.parse(mineJson) as Collection, keepLastChecked(JSON.parse(mineJson) as Collection, keepPlacesFromOlderApp(JSON.parse(mineJson) as Collection, theirs as Collection)))))))))))))
         // ...and its primer, folder, archive flag, companion and categories (decks/deckExtras.ts).
-        // ...and its history (decks/deckHistory.ts).
-        : keepHistoryFromOlderApp(JSON.parse(mineJson) as Deck, keepDeckExtrasFromOlderApp(JSON.parse(mineJson) as Deck, keepCameFromFromOlderApp(JSON.parse(mineJson) as Deck, theirs as Deck)))
+        // ...and its history (decks/deckHistory.ts), and a cube's settings (decks/cube.ts).
+        : keepCubeFromOlderApp(JSON.parse(mineJson) as Deck, keepHistoryFromOlderApp(JSON.parse(mineJson) as Deck, keepDeckExtrasFromOlderApp(JSON.parse(mineJson) as Deck, keepCameFromFromOlderApp(JSON.parse(mineJson) as Deck, theirs as Deck))))
     if (healed !== theirs) {
       const healedJson = canonicalJson(healed)
       if (healedJson !== mineJson) remoteChanges.set(key, healed)

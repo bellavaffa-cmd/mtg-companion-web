@@ -16,6 +16,7 @@ import { displayImageUrl, type ScryfallCard } from '../types/scryfall'
 import { parseCardList } from '../collection/cardListText'
 import { useCardData } from '../collection/cardData'
 import { isWishlist } from '../collection/wishlist'
+import { isArchived } from '../decks/deckFolders'
 import type { SetInfo } from '../collection/setCompletion'
 import { WhoHasCardsSheet } from '../social/WhoHasIt'
 import {
@@ -243,7 +244,7 @@ export function NewGoalPage() {
   }, [sets, setQuery])
 
   // Deck goals
-  const usable = decks.filter((d) => !d.sample && !d.archived)
+  const usable = decks.filter((d) => !d.sample && !isArchived(d))
   const [deckId, setDeckId] = useState<string>(() => params.get('deck') ?? usable[0]?.id ?? '')
   const [deckFoil, setDeckFoil] = useState(true)
 

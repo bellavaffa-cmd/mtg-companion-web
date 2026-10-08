@@ -9,6 +9,7 @@
 // of the deck's own categories) or a creature type, on at least MIN_SHARED of the deck's cards.
 
 import type { Deck, DeckCardEntry } from '../types/models'
+import { isArchived } from '../decks/deckFolders'
 import type { SetInfo } from './setCompletion'
 
 /** Scryfall set types that aren't sets of cards to play: tokens, promos, art cards, digital-only extras. */
@@ -218,7 +219,7 @@ export function fitReason(fit: DeckFit): string {
 }
 
 /** The decks the set is checked against: Commander decks with a commander, not put away, not samples. */
-export const commanderDecks = (decks: Deck[]) => decks.filter((d) => d.gameMode === 'COMMANDER' && !!d.commander && !d.archived && !d.sample)
+export const commanderDecks = (decks: Deck[]) => decks.filter((d) => d.gameMode === 'COMMANDER' && !!d.commander && !isArchived(d) && !d.sample)
 
 /** The set's cards whose name is on [wishlistNames] (lower case) — reprints of cards the user wants. Once each. */
 export function wishlistReprints(wishlistNames: Set<string>, cards: SetCard[]): SetCard[] {

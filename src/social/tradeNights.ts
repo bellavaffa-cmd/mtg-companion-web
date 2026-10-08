@@ -22,6 +22,7 @@ import { namesDecksUse } from '../collection/spares'
 import { pullNeeds } from '../collection/pullList'
 import { goalProgress, goalsOf, missingNames } from '../collection/collectionGoals'
 import type { Collection, CollectionEntry, Deck } from '../types/models'
+import { isArchived } from '../decks/deckFolders'
 
 /** One line of a list: copies of a printing the player brings. [spare]: no deck of theirs needs it, or it's marked for trade. */
 export interface NightCard {
@@ -323,7 +324,7 @@ export function nightWantsOf(collections: Collection[], decks: Deck[]): NightWan
   const wishlist = collections.filter((c) => c.type === 'WISHLIST').flatMap((c) => c.entries.map((e) => e.name))
   const owned = new Set(collections.filter((c) => c.type !== 'WISHLIST').flatMap((c) => c.entries.filter((e) => e.quantity + e.foilQuantity > 0).map((e) => key(e.name))))
   const decksMissing = decks
-    .filter((d) => !d.archived && !d.sample && !isBringDeck(d))
+    .filter((d) => !isArchived(d) && !d.sample && !isBringDeck(d))
     .flatMap((d) => pullNeeds(d).map((n) => n.name))
     .filter((n) => !owned.has(key(n)))
   const goalsMissing = goalsOf(collections).filter((g) => g.completedAt == null).flatMap((g) => missingNames(goalProgress(g, collections, decks)))
@@ -335,7 +336,7 @@ export const nightDecksUse = (decks: Deck[]): Set<string> => namesDecksUse(decks
 
 /** The event bag's cards: the "Bring to game night" deck's (FriendsWant's Bring to game night, Trade matches tonight's Bring them). */
 export function bagNamesOf(decks: Deck[]): string[] {
-  const deck = decks.find((d) => isBringDeck(d) && !d.archived && !d.sample)
+  const deck = decks.find((d) => isBringDeck(d) && !isArchived(d) && !d.sample)
   return deck ? [deck.commander, deck.partnerCommander, ...deck.cards].filter((c) => !!c).map((c) => c!.name) : []
 }
 

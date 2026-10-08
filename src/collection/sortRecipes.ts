@@ -26,6 +26,7 @@
 // same test vectors (tests/collection/sortRecipeVectors.json ↔ app/src/test/resources/sortRecipeVectors.json).
 
 import { isUnsorted, type Collection, type CollectionEntry, type Deck, type SortRule } from '../types/models'
+import { isArchived } from '../decks/deckFolders'
 import { sameJson } from '../sync/canonicalJson'
 import { withUnsortedPile } from './unsorted'
 import { cardsIn, colourSection, letterOf, placesOf, pocketsOf, typeSection, TYPE_SECTIONS, type CardFacts } from './storagePlaces'
@@ -517,7 +518,7 @@ export function deckNeedsOf(collections: Collection[], decks: Deck[]): Record<st
     else list.push({ deckId: d.id, deck: d.name, qty })
   }
   for (const d of decks) {
-    if (d.archived || d.sample) continue
+    if (isArchived(d) || d.sample) continue
     for (const e of missingCards(d, collections, decks)) want(e.name, d, e.quantity)
     for (const e of d.considering ?? []) want(e.name, d, 1)
   }
