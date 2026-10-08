@@ -27,7 +27,17 @@ export const COMMON_KEYWORDS = new Set([
 ])
 
 /** A set's card, as much of it as the matching needs. */
-export interface SetCard { id: string; name: string; typeLine: string; colorIdentity: string[]; tags: string[]; imageUrl: string | null; rarity: string | null }
+export interface SetCard {
+  id: string; name: string; typeLine: string; colorIdentity: string[]; tags: string[]; imageUrl: string | null; rarity: string | null
+  /** The role tags its rules text shows (tags/roleTags.ts's labels: "Token maker", "Treasure"…). */
+  roles?: string[]
+  /** When this printing comes out ("2026-11-14"). */
+  releasedAt?: string | null
+  /** Today's price, US dollars, as Scryfall sends it ("1.25"); none before release. */
+  usd?: string | null
+  /** Scryfall's Commander legality ("legal", "not_legal", "banned"); every card is "not_legal" before release. */
+  commanderLegality?: string | null
+}
 
 /** Why a card suits a deck: what it shares, with how many of the deck's cards. */
 export interface Shared { label: string; count: number }
@@ -101,7 +111,8 @@ export function themeKey(label: string): string {
   const k = label.trim().toLowerCase()
   const same: Record<string, string> = {
     draw: 'card draw', 'card advantage': 'card draw', counterspells: 'counterspell', counters: 'counterspell',
-    'board wipes': 'board wipe', wipes: 'board wipe', wraths: 'board wipe', token: 'tokens', 'life gain': 'lifegain',
+    'board wipes': 'board wipe', wipes: 'board wipe', wraths: 'board wipe', token: 'tokens', 'token maker': 'tokens', 'life gain': 'lifegain',
+    'mana ramp': 'ramp',
   }
   return same[k] ?? k
 }
@@ -118,7 +129,7 @@ export function creatureTypes(typeLine: string | null | undefined): string[] {
 }
 
 /** A card's themes: its tags and categories, as keys, without the too-common keywords. */
-function themesOf(tags: string[] | null | undefined, categories?: string[] | null): Map<string, string> {
+export function themesOf(tags: string[] | null | undefined, categories?: string[] | null): Map<string, string> {
   const out = new Map<string, string>()
   for (const t of [...(tags ?? []), ...(categories ?? [])]) {
     const key = themeKey(t)
@@ -131,7 +142,11 @@ function themesOf(tags: string[] | null | undefined, categories?: string[] | nul
 /** What a deck has plenty of: themes and creature types on at least MIN_SHARED of its cards. */
 export interface DeckProfile { deckId: string; deckName: string; identity: Set<string>; themes: Map<string, Shared>; types: Map<string, Shared>; names: Set<string> }
 
-export function deckProfile(deck: Deck, identity: string[]): DeckProfile {
+/**
+ * [roles]: a card's role tags by name, as labels ("Card draw"), where they're known (tags/roleTags.ts)
+ * — they count as themes alongside its tags and categories.
+ */
+export function deckProfile(deck: Deck, identity: string[], roles: (name: string) => string[] | undefined = () => undefined): DeckProfile {
   const entries: DeckCardEntry[] = []
   const seen = new Set<string>()
   for (const e of [deck.commander, deck.partnerCommander, ...deck.cards]) {
@@ -142,7 +157,7 @@ export function deckProfile(deck: Deck, identity: string[]): DeckProfile {
   const themes = new Map<string, Shared>()
   const types = new Map<string, Shared>()
   for (const e of entries) {
-    for (const [key, label] of themesOf(e.tags, e.categories)) {
+    for (const [key, label] of themesOf([...(e.tags ?? []), ...(roles(e.name) ?? [])], e.categories)) {
       const had = themes.get(key)
       themes.set(key, { label: had?.label ?? label, count: (had?.count ?? 0) + 1 })
     }
@@ -157,7 +172,8 @@ export function deckProfile(deck: Deck, identity: string[]): DeckProfile {
   return { deckId: deck.id, deckName: deck.name, identity: new Set(identity), themes: plenty(themes), types: plenty(types), names }
 }
 
-const nameKeys = (name: string) => {
+/** A card's name keys: the whole name and, for a double-faced card, its front face — lower case. */
+export const nameKeys = (name: string) => {
   const full = name.trim().toLowerCase()
   const front = full.split(' // ')[0].trim()
   return front === full ? [full] : [full, front]

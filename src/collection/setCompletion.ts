@@ -18,6 +18,8 @@ export interface SetInfo {
   setType?: string | null
   /** Only on MTG Arena or Magic Online. */
   digital?: boolean
+  /** Scryfall's printed_size: how many cards the set has, numbered — known before they're all revealed. */
+  printedSize?: number | null
 }
 
 /** How much of [set] the user has: [owned] of its printings. */

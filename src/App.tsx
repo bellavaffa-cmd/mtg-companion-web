@@ -62,6 +62,7 @@ import { UsageScreens } from './usage/UsageUi'
 // Friends, sharing, trades and events load when first opened.
 const NewSetsPage = lazy(() => import('./pages/NewSetsPage').then((m) => ({ default: m.NewSetsPage })))
 const NewSetPage = lazy(() => import('./pages/NewSetsPage').then((m) => ({ default: m.NewSetPage })))
+const OpeningPacksPage = lazy(() => import('./collection/SpoilersUi').then((m) => ({ default: m.OpeningPacksPage })))
 const HouseholdPage = lazy(() => import('./pages/HouseholdPage').then((m) => ({ default: m.HouseholdPage })))
 const FriendsPage = lazy(() => import('./pages/FriendsPage').then((m) => ({ default: m.FriendsPage })))
 const FriendPage = lazy(() => import('./pages/FriendPage').then((m) => ({ default: m.FriendPage })))
@@ -189,6 +190,7 @@ export default function App() {
             <Route path="/value" element={<ValueHistoryPage />} />
             <Route path="/new-sets" element={<NewSetsPage />} />
             <Route path="/new-sets/:code" element={<NewSetPage />} />
+            <Route path="/new-sets/:code/packs" element={<OpeningPacksPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/community-rules" element={<CommunityRulesPage />} />
             <Route path="/delete-account" element={<DeleteAccountPage />} />

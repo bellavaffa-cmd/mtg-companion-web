@@ -43,7 +43,8 @@ import { withTarget } from '../collection/wishlistTargets'
 import { PendingReset, RESET_UNDO_MS, resetLibrary, type ResetScope } from '../settings/resetCollection'
 import { clearCopyPhotos } from '../collection/copyPhotoStore'
 import { replaceMoves } from '../collection/copyHistoryStore'
-import { clearValueHistory } from '../collection/valueHistory'
+import { clearValueHistory, today } from '../collection/valueHistory'
+import { withReleasedCleared } from '../collection/spoilers'
 
 /** What a user-requested sync ended with. */
 export type RefreshResult =
@@ -324,9 +325,12 @@ function withUnsorted(lib: Library, collectionId: string): Library {
   return collections === lib.collections ? lib : { ...lib, collections }
 }
 
-/** The collections that are always there: the Wishlist, kept up for [decks], and the Unsorted pile. */
+/**
+ * The collections that are always there: the Wishlist, kept up for [decks], and the Unsorted pile —
+ * with the Wishlist's cards wanted from spoilers made plain once their set is out (collection/spoilers.ts).
+ */
 const withStandingCollections = (collections: Collection[], decks: Deck[]): Collection[] =>
-  withUnsortedPile(withWishlist(collections, decks))
+  withReleasedCleared(withUnsortedPile(withWishlist(collections, decks)), today())
 
 /**
  * [after] with a version recorded on every deck whose list differs from [before]'s, and the change in

@@ -97,3 +97,110 @@
 .set-card .cmeta .dim {
   white-space: normal;
 }
+
+/* ---- Spoilers (collection/SpoilersUi.tsx) ---- */
+
+.spoiler-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.spoiler-tile {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--g1);
+}
+.spoiler-img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 0.716;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--g2, var(--g1));
+  cursor: pointer;
+}
+.spoiler-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.spoiler-name {
+  font-size: 0.8125rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.spoiler-price {
+  font-size: 0.75rem;
+}
+.spoiler-want {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--gold);
+  font-size: 0.8125rem;
+}
+.spoiler-want button {
+  width: 36px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gold);
+  font: inherit;
+  font-size: 1.125rem;
+  cursor: pointer;
+}
+.spoiler-fits {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.6875rem;
+}
+.spoiler-deck {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 3px 8px;
+  border: 1px solid var(--t2);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--t0);
+  font: inherit;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.spoiler-deck .icon {
+  font-size: 0.875rem;
+  color: var(--gold);
+}
+.spoiler-deck.on {
+  border-color: var(--gold);
+  color: var(--gold);
+  cursor: default;
+}
+.pack-row {
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  align-items: center;
+}
+.pack-row .thumb-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.pack-actions {
+  display: flex;
+  gap: 6px;
+}

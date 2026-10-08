@@ -25,6 +25,8 @@ import { ArtImage, IconButton, PillChip, SearchPill, SectionHeader, StatFigure, 
 import { Dialog } from '../components/Dialog'
 import { isUnsorted, type CollectionEntry } from '../types/models'
 import { decksConsidering, isWishlist } from '../collection/wishlist'
+import { preReleaseLabel } from '../collection/spoilers'
+import { today } from '../collection/valueHistory'
 import { buyCardUrl, buyListUrl } from '../api/buy'
 import { askForNotifications, readGotIt, usePriceAlertHits, usePricePairs, writeGotIt } from '../collection/priceAlerts'
 import { alertPrice, alertWatches, priceKey } from '../collection/priceAlertRules'
@@ -596,7 +598,7 @@ export function CollectionDetailPage() {
 }
 
 function EntryRow({
-  entry, selecting, selected, price, considering, onTarget, onToggle, onZoom, onMore, onIncrement, onDecrement,
+  entry, selecting, selected, price: livePrice, considering, onTarget, onToggle, onZoom, onMore, onIncrement, onDecrement,
 }: {
   entry: CollectionEntry
   /** Wishlists: opens the card's target sheet; the row then says how far off its target it is. */
@@ -615,6 +617,9 @@ function EntryRow({
 }) {
   const money = useMoney()
   const formatUsd = (v: number) => money.format(v)
+  // Wanted from a set's spoilers: "Releases in 5 days", and no price until then (collection/spoilers.ts).
+  const preRelease = preReleaseLabel(entry, today())
+  const price = preRelease ? null : livePrice
   // Press and hold picks the card; while picking, a tap adds or drops it.
   const longPress = useLongPress({ onLongPress: onToggle, onClick: selecting ? onToggle : onZoom, selected: selecting ? selected : undefined })
   return (
@@ -639,6 +644,7 @@ function EntryRow({
               </span>
             )}
             {considering && <span className="dim considering">Considering in {considering}</span>}
+            {preRelease && <span className="dim considering">{preRelease} · no price yet</span>}
           </div>
         </div>
         {onTarget && (

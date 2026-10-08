@@ -62,11 +62,12 @@ export interface SearchPage {
   hasMore: boolean
 }
 
-export async function searchCards(query: string, page = 1, order?: string, dir?: 'asc' | 'desc'): Promise<SearchPage> {
+export async function searchCards(query: string, page = 1, order?: string, dir?: 'asc' | 'desc', unique?: 'cards' | 'art' | 'prints'): Promise<SearchPage> {
   if (!query.trim()) return { cards: [], hasMore: false }
   const url = new URL(`${BASE}/cards/search`)
   url.searchParams.set('q', query)
   url.searchParams.set('page', String(page))
+  if (unique) url.searchParams.set('unique', unique)
   if (order) url.searchParams.set('order', order)
   if (order && dir) url.searchParams.set('dir', dir)
   const res = await get(url)
@@ -243,13 +244,13 @@ export async function getSets(): Promise<Map<string, SetInfo>> {
   if (!res.ok) throw new Error(`Scryfall couldn't send its sets (HTTP ${res.status}).`)
   const json = await res.json()
   const sets = new Map<string, SetInfo>()
-  for (const s of (json.data ?? []) as { code?: string; name?: string; card_count?: number; released_at?: string; icon_svg_uri?: string; set_type?: string; digital?: boolean }[]) {
+  for (const s of (json.data ?? []) as { code?: string; name?: string; card_count?: number; released_at?: string; icon_svg_uri?: string; set_type?: string; digital?: boolean; printed_size?: number }[]) {
     // One odd set mustn't fail the whole list.
     const code = s.code?.toLowerCase()
     if (!code) continue
     sets.set(code, {
       code, name: s.name ?? code.toUpperCase(), cardCount: s.card_count ?? 0, releasedAt: s.released_at ?? null, iconSvgUri: s.icon_svg_uri ?? null,
-      setType: s.set_type ?? null, digital: s.digital === true,
+      setType: s.set_type ?? null, digital: s.digital === true, printedSize: s.printed_size ?? null,
     })
   }
   if (sets.size > 0) setsCache = sets
