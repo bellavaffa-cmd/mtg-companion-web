@@ -23,6 +23,7 @@ import { useCollectionValue } from '../collection/valueHistory'
 import { markTold, useSetsToAnnounce } from '../collection/newSetsStore'
 import { useMoney } from '../money/currency'
 import { proxySwaps } from '../decks/proxies'
+import { isCube } from '../decks/cube'
 import { isAndroid } from './GetAppPage'
 import { GetStartedCard, SamplesBar } from '../onboarding/GetStarted'
 import { EmptyState } from '../components/EmptyState'
@@ -71,7 +72,9 @@ function useCardOfDay(): ScryfallCard | null {
 export function HomePage() {
   const navigate = useNavigate()
   const size = useLayoutSize()
-  const { decks, collections, account, accountsAvailable, cloud } = useSync()
+  const { decks: library, collections, account, accountsAvailable, cloud } = useSync()
+  // Cubes (decks/cube.ts) are kept as decks but aren't decks to play.
+  const decks = useMemo(() => library.filter((d) => !isCube(d)), [library])
   // Binders only: the Wishlist and the Unsorted pile are always there, and aren't binders.
   const binderCount = collections.filter(isBinder).length
   const priceAlerts = usePriceAlertHits(collections)

@@ -6,6 +6,7 @@ import { Icon } from '../components/Icon'
 import { CardZoomModal, zoomSteps } from '../components/CardZoomModal'
 import { ArtImage, SearchPill, SectionHeader, SegmentedTabs, StatFigure, TYPE_GROUPS, TYPE_PLURALS, primaryTypeOf, rise, toArtCrop, useBack } from '../components/kit'
 import { useSync } from '../sync/SyncContext'
+import { addToCube, cubeSettings, isCube, newCube } from '../decks/cube'
 import { GAME_MODE_LABELS, normalizeDeck, type Collection, type CollectionEntry, type Deck, type DeckCardEntry, type GameMode } from '../types/models'
 import * as api from '../social/api'
 import { BinderPicker } from '../social/CardPicker'
@@ -96,7 +97,7 @@ function SharedDeck({ item, withComments }: { item: api.SharedItem; withComments
   const [commentCount, setCommentCount] = useState(0)
   const tabs = withComments && commentsReady
   const onComments = tabs && params.get('tab') === 'comments'
-  const { account, createDeckWithCards, setGameMode } = useSync()
+  const { account, createDeckWithCards, setGameMode, changeDecksAndStorage } = useSync()
   const deck = normalizeDeck({ ...(item.data as Partial<Deck>), id: String(item.data.id ?? ''), name: String(item.data.name ?? 'Deck') })
   const { one: changeDeck } = useDeckChange()
   const [zoom, setZoom] = useState<DeckCardEntry | null>(null)
@@ -113,6 +114,14 @@ function SharedDeck({ item, withComments }: { item: api.SharedItem; withComments
     .filter((c) => !query.trim() || search.shown.some((x) => x.scryfallId === c.scryfallId))
 
   const copy = () => {
+    // A cube is shared as a deck (decks/cube.ts): its copy is a cube of your own.
+    if (isCube(deck)) {
+      const s = cubeSettings(deck)
+      const mine = addToCube(newCube(crypto.randomUUID(), deck.name, s.size, s.singleton, Date.now()), deck.cards.map(({ proxyQuantity: _p, ...c }) => c)).cube
+      changeDecksAndStorage((collections, decks) => ({ collections, decks: [...decks, mine] }))
+      setCopied(mine.id)
+      return
+    }
     const mine = createDeckWithCards(`${deck.name}`, deck.cards.map((c) => ({ ...c })), deck.commander, deck.partnerCommander)
     if (deck.gameMode !== 'COMMANDER') setGameMode(mine.id, deck.gameMode as GameMode)
     // The primer comes along: it's how the deck is meant to play.
@@ -126,7 +135,7 @@ function SharedDeck({ item, withComments }: { item: api.SharedItem; withComments
       <div className="shared-hero rise" style={rise(0)}>
         <ArtImage className="shared-hero-art" src={toArtCrop(deck.commander?.imageUrl)} seed={deck.name} />
         <div className="shared-hero-text">
-          <div className="eyebrow">{GAME_MODE_LABELS[deck.gameMode as GameMode] ?? deck.gameMode} deck</div>
+          <div className="eyebrow">{isCube(deck) ? `Cube · ${cubeSettings(deck).size} cards` : `${GAME_MODE_LABELS[deck.gameMode as GameMode] ?? deck.gameMode} deck`}</div>
           <h1>{deck.name}</h1>
           <OwnerLine owner={item.owner} />
         </div>
@@ -158,10 +167,10 @@ function SharedDeck({ item, withComments }: { item: api.SharedItem; withComments
       {account && (
         copied ? (
           <button type="button" className="banner press" style={{ marginTop: 12 }} onClick={() => navigate(`/decks/${copied}`)}>
-            <Icon name="check_circle" /><span style={{ flex: 1 }}>Copied to your decks — open your copy</span><Icon name="chevron_right" />
+            <Icon name="check_circle" /><span style={{ flex: 1 }}>{isCube(deck) ? 'Copied to your cubes — open your copy' : 'Copied to your decks — open your copy'}</span><Icon name="chevron_right" />
           </button>
         ) : (
-          <button type="button" className="btn line" style={{ marginTop: 12 }} onClick={copy}><Icon name="content_copy" aria-hidden />Copy to my decks</button>
+          <button type="button" className="btn line" style={{ marginTop: 12 }} onClick={copy}><Icon name="content_copy" aria-hidden />{isCube(deck) ? 'Copy to my cubes' : 'Copy to my decks'}</button>
         )
       )}
       {!!deck.description?.trim() && (

@@ -1,0 +1,2557 @@
+{
+ "about": "Cubes: the same cases in both apps (tests/decks/cube.test.ts, CubeTest.kt). Counts are \"key count/target\" (\"-\" for none).",
+ "cards": [
+  {
+   "id": "swords-to-plowshares",
+   "name": "Swords to Plowshares",
+   "colors": [
+    "W"
+   ],
+   "typeLine": "Instant",
+   "cmc": 1,
+   "rarity": "uncommon",
+   "set": "sta",
+   "usd": 3.5,
+   "text": "Exile target creature. Its controller gains life equal to its power.",
+   "producedMana": []
+  },
+  {
+   "id": "wrath-of-god",
+   "name": "Wrath of God",
+   "colors": [
+    "W"
+   ],
+   "typeLine": "Sorcery",
+   "cmc": 4,
+   "rarity": "rare",
+   "set": "2xm",
+   "usd": 6,
+   "text": "Destroy all creatures. They can't be regenerated.",
+   "producedMana": []
+  },
+  {
+   "id": "adeline-resplendent-cathar",
+   "name": "Adeline, Resplendent Cathar",
+   "colors": [
+    "W"
+   ],
+   "typeLine": "Legendary Creature — Human Knight",
+   "cmc": 3,
+   "rarity": "mythic",
+   "set": "mid",
+   "usd": 4.2,
+   "text": "Vigilance",
+   "producedMana": []
+  },
+  {
+   "id": "thraben-inspector",
+   "name": "Thraben Inspector",
+   "colors": [
+    "W"
+   ],
+   "typeLine": "Creature — Human Soldier",
+   "cmc": 1,
+   "rarity": "common",
+   "set": "soi",
+   "usd": 0.2,
+   "text": "When Thraben Inspector enters, investigate.",
+   "producedMana": []
+  },
+  {
+   "id": "counterspell",
+   "name": "Counterspell",
+   "colors": [
+    "U"
+   ],
+   "typeLine": "Instant",
+   "cmc": 2,
+   "rarity": "uncommon",
+   "set": "mh2",
+   "usd": 1.1,
+   "text": "Counter target spell.",
+   "producedMana": []
+  },
+  {
+   "id": "brainstorm",
+   "name": "Brainstorm",
+   "colors": [
+    "U"
+   ],
+   "typeLine": "Instant",
+   "cmc": 1,
+   "rarity": "common",
+   "set": "sta",
+   "usd": 1.5,
+   "text": "Draw three cards, then put two cards from your hand on top of your library in any order.",
+   "producedMana": []
+  },
+  {
+   "id": "snapcaster-mage",
+   "name": "Snapcaster Mage",
+   "colors": [
+    "U"
+   ],
+   "typeLine": "Creature — Human Wizard",
+   "cmc": 2,
+   "rarity": "mythic",
+   "set": "isd",
+   "usd": 12,
+   "text": "Flash",
+   "producedMana": []
+  },
+  {
+   "id": "phantasmal-image",
+   "name": "Phantasmal Image",
+   "colors": [
+    "U"
+   ],
+   "typeLine": "Creature — Illusion",
+   "cmc": 2,
+   "rarity": "rare",
+   "set": "m12",
+   "usd": 2,
+   "text": "",
+   "producedMana": []
+  },
+  {
+   "id": "doom-blade",
+   "name": "Doom Blade",
+   "colors": [
+    "B"
+   ],
+   "typeLine": "Instant",
+   "cmc": 2,
+   "rarity": "common",
+   "set": "m10",
+   "usd": 0.3,
+   "text": "Destroy target nonblack creature.",
+   "producedMana": []
+  },
+  {
+   "id": "dark-confidant",
+   "name": "Dark Confidant",
+   "colors": [
+    "B"
+   ],
+   "typeLine": "Creature — Human Wizard",
+   "cmc": 2,
+   "rarity": "mythic",
+   "set": "rav",
+   "usd": 30,
+   "text": "At the beginning of your upkeep, reveal the top card of your library and put that card into your hand.",
+   "producedMana": []
+  },
+  {
+   "id": "night-s-whisper",
+   "name": "Night's Whisper",
+   "colors": [
+    "B"
+   ],
+   "typeLine": "Sorcery",
+   "cmc": 2,
+   "rarity": "common",
+   "set": "ema",
+   "usd": 0.5,
+   "text": "You draw two cards and you lose 2 life.",
+   "producedMana": []
+  },
+  {
+   "id": "lightning-bolt",
+   "name": "Lightning Bolt",
+   "colors": [
+    "R"
+   ],
+   "typeLine": "Instant",
+   "cmc": 1,
+   "rarity": "common",
+   "set": "clu",
+   "usd": 1,
+   "text": "Lightning Bolt deals 3 damage to any target.",
+   "producedMana": []
+  },
+  {
+   "id": "goblin-guide",
+   "name": "Goblin Guide",
+   "colors": [
+    "R"
+   ],
+   "typeLine": "Creature — Goblin Scout",
+   "cmc": 1,
+   "rarity": "rare",
+   "set": "zen",
+   "usd": 2.5,
+   "text": "Haste",
+   "producedMana": []
+  },
+  {
+   "id": "fiery-confluence",
+   "name": "Fiery Confluence",
+   "colors": [
+    "R"
+   ],
+   "typeLine": "Sorcery",
+   "cmc": 4,
+   "rarity": "rare",
+   "set": "ogw",
+   "usd": 3,
+   "text": "Choose three. You may choose the same mode more than once. • Fiery Confluence deals 1 damage to each creature.",
+   "producedMana": []
+  },
+  {
+   "id": "llanowar-elves",
+   "name": "Llanowar Elves",
+   "colors": [
+    "G"
+   ],
+   "typeLine": "Creature — Elf Druid",
+   "cmc": 1,
+   "rarity": "common",
+   "set": "dom",
+   "usd": 0.3,
+   "text": "{T}: Add {G}.",
+   "producedMana": [
+    "G"
+   ]
+  },
+  {
+   "id": "birds-of-paradise",
+   "name": "Birds of Paradise",
+   "colors": [
+    "G"
+   ],
+   "typeLine": "Creature — Bird",
+   "cmc": 1,
+   "rarity": "rare",
+   "set": "m12",
+   "usd": 8,
+   "text": "Flying\n{T}: Add one mana of any color.",
+   "producedMana": [
+    "W",
+    "U",
+    "B",
+    "R",
+    "G"
+   ]
+  },
+  {
+   "id": "rampant-growth",
+   "name": "Rampant Growth",
+   "colors": [
+    "G"
+   ],
+   "typeLine": "Sorcery",
+   "cmc": 2,
+   "rarity": "common",
+   "set": "m10",
+   "usd": 0.2,
+   "text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+   "producedMana": []
+  },
+  {
+   "id": "primeval-titan",
+   "name": "Primeval Titan",
+   "colors": [
+    "G"
+   ],
+   "typeLine": "Creature — Giant",
+   "cmc": 6,
+   "rarity": "mythic",
+   "set": "m11",
+   "usd": 5,
+   "text": "Trample",
+   "producedMana": []
+  },
+  {
+   "id": "beast-within",
+   "name": "Beast Within",
+   "colors": [
+    "G"
+   ],
+   "typeLine": "Instant",
+   "cmc": 3,
+   "rarity": "uncommon",
+   "set": "pca",
+   "usd": 0.8,
+   "text": "Destroy target permanent. Its controller creates a 3/3 green Beast creature token.",
+   "producedMana": []
+  },
+  {
+   "id": "lightning-helix",
+   "name": "Lightning Helix",
+   "colors": [
+    "R",
+    "W"
+   ],
+   "typeLine": "Instant",
+   "cmc": 2,
+   "rarity": "uncommon",
+   "set": "rav",
+   "usd": 0.6,
+   "text": "Lightning Helix deals 3 damage to any target and you gain 3 life.",
+   "producedMana": []
+  },
+  {
+   "id": "fire-ice",
+   "name": "Fire // Ice",
+   "colors": [
+    "U",
+    "R"
+   ],
+   "typeLine": "Instant // Instant",
+   "cmc": 4,
+   "rarity": "uncommon",
+   "set": "mh2",
+   "usd": 0.4,
+   "text": "Fire deals 2 damage divided as you choose among one or two targets.\nTap target permanent.\nDraw a card.",
+   "producedMana": []
+  },
+  {
+   "id": "sol-ring",
+   "name": "Sol Ring",
+   "colors": [],
+   "typeLine": "Artifact",
+   "cmc": 1,
+   "rarity": "uncommon",
+   "set": "cmr",
+   "usd": 1.8,
+   "text": "{T}: Add {C}{C}.",
+   "producedMana": [
+    "C"
+   ]
+  },
+  {
+   "id": "wurmcoil-engine",
+   "name": "Wurmcoil Engine",
+   "colors": [],
+   "typeLine": "Artifact Creature — Phyrexian Wurm",
+   "cmc": 6,
+   "rarity": "mythic",
+   "set": "som",
+   "usd": 9,
+   "text": "Deathtouch, lifelink",
+   "producedMana": []
+  },
+  {
+   "id": "mind-stone",
+   "name": "Mind Stone",
+   "colors": [],
+   "typeLine": "Artifact",
+   "cmc": 2,
+   "rarity": "common",
+   "set": "wth",
+   "usd": 0.4,
+   "text": "{T}: Add {C}.",
+   "producedMana": [
+    "C"
+   ]
+  },
+  {
+   "id": "hallowed-fountain",
+   "name": "Hallowed Fountain",
+   "colors": [],
+   "typeLine": "Land — Plains Island",
+   "cmc": 0,
+   "rarity": "rare",
+   "set": "rna",
+   "usd": 7,
+   "text": "({T}: Add {W} or {U}.)",
+   "producedMana": [
+    "W",
+    "U"
+   ]
+  },
+  {
+   "id": "scalding-tarn",
+   "name": "Scalding Tarn",
+   "colors": [],
+   "typeLine": "Land",
+   "cmc": 0,
+   "rarity": "rare",
+   "set": "zen",
+   "usd": 18,
+   "text": "{T}, Pay 1 life, Sacrifice Scalding Tarn: Search your library for an Island or Mountain card, put it onto the battlefield, then shuffle.",
+   "producedMana": []
+  },
+  {
+   "id": "mutavault",
+   "name": "Mutavault",
+   "colors": [],
+   "typeLine": "Land",
+   "cmc": 0,
+   "rarity": "rare",
+   "set": "mor",
+   "usd": 6,
+   "text": "{T}: Add {C}.",
+   "producedMana": [
+    "C"
+   ]
+  },
+  {
+   "id": "forest",
+   "name": "Forest",
+   "colors": [],
+   "typeLine": "Basic Land — Forest",
+   "cmc": 0,
+   "rarity": "common",
+   "set": "m21",
+   "usd": 0.1,
+   "text": "({T}: Add {G}.)",
+   "producedMana": [
+    "G"
+   ]
+  },
+  {
+   "id": "delver-of-secrets-insectile-aberration",
+   "name": "Delver of Secrets // Insectile Aberration",
+   "colors": [
+    "U"
+   ],
+   "typeLine": "Creature — Human Wizard // Creature — Human Insect",
+   "cmc": 1,
+   "rarity": "common",
+   "set": "isd",
+   "usd": 0.3,
+   "text": "Look at the top card of your library.",
+   "producedMana": []
+  },
+  {
+   "id": "nissa-who-shakes-the-world",
+   "name": "Nissa, Who Shakes the World",
+   "colors": [
+    "G"
+   ],
+   "typeLine": "Legendary Planeswalker — Nissa",
+   "cmc": 5,
+   "rarity": "rare",
+   "set": "war",
+   "usd": 4,
+   "text": "Whenever you tap a Forest for mana, add an additional {G}.",
+   "producedMana": []
+  },
+  {
+   "id": "unpriced-oddity",
+   "name": "Unpriced Oddity",
+   "colors": [
+    "B",
+    "G"
+   ],
+   "typeLine": "Enchantment",
+   "cmc": 3,
+   "rarity": "rare",
+   "set": "xyz",
+   "usd": null,
+   "text": "",
+   "producedMana": []
+  }
+ ],
+ "facts": [
+  {
+   "name": "Swords to Plowshares",
+   "group": "W",
+   "type": "instant",
+   "roles": [
+    "removal"
+   ]
+  },
+  {
+   "name": "Wrath of God",
+   "group": "W",
+   "type": "sorcery",
+   "roles": [
+    "removal"
+   ]
+  },
+  {
+   "name": "Adeline, Resplendent Cathar",
+   "group": "W",
+   "type": "creature",
+   "roles": []
+  },
+  {
+   "name": "Thraben Inspector",
+   "group": "W",
+   "type": "creature",
+   "roles": []
+  },
+  {
+   "name": "Counterspell",
+   "group": "U",
+   "type": "instant",
+   "roles": [
+    "counter"
+   ]
+  },
+  {
+   "name": "Brainstorm",
+   "group": "U",
+   "type": "instant",
+   "roles": [
+    "draw"
+   ]
+  },
+  {
+   "name": "Snapcaster Mage",
+   "group": "U",
+   "type": "creature",
+   "roles": []
+  },
+  {
+   "name": "Phantasmal Image",
+   "group": "U",
+   "type": "creature",
+   "roles": []
+  },
+  {
+   "name": "Doom Blade",
+   "group": "B",
+   "type": "instant",
+   "roles": [
+    "removal"
+   ]
+  },
+  {
+   "name": "Dark Confidant",
+   "group": "B",
+   "type": "creature",
+   "roles": []
+  },
+  {
+   "name": "Night's Whisper",
+   "group": "B",
+   "type": "sorcery",
+   "roles": [
+    "draw"
+   ]
+  },
+  {
+   "name": "Lightning Bolt",
+   "group": "R",
+   "type": "instant",
+   "roles": [
+    "removal"
+   ]
+  },
+  {
+   "name": "Goblin Guide",
+   "group": "R",
+   "type": "creature",
+   "roles": []
+  },
+  {
+   "name": "Fiery Confluence",
+   "group": "R",
+   "type": "sorcery",
+   "roles": [
+    "removal"
+   ]
+  },
+  {
+   "name": "Llanowar Elves",
+   "group": "G",
+   "type": "creature",
+   "roles": []
+  },
+  {
+   "name": "Birds of Paradise",
+   "group": "G",
+   "type": "creature",
+   "roles": [
+    "fixing"
+   ]
+  },
+  {
+   "name": "Rampant Growth",
+   "group": "G",
+   "type": "sorcery",
+   "roles": [
+    "fixing"
+   ]
+  },
+  {
+   "name": "Primeval Titan",
+   "group": "G",
+   "type": "creature",
+   "roles": []
+  },
+  {
+   "name": "Beast Within",
+   "group": "G",
+   "type": "instant",
+   "roles": [
+    "removal"
+   ]
+  },
+  {
+   "name": "Lightning Helix",
+   "group": "M",
+   "type": "instant",
+   "roles": [
+    "removal"
+   ]
+  },
+  {
+   "name": "Fire // Ice",
+   "group": "M",
+   "type": "instant",
+   "roles": [
+    "draw"
+   ]
+  },
+  {
+   "name": "Sol Ring",
+   "group": "C",
+   "type": "artifact",
+   "roles": []
+  },
+  {
+   "name": "Wurmcoil Engine",
+   "group": "C",
+   "type": "creature",
+   "roles": []
+  },
+  {
+   "name": "Mind Stone",
+   "group": "C",
+   "type": "artifact",
+   "roles": []
+  },
+  {
+   "name": "Hallowed Fountain",
+   "group": "L",
+   "type": "land",
+   "roles": [
+    "fixing"
+   ]
+  },
+  {
+   "name": "Scalding Tarn",
+   "group": "L",
+   "type": "land",
+   "roles": [
+    "fixing"
+   ]
+  },
+  {
+   "name": "Mutavault",
+   "group": "L",
+   "type": "land",
+   "roles": []
+  },
+  {
+   "name": "Forest",
+   "group": "L",
+   "type": "land",
+   "roles": []
+  },
+  {
+   "name": "Delver of Secrets // Insectile Aberration",
+   "group": "U",
+   "type": "creature",
+   "roles": []
+  },
+  {
+   "name": "Nissa, Who Shakes the World",
+   "group": "G",
+   "type": "planeswalker",
+   "roles": []
+  },
+  {
+   "name": "Unpriced Oddity",
+   "group": "M",
+   "type": "enchantment",
+   "roles": []
+  }
+ ],
+ "targets": [
+  {
+   "size": 40,
+   "groups": {
+    "W": 6,
+    "U": 6,
+    "B": 6,
+    "R": 6,
+    "G": 5,
+    "M": 4,
+    "C": 3,
+    "L": 4
+   }
+  },
+  {
+   "size": 45,
+   "groups": {
+    "W": 7,
+    "U": 6,
+    "B": 6,
+    "R": 6,
+    "G": 6,
+    "M": 5,
+    "C": 4,
+    "L": 5
+   }
+  },
+  {
+   "size": 100,
+   "groups": {
+    "W": 14,
+    "U": 14,
+    "B": 14,
+    "R": 14,
+    "G": 14,
+    "M": 11,
+    "C": 8,
+    "L": 11
+   }
+  },
+  {
+   "size": 360,
+   "groups": {
+    "W": 51,
+    "U": 50,
+    "B": 50,
+    "R": 50,
+    "G": 50,
+    "M": 40,
+    "C": 29,
+    "L": 40
+   }
+  },
+  {
+   "size": 450,
+   "groups": {
+    "W": 63,
+    "U": 63,
+    "B": 63,
+    "R": 63,
+    "G": 63,
+    "M": 50,
+    "C": 36,
+    "L": 49
+   }
+  },
+  {
+   "size": 540,
+   "groups": {
+    "W": 76,
+    "U": 76,
+    "B": 76,
+    "R": 76,
+    "G": 75,
+    "M": 59,
+    "C": 43,
+    "L": 59
+   }
+  },
+  {
+   "size": 720,
+   "groups": {
+    "W": 101,
+    "U": 101,
+    "B": 101,
+    "R": 101,
+    "G": 101,
+    "M": 79,
+    "C": 57,
+    "L": 79
+   }
+  }
+ ],
+ "splits": [
+  {
+   "total": 10,
+   "weights": [
+    1,
+    1,
+    1
+   ],
+   "expect": [
+    4,
+    3,
+    3
+   ]
+  },
+  {
+   "total": 7,
+   "weights": [
+    3,
+    2,
+    2
+   ],
+   "expect": [
+    3,
+    2,
+    2
+   ]
+  },
+  {
+   "total": 0,
+   "weights": [
+    5,
+    5
+   ],
+   "expect": [
+    0,
+    0
+   ]
+  }
+ ],
+ "balances": [
+  {
+   "lines": [],
+   "size": 360,
+   "singleton": true,
+   "expect": {
+    "total": 0,
+    "groups": [
+     "W 0/51",
+     "U 0/50",
+     "B 0/50",
+     "R 0/50",
+     "G 0/50",
+     "M 0/40",
+     "C 0/29",
+     "L 0/40"
+    ],
+    "curve": [
+     "1 0/38",
+     "2 0/80",
+     "3 0/74",
+     "4 0/58",
+     "5 0/38",
+     "6+ 0/32"
+    ],
+    "averageMv": 0,
+    "types": [
+     "creature 0/144"
+    ],
+    "roles": [
+     "removal 0/43",
+     "fixing 0/29",
+     "draw 0/22",
+     "counter 0/11"
+    ],
+    "warnings": [
+     "360 cards short of 360",
+     "White is 51 short",
+     "Blue is 50 short",
+     "Black is 50 short",
+     "Red is 50 short",
+     "Green is 50 short",
+     "Multicolour is 40 short",
+     "Colourless is 29 short",
+     "Lands are 40 short",
+     "Creatures are 144 short",
+     "Removal is 43 short",
+     "Fixing is 29 short",
+     "Card draw is 22 short",
+     "Counterspells are 11 short"
+    ]
+   }
+  },
+  {
+   "lines": [
+    [
+     "Swords to Plowshares",
+     1
+    ],
+    [
+     "Wrath of God",
+     1
+    ],
+    [
+     "Adeline, Resplendent Cathar",
+     1
+    ],
+    [
+     "Thraben Inspector",
+     1
+    ],
+    [
+     "Counterspell",
+     1
+    ],
+    [
+     "Brainstorm",
+     1
+    ],
+    [
+     "Snapcaster Mage",
+     1
+    ],
+    [
+     "Phantasmal Image",
+     1
+    ],
+    [
+     "Doom Blade",
+     1
+    ],
+    [
+     "Dark Confidant",
+     1
+    ],
+    [
+     "Night's Whisper",
+     1
+    ],
+    [
+     "Lightning Bolt",
+     1
+    ],
+    [
+     "Goblin Guide",
+     1
+    ],
+    [
+     "Fiery Confluence",
+     1
+    ],
+    [
+     "Llanowar Elves",
+     1
+    ],
+    [
+     "Birds of Paradise",
+     1
+    ],
+    [
+     "Rampant Growth",
+     1
+    ],
+    [
+     "Primeval Titan",
+     1
+    ],
+    [
+     "Beast Within",
+     1
+    ],
+    [
+     "Lightning Helix",
+     1
+    ],
+    [
+     "Fire // Ice",
+     1
+    ],
+    [
+     "Sol Ring",
+     1
+    ],
+    [
+     "Wurmcoil Engine",
+     1
+    ],
+    [
+     "Mind Stone",
+     1
+    ],
+    [
+     "Hallowed Fountain",
+     1
+    ],
+    [
+     "Scalding Tarn",
+     1
+    ],
+    [
+     "Mutavault",
+     1
+    ],
+    [
+     "Forest",
+     1
+    ],
+    [
+     "Delver of Secrets // Insectile Aberration",
+     1
+    ],
+    [
+     "Nissa, Who Shakes the World",
+     1
+    ],
+    [
+     "Unpriced Oddity",
+     1
+    ]
+   ],
+   "size": 40,
+   "singleton": true,
+   "expect": {
+    "total": 31,
+    "groups": [
+     "W 4/6",
+     "U 5/6",
+     "B 3/6",
+     "R 3/6",
+     "G 6/5",
+     "M 3/4",
+     "C 3/3",
+     "L 4/4"
+    ],
+    "curve": [
+     "1 9/4",
+     "2 9/9",
+     "3 3/8",
+     "4 3/7",
+     "5 1/4",
+     "6+ 2/4"
+    ],
+    "averageMv": 2.41,
+    "types": [
+     "creature 11/16",
+     "planeswalker 1/-",
+     "instant 8/-",
+     "sorcery 4/-",
+     "artifact 2/-",
+     "enchantment 1/-",
+     "land 4/-"
+    ],
+    "roles": [
+     "removal 7/5",
+     "fixing 4/3",
+     "draw 3/2",
+     "counter 1/1"
+    ],
+    "warnings": [
+     "9 cards short of 40",
+     "White is 2 short",
+     "Black is 3 short",
+     "Red is 3 short",
+     "Creatures are 5 short"
+    ]
+   }
+  },
+  {
+   "lines": [
+    [
+     "Swords to Plowshares",
+     1
+    ],
+    [
+     "Wrath of God",
+     1
+    ],
+    [
+     "Adeline, Resplendent Cathar",
+     1
+    ],
+    [
+     "Thraben Inspector",
+     1
+    ],
+    [
+     "Counterspell",
+     1
+    ],
+    [
+     "Brainstorm",
+     1
+    ],
+    [
+     "Snapcaster Mage",
+     1
+    ],
+    [
+     "Phantasmal Image",
+     1
+    ],
+    [
+     "Doom Blade",
+     1
+    ],
+    [
+     "Dark Confidant",
+     1
+    ],
+    [
+     "Night's Whisper",
+     1
+    ],
+    [
+     "Lightning Bolt",
+     1
+    ],
+    [
+     "Goblin Guide",
+     1
+    ],
+    [
+     "Fiery Confluence",
+     1
+    ],
+    [
+     "Llanowar Elves",
+     1
+    ],
+    [
+     "Birds of Paradise",
+     1
+    ],
+    [
+     "Rampant Growth",
+     1
+    ],
+    [
+     "Primeval Titan",
+     1
+    ],
+    [
+     "Beast Within",
+     1
+    ],
+    [
+     "Lightning Helix",
+     1
+    ],
+    [
+     "Fire // Ice",
+     1
+    ],
+    [
+     "Sol Ring",
+     1
+    ],
+    [
+     "Wurmcoil Engine",
+     1
+    ],
+    [
+     "Mind Stone",
+     1
+    ],
+    [
+     "Hallowed Fountain",
+     1
+    ],
+    [
+     "Scalding Tarn",
+     1
+    ],
+    [
+     "Mutavault",
+     1
+    ],
+    [
+     "Forest",
+     1
+    ],
+    [
+     "Delver of Secrets // Insectile Aberration",
+     1
+    ],
+    [
+     "Nissa, Who Shakes the World",
+     1
+    ],
+    [
+     "Unpriced Oddity",
+     1
+    ]
+   ],
+   "size": 45,
+   "singleton": true,
+   "expect": {
+    "total": 31,
+    "groups": [
+     "W 4/7",
+     "U 5/6",
+     "B 3/6",
+     "R 3/6",
+     "G 6/6",
+     "M 3/5",
+     "C 3/4",
+     "L 4/5"
+    ],
+    "curve": [
+     "1 9/5",
+     "2 9/10",
+     "3 3/9",
+     "4 3/7",
+     "5 1/5",
+     "6+ 2/4"
+    ],
+    "averageMv": 2.41,
+    "types": [
+     "creature 11/18",
+     "planeswalker 1/-",
+     "instant 8/-",
+     "sorcery 4/-",
+     "artifact 2/-",
+     "enchantment 1/-",
+     "land 4/-"
+    ],
+    "roles": [
+     "removal 7/5",
+     "fixing 4/4",
+     "draw 3/3",
+     "counter 1/1"
+    ],
+    "warnings": [
+     "14 cards short of 45",
+     "White is 3 short",
+     "Black is 3 short",
+     "Red is 3 short",
+     "Multicolour is 2 short",
+     "Creatures are 7 short"
+    ]
+   }
+  },
+  {
+   "lines": [
+    [
+     "Lightning Bolt",
+     2
+    ],
+    [
+     "Counterspell",
+     1
+    ],
+    [
+     "Sol Ring",
+     3
+    ],
+    [
+     "Forest",
+     2
+    ],
+    [
+     "Primeval Titan",
+     1
+    ]
+   ],
+   "size": 40,
+   "singleton": true,
+   "expect": {
+    "total": 9,
+    "groups": [
+     "W 0/6",
+     "U 1/6",
+     "B 0/6",
+     "R 2/6",
+     "G 1/5",
+     "M 0/4",
+     "C 3/3",
+     "L 2/4"
+    ],
+    "curve": [
+     "1 5/4",
+     "2 1/9",
+     "3 0/8",
+     "4 0/7",
+     "5 0/4",
+     "6+ 1/4"
+    ],
+    "averageMv": 1.86,
+    "types": [
+     "creature 1/16",
+     "instant 3/-",
+     "artifact 3/-",
+     "land 2/-"
+    ],
+    "roles": [
+     "removal 2/5",
+     "fixing 0/3",
+     "draw 0/2",
+     "counter 1/1"
+    ],
+    "warnings": [
+     "31 cards short of 40",
+     "3 cards have more than one copy",
+     "White is 6 short",
+     "Blue is 5 short",
+     "Black is 6 short",
+     "Red is 4 short",
+     "Green is 4 short",
+     "Multicolour is 4 short",
+     "Lands are 2 short",
+     "Creatures are 15 short",
+     "Removal is 3 short",
+     "Fixing is 3 short",
+     "Card draw is 2 short"
+    ]
+   }
+  },
+  {
+   "lines": [
+    [
+     "Lightning Bolt",
+     2
+    ],
+    [
+     "Counterspell",
+     1
+    ],
+    [
+     "Sol Ring",
+     3
+    ],
+    [
+     "Forest",
+     2
+    ],
+    [
+     "Primeval Titan",
+     1
+    ]
+   ],
+   "size": 40,
+   "singleton": false,
+   "expect": {
+    "total": 9,
+    "groups": [
+     "W 0/6",
+     "U 1/6",
+     "B 0/6",
+     "R 2/6",
+     "G 1/5",
+     "M 0/4",
+     "C 3/3",
+     "L 2/4"
+    ],
+    "curve": [
+     "1 5/4",
+     "2 1/9",
+     "3 0/8",
+     "4 0/7",
+     "5 0/4",
+     "6+ 1/4"
+    ],
+    "averageMv": 1.86,
+    "types": [
+     "creature 1/16",
+     "instant 3/-",
+     "artifact 3/-",
+     "land 2/-"
+    ],
+    "roles": [
+     "removal 2/5",
+     "fixing 0/3",
+     "draw 0/2",
+     "counter 1/1"
+    ],
+    "warnings": [
+     "31 cards short of 40",
+     "White is 6 short",
+     "Blue is 5 short",
+     "Black is 6 short",
+     "Red is 4 short",
+     "Green is 4 short",
+     "Multicolour is 4 short",
+     "Lands are 2 short",
+     "Creatures are 15 short",
+     "Removal is 3 short",
+     "Fixing is 3 short",
+     "Card draw is 2 short"
+    ]
+   }
+  },
+  {
+   "lines": [
+    [
+     "Swords to Plowshares",
+     3
+    ],
+    [
+     "Wrath of God",
+     3
+    ],
+    [
+     "Adeline, Resplendent Cathar",
+     3
+    ],
+    [
+     "Thraben Inspector",
+     3
+    ],
+    [
+     "Counterspell",
+     3
+    ],
+    [
+     "Brainstorm",
+     3
+    ],
+    [
+     "Snapcaster Mage",
+     3
+    ],
+    [
+     "Phantasmal Image",
+     3
+    ],
+    [
+     "Doom Blade",
+     3
+    ],
+    [
+     "Dark Confidant",
+     3
+    ],
+    [
+     "Night's Whisper",
+     3
+    ],
+    [
+     "Lightning Bolt",
+     3
+    ]
+   ],
+   "size": 45,
+   "singleton": false,
+   "expect": {
+    "total": 36,
+    "groups": [
+     "W 12/7",
+     "U 12/6",
+     "B 9/6",
+     "R 3/6",
+     "G 0/6",
+     "M 0/5",
+     "C 0/4",
+     "L 0/5"
+    ],
+    "curve": [
+     "1 12/5",
+     "2 18/10",
+     "3 3/9",
+     "4 3/7",
+     "5 0/5",
+     "6+ 0/4"
+    ],
+    "averageMv": 1.92,
+    "types": [
+     "creature 15/18",
+     "instant 15/-",
+     "sorcery 6/-"
+    ],
+    "roles": [
+     "removal 12/5",
+     "fixing 0/4",
+     "draw 6/3",
+     "counter 3/1"
+    ],
+    "warnings": [
+     "9 cards short of 45",
+     "White is 5 over",
+     "Blue is 6 over",
+     "Black is 3 over",
+     "Red is 3 short",
+     "Green is 6 short",
+     "Multicolour is 5 short",
+     "Colourless is 4 short",
+     "Lands are 5 short",
+     "Creatures are 3 short",
+     "Fixing is 4 short"
+    ]
+   }
+  }
+ ],
+ "fills": [
+  {
+   "cube": [],
+   "owned": [
+    "Swords to Plowshares",
+    "Wrath of God",
+    "Adeline, Resplendent Cathar",
+    "Thraben Inspector",
+    "Counterspell",
+    "Brainstorm",
+    "Snapcaster Mage",
+    "Phantasmal Image",
+    "Doom Blade",
+    "Dark Confidant",
+    "Night's Whisper",
+    "Lightning Bolt",
+    "Goblin Guide",
+    "Fiery Confluence",
+    "Llanowar Elves",
+    "Birds of Paradise",
+    "Rampant Growth",
+    "Primeval Titan",
+    "Beast Within",
+    "Lightning Helix",
+    "Fire // Ice",
+    "Sol Ring",
+    "Wurmcoil Engine",
+    "Mind Stone",
+    "Hallowed Fountain",
+    "Scalding Tarn",
+    "Mutavault",
+    "Forest",
+    "Delver of Secrets // Insectile Aberration",
+    "Nissa, Who Shakes the World",
+    "Unpriced Oddity"
+   ],
+   "size": 40,
+   "expect": [
+    "Adeline, Resplendent Cathar",
+    "Snapcaster Mage",
+    "Dark Confidant",
+    "Fiery Confluence",
+    "Primeval Titan",
+    "Unpriced Oddity",
+    "Wurmcoil Engine",
+    "Scalding Tarn",
+    "Wrath of God",
+    "Phantasmal Image",
+    "Night's Whisper",
+    "Goblin Guide",
+    "Birds of Paradise",
+    "Lightning Helix",
+    "Sol Ring",
+    "Hallowed Fountain",
+    "Swords to Plowshares",
+    "Counterspell",
+    "Doom Blade",
+    "Lightning Bolt",
+    "Nissa, Who Shakes the World",
+    "Fire // Ice",
+    "Mind Stone",
+    "Mutavault",
+    "Thraben Inspector",
+    "Brainstorm",
+    "Beast Within",
+    "Delver of Secrets // Insectile Aberration",
+    "Llanowar Elves"
+   ]
+  },
+  {
+   "cube": [
+    [
+     "Lightning Bolt",
+     1
+    ],
+    [
+     "Goblin Guide",
+     1
+    ]
+   ],
+   "owned": [
+    "Swords to Plowshares",
+    "Wrath of God",
+    "Adeline, Resplendent Cathar",
+    "Thraben Inspector",
+    "Counterspell",
+    "Brainstorm",
+    "Snapcaster Mage",
+    "Phantasmal Image",
+    "Doom Blade",
+    "Dark Confidant",
+    "Night's Whisper",
+    "Lightning Bolt",
+    "Goblin Guide",
+    "Fiery Confluence",
+    "Llanowar Elves",
+    "Birds of Paradise",
+    "Rampant Growth",
+    "Primeval Titan",
+    "Beast Within",
+    "Lightning Helix",
+    "Fire // Ice",
+    "Sol Ring",
+    "Wurmcoil Engine",
+    "Mind Stone",
+    "Hallowed Fountain",
+    "Scalding Tarn",
+    "Mutavault",
+    "Forest",
+    "Delver of Secrets // Insectile Aberration",
+    "Nissa, Who Shakes the World",
+    "Unpriced Oddity"
+   ],
+   "size": 45,
+   "expect": [
+    "Adeline, Resplendent Cathar",
+    "Snapcaster Mage",
+    "Dark Confidant",
+    "Fiery Confluence",
+    "Primeval Titan",
+    "Unpriced Oddity",
+    "Wurmcoil Engine",
+    "Scalding Tarn",
+    "Wrath of God",
+    "Phantasmal Image",
+    "Night's Whisper",
+    "Birds of Paradise",
+    "Lightning Helix",
+    "Sol Ring",
+    "Hallowed Fountain",
+    "Swords to Plowshares",
+    "Counterspell",
+    "Doom Blade",
+    "Nissa, Who Shakes the World",
+    "Fire // Ice",
+    "Mind Stone",
+    "Mutavault",
+    "Thraben Inspector",
+    "Brainstorm",
+    "Beast Within",
+    "Delver of Secrets // Insectile Aberration",
+    "Llanowar Elves",
+    "Rampant Growth"
+   ]
+  },
+  {
+   "cube": [
+    [
+     "Swords to Plowshares",
+     1
+    ],
+    [
+     "Wrath of God",
+     1
+    ],
+    [
+     "Adeline, Resplendent Cathar",
+     1
+    ],
+    [
+     "Thraben Inspector",
+     1
+    ],
+    [
+     "Counterspell",
+     1
+    ],
+    [
+     "Brainstorm",
+     1
+    ],
+    [
+     "Snapcaster Mage",
+     1
+    ],
+    [
+     "Phantasmal Image",
+     1
+    ],
+    [
+     "Doom Blade",
+     1
+    ],
+    [
+     "Dark Confidant",
+     1
+    ],
+    [
+     "Night's Whisper",
+     1
+    ],
+    [
+     "Lightning Bolt",
+     1
+    ],
+    [
+     "Goblin Guide",
+     1
+    ],
+    [
+     "Fiery Confluence",
+     1
+    ],
+    [
+     "Llanowar Elves",
+     1
+    ],
+    [
+     "Birds of Paradise",
+     1
+    ],
+    [
+     "Rampant Growth",
+     1
+    ],
+    [
+     "Primeval Titan",
+     1
+    ],
+    [
+     "Beast Within",
+     1
+    ],
+    [
+     "Lightning Helix",
+     1
+    ]
+   ],
+   "owned": [
+    "Swords to Plowshares",
+    "Wrath of God",
+    "Adeline, Resplendent Cathar",
+    "Thraben Inspector",
+    "Counterspell",
+    "Brainstorm",
+    "Snapcaster Mage",
+    "Phantasmal Image",
+    "Doom Blade",
+    "Dark Confidant",
+    "Night's Whisper",
+    "Lightning Bolt",
+    "Goblin Guide",
+    "Fiery Confluence",
+    "Llanowar Elves",
+    "Birds of Paradise",
+    "Rampant Growth",
+    "Primeval Titan",
+    "Beast Within",
+    "Lightning Helix",
+    "Fire // Ice",
+    "Sol Ring",
+    "Wurmcoil Engine",
+    "Mind Stone",
+    "Hallowed Fountain",
+    "Scalding Tarn",
+    "Mutavault",
+    "Forest",
+    "Delver of Secrets // Insectile Aberration",
+    "Nissa, Who Shakes the World",
+    "Unpriced Oddity"
+   ],
+   "size": 22,
+   "expect": [
+    "Unpriced Oddity",
+    "Wurmcoil Engine"
+   ]
+  },
+  {
+   "cube": [
+    [
+     "Swords to Plowshares",
+     1
+    ],
+    [
+     "Wrath of God",
+     1
+    ],
+    [
+     "Adeline, Resplendent Cathar",
+     1
+    ],
+    [
+     "Thraben Inspector",
+     1
+    ],
+    [
+     "Counterspell",
+     1
+    ],
+    [
+     "Brainstorm",
+     1
+    ],
+    [
+     "Snapcaster Mage",
+     1
+    ],
+    [
+     "Phantasmal Image",
+     1
+    ],
+    [
+     "Doom Blade",
+     1
+    ],
+    [
+     "Dark Confidant",
+     1
+    ],
+    [
+     "Night's Whisper",
+     1
+    ],
+    [
+     "Lightning Bolt",
+     1
+    ],
+    [
+     "Goblin Guide",
+     1
+    ],
+    [
+     "Fiery Confluence",
+     1
+    ],
+    [
+     "Llanowar Elves",
+     1
+    ],
+    [
+     "Birds of Paradise",
+     1
+    ],
+    [
+     "Rampant Growth",
+     1
+    ],
+    [
+     "Primeval Titan",
+     1
+    ],
+    [
+     "Beast Within",
+     1
+    ],
+    [
+     "Lightning Helix",
+     1
+    ],
+    [
+     "Fire // Ice",
+     1
+    ],
+    [
+     "Sol Ring",
+     1
+    ],
+    [
+     "Wurmcoil Engine",
+     1
+    ],
+    [
+     "Mind Stone",
+     1
+    ],
+    [
+     "Hallowed Fountain",
+     1
+    ],
+    [
+     "Scalding Tarn",
+     1
+    ],
+    [
+     "Mutavault",
+     1
+    ],
+    [
+     "Forest",
+     1
+    ],
+    [
+     "Delver of Secrets // Insectile Aberration",
+     1
+    ],
+    [
+     "Nissa, Who Shakes the World",
+     1
+    ],
+    [
+     "Unpriced Oddity",
+     1
+    ]
+   ],
+   "owned": [
+    "Swords to Plowshares",
+    "Wrath of God",
+    "Adeline, Resplendent Cathar",
+    "Thraben Inspector",
+    "Counterspell",
+    "Brainstorm",
+    "Snapcaster Mage",
+    "Phantasmal Image",
+    "Doom Blade",
+    "Dark Confidant",
+    "Night's Whisper",
+    "Lightning Bolt",
+    "Goblin Guide",
+    "Fiery Confluence",
+    "Llanowar Elves",
+    "Birds of Paradise",
+    "Rampant Growth",
+    "Primeval Titan",
+    "Beast Within",
+    "Lightning Helix",
+    "Fire // Ice",
+    "Sol Ring",
+    "Wurmcoil Engine",
+    "Mind Stone",
+    "Hallowed Fountain",
+    "Scalding Tarn",
+    "Mutavault",
+    "Forest",
+    "Delver of Secrets // Insectile Aberration",
+    "Nissa, Who Shakes the World",
+    "Unpriced Oddity"
+   ],
+   "size": 20,
+   "expect": []
+  }
+ ],
+ "filters": [
+  {
+   "filter": {},
+   "expect": [
+    "Swords to Plowshares",
+    "Wrath of God",
+    "Adeline, Resplendent Cathar",
+    "Thraben Inspector",
+    "Counterspell",
+    "Brainstorm",
+    "Snapcaster Mage",
+    "Phantasmal Image",
+    "Doom Blade",
+    "Dark Confidant",
+    "Night's Whisper",
+    "Lightning Bolt",
+    "Goblin Guide",
+    "Fiery Confluence",
+    "Llanowar Elves",
+    "Birds of Paradise",
+    "Rampant Growth",
+    "Primeval Titan",
+    "Beast Within",
+    "Lightning Helix",
+    "Fire // Ice",
+    "Sol Ring",
+    "Wurmcoil Engine",
+    "Mind Stone",
+    "Hallowed Fountain",
+    "Scalding Tarn",
+    "Mutavault",
+    "Forest",
+    "Delver of Secrets // Insectile Aberration",
+    "Nissa, Who Shakes the World",
+    "Unpriced Oddity"
+   ]
+  },
+  {
+   "filter": {
+    "query": "bolt"
+   },
+   "expect": [
+    "Lightning Bolt"
+   ]
+  },
+  {
+   "filter": {
+    "groups": [
+     "R",
+     "M"
+    ]
+   },
+   "expect": [
+    "Lightning Bolt",
+    "Goblin Guide",
+    "Fiery Confluence",
+    "Lightning Helix",
+    "Fire // Ice",
+    "Unpriced Oddity"
+   ]
+  },
+  {
+   "filter": {
+    "rarities": [
+     "mythic"
+    ]
+   },
+   "expect": [
+    "Adeline, Resplendent Cathar",
+    "Snapcaster Mage",
+    "Dark Confidant",
+    "Primeval Titan",
+    "Wurmcoil Engine"
+   ]
+  },
+  {
+   "filter": {
+    "type": "creature human"
+   },
+   "expect": [
+    "Adeline, Resplendent Cathar",
+    "Thraben Inspector",
+    "Snapcaster Mage",
+    "Dark Confidant",
+    "Delver of Secrets // Insectile Aberration"
+   ]
+  },
+  {
+   "filter": {
+    "set": "ISD"
+   },
+   "expect": [
+    "Snapcaster Mage",
+    "Delver of Secrets // Insectile Aberration"
+   ]
+  },
+  {
+   "filter": {
+    "minUsd": 5
+   },
+   "expect": [
+    "Wrath of God",
+    "Snapcaster Mage",
+    "Dark Confidant",
+    "Birds of Paradise",
+    "Primeval Titan",
+    "Wurmcoil Engine",
+    "Hallowed Fountain",
+    "Scalding Tarn",
+    "Mutavault"
+   ]
+  },
+  {
+   "filter": {
+    "maxUsd": 0.5
+   },
+   "expect": [
+    "Thraben Inspector",
+    "Doom Blade",
+    "Night's Whisper",
+    "Llanowar Elves",
+    "Rampant Growth",
+    "Fire // Ice",
+    "Mind Stone",
+    "Forest",
+    "Delver of Secrets // Insectile Aberration"
+   ]
+  },
+  {
+   "filter": {
+    "minUsd": 1,
+    "maxUsd": 4,
+    "groups": [
+     "W",
+     "U",
+     "B",
+     "R",
+     "G"
+    ],
+    "rarities": [
+     "rare",
+     "uncommon"
+    ]
+   },
+   "expect": [
+    "Swords to Plowshares",
+    "Counterspell",
+    "Phantasmal Image",
+    "Goblin Guide",
+    "Fiery Confluence",
+    "Nissa, Who Shakes the World"
+   ]
+  },
+  {
+   "filter": {
+    "groups": [
+     "L"
+    ],
+    "type": "land"
+   },
+   "expect": [
+    "Hallowed Fountain",
+    "Scalding Tarn",
+    "Mutavault",
+    "Forest"
+   ]
+  }
+ ],
+ "random": [
+  {
+   "seed": 12345,
+   "first": [
+    0.9797282677609473,
+    0.3067522644996643,
+    0.484205421525985,
+    0.817934412509203,
+    0.5094283693470061
+   ]
+  },
+  {
+   "seed": 0,
+   "first": [
+    0.26642920868471265,
+    0.0003297457005828619,
+    0.2232720274478197,
+    0.1462021479383111,
+    0.46732782293111086
+   ]
+  },
+  {
+   "seed": -7,
+   "first": [
+    0.43306733411736786,
+    0.32539576734416187,
+    0.5442695003002882,
+    0.48018999374471605,
+    0.048719558166339993
+   ]
+  },
+  {
+   "seed": 2147483647,
+   "first": [
+    0.4290980885270983,
+    0.12713524978607893,
+    0.3852774982806295,
+    0.39639189024455845,
+    0.11962746665813029
+   ]
+  }
+ ],
+ "shuffles": [
+  {
+   "items": [
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+    "f",
+    "g",
+    "h"
+   ],
+   "seed": 42,
+   "expect": [
+    "c",
+    "h",
+    "b",
+    "a",
+    "g",
+    "f",
+    "d",
+    "e"
+   ]
+  },
+  {
+   "items": [
+    "x"
+   ],
+   "seed": 1,
+   "expect": [
+    "x"
+   ]
+  },
+  {
+   "items": [],
+   "seed": 3,
+   "expect": []
+  }
+ ],
+ "packs": [
+  {
+   "pool": [
+    "c1",
+    "c2",
+    "c3",
+    "c4",
+    "c5",
+    "c6",
+    "c7",
+    "c8",
+    "c9",
+    "c10",
+    "c11",
+    "c12",
+    "c13",
+    "c14",
+    "c15",
+    "c16",
+    "c17",
+    "c18",
+    "c19",
+    "c20",
+    "c21",
+    "c22",
+    "c23",
+    "c24",
+    "c25",
+    "c26",
+    "c27",
+    "c28",
+    "c29",
+    "c30",
+    "c31",
+    "c32",
+    "c33",
+    "c34",
+    "c35",
+    "c36",
+    "c37",
+    "c38",
+    "c39",
+    "c40",
+    "c41",
+    "c42",
+    "c43",
+    "c44",
+    "c45",
+    "c46",
+    "c47",
+    "c48",
+    "c49",
+    "c50"
+   ],
+   "seats": 3,
+   "packs": 2,
+   "packSize": 5,
+   "seed": 99,
+   "expect": {
+    "seats": [
+     [
+      [
+       "c30",
+       "c20",
+       "c44",
+       "c19",
+       "c41"
+      ],
+      [
+       "c12",
+       "c22",
+       "c6",
+       "c8",
+       "c50"
+      ]
+     ],
+     [
+      [
+       "c4",
+       "c2",
+       "c31",
+       "c32",
+       "c24"
+      ],
+      [
+       "c36",
+       "c43",
+       "c29",
+       "c35",
+       "c38"
+      ]
+     ],
+     [
+      [
+       "c49",
+       "c45",
+       "c39",
+       "c25",
+       "c18"
+      ],
+      [
+       "c47",
+       "c21",
+       "c11",
+       "c23",
+       "c42"
+      ]
+     ]
+    ],
+    "needed": 30,
+    "short": 0
+   }
+  },
+  {
+   "pool": [
+    "c1",
+    "c2",
+    "c3",
+    "c4",
+    "c5",
+    "c6",
+    "c7",
+    "c8",
+    "c9",
+    "c10",
+    "c11",
+    "c12",
+    "c13",
+    "c14",
+    "c15",
+    "c16",
+    "c17",
+    "c18",
+    "c19",
+    "c20",
+    "c21",
+    "c22",
+    "c23",
+    "c24",
+    "c25",
+    "c26",
+    "c27",
+    "c28",
+    "c29",
+    "c30",
+    "c31",
+    "c32",
+    "c33",
+    "c34",
+    "c35",
+    "c36",
+    "c37",
+    "c38",
+    "c39",
+    "c40",
+    "c41",
+    "c42",
+    "c43",
+    "c44",
+    "c45",
+    "c46",
+    "c47",
+    "c48",
+    "c49",
+    "c50"
+   ],
+   "seats": 2,
+   "packs": 3,
+   "packSize": 8,
+   "seed": 7,
+   "expect": {
+    "seats": [
+     [
+      [
+       "c25",
+       "c40",
+       "c16",
+       "c22",
+       "c39",
+       "c15",
+       "c28",
+       "c9"
+      ],
+      [
+       "c17",
+       "c35",
+       "c44",
+       "c12",
+       "c37",
+       "c2",
+       "c48",
+       "c14"
+      ],
+      [
+       "c18",
+       "c10",
+       "c13",
+       "c8",
+       "c20",
+       "c41",
+       "c7",
+       "c43"
+      ]
+     ],
+     [
+      [
+       "c23",
+       "c29",
+       "c27",
+       "c3",
+       "c50",
+       "c45",
+       "c42",
+       "c32"
+      ],
+      [
+       "c38",
+       "c5",
+       "c49",
+       "c6",
+       "c26",
+       "c36",
+       "c31",
+       "c34"
+      ],
+      [
+       "c30",
+       "c46",
+       "c11",
+       "c21",
+       "c19",
+       "c24",
+       "c33",
+       "c47"
+      ]
+     ]
+    ],
+    "needed": 48,
+    "short": 0
+   }
+  },
+  {
+   "pool": [
+    "c1",
+    "c2",
+    "c3",
+    "c4",
+    "c5",
+    "c6",
+    "c7",
+    "c8",
+    "c9",
+    "c10",
+    "c11",
+    "c12",
+    "c13",
+    "c14",
+    "c15",
+    "c16",
+    "c17",
+    "c18",
+    "c19",
+    "c20",
+    "c21",
+    "c22",
+    "c23",
+    "c24",
+    "c25",
+    "c26",
+    "c27",
+    "c28",
+    "c29",
+    "c30",
+    "c31",
+    "c32",
+    "c33",
+    "c34",
+    "c35",
+    "c36",
+    "c37",
+    "c38",
+    "c39",
+    "c40",
+    "c41",
+    "c42",
+    "c43",
+    "c44",
+    "c45",
+    "c46",
+    "c47",
+    "c48",
+    "c49",
+    "c50"
+   ],
+   "seats": 8,
+   "packs": 3,
+   "packSize": 15,
+   "seed": 1,
+   "expect": {
+    "seats": [],
+    "needed": 360,
+    "short": 310
+   }
+  },
+  {
+   "pool": [
+    "c1",
+    "c2",
+    "c3",
+    "c4",
+    "c5",
+    "c6"
+   ],
+   "seats": 2,
+   "packs": 1,
+   "packSize": 3,
+   "seed": -5,
+   "expect": {
+    "seats": [
+     [
+      [
+       "c5",
+       "c2",
+       "c6"
+      ]
+     ],
+     [
+      [
+       "c4",
+       "c1",
+       "c3"
+      ]
+     ]
+    ],
+    "needed": 6,
+    "short": 0
+   }
+  }
+ ],
+ "exports": [
+  {
+   "cards": [
+    {
+     "name": "Sol Ring",
+     "qty": 1
+    },
+    {
+     "name": "ancestral Recall",
+     "qty": 1
+    },
+    {
+     "name": "Black Lotus",
+     "qty": 2
+    },
+    {
+     "name": "Zero",
+     "qty": 0
+    }
+   ],
+   "text": "ancestral Recall\nBlack Lotus\nBlack Lotus\nSol Ring"
+  },
+  {
+   "cards": [],
+   "text": ""
+  }
+ ],
+ "imports": [
+  {
+   "text": "Sol Ring\nBlack Lotus\n\nAncestral Recall\n",
+   "expect": [
+    {
+     "name": "Sol Ring",
+     "qty": 1
+    },
+    {
+     "name": "Black Lotus",
+     "qty": 1
+    },
+    {
+     "name": "Ancestral Recall",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "text": "# My cube\n// comment\nMainboard\n1 Lightning Bolt\n2x Counterspell (MH2) 267\n1 Brainstorm (STA) 13 *F*\nlightning bolt\r\nSideboard:\n3 Forest",
+   "expect": [
+    {
+     "name": "Lightning Bolt",
+     "qty": 2
+    },
+    {
+     "name": "Counterspell",
+     "qty": 2
+    },
+    {
+     "name": "Brainstorm",
+     "qty": 1
+    },
+    {
+     "name": "Forest",
+     "qty": 3
+    }
+   ]
+  },
+  {
+   "text": "Name,CMC,Type,Color,Set,Collector Number,Rarity,Color Category,status,Finish,maybeboard,image URL\n\"Fire // Ice\",4,Instant,UR,mh2,290,uncommon,m,Owned,Non-foil,false,\n\"Kozilek, Butcher of Truth\",10,Legendary Creature,C,roe,6,mythic,c,Owned,Foil,false,\nSol Ring,1,Artifact,C,cmr,472,uncommon,c,Owned,Non-foil,true,",
+   "expect": [
+    {
+     "name": "Fire // Ice",
+     "qty": 1
+    },
+    {
+     "name": "Kozilek, Butcher of Truth",
+     "qty": 1
+    }
+   ]
+  },
+  {
+   "text": "0 Nothing\n   \n4 Island",
+   "expect": [
+    {
+     "name": "Island",
+     "qty": 4
+    }
+   ]
+  }
+ ]
+}

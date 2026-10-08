@@ -2,13 +2,14 @@
 // said, and the library after it. The Android app's ResetCollection.kt, rule for rule and word for word.
 //
 //  - Cards only: every binder and the Unsorted pile emptied (their cards' places, prices to watch and
-//    copies to sell go with the cards). Binders, storage places, the Wishlist, decks, sealed product,
+//    copies to sell go with the cards). Binders, storage places, the Wishlist, decks, cubes, sealed product,
 //    graded cards, gear, loans, collection goals and what the scanner learned (scan/scanCorrections.ts) stay.
 //  - Collection: every card, every binder but the Unsorted pile and the Wishlist (which stay, empty),
-//    the storage places, sealed product, graded cards, gear, loans, collection goals and what the scanner learned. Decks stay, and so does card
-//    price history — it's market data, not the collection.
-//  - Everything: the collection and every deck, with the decks' history and games logged. Settings,
-//    friends and the account stay.
+//    the storage places, sealed product, graded cards, gear, loans, collection goals and what the scanner learned. Decks and cubes stay
+//    (a cube's box goes with the storage places; its cards stay in the cube), and so does card price history — it's market data, not
+//    the collection.
+//  - Everything: the collection, every deck and every cube (decks/cube.ts: cubes are kept as decks), with the decks' history and games
+//    logged. Settings, friends and the account stay.
 //
 // Binders and decks that go are noted as deleted (cloudSync.noteDeleted), the same as deleting one by
 // hand, so the sync pushes their deletion rather than reading an emptied library as one that went
@@ -19,6 +20,7 @@ import type { Collection, Deck } from '../types/models'
 import { UNSORTED_COLLECTION_ID } from '../types/models'
 import { WISHLIST_ID } from '../collection/wishlist'
 import { isSample } from '../onboarding/onboarding'
+import { isCube } from '../decks/cube'
 import { noteDeleted, type Library } from '../sync/cloudSync'
 
 export type ResetScope = 'cards' | 'collection' | 'everything'
@@ -27,17 +29,17 @@ export const RESET_SCOPES: { id: ResetScope; title: string; detail: string }[] =
   {
     id: 'cards',
     title: 'Cards only',
-    detail: 'Empties every binder and the Unsorted pile. Your binders, storage places, Wishlist, decks, sealed product, graded cards, gear, loans, goals and what the scanner learned stay.',
+    detail: 'Empties every binder and the Unsorted pile. Your binders, storage places, Wishlist, decks, cubes, sealed product, graded cards, gear, loans, goals and what the scanner learned stay.',
   },
   {
     id: 'collection',
     title: 'Collection',
-    detail: 'Every card and binder, storage places, sealed product, graded cards, gear, loans, goals, what the scanner learned from your corrections, and your copies’ photos and history. The Unsorted pile and Wishlist stay, empty. Decks and card prices stay.',
+    detail: 'Every card and binder, storage places, sealed product, graded cards, gear, loans, goals, what the scanner learned from your corrections, and your copies’ photos and history. The Unsorted pile and Wishlist stay, empty. Decks, cubes and card prices stay.',
   },
   {
     id: 'everything',
     title: 'Everything',
-    detail: 'The whole collection and every deck, with their history and games logged. Settings, friends and your account stay.',
+    detail: 'The whole collection, every deck and every cube, with the decks’ history and games logged. Settings, friends and your account stay.',
   },
 ]
 
@@ -74,6 +76,7 @@ export interface ResetCounts {
   loans: number
   goals: number
   decks: number
+  cubes: number
 }
 
 /** What [scope] would remove from the library. */
@@ -94,13 +97,14 @@ export function resetCounts(lib: { decks: Deck[]; collections: Collection[] }, s
     gear: whole ? pile?.gear?.length ?? 0 : 0,
     loans: whole ? pile?.loans?.length ?? 0 : 0,
     goals: whole ? pile?.collectionGoals?.length ?? 0 : 0,
-    decks: scope === 'everything' ? lib.decks.length : 0,
+    decks: scope === 'everything' ? lib.decks.filter((d) => !isCube(d)).length : 0,
+    cubes: scope === 'everything' ? lib.decks.filter(isCube).length : 0,
   }
 }
 
 const count = (n: number, one: string, many: string) => `${n.toLocaleString('en-GB')} ${n === 1 ? one : many}`
 
-/** "1,402 copies in 8 binders · 23 places · 3 decks" — what will go, or that there's nothing to. */
+/** "1,402 copies in 8 binders · 23 places · 3 decks · 1 cube" — what will go, or that there's nothing to. */
 export function resetCountsText(c: ResetCounts): string {
   const cards = c.copies > 0 && c.binders > 0 ? `${count(c.copies, 'copy', 'copies')} in ${count(c.binders, 'binder', 'binders')}`
     : c.copies > 0 ? count(c.copies, 'copy', 'copies')
@@ -116,6 +120,7 @@ export function resetCountsText(c: ResetCounts): string {
     c.loans > 0 ? count(c.loans, 'loan', 'loans') : '',
     c.goals > 0 ? count(c.goals, 'goal', 'goals') : '',
     c.decks > 0 ? count(c.decks, 'deck', 'decks') : '',
+    c.cubes > 0 ? count(c.cubes, 'cube', 'cubes') : '',
   ].filter(Boolean)
   return parts.length > 0 ? parts.join(' · ') : RESET_NOTHING
 }

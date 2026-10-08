@@ -177,6 +177,13 @@ export interface Deck {
    * had a category (see decks/deckExtras.ts).
    */
   categoryTargets?: Record<string, number>
+  /**
+   * A cube's settings (decks/cube.ts): there on a deck whose gameMode is "CUBE", left out on every
+   * other. A cube saved without it was saved by an app from before cubes, and gets this device's back
+   * (keepCubeFromOlderApp). The Android app's Deck.cube:
+   *   "cube": { "size": 360, "singleton": true, "boxPlaceId": "…", "packSize": 15, "packs": 3, "seats": 8 }
+   */
+  cube?: { size: number; singleton: boolean; boxPlaceId?: string; packSize?: number; packs?: number; seats?: number }
 }
 
 // The deck's own words and filing, as JSON — locally, in sync and in shared decks. All left out until
