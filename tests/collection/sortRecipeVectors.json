@@ -1,5 +1,17 @@
 {
  "about": "Sorting recipes: the same cases in both apps (tests/collection/sortRecipes.test.ts, SortRecipesTest.kt). fmt is \"$\" + the amount.",
+ "templates": {
+  "sets": [
+   "dsk"
+  ],
+  "recipes": [
+   "tpl-colour Commander by colour",
+   "tpl-type By card type",
+   "tpl-set Binder by set",
+   "tpl-value Rares by value",
+   "tpl-needs What my collection needs"
+  ]
+ },
  "derive": [
   {
    "recipe": {
@@ -355,6 +367,42 @@
    "capped": false,
    "warning": null,
    "line": "Goals need · 2 piles"
+  },
+  {
+   "recipe": {
+    "id": "tpl-type",
+    "name": "By card type",
+    "pullOut": [
+     "DECKS",
+     "FRIENDS",
+     "BINDER"
+    ],
+    "levels": [
+     {
+      "by": "TYPE"
+     }
+    ],
+    "apart": [],
+    "createdAt": 0
+   },
+   "piles": [
+    "1 S:DECKS Decks need #e6b45e",
+    "2 S:FRIENDS Friends want #e6b45e",
+    "3 S:BINDER Binder gaps #e6b45e",
+    "4 L:creatures Creatures #6aa8f0",
+    "5 L:planeswalkers Planeswalkers #c58af0",
+    "6 L:battles Battles #f07fa8",
+    "7 L:instants Instants #e6b45e",
+    "8 L:sorceries Sorceries #e2694a",
+    "9 L:artifacts Artifacts #5bcb8f",
+    "10 L:enchantments Enchantments #6aa8f0",
+    "11 L:lands Lands #c58af0",
+    "12 L:other Other #f07fa8"
+   ],
+   "wanted": 12,
+   "capped": false,
+   "warning": null,
+   "line": "Card type · 12 piles"
   }
  ],
  "labels": [
@@ -974,6 +1022,149 @@
     "typeLine": "Conspiracy"
    },
    "key": "other"
+  },
+  {
+   "level": {
+    "by": "TYPE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "typeLine": "Enchantment Creature — God"
+   },
+   "key": "creatures"
+  },
+  {
+   "level": {
+    "by": "TYPE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "typeLine": "Legendary Artifact Creature — Construct"
+   },
+   "key": "creatures"
+  },
+  {
+   "level": {
+    "by": "TYPE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "typeLine": "Land Creature — Forest Dryad"
+   },
+   "key": "creatures"
+  },
+  {
+   "level": {
+    "by": "TYPE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "typeLine": "Creature — Human Knight // Sorcery — Adventure"
+   },
+   "key": "creatures"
+  },
+  {
+   "level": {
+    "by": "TYPE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "typeLine": "Legendary Planeswalker — Jace"
+   },
+   "key": "planeswalkers"
+  },
+  {
+   "level": {
+    "by": "TYPE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "typeLine": "Battle — Siege"
+   },
+   "key": "battles"
+  },
+  {
+   "level": {
+    "by": "TYPE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "typeLine": "Instant // Land"
+   },
+   "key": "instants"
+  },
+  {
+   "level": {
+    "by": "TYPE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "typeLine": "Artifact Land"
+   },
+   "key": "artifacts"
+  },
+  {
+   "level": {
+    "by": "TYPE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "typeLine": "Artifact — Vehicle"
+   },
+   "key": "artifacts"
+  },
+  {
+   "level": {
+    "by": "TYPE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "typeLine": "Enchantment Artifact"
+   },
+   "key": "artifacts"
+  },
+  {
+   "level": {
+    "by": "TYPE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "typeLine": "Enchantment Land — Urza’s Saga"
+   },
+   "key": "enchantments"
+  },
+  {
+   "level": {
+    "by": "TYPE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "typeLine": "Kindred Enchantment — Elf"
+   },
+   "key": "enchantments"
+  },
+  {
+   "level": {
+    "by": "TYPE"
+   },
+   "rate": 1,
+   "card": {
+    "name": "X",
+    "typeLine": "Basic Land — Forest"
+   },
+   "key": "lands"
   },
   {
    "level": {

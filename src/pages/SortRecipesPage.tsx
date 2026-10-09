@@ -12,7 +12,7 @@ import { addedMove, putAwayMove } from '../collection/copyHistory'
 import { recordMoves } from '../collection/copyHistoryStore'
 import {
   APART_KINDS, APART_LABELS, binderFiledInto, capWarning, derivePiles, fileRecipe, isTemplate, LEVEL_BYS, LEVEL_LABELS, levelLine, MAX_LEVELS, newRecipe,
-  pileGoesTo, pileSignsHtml, recipeLine, recipesOf, recipeTemplates, saveRecipe, deleteRecipe, SMART_KINDS, SMART_LABELS, sortRecipe, splitLevel,
+  pileGoesTo, pileSignsHtml, recipeLine, recipesOf, recipeTemplates, saveRecipe, deleteRecipe, SMART_KINDS, SMART_LABELS, sortRecipe, splitLevel, TYPE_TEMPLATE_LINE,
   summarize, withGoTo, type LevelBy, type Paper, type RecipePile, type SortRecipe, type SplitLevel,
 } from '../collection/sortRecipes'
 import {
@@ -122,6 +122,7 @@ function RecipePicker({ templates }: { templates: SortRecipe[] }) {
 function templateLine(r: SortRecipe, fmt: (n: number) => string): string {
   switch (r.id) {
     case 'tpl-colour': return 'W · U · B · R · G · Multi · Colourless · Lands'
+    case 'tpl-type': return TYPE_TEMPLATE_LINE
     case 'tpl-set': return 'One pile per set, then collector number'
     case 'tpl-value': return levelLine(r.levels[0], fmt)
     case 'tpl-needs': return 'Decks need it · friends want it · binder gaps · trade · bulk'

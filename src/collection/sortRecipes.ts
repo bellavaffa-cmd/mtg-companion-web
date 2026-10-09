@@ -61,7 +61,8 @@ export const APART_KINDS: ApartKind[] = ['FOIL', 'FOREIGN', 'PLAYED']
 export const APART_LABELS: Record<ApartKind, string> = { FOIL: 'Foils', FOREIGN: 'Not English', PLAYED: 'Played' }
 
 export type LevelBy = 'VALUE' | 'COLOUR' | 'IDENTITY' | 'SET' | 'MANA_VALUE' | 'RARITY' | 'TYPE' | 'NAME' | 'NUMBER'
-export const LEVEL_BYS: LevelBy[] = ['VALUE', 'COLOUR', 'IDENTITY', 'SET', 'MANA_VALUE', 'RARITY', 'TYPE', 'NAME', 'NUMBER']
+/** In the editor's order: the common ways first. Stored by name, so the order is free to change. */
+export const LEVEL_BYS: LevelBy[] = ['VALUE', 'COLOUR', 'TYPE', 'SET', 'MANA_VALUE', 'RARITY', 'IDENTITY', 'NAME', 'NUMBER']
 export const LEVEL_LABELS: Record<LevelBy, string> = {
   VALUE: 'Value', COLOUR: 'Colour', IDENTITY: 'Colour identity', SET: 'Set', MANA_VALUE: 'Mana value',
   RARITY: 'Rarity', TYPE: 'Card type', NAME: 'A–Z', NUMBER: 'Collector number',
@@ -172,11 +173,18 @@ export function recipeTemplates(sets: string[] = [], goals = false): SortRecipe[
   const needs: SmartKind[] = goals ? ['DECKS', 'GOALS', 'FRIENDS', 'BINDER', 'TRADE'] : ['DECKS', 'FRIENDS', 'BINDER', 'TRADE']
   return [
     { id: 'tpl-colour', name: 'Commander by colour', pullOut: smart, levels: [{ by: 'COLOUR', lands: true }], apart: [], createdAt: 0 },
+    { id: 'tpl-type', name: 'By card type', pullOut: smart, levels: [{ by: 'TYPE' }], apart: [], createdAt: 0 },
     { id: 'tpl-set', name: 'Binder by set', pullOut: smart, levels: [splitLevel({ by: 'SET', sets: sets.slice(0, 5) }), splitLevel({ by: 'NUMBER' })], apart: [], createdAt: 0 },
     { id: 'tpl-value', name: 'Rares by value', pullOut: smart, levels: [{ by: 'VALUE', cuts: [20, 5, 1] }], apart: [], createdAt: 0 },
     { id: 'tpl-needs', name: 'What my collection needs', pullOut: needs, levels: [], apart: [], createdAt: 0 },
   ]
 }
+
+/**
+ * By card type's line. A card with two types goes in the first pile of TYPE_SECTIONS it fits
+ * (typeSection): an artifact creature with the creatures, an artifact land with the artifacts.
+ */
+export const TYPE_TEMPLATE_LINE = 'Creatures · Instants · Sorceries · Artifacts · Enchantments · Lands — an artifact creature goes with Creatures'
 
 /** What "Make your own recipe" starts with. */
 export const newRecipe = (id: string, now: number): SortRecipe => ({

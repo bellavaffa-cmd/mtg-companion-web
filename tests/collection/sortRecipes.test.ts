@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
   alsoLine, bucketOf, capWarning, cardLine, checkPileCard, derivePiles, fileRecipe, HandsFreeCapture, keepRecipesFromOlderApp, levelBuckets,
-  levelLine, mergeRecipes, newRecipe, pileGoesTo, reasonLine, recipeLine, recipeTemplates, recipesOf, saveRecipe, deleteRecipe, sortCard,
+  levelLine, LEVEL_BYS, mergeRecipes, newRecipe, pileGoesTo, reasonLine, recipeLine, recipeTemplates, recipesOf, saveRecipe, deleteRecipe, sortCard,
   sortRecipe, spokenPile, summarize, withGoTo, ordinal, otherPile, pileSignsHtml, deckNeedsOf, friendWantsOf, orderedBinders,
   goalNeedsOf, binderFiledInto, reasonsFor,
   type RecipeCard, type RecipeScan, type SmartContext, type SortRecipe, type SplitLevel, type OrderedBinder,
@@ -25,6 +25,7 @@ interface Session {
 }
 
 interface Vectors {
+  templates: { sets: string[]; recipes: string[] }
   derive: { recipe: SortRecipe; piles: string[]; wanted: number; capped: boolean; warning: string | null; line: string }[]
   labels: { level: SplitLevel; labels: string[]; line: string }[]
   buckets: { level: SplitLevel; rate: number; card: RecipeCard; key: string }[]
@@ -111,19 +112,34 @@ test('capture without tapping: steady frames, and never the same card twice unti
 })
 
 test('templates and a new recipe', () => {
-  const t = recipeTemplates(['dsk'])
-  assert.deepEqual(t.map((r) => r.name), ['Commander by colour', 'Binder by set', 'Rares by value', 'What my collection needs'])
-  assert.deepEqual(derivePiles(t[1], fmt).piles.slice(3, 5).map((p) => p.name), ['DSK · #1–99', 'DSK · #100–199'])
-  assert.deepEqual(derivePiles(t[2], fmt).piles.slice(3).map((p) => p.name), ['$20+', '$5–$20', '$1–$5', 'under $1'])
+  const t = recipeTemplates(V.templates.sets)
+  assert.deepEqual(t.map((r) => `${r.id} ${r.name}`), V.templates.recipes)
+  assert.deepEqual(derivePiles(t[2], fmt).piles.slice(3, 5).map((p) => p.name), ['DSK · #1–99', 'DSK · #100–199'])
+  assert.deepEqual(derivePiles(t[3], fmt).piles.slice(3).map((p) => p.name), ['$20+', '$5–$20', '$1–$5', 'under $1'])
   // Goals need is off unless a goal is under way — then only "What my collection needs" pulls it out.
   assert.ok(t.every((r) => !r.pullOut.includes('GOALS')))
   const withGoals = recipeTemplates(['dsk'], true)
-  assert.deepEqual(withGoals.map((r) => r.pullOut.includes('GOALS')), [false, false, false, true])
-  assert.equal(recipeLine(withGoals[3], fmt), 'Decks need · Goals need · Friends want · Binder gaps · To trade · 6 piles')
+  assert.deepEqual(withGoals.map((r) => r.pullOut.includes('GOALS')), [false, false, false, false, true])
+  assert.equal(recipeLine(withGoals[4], fmt), 'Decks need · Goals need · Friends want · Binder gaps · To trade · 6 piles')
   const mine = newRecipe('n1', 5)
   assert.ok(!mine.pullOut.includes('GOALS'))
   assert.equal(recipeLine(mine, fmt), 'Value $2+ apart · then colour · 12 piles')
   assert.equal(ordinal(1) + ordinal(2) + ordinal(3) + ordinal(11) + ordinal(22), '1st2nd3rd11th22nd')
+})
+
+test('by card type: a card with two types goes in the first pile it fits — artifact creatures with the creatures', () => {
+  const tpl = recipeTemplates().find((r) => r.id === 'tpl-type')
+  assert.ok(tpl)
+  const level = tpl.levels[0]
+  const pile = (typeLine: string) => bucketOf(level, { name: 'X', typeLine }, 1)
+  assert.equal(pile('Artifact Creature — Golem'), 'creatures')
+  assert.equal(pile('Enchantment Creature — God'), 'creatures')
+  assert.equal(pile('Land Creature — Forest Dryad'), 'creatures')
+  assert.equal(pile('Artifact Land'), 'artifacts')
+  assert.equal(pile('Enchantment Land — Urza’s Saga'), 'enchantments')
+  assert.equal(pile('Instant // Land'), 'instants')
+  // The editor offers card type third, after value and colour.
+  assert.deepEqual(LEVEL_BYS.slice(0, 3), ['VALUE', 'COLOUR', 'TYPE'])
 })
 
 test('a recipe is kept tidy: known kinds in order, three levels at most, cuts sorted', () => {
