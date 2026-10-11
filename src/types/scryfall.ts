@@ -12,6 +12,8 @@ export interface ScryfallImageUris {
 
 export interface ScryfallCardFace {
   name?: string
+  /** A reversible card keeps its Oracle id on its faces (tags/roleTags.ts recordOf). */
+  oracle_id?: string
   type_line?: string
   oracle_text?: string
   mana_cost?: string

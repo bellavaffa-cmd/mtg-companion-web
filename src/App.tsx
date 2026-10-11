@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
-import { SyncProvider } from './sync/SyncContext'
+import { SyncProvider, useSync } from './sync/SyncContext'
+import { useTagPass } from './tags/tagPass'
 import { AccountDialogs } from './components/AccountDialogs'
 import { CardHoverPreview } from './components/CardHoverPreview'
 import { Layout } from './components/Layout'
@@ -95,6 +96,12 @@ const GameNightFormPage = lazy(() => import('./pages/GameNightInvitePage').then(
 const PodChatPage = lazy(() => import('./pages/PodChatPage').then((m) => ({ default: m.PodChatPage })))
 const ApproveLoginPage = lazy(() => import('./pages/LinkPages').then((m) => ({ default: m.ApproveLoginPage })))
 
+function TagPassHost() {
+  const { collections, decks, changeDecksAndStorage } = useSync()
+  useTagPass(collections, decks, changeDecksAndStorage)
+  return null
+}
+
 export default function App() {
   return (
     <SyncProvider>
@@ -108,6 +115,8 @@ export default function App() {
         <ResetUndoBar />
         {/* Notices a collection goal completing, wherever the cards came from, and celebrates. */}
         <GoalWatcher />
+        {/* Every card the user has gets its role tags in the background (tags/tagPass.ts). */}
+        <TagPassHost />
         {/* The Undo bar after a card goes into a deck or binder, on every screen. */}
         <UndoProvider>
         {/* The check before a card goes into a deck, asked wherever it's added from. */}

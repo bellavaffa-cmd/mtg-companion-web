@@ -10,6 +10,13 @@ const n = (x: number) => x.toLocaleString('en-GB')
 /** "18,402 of 18,402" — printings with their card data kept, of the printings owned. */
 export const offlineLabel = (saved: number, total: number): string => `${n(saved)} of ${n(total)}`
 
+/**
+ * Card tags: "1,204 of 1,250 tagged" — cards (by name) with at least one role tag, of all the user
+ * has; "· tagging…" while a lookup runs. The Android app's tagsLabel.
+ */
+export const tagsLabel = (tagged: number, total: number, running = false): string =>
+  `${n(tagged)} of ${n(total)} tagged${running ? ' · tagging…' : ''}`
+
 /** "0.4 s", or "Not opened yet". */
 export const openLabel = (timing: OpenTiming | null): string => (timing ? secondsLabel(timing.ms) : 'Not opened yet')
 

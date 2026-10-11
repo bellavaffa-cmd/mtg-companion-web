@@ -9,7 +9,7 @@
 import { canBeCommander, hasFlipSides, type ScryfallCard } from '../types/scryfall'
 import { GAME_MODE_LABELS, GAME_MODES, type Collection, type Deck } from '../types/models'
 import { CARD_CONDITIONS, languageName } from './copyDetails'
-import { COLLECTION_FILTER_RARITIES, NO_COLLECTION_FILTER, type CollectionFilter, type FilterColor } from './cardFilter'
+import { COLLECTION_FILTER_RARITIES, NO_COLLECTION_FILTER, UNTAGGED, type CollectionFilter, type FilterColor } from './cardFilter'
 import { NO_PLACE, placeChains, placeFactsOf, placesOf } from './storagePlaces'
 import { ownedCopies, ownedProxies } from './ownedCopies'
 
@@ -487,6 +487,8 @@ export function filterChips(basic: CollectionFilter, a: AdvancedFilter, ctx: Chi
   if (basic.text.trim()) add('text', `Text: ${basic.text.trim()}`)
   wubrgOrder(basic.colors).forEach((c) => add(`color:${c}`, 'Colour', [c]))
   COLLECTION_FILTER_RARITIES.filter((r) => basic.rarities.includes(r)).forEach((r) => add(`rarity:${r}`, cap(r)))
+  if (basic.untagged) add('untagged', UNTAGGED)
+  ;[...(basic.userTags ?? [])].sort().forEach((t) => add(`usertag:${t}`, `Tag: ${t}`))
 
   const target = a.colorTarget === 'identity' ? 'Identity' : 'Colour'
   if (colorless(a)) add('colors', target, ['C'])
@@ -539,6 +541,8 @@ export function removeChip(basic: CollectionFilter, a: AdvancedFilter, key: stri
     case 'text': b = { ...b, text: '' }; break
     case 'color': b = { ...b, colors: b.colors.filter((c) => c !== value) }; break
     case 'rarity': b = { ...b, rarities: b.rarities.filter((r) => r !== value) }; break
+    case 'untagged': b = { ...b, untagged: false }; break
+    case 'usertag': b = { ...b, userTags: (b.userTags ?? []).filter((t) => t !== value) }; break
     case 'colors': adv = { ...adv, colors: [] }; break
     case 'multicolor': adv = { ...adv, multicolor: false }; break
     case 'mv': adv = { ...adv, mv: '' }; break
@@ -583,6 +587,9 @@ function basicJson(b: CollectionFilter) {
     text: b.text,
     colors: wubrgOrder(b.colors),
     rarities: COLLECTION_FILTER_RARITIES.filter((r) => b.rarities.includes(r)),
+    // Only when on, so a filter without them is the same text as before they existed.
+    ...(b.untagged ? { untagged: true } : {}),
+    ...(b.userTags?.length ? { userTags: [...b.userTags].sort() } : {}),
   }
 }
 
@@ -611,6 +618,8 @@ function basicFrom(raw: Record<string, unknown>): CollectionFilter {
     text: str(raw.text, ''),
     colors: strList(raw.colors).filter((c): c is FilterColor => ['W', 'U', 'B', 'R', 'G'].includes(c)),
     rarities: strList(raw.rarities).filter((r) => COLLECTION_FILTER_RARITIES.includes(r)),
+    ...(raw.untagged === true ? { untagged: true } : {}),
+    ...(strList(raw.userTags).length ? { userTags: strList(raw.userTags) } : {}),
   }
 }
 

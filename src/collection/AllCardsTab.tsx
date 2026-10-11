@@ -35,7 +35,7 @@ import { TradeOfferSheet } from '../social/TradeOffer'
 import { ExportCollectionDialog } from './CardListDialogs'
 import { useMoney } from '../money/currency'
 import { matchedTags, tagLabel, useRoleTags } from '../tags/roleTags'
-import { cardFactsOf, filterActive, filterCount, filterMatches, NO_COLLECTION_FILTER, type CardFacts, type CollectionFilter } from './cardFilter'
+import { cardFactsOf, filterActive, filterCount, filterMatches, filterMatchesTags, NO_COLLECTION_FILTER, type CardFacts, type CollectionFilter } from './cardFilter'
 import { ActiveFilterChips, CollectionFilterPanel } from './CollectionFilterPanel'
 import {
   advancedActive, advancedCount, advancedFactsOf, advancedMatches, copyFactsOf, filterChips, NO_ADVANCED_FILTER, removeChip,
@@ -169,16 +169,20 @@ export function AllCardsTab({ onImport, query, onQueryChange: setQuery, filterOp
   // "proxy" reads as a tag of its own, so a search finds the cards standing in for real ones.
   // Every printing's own tags, found in one pass rather than card by card (thousands of cards).
   const userTags = useMemo(() => userTagIndex(decks, collections), [decks, collections])
+  // The user's own tags offered in the filter's Tags row, most used first.
+  const userTagOptions = useMemo(() => allUserTags(decks, collections).slice(0, 12), [decks, collections])
   const tagsFor = (c: AllCard) => allCardTags(c, roleTags, userTags)
   // The panel's filters and the advanced ones; a card whose data hasn't loaded is left out while either is on.
   const passes = (c: AllCard, basic: CollectionFilter, adv: AdvancedFilter) =>
-    filterMatches(basic, facts.get(c.scryfallId)) && advancedMatches(adv, advFacts.get(c.scryfallId), copyFacts.get(c.scryfallId), (n) => money.toUsd(n))
+    filterMatches(basic, facts.get(c.scryfallId)) &&
+    filterMatchesTags(basic, roleTags.get(c.name.trim().toLowerCase()), userTags.get(c.scryfallId) ?? []) &&
+    advancedMatches(adv, advFacts.get(c.scryfallId), copyFacts.get(c.scryfallId), (n) => money.toUsd(n))
   const named = useMemo(() => searchAllCards(cards, q, (c) => allCardTags(c, roleTags, userTags)), [cards, q, roleTags, userTags])
   const unquick = useMemo(
     () => named.filter((c) => (!filtering || passes(c, cardFilter, advFilter)) && (!sparesOnly || inSpares(c))),
     // passes and inSpares read only what's listed here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [named, filtering, cardFilter, advFilter, sparesOnly, spareIds, facts, advFacts, copyFacts, money],
+    [named, filtering, cardFilter, advFilter, sparesOnly, spareIds, facts, advFacts, copyFacts, money, roleTags, userTags],
   )
   const shown = useMemo(() => unquick.filter((c) => passesQuick(quick, c.scryfallId, c.name, quickIds)), [unquick, quick, quickIds])
   // Group by: each group's header, then its cards — as one list, so it still comes a screenful at a time.
@@ -315,7 +319,7 @@ export function AllCardsTab({ onImport, query, onQueryChange: setQuery, filterOp
 
       {filterOpen && (
         <div className="rise" style={{ maxWidth: size === 'phone' ? undefined : 560 }}>
-          <CollectionFilterPanel filter={cardFilter} onChange={setCardFilter} onAdvanced={() => setAdvOpen(true)} onClear={clearFilters} anyOn={filtering} />
+          <CollectionFilterPanel filter={cardFilter} onChange={setCardFilter} onAdvanced={() => setAdvOpen(true)} onClear={clearFilters} anyOn={filtering} userTagOptions={userTagOptions} />
         </div>
       )}
       {!filterOpen && filtering && (

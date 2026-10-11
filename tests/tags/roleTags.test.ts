@@ -18,7 +18,7 @@ test('a search says which tags it matched', () => {
 
 test('every tag has a label and a Tagger tag or rules-text match, and ids are unique', () => {
   assert.equal(new Set(ROLE_TAGS.map((t) => t.id)).size, ROLE_TAGS.length)
-  for (const t of ROLE_TAGS) assert.ok(t.label && (t.slugs?.length || t.text), t.id)
+  for (const t of ROLE_TAGS) assert.ok(t.label && (t.slugs?.length || t.text || t.derived), t.id)
 })
 
 test("Tagger's file gives each tag its cards and everything under it", () => {
