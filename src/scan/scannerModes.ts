@@ -7,6 +7,7 @@
 
 import { BY_RULE } from '../collection/sortPiles'
 import type { StoragePlace } from '../types/models'
+import { hasRule } from '../collection/storageRules'
 
 /** What the camera scanner is doing. */
 export type ScannerMode = 'add' | 'sort' | 'putAway' | 'check'
@@ -93,8 +94,8 @@ export function sortStart(recipeScans: number | null, classicScans: number | nul
   return hasLastRecipe ? 'startLast' : 'pick'
 }
 
-/** Put away's "Let the app choose": offered once some box or deck box has a rule to go by. */
-export const canLetAppChoose = (places: StoragePlace[]): boolean => places.some((p) => !!p.sortRule && p.kind !== 'BINDER')
+/** Put away's "Let the app choose": offered once some place has a rule to go by (storageRules.ts hasRule). */
+export const canLetAppChoose = (places: StoragePlace[]): boolean => places.some(hasRule)
 
 /** The put-away target that means "the place whose rule fits each card" (bestPlaceByRule). */
 export const PUT_AWAY_BY_RULE = BY_RULE

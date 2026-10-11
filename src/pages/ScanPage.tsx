@@ -60,14 +60,17 @@ import {
   sortCard as sortRecipeCard, spokenPile, type ApartKind, type RecipeChoice, type RecipeCard, type RecipeScan, type SmartContext,
 } from '../collection/sortRecipes'
 import { loadLastRecipe, loadRecipeSession, loadVoice, saveRecipeSession, sayOutLoud, setLastRecipeId, startRecipeSession, type RecipeSessionState } from '../collection/recipeSession'
-import { isTemplate, recipeLine, recipesOf, type SortRecipe } from '../collection/sortRecipes'
+import { intoPlaces, isTemplate, recipeLine, recipesOf, type SortRecipe } from '../collection/sortRecipes'
+import { needsCardData, placeFor, placeOrderOf, placeRules, ruleCardOf } from '../collection/storageRules'
+import { entryFactsOf } from '../collection/storageRulesView'
+import { useCardData } from '../collection/cardData'
+import { userTagIndex } from '../collection/userTags'
 import {
   canLetAppChoose, carryOver, dismissSortTip, entryOf as scannerEntryOf, loadLastMode, PUT_AWAY_BY_RULE, saveLastMode, SCANNER_MODES, scannerStart, sortStart, sortTipSeen,
   type ScannerMode,
 } from '../scan/scannerModes'
 import '../scan/scannerModes.css'
 import { RecipeScanPanel } from '../collection/RecipeScanPanel'
-import { useCardData } from '../collection/cardData'
 import { tradeMatches, type TradeMatch } from '../social/more'
 import { useOverview } from '../social/SocialContext'
 import { onlyFoilFinish } from '../scan/scanSounds'
@@ -219,8 +222,16 @@ export function ScanPage() {
   // than gathered into a pile (see collection/storagePlaces.ts).
   const [params, setParams] = useSearchParams()
   const target = placesOf(collections).find((p) => p.id === params.get('putAway')) ?? null
-  // Put away's "Let the app choose" (?putAway=RULE): each card goes to the box whose rule fits it.
+  // Put away's "Let the app choose" (?putAway=RULE): each card goes to the first place in the rule
+  // order whose rules fit it and that has room (collection/storageRules.ts).
   const putAwayAuto = !target && params.get('putAway') === PUT_AWAY_BY_RULE
+  // The cards in places sorted by more than name (by number, mana value, price, set), so Put away can
+  // say "between Counterspell and Cryptic Command".
+  const storageIds = useMemo(() => (target || putAwayAuto
+    ? placesOf(collections).filter((p) => needsCardData(placeRules(p).sortBy)).flatMap((p) => cardsIn(collections, p.id).map((c) => c.entry.scryfallId))
+    : []), [target, putAwayAuto, collections])
+  const storageData = useCardData(storageIds)
+  const userTags = useMemo(() => userTagIndex(decks, collections), [decks, collections])
   const [session, setSession] = useState<PutAwayRow[]>([])
   const [choosingPlace, setChoosingPlace] = useState(false)
   /**
@@ -231,7 +242,7 @@ export function ScanPage() {
   const putInto = (target: StoragePlace, card: ScryfallCard, id: number) => {
     const got: { row?: PutAwayRow } = {}
     changeStorage((c) => {
-      const { spot, hint } = suggestSpot(target, cardFactsOf(card), c)
+      const { spot, hint } = suggestSpot(target, cardFactsOf(card), c, entryFactsOf(storageData))
       const o = putAway(c, card, spot, entryOf(card))
       const where = spot.section ?? (spot.page && spot.slot ? pocketLabel(spot.page, spot.slot) : target.name)
       got.row = { id, card, hint, where, spot, result: o.result, label: o.label, step: o.step }
@@ -252,7 +263,7 @@ export function ScanPage() {
     ? (card, id) => { putInto(target, card, id); return true }
     : putAwayAuto
       ? (card, id) => {
-        const best = bestPlaceByRule(placesOf(collections), cardFactsOf(card), collections)
+        const best = bestPlaceByRule(placesOf(collections), cardFactsOf(card), collections, ruleCardOf(card, false, undefined, userTags.get(card.id) ?? []), entryFactsOf(storageData), (n) => money.toUsd(n), true)
         if (!best) return false
         putInto(best.place, card, id)
         return true
@@ -437,7 +448,9 @@ export function ScanPage() {
         setStatus(`${card.name} — ${verdict.line}`)
         return
       }
-      const rc = recipeCardOf(card)
+      // Into my storage: the place with rules the card goes to (storageRules.ts), when the recipe sorts into places.
+      const into = intoPlaces(now.recipe) ? placeFor(placesOf(collections), placeOrderOf(collections), ruleCardOf(card, false, undefined, userTags.get(card.id) ?? []), () => true, (n) => money.toUsd(n)) : null
+      const rc: RecipeCard = { ...recipeCardOf(card), ...(into ? { place: into.id } : {}) }
       // A card already put with its deck is in the collection now, so the collection counts it, not the sort.
       const choice = sortRecipeCard(now.recipe, derived, smart, rc, now.scans.filter((x) => !x.filed), money.rate)
       recipeCards.current.set(id, card)
@@ -790,7 +803,7 @@ export function ScanPage() {
         return id
       }
       // Let the app choose, and no box's rule fits it: it waits in Add cards.
-      note = ' — no box’s rule fits it, so it’s in Add cards for now'
+      note = ' — no place fits it, so it’s in Add cards: choose a place, or make a rule for cards like it'
     }
     setPanel((p) => ({ ...p, rows: [...p.rows, id] }))
     setScanned((list) => {
@@ -1413,8 +1426,8 @@ export function ScanPage() {
           </div>
         )}
         {(target || putAwayAuto) && (
-          <button type="button" className="putaway-target" onClick={() => setChoosingPlace(true)} aria-label={`Putting away into ${target ? target.name : 'the box whose rule fits'} — change`}>
-            <span>Putting away into: {target ? target.name : 'the box whose rule fits'}</span>
+          <button type="button" className="putaway-target" onClick={() => setChoosingPlace(true)} aria-label={`Putting away into ${target ? target.name : 'the place whose rules fit'} — change`}>
+            <span>Putting away into: {target ? target.name : 'the place whose rules fit'}</span>
             <Icon name="expand_more" aria-hidden />
           </button>
         )}
@@ -1511,12 +1524,12 @@ export function ScanPage() {
             <h2 id="scan-prompt-h">Put cards away</h2>
             <p>
               Pick the box or binder, and each card you scan goes straight in.
-              {canLetAppChoose(placesOf(collections)) && ' Or let the app choose: each card goes to the box whose rule fits it.'}
+              {canLetAppChoose(placesOf(collections)) && ' Or let the app choose: each card goes to the first place whose rules fit it (Storage › Rule order).'}
             </p>
             <div className="scan-mode-actions">
               <button type="button" className="btn gold" onClick={() => setChoosingPlace(true)}>Pick a place</button>
               {canLetAppChoose(placesOf(collections)) && (
-                <button type="button" className="btn line" onClick={() => { go({ putAway: PUT_AWAY_BY_RULE }); setStatus('Each card goes where its box’s rule says') }}>Let the app choose</button>
+                <button type="button" className="btn line" onClick={() => { go({ putAway: PUT_AWAY_BY_RULE }); setStatus('Each card goes to the place whose rules fit it') }}>Let the app choose</button>
               )}
             </div>
           </section>

@@ -20,6 +20,7 @@ import {
 } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 import { realCopiesOf, withUnsortedPile } from './unsorted'
+import { cleanHolds, cleanSectionsBy, cleanSortBy, placeRules, plainDollars, ruleSpot, rulesLine } from './storageRules'
 
 export const PLACE_KINDS: PlaceKind[] = ['BOX', 'BINDER', 'DECK_BOX', 'SHELF', 'OTHER']
 export const PLACE_KIND_LABELS: Record<PlaceKind, string> = { BOX: 'Box', BINDER: 'Binder', DECK_BOX: 'Deck box', SHELF: 'Shelf', OTHER: 'Other' }
@@ -71,6 +72,10 @@ export function storagePlace(p: StoragePlace): StoragePlace {
     // A size taken off stays as 0, so an older app's save can be told from it (keepPlaceSizes).
     ...(typeof p.capacity === 'number' ? { capacity: Math.max(0, p.capacity) } : {}),
     ...(typeof p.pages === 'number' ? { pages: Math.max(0, p.pages) } : {}),
+    // The rules as both apps write them (storageRules.ts).
+    ...(() => { const h = cleanHolds(p.holds); return h ? { holds: h } : {} })(),
+    ...(() => { const l = p.sectionsBy ? cleanSectionsBy(p.sectionsBy) : null; return l ? { sectionsBy: l } : {} })(),
+    ...(Array.isArray(p.sortBy) ? { sortBy: cleanSortBy(p.sortBy) } : {}),
   }
 }
 
@@ -182,11 +187,12 @@ export function placePath(places: StoragePlace[], id: string): string {
 export const canMoveInto = (places: StoragePlace[], id: string, parentId: string | null): boolean =>
   parentId === null || (places.some((p) => p.id === parentId) && !placeAndInside(places, id).has(parentId))
 
-/** "Bulk · by colour, then A–Z", "Binder · 9 per page". */
+/** "Bulk · Holds blue cards · by card type · A–Z", "Binder · 9 per page · in order by set, then number". */
 export function placeSubtitle(place: StoragePlace): string {
   const parts = [place.note?.trim() || PLACE_KIND_LABELS[place.kind] || 'Other']
   if (place.kind === 'BINDER') parts.push(`${pocketsOf(place)} per page`)
-  if (place.sortRule) parts.push(SORT_RULE_SHORT[place.sortRule])
+  const rules = rulesLine(place)
+  if (rules) parts.push(rules)
   return parts.join(' · ')
 }
 
@@ -732,7 +738,10 @@ export function keptLabel(entry: CollectionEntry, places: StoragePlace[]): strin
 
 // ---- Sorting rules: where a new card goes ----
 
-/** What a sorting rule needs to know about a card. */
+/**
+ * What a sorting rule needs to know about a card — and, for a place's rules (storageRules.ts), its
+ * colour identity, mana value, rarity and prices (US dollars) and whether the copy is foil.
+ */
 export interface CardFacts {
   name: string
   /** The card's colours (its front face's, for a double-faced card), as WUBRG letters. */
@@ -741,6 +750,17 @@ export interface CardFacts {
   /** The set code. */
   set?: string | null
   collectorNumber?: string | null
+  colorIdentity?: string[] | null
+  cmc?: number | null
+  rarity?: string | null
+  usd?: number | null
+  usdFoil?: number | null
+  foil?: boolean
+}
+
+const priceNumber = (v: string | null | undefined): number | null => {
+  const n = v ? Number(v) : NaN
+  return Number.isFinite(n) ? n : null
 }
 
 /** A Scryfall card's facts for the sorting rules: a double-faced card's front face's colours. */
@@ -751,6 +771,11 @@ export function cardFactsOf(card: ScryfallCard): CardFacts {
     typeLine: card.type_line ?? card.card_faces?.[0]?.type_line ?? null,
     set: card.set ?? null,
     collectorNumber: card.collector_number ?? null,
+    colorIdentity: card.color_identity ?? null,
+    cmc: typeof card.cmc === 'number' ? card.cmc : null,
+    rarity: card.rarity ? card.rarity.toLowerCase() : null,
+    usd: priceNumber(card.prices?.usd),
+    usdFoil: priceNumber(card.prices?.usd_foil),
   }
 }
 
@@ -804,19 +829,23 @@ export function ruleSection(rule: SortRule, f: CardFacts, sections: string[] = [
   return sections.find((s) => s.toLowerCase() === section.toLowerCase()) ?? section
 }
 
-/** Where a card should go in [place], and that as words: "Red › around “L”", "Page 3, slot 6". */
-export function suggestSpot(place: StoragePlace, f: CardFacts | null, collections: Collection[]): { spot: Spot; hint: string | null } {
+/**
+ * Where a card should go in [place], and that as words: "Red › between Lightning Bolt and Lava Spike",
+ * "Page 3, slot 6". A box goes by its rules (storageRules.ts): the section, and where in it among the
+ * cards there — [factsOf] gives their facts when their card data is here (else only names count, for A–Z).
+ */
+export function suggestSpot(
+  place: StoragePlace, f: CardFacts | null, collections: Collection[],
+  factsOf: (e: CollectionEntry) => CardFacts | null = () => null, fmt: (n: number) => string = plainDollars, rate = 1,
+): { spot: Spot; hint: string | null } {
   if (place.kind === 'BINDER') {
     // A binder in order: the card waits beside it, to be fitted in with Add cards in order (binderPages.ts).
     if (place.sortRule) return { spot: { placeId: place.id }, hint: null }
     const { page, slot } = nextPocket(place, collections)
     return { spot: { placeId: place.id, page, slot }, hint: pocketLabel(page, slot) }
   }
-  if (place.sortRule && f) {
-    const section = ruleSection(place.sortRule, f, place.sections ?? [])
-    const hint = [section, positionHint(place.sortRule, f)].filter(Boolean).join(' › ')
-    return { spot: section ? { placeId: place.id, section } : { placeId: place.id }, hint: hint || null }
-  }
+  const rules = placeRules(place)
+  if (f && (rules.sectionsBy || rules.sortBy.length > 0)) return ruleSpot(place, f, cardsIn(collections, place.id), factsOf, fmt, rate)
   return { spot: { placeId: place.id }, hint: null }
 }
 
@@ -1077,6 +1106,9 @@ export function mergePlaceLists(base: StoragePlace[] | undefined, mine: StorageP
       lastChecked: Math.max(bp.lastChecked ?? 0, mp!.lastChecked ?? 0, tp!.lastChecked ?? 0) || undefined,
       capacity: pick(bp.capacity, mp!.capacity, tp!.capacity, minePreferred),
       pages: pick(bp.pages, mp!.pages, tp!.pages, minePreferred),
+      holds: pick(bp.holds, mp!.holds, tp!.holds, minePreferred),
+      sectionsBy: pick(bp.sectionsBy, mp!.sectionsBy, tp!.sectionsBy, minePreferred),
+      sortBy: pick(bp.sortBy, mp!.sortBy, tp!.sortBy, minePreferred),
     }))
   }
   return out

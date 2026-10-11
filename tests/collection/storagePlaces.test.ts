@@ -39,7 +39,7 @@ test('places nest: the tree, paths, and nothing moved inside itself', () => {
 })
 
 test('a place says what it is', () => {
-  assert.equal(placeSubtitle(red), 'Bulk · by colour, then A–Z')
+  assert.equal(placeSubtitle(red), 'Bulk · by colour · A–Z')
   assert.equal(placeSubtitle(trade), 'Binder · 9 per page')
   assert.equal(placeSubtitle(place('x', { kind: 'DECK_BOX' })), 'Deck box')
 })

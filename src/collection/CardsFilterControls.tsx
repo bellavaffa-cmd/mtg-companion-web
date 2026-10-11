@@ -17,7 +17,8 @@ import type { CollectionFilter } from './cardFilter'
 import { ActiveFilterChips, CollectionFilterPanel } from './CollectionFilterPanel'
 import { placeLink } from './collectionLayout'
 import { LocationChips } from './LocationChips'
-import { cardsFilterActive, cardsFilterChips, copyChip, removeCardsFilterChip, NO_CARDS_FILTER, type CardsFilter } from './placeFilter'
+import { cardsFilterActive, cardsFilterChips, copyChip, removeCardsFilterChip, MISFITS_CHIP, NO_CARDS_FILTER, type CardsFilter } from './placeFilter'
+import { hasRule } from './storageRules'
 import type { CopyGroup } from './pullList'
 import { placeTree, placesOf } from './storagePlaces'
 import { allUserTags } from './userTags'
@@ -80,6 +81,10 @@ export function CardsFilterControls({ filter, onChange, open, countFor, data }: 
           />
           <div className="chips" style={{ marginTop: 8 }}>
             <PillChip label="Spares only" icon="swap_horiz" selected={filter.sparesOnly} onClick={() => onChange({ ...filter, sparesOnly: !filter.sparesOnly })} />
+            {/* Once a place has rules (storageRules.ts): the copies they say don't belong where they are. */}
+            {places.some(hasRule) && (
+              <PillChip label={MISFITS_CHIP} icon="rule" selected={!!filter.misfitsOnly} onClick={() => onChange({ ...filter, misfitsOnly: !filter.misfitsOnly })} />
+            )}
           </div>
         </div>
       )}

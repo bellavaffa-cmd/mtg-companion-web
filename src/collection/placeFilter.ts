@@ -23,17 +23,22 @@ export interface CardsFilter {
   advanced: AdvancedFilter
   /** Only copies of cards no deck of yours plays (spares.ts). */
   sparesOnly: boolean
+  /** Only copies their place's rules say don't belong there — the wrong place or section (storageRules.ts). */
+  misfitsOnly?: boolean
 }
+
+/** The quick filter for copies their place's rules say don't belong there. */
+export const MISFITS_CHIP = 'Doesn’t fit its place'
 
 export const NO_CARDS_FILTER: CardsFilter = { query: '', basic: NO_COLLECTION_FILTER, advanced: NO_ADVANCED_FILTER, sparesOnly: false }
 
 /** Whether anything narrows the copies: the search or a filter. */
 export const cardsFilterActive = (f: CardsFilter): boolean =>
-  f.query.trim() !== '' || filterActive(f.basic) || advancedActive(f.advanced) || f.sparesOnly
+  f.query.trim() !== '' || filterActive(f.basic) || advancedActive(f.advanced) || f.sparesOnly || !!f.misfitsOnly
 
 /** The filters on, for the filter button's badge (the search is in its own field). */
 export const cardsFilterCount = (f: CardsFilter): number =>
-  filterCount(f.basic) + advancedCount(f.advanced) + (f.sparesOnly ? 1 : 0)
+  filterCount(f.basic) + advancedCount(f.advanced) + (f.sparesOnly ? 1 : 0) + (f.misfitsOnly ? 1 : 0)
 
 /** What judging copies needs besides the copies: the cards' data, the collection's, and the search's tags. */
 export interface FilterFacts {
@@ -54,6 +59,8 @@ export interface FilterFacts {
   roleTags?: (name: string) => string[] | undefined
   /** The user's own tags on a printing (userTagIndex), by scryfallId, for the Tags row's chips. */
   userTags?: (scryfallId: string) => string[]
+  /** Whether a line of copies fits its place's rules (copyFitsItsPlace); null when its card data isn't here. */
+  fitsItsPlace?: (copy: PlacedCard) => boolean | null
 }
 
 const nameMatches = (copy: PlacedCard, query: string) => copy.entry.name.toLowerCase().includes(query.trim().toLowerCase())
@@ -84,6 +91,8 @@ export function copyMatches(f: CardsFilter, copy: PlacedCard, facts: FilterFacts
   const q = f.query.trim()
   if (q && !(facts.searchMatches ?? nameMatches)(copy, q)) return false
   if (f.sparesOnly && facts.usedNames?.has(copy.entry.name.trim().toLowerCase()) !== false) return false
+  // Doesn't fit its place: only copies known not to (a card whose data isn't here can't be judged).
+  if (f.misfitsOnly && (facts.fitsItsPlace?.(copy) ?? true) !== false) return false
   if (!filterMatches(f.basic, facts.card(id))) return false
   // The Tags row (Untagged, the user's own tags), judged as the Cards tab judges it.
   if (!filterMatchesTags(f.basic, facts.roleTags?.(copy.entry.name), facts.userTags?.(id) ?? [])) return false
@@ -143,6 +152,7 @@ export function cardsFilterChips(f: CardsFilter, ctx: ChipContext): FilterChip[]
     ...(q ? [{ key: 'search', label: `“${q}”`, symbols: [] }] : []),
     ...filterChips(f.basic, f.advanced, ctx),
     ...(f.sparesOnly ? [{ key: 'spares', label: 'Spares only', symbols: [] }] : []),
+    ...(f.misfitsOnly ? [{ key: 'misfits', label: MISFITS_CHIP, symbols: [] }] : []),
   ]
 }
 
@@ -150,6 +160,7 @@ export function cardsFilterChips(f: CardsFilter, ctx: ChipContext): FilterChip[]
 export function removeCardsFilterChip(f: CardsFilter, key: string): CardsFilter {
   if (key === 'search') return { ...f, query: '' }
   if (key === 'spares') return { ...f, sparesOnly: false }
+  if (key === 'misfits') return { ...f, misfitsOnly: false }
   const next = removeChip(f.basic, f.advanced, key)
   return { ...f, basic: next.basic, advanced: next.advanced }
 }

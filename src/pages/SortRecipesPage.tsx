@@ -8,6 +8,7 @@ import { PageHeader, useBack } from '../components/kit'
 import { useCardData } from '../collection/cardData'
 import { cardsIn, placesOf, placeTree } from '../collection/storagePlaces'
 import { BY_RULE } from '../collection/sortPiles'
+import { holdsOf, placeOrderOf, rulePlaces } from '../collection/storageRules'
 import { addedMove, putAwayMove } from '../collection/copyHistory'
 import { recordMoves } from '../collection/copyHistoryStore'
 import {
@@ -107,7 +108,12 @@ export function SortRecipesPage() {
     return [...counts].sort((a, b) => b[1] - a[1]).map(([s]) => s)
   }, [setBinderIds, data])
   // With a goal under way, "What my collection needs" pulls out what the goals need too.
-  const templates = recipeTemplates(sets, goalsOf(collections).some((g) => g.completedAt == null))
+  // Once a place holds something particular, "Into my storage": a pile per place with rules, in rule order (storageRules.ts).
+  const storage = useMemo(() => {
+    const places = placesOf(collections)
+    return places.some((p) => holdsOf(p) !== null) ? rulePlaces(places, placeOrderOf(collections)).map((p) => ({ id: p.id, name: p.name })) : []
+  }, [collections])
+  const templates = recipeTemplates(sets, goalsOf(collections).some((g) => g.completedAt == null), storage)
   const find = (id: string | null): SortRecipe | null => (id ? recipesOf(collections).find((r) => r.id === id) ?? templates.find((r) => r.id === id) ?? null : null)
   const edit = params.get('edit')
   const layout = params.get('layout')
@@ -190,6 +196,7 @@ function templateLine(r: SortRecipe, fmt: (n: number) => string): string {
     case 'tpl-set': return 'One pile per set, then collector number'
     case 'tpl-value': return levelLine(r.levels[0], fmt)
     case 'tpl-needs': return 'Decks need it · friends want it · binder gaps · trade · bulk'
+    case 'tpl-storage': return [...(r.levels[0]?.names ?? []), 'No place fits'].join(' · ')
     default: return recipeLine(r, fmt)
   }
 }
@@ -360,7 +367,7 @@ function RecipeLayout({ start }: { start: SortRecipe }) {
     if (p.key === 'S:DECKS') return 'For their decks'
     if (p.key === 'S:BINDER') return 'Into its binder'
     const to = pileGoesTo(draft, p)
-    return to === BY_RULE ? 'Box whose rule fits' : to ? places.find((x) => x.id === to)?.name ?? 'No place' : 'Unsorted'
+    return to === BY_RULE ? 'Place whose rules fit' : to ? places.find((x) => x.id === to)?.name ?? 'No place' : 'Unsorted'
   }
   const begin = () => {
     if (!isTemplate(draft) && JSON.stringify(sortRecipe(start)) !== JSON.stringify(draft)) changeStorage((c) => saveRecipe(c, draft))
@@ -407,7 +414,7 @@ function RecipeLayout({ start }: { start: SortRecipe }) {
       {placing && (
         <Dialog title={`Where pile ${placing.number} goes`} onDismiss={() => setPlacing(null)}>
           <div className="recipe-list">
-            {[{ id: BY_RULE, name: 'The box whose rule fits' }, { id: '', name: 'No place (Unsorted)' }, ...placeTree(places).map((n) => ({ id: n.place.id, name: `${'  '.repeat(n.depth)}${n.place.name}` }))].map((o) => (
+            {[{ id: BY_RULE, name: 'The place whose rules fit' }, { id: '', name: 'No place (Unsorted)' }, ...placeTree(places).map((n) => ({ id: n.place.id, name: `${'  '.repeat(n.depth)}${n.place.name}` }))].map((o) => (
               <button key={o.id || 'none'} type="button" className={`recipe-card${pileGoesTo(draft, placing) === o.id ? ' mine' : ''}`}
                 onClick={() => { setDraft(withGoTo(draft, placing.key, o.id)); setPlacing(null) }}
               ><span className="txt"><b>{o.name}</b></span></button>

@@ -1,0 +1,187 @@
+{
+  "about": "A place's rules (storageRules.ts / StorageRules.kt). Run by both apps: tests/collection/storageRules.test.ts and StorageRulesTest.kt. A card here is its Scryfall facts; each test makes the sorting facts, the filter panel's facts and the Advanced filters' facts from it. noData: the card's data isn't here.",
+  "cards": {
+    "counterspell": { "name": "Counterspell", "colors": ["U"], "colorIdentity": ["U"], "typeLine": "Instant", "set": "ema", "collectorNumber": "49", "cmc": 2, "rarity": "uncommon", "usd": 1.5, "text": "Counter target spell." },
+    "brainstorm": { "name": "Brainstorm", "colors": ["U"], "colorIdentity": ["U"], "typeLine": "Instant", "set": "ema", "collectorNumber": "40", "cmc": 1, "rarity": "common", "usd": 0.8 },
+    "ponder": { "name": "Ponder", "colors": ["U"], "colorIdentity": ["U"], "typeLine": "Sorcery", "set": "m12", "collectorNumber": "73", "cmc": 1, "rarity": "common", "usd": 0.4 },
+    "cryptic": { "name": "Cryptic Command", "colors": ["U"], "colorIdentity": ["U"], "typeLine": "Instant", "set": "mm3", "collectorNumber": "36", "cmc": 4, "rarity": "rare", "usd": 12 },
+    "izzet": { "name": "Izzet Charm", "colors": ["U", "R"], "colorIdentity": ["U", "R"], "typeLine": "Instant", "set": "rna", "collectorNumber": "192", "cmc": 2, "rarity": "uncommon", "usd": 0.3 },
+    "bolt": { "name": "Lightning Bolt", "colors": ["R"], "colorIdentity": ["R"], "typeLine": "Instant", "set": "m10", "collectorNumber": "146", "cmc": 1, "rarity": "common", "usd": 2.1, "usdFoil": 9 },
+    "jace": { "name": "Jace, the Mind Sculptor", "colors": ["U"], "colorIdentity": ["U"], "typeLine": "Legendary Planeswalker — Jace", "set": "a25", "collectorNumber": "62", "cmc": 4, "rarity": "mythic", "usd": 25 },
+    "solring": { "name": "Sol Ring", "colors": [], "colorIdentity": [], "typeLine": "Artifact", "set": "c21", "collectorNumber": "263", "cmc": 1, "rarity": "uncommon", "usd": 1.2 },
+    "forest": { "name": "Forest", "colors": [], "colorIdentity": ["G"], "typeLine": "Basic Land — Forest", "set": "dsk", "collectorNumber": "286", "cmc": 0, "rarity": "common", "usd": 0.1 },
+    "swords": { "name": "Swords to Plowshares", "colors": ["W"], "colorIdentity": ["W"], "typeLine": "Instant", "set": "sta", "collectorNumber": "10", "cmc": 1, "rarity": "rare", "usd": 3 },
+    "elves": { "name": "Llanowar Elves", "colors": ["G"], "colorIdentity": ["G"], "typeLine": "Creature — Elf Druid", "set": "dom", "collectorNumber": "168", "cmc": 1, "rarity": "common", "usd": 0.25, "userTags": ["Trade"] },
+    "growth": { "name": "Giant Growth", "colors": ["G"], "colorIdentity": ["G"], "typeLine": "Instant", "set": "m10", "collectorNumber": "185", "cmc": 1, "rarity": "common", "usd": 0.1, "roleTags": [] },
+    "mystery": { "name": "Mystery Card", "colors": ["U"], "colorIdentity": ["U"], "typeLine": "Instant", "set": "xxx", "collectorNumber": "1", "cmc": 1, "rarity": "common", "noData": true },
+    "foilbolt": { "name": "Lightning Bolt", "colors": ["R"], "colorIdentity": ["R"], "typeLine": "Instant", "set": "m10", "collectorNumber": "146", "cmc": 1, "rarity": "common", "usd": 2.1, "usdFoil": 9, "foil": true }
+  },
+  "places": [
+    { "id": "blue", "name": "Blue box", "kind": "BOX", "createdAt": 1, "sections": ["Creatures", "Planeswalkers", "Battles", "Instants", "Sorceries", "Artifacts", "Enchantments", "Lands", "Other"], "sortRule": "TYPE",
+      "holds": { "basic": { "type": "", "text": "", "colors": ["U"], "rarities": [] } }, "sectionsBy": { "by": "TYPE" }, "sortBy": ["NAME"] },
+    { "id": "red", "name": "Red box", "kind": "BOX", "createdAt": 2,
+      "holds": { "basic": { "type": "", "text": "", "colors": ["R"], "rarities": [] } }, "sortBy": ["MANA_VALUE", "NAME"] },
+    { "id": "rares", "name": "Rares binder", "kind": "BINDER", "createdAt": 3, "sortRule": "SET",
+      "holds": { "basic": { "type": "", "text": "", "colors": [], "rarities": ["rare", "mythic"] } }, "sortBy": [] },
+    { "id": "lands", "name": "Land box", "kind": "BOX", "createdAt": 4,
+      "holds": { "basic": { "type": "land", "text": "", "colors": [], "rarities": [] } }, "sortBy": [] },
+    { "id": "bulk", "name": "Bulk", "kind": "BOX", "createdAt": 5, "sortRule": "COLOUR", "sections": ["White", "Blue", "Black", "Red", "Green", "Multicolour", "Colourless", "Lands"] },
+    { "id": "trade", "name": "Trade box", "kind": "BOX", "createdAt": 6,
+      "holds": { "basic": { "type": "", "text": "", "colors": [], "rarities": [], "userTags": ["trade"] } }, "sortBy": ["NAME"] },
+    { "id": "plain", "name": "Shoebox", "kind": "BOX", "createdAt": 7 }
+  ],
+  "order": ["red", "blue"],
+  "rulePlaces": [
+    { "order": ["red", "blue"], "ids": ["red", "blue", "rares", "lands", "trade", "bulk"] },
+    { "order": [], "ids": ["blue", "red", "rares", "lands", "trade", "bulk"] },
+    { "order": ["bulk", "gone", "trade"], "ids": ["bulk", "trade", "blue", "red", "rares", "lands"] }
+  ],
+  "placeFor": [
+    { "card": "counterspell", "place": "blue", "why": "blue, and the red box doesn't hold it" },
+    { "card": "izzet", "place": "red", "why": "both colour boxes hold it: the red box comes first" },
+    { "card": "jace", "place": "blue", "why": "the blue box is ordered; the rares binder isn't" },
+    { "card": "swords", "place": "rares" },
+    { "card": "forest", "place": "lands", "why": "the land box holds something particular, so it's tried before Bulk" },
+    { "card": "solring", "place": "bulk" },
+    { "card": "elves", "place": "trade", "why": "tagged trade (any case)" },
+    { "card": "growth", "place": "bulk" },
+    { "card": "mystery", "place": "bulk", "why": "no data: only a place holding everything can take it" },
+    { "card": "bolt", "place": "red" },
+    { "card": "bolt", "order": ["bulk"], "place": "bulk", "why": "Bulk ordered first takes everything that fits its sections" }
+  ],
+  "holds": [
+    { "holds": { "basic": { "type": "", "text": "", "colors": ["U"], "rarities": [] }, "advanced": { "colorTarget": "identity", "colorMode": "exactly", "colors": ["U"], "multicolor": false, "mvOp": "<=", "mv": "", "manaCost": "", "powerOp": ">=", "power": "", "toughnessOp": ">=", "toughness": "", "loyaltyOp": ">=", "loyalty": "", "format": "", "legality": "legal", "sets": [], "cardIs": [], "keywords": "", "priceMin": "", "priceMax": "", "artist": "", "flavor": "", "finishes": [], "conditions": [], "language": "", "binder": "", "place": "", "inDeck": "any", "copiesOp": ">=", "copies": "" } },
+      "yes": ["counterspell", "brainstorm", "jace"], "no": ["izzet", "bolt", "solring", "mystery"] },
+    { "holds": { "basic": { "type": "", "text": "", "colors": [], "rarities": [] }, "advanced": { "colorTarget": "identity", "colorMode": "atMost", "colors": [], "multicolor": false, "mvOp": "<=", "mv": "", "manaCost": "", "powerOp": ">=", "power": "", "toughnessOp": ">=", "toughness": "", "loyaltyOp": ">=", "loyalty": "", "format": "", "legality": "legal", "sets": [], "cardIs": [], "keywords": "", "priceMin": "5", "priceMax": "", "artist": "", "flavor": "", "finishes": [], "conditions": [], "language": "", "binder": "", "place": "", "inDeck": "any", "copiesOp": ">=", "copies": "" } },
+      "yes": ["cryptic", "jace", "foilbolt"], "no": ["bolt", "counterspell", "mystery"], "why": "price ≥ 5: a foil copy goes by its foil price" },
+    { "holds": { "basic": { "type": "", "text": "", "colors": [], "rarities": [], "untagged": true } }, "yes": ["growth"], "no": ["counterspell", "elves"], "why": "untagged: looked up and no role tag" },
+    { "holds": { "basic": { "type": "instant", "text": "counter", "colors": [], "rarities": [] } }, "yes": ["counterspell"], "no": ["brainstorm", "bolt"] },
+    { "holds": null, "yes": ["counterspell", "mystery"], "no": [] }
+  ],
+  "migration": [
+    { "place": { "id": "a", "name": "A", "kind": "BOX", "createdAt": 1, "sortRule": "COLOUR" }, "sectionsBy": { "by": "COLOUR", "lands": true }, "sortBy": ["NAME"], "hasRule": true },
+    { "place": { "id": "a", "name": "A", "kind": "BOX", "createdAt": 1, "sortRule": "SET" }, "sectionsBy": { "by": "SET", "sets": [] }, "sortBy": ["NUMBER"], "hasRule": true },
+    { "place": { "id": "a", "name": "A", "kind": "BOX", "createdAt": 1, "sortRule": "TYPE" }, "sectionsBy": { "by": "TYPE" }, "sortBy": ["NAME"], "hasRule": true },
+    { "place": { "id": "a", "name": "A", "kind": "SHELF", "createdAt": 1, "sortRule": "NAME" }, "sectionsBy": null, "sortBy": ["NAME"], "hasRule": true },
+    { "place": { "id": "a", "name": "A", "kind": "BOX", "createdAt": 1 }, "sectionsBy": null, "sortBy": [], "hasRule": false },
+    { "place": { "id": "a", "name": "A", "kind": "BOX", "createdAt": 1, "sortRule": "COLOUR", "sortBy": [] }, "sectionsBy": null, "sortBy": [], "hasRule": false, "why": "new rules written (none): the old rule is only for older apps" },
+    { "place": { "id": "a", "name": "A", "kind": "BOX", "createdAt": 1, "sortRule": "COLOUR", "sectionsBy": { "by": "VALUE", "cuts": [20, 5] }, "sortBy": ["VALUE", "NAME", "SET"] }, "sectionsBy": { "by": "VALUE", "cuts": [20, 5] }, "sortBy": ["VALUE", "NAME"], "hasRule": true },
+    { "place": { "id": "a", "name": "A", "kind": "BINDER", "createdAt": 1, "sortRule": "SET" }, "sectionsBy": null, "sortBy": [], "hasRule": false, "why": "a binder's sortRule is its order, not a rule to put away by" }
+  ],
+  "sortRuleFor": [
+    { "sectionsBy": { "by": "COLOUR" }, "sortBy": ["MANA_VALUE"], "sortRule": "COLOUR" },
+    { "sectionsBy": { "by": "TYPE" }, "sortBy": [], "sortRule": "TYPE" },
+    { "sectionsBy": { "by": "SET", "sets": ["dsk"] }, "sortBy": ["NUMBER"], "sortRule": "SET" },
+    { "sectionsBy": null, "sortBy": ["NAME"], "sortRule": "NAME" },
+    { "sectionsBy": null, "sortBy": ["SET", "NUMBER"], "sortRule": "SET" },
+    { "sectionsBy": { "by": "VALUE" }, "sortBy": ["NAME"], "sortRule": null },
+    { "sectionsBy": null, "sortBy": ["VALUE"], "sortRule": null }
+  ],
+  "withRules": [
+    { "place": { "id": "a", "name": "A", "kind": "BOX", "createdAt": 1, "sortRule": "COLOUR" },
+      "holds": { "basic": { "type": "", "text": "", "colors": ["U"], "rarities": [] }, "advanced": { "colorTarget": "identity", "colorMode": "atMost", "colors": [], "multicolor": false, "mvOp": "<=", "mv": "", "manaCost": "", "powerOp": ">=", "power": "", "toughnessOp": ">=", "toughness": "", "loyaltyOp": ">=", "loyalty": "", "format": "", "legality": "legal", "sets": [], "cardIs": [], "keywords": "", "priceMin": "", "priceMax": "", "artist": "", "flavor": "", "finishes": [], "conditions": [], "language": "", "binder": "", "place": "", "inDeck": "any", "copiesOp": ">=", "copies": "" } },
+      "sectionsBy": { "by": "TYPE" }, "sortBy": ["NAME"],
+      "expect": { "holds": { "basic": { "type": "", "text": "", "colors": ["U"], "rarities": [] } }, "sectionsBy": { "by": "TYPE" }, "sortBy": ["NAME"], "sortRule": "TYPE" },
+      "why": "an Advanced filter with nothing on isn't kept" },
+    { "place": { "id": "a", "name": "A", "kind": "BOX", "createdAt": 1 }, "holds": null, "sectionsBy": null, "sortBy": [],
+      "expect": { "holds": null, "sectionsBy": null, "sortBy": null, "sortRule": null }, "why": "never had rules: nothing written" },
+    { "place": { "id": "a", "name": "A", "kind": "BOX", "createdAt": 1, "sortRule": "TYPE", "sectionsBy": { "by": "TYPE" }, "sortBy": ["NAME"] }, "holds": null, "sectionsBy": null, "sortBy": [],
+      "expect": { "holds": null, "sectionsBy": null, "sortBy": [], "sortRule": null }, "why": "rules taken off: sortBy stays as [] so an older app's save can be told apart" },
+    { "place": { "id": "a", "name": "A", "kind": "BOX", "createdAt": 1 }, "holds": null, "sectionsBy": { "by": "VALUE", "cuts": [5, 20, 20] }, "sortBy": ["VALUE", "VALUE", "BOGUS"],
+      "expect": { "holds": null, "sectionsBy": { "by": "VALUE", "cuts": [20, 5] }, "sortBy": ["VALUE"], "sortRule": null } },
+    { "place": { "id": "b", "name": "B", "kind": "BINDER", "createdAt": 1, "sortRule": "SET" },
+      "holds": { "basic": { "type": "", "text": "", "colors": [], "rarities": ["mythic"] } }, "sectionsBy": { "by": "COLOUR" }, "sortBy": ["NAME"],
+      "expect": { "holds": { "basic": { "type": "", "text": "", "colors": [], "rarities": ["mythic"] } }, "sectionsBy": null, "sortBy": [], "sortRule": "SET" },
+      "why": "a binder keeps its order; only what it holds is set" }
+  ],
+  "sections": [
+    { "sectionsBy": { "by": "COLOUR", "lands": true }, "card": "bolt", "label": "Red" },
+    { "sectionsBy": { "by": "COLOUR", "lands": true }, "card": "forest", "label": "Lands" },
+    { "sectionsBy": { "by": "COLOUR", "lands": true }, "card": "izzet", "label": "Multicolour" },
+    { "sectionsBy": { "by": "COLOUR" }, "card": "forest", "label": "Colourless and lands" },
+    { "sectionsBy": { "by": "IDENTITY" }, "card": "forest", "label": "Green" },
+    { "sectionsBy": { "by": "TYPE" }, "card": "jace", "label": "Planeswalkers" },
+    { "sectionsBy": { "by": "SET", "sets": [] }, "card": "counterspell", "label": "EMA" },
+    { "sectionsBy": { "by": "SET", "sets": ["ema"] }, "card": "bolt", "label": "Other sets" },
+    { "sectionsBy": { "by": "VALUE", "cuts": [20, 5, 1] }, "card": "counterspell", "label": "$1–$5" },
+    { "sectionsBy": { "by": "VALUE", "cuts": [20, 5, 1] }, "card": "foilbolt", "label": "$5–$20" },
+    { "sectionsBy": { "by": "VALUE", "cuts": [20, 5, 1] }, "card": "jace", "label": "$20+" },
+    { "sectionsBy": { "by": "MANA_VALUE" }, "card": "counterspell", "label": "MV 2" },
+    { "sectionsBy": { "by": "RARITY" }, "card": "jace", "label": "Mythic" },
+    { "sectionsBy": { "by": "NAME" }, "card": "counterspell", "label": "A–E" },
+    { "sectionsBy": { "by": "NUMBER" }, "card": "izzet", "label": "#100–199" }
+  ],
+  "ruleSections": [
+    { "sectionsBy": { "by": "COLOUR", "lands": true }, "sections": ["White", "Blue", "Black", "Red", "Green", "Multicolour", "Colourless", "Lands"] },
+    { "sectionsBy": { "by": "TYPE" }, "sections": ["Creatures", "Planeswalkers", "Battles", "Instants", "Sorceries", "Artifacts", "Enchantments", "Lands", "Other"] },
+    { "sectionsBy": { "by": "SET", "sets": [] }, "sections": [] },
+    { "sectionsBy": { "by": "SET", "sets": ["DSK", "fdn"] }, "sections": ["DSK", "FDN", "Other sets"] },
+    { "sectionsBy": { "by": "VALUE", "cuts": [20, 5] }, "sections": ["$20+", "$5–$20", "under $5"] },
+    { "sectionsBy": null, "sections": [] }
+  ],
+  "sectionFor": [
+    { "place": "blue", "card": "jace", "section": "Planeswalkers" },
+    { "place": "bulk", "card": "izzet", "section": "Multicolour" },
+    { "place": "red", "card": "bolt", "section": null },
+    { "place": { "id": "az", "name": "A–Z box", "kind": "BOX", "createdAt": 1, "sortRule": "NAME", "sections": ["A–F", "G–L", "M–Z"] }, "card": "jace", "section": "G–L", "why": "an old A–Z box with letter sections files by letter" },
+    { "place": { "id": "rg", "name": "RG box", "kind": "BOX", "createdAt": 1, "sectionsBy": { "by": "COLOUR" }, "sortBy": [], "sections": ["red", "Green"] }, "card": "bolt", "section": "red", "why": "spelled as the place spells it" }
+  ],
+  "hints": [
+    { "sortBy": ["NAME"], "card": "counterspell", "others": ["ponder", "cryptic", "brainstorm"], "hint": "between Brainstorm and Cryptic Command" },
+    { "sortBy": ["NAME"], "card": "brainstorm", "others": ["ponder", "cryptic"], "hint": "before Cryptic Command" },
+    { "sortBy": ["NAME"], "card": "ponder", "others": ["cryptic", "brainstorm"], "hint": "after Cryptic Command" },
+    { "sortBy": ["NAME"], "card": "counterspell", "others": [], "hint": "around “C”" },
+    { "sortBy": ["NAME"], "card": "bolt", "others": ["foilbolt", "brainstorm"], "hint": "next to Lightning Bolt" },
+    { "sortBy": ["MANA_VALUE", "NAME"], "card": "counterspell", "others": ["ponder", "cryptic", "brainstorm"], "hint": "between Ponder and Cryptic Command" },
+    { "sortBy": ["VALUE"], "card": "counterspell", "others": ["ponder", "cryptic", "brainstorm"], "hint": "between Cryptic Command and Brainstorm" },
+    { "sortBy": ["NUMBER"], "card": "counterspell", "others": ["ponder", "cryptic", "brainstorm"], "hint": "between Brainstorm and Ponder" },
+    { "sortBy": ["NUMBER"], "card": "izzet", "others": [], "hint": "around #192" },
+    { "sortBy": ["SET", "NUMBER"], "card": "counterspell", "others": ["ponder", "cryptic", "brainstorm"], "hint": "between Brainstorm and Ponder" },
+    { "sortBy": [], "card": "counterspell", "others": ["ponder"], "hint": null }
+  ],
+  "lines": [
+    { "place": "blue", "line": "Holds blue cards · by card type · A–Z" },
+    { "place": "red", "line": "Holds red cards · by mana value, then A–Z" },
+    { "place": "rares", "line": "Holds rare or mythic · in order by set, then number" },
+    { "place": "lands", "line": "Holds lands" },
+    { "place": "bulk", "line": "by colour · A–Z" },
+    { "place": "trade", "line": "Holds tagged “trade” · A–Z" },
+    { "place": "plain", "line": "" },
+    { "place": { "id": "x", "name": "X", "kind": "BOX", "createdAt": 1, "sortBy": ["SET", "NUMBER"], "sectionsBy": { "by": "NAME" },
+        "holds": { "basic": { "type": "creature", "text": "", "colors": ["G"], "rarities": [] }, "advanced": { "colorTarget": "identity", "colorMode": "exactly", "colors": ["G"], "multicolor": false, "mvOp": "<=", "mv": "3", "manaCost": "", "powerOp": ">=", "power": "", "toughnessOp": ">=", "toughness": "", "loyaltyOp": ">=", "loyalty": "", "format": "", "legality": "legal", "sets": [], "cardIs": [], "keywords": "", "priceMin": "", "priceMax": "", "artist": "", "flavor": "", "finishes": ["foil"], "conditions": [], "language": "", "binder": "", "place": "", "inDeck": "any", "copiesOp": ">=", "copies": "" } } },
+      "line": "Holds green, mono-colour, green, creatures, MV ≤ 3, Foil · by letter · by set, then number" }
+  ],
+  "overlaps": [
+    { "draft": "blue", "cards": ["counterspell", "izzet", "jace", "bolt", "solring"], "lines": ["Also fits Red box (Red box comes first)", "Also fits Rares binder (this place comes first)"] },
+    { "draft": "lands", "cards": ["forest", "counterspell"], "lines": [] },
+    { "draft": "lands", "order": ["bulk"], "cards": ["forest"], "lines": ["Also fits Bulk (Bulk comes first)"] }
+  ],
+  "keep": [
+    { "why": "an older app's save (same old rule): the rules come back",
+      "source": { "id": "unsorted", "name": "Unsorted", "createdAt": 0, "type": "OWNED", "entries": [], "placeOrder": ["blue"], "storagePlaces": [
+        { "id": "blue", "name": "Blue box", "kind": "BOX", "createdAt": 1, "sortRule": "TYPE", "holds": { "basic": { "type": "", "text": "", "colors": ["U"], "rarities": [] } }, "sectionsBy": { "by": "TYPE" }, "sortBy": ["NAME"] }] },
+      "theirs": { "id": "unsorted", "name": "Unsorted", "createdAt": 0, "type": "OWNED", "entries": [], "storagePlaces": [
+        { "id": "blue", "name": "Blue things", "kind": "BOX", "createdAt": 1, "sortRule": "TYPE" }] },
+      "expect": { "placeOrder": ["blue"], "storagePlaces": [
+        { "id": "blue", "name": "Blue things", "kind": "BOX", "createdAt": 1, "sortRule": "TYPE", "holds": { "basic": { "type": "", "text": "", "colors": ["U"], "rarities": [] } }, "sectionsBy": { "by": "TYPE" }, "sortBy": ["NAME"] }] } },
+    { "why": "an older app picked another old rule: it counts, with what the place holds kept",
+      "source": { "id": "unsorted", "name": "Unsorted", "createdAt": 0, "type": "OWNED", "entries": [], "storagePlaces": [
+        { "id": "blue", "name": "Blue box", "kind": "BOX", "createdAt": 1, "sortRule": "TYPE", "holds": { "basic": { "type": "", "text": "", "colors": ["U"], "rarities": [] } }, "sectionsBy": { "by": "TYPE" }, "sortBy": ["NAME"] }] },
+      "theirs": { "id": "unsorted", "name": "Unsorted", "createdAt": 0, "type": "OWNED", "entries": [], "storagePlaces": [
+        { "id": "blue", "name": "Blue box", "kind": "BOX", "createdAt": 1, "sortRule": "COLOUR" }] },
+      "expect": { "placeOrder": null, "storagePlaces": [
+        { "id": "blue", "name": "Blue box", "kind": "BOX", "createdAt": 1, "sortRule": "COLOUR", "holds": { "basic": { "type": "", "text": "", "colors": ["U"], "rarities": [] } } }] } },
+    { "why": "this app took the rules off (sortBy []): nothing comes back",
+      "source": { "id": "unsorted", "name": "Unsorted", "createdAt": 0, "type": "OWNED", "entries": [], "placeOrder": [], "storagePlaces": [
+        { "id": "blue", "name": "Blue box", "kind": "BOX", "createdAt": 1, "sortRule": "TYPE", "holds": { "basic": { "type": "", "text": "", "colors": ["U"], "rarities": [] } }, "sectionsBy": { "by": "TYPE" }, "sortBy": ["NAME"] }] },
+      "theirs": { "id": "unsorted", "name": "Unsorted", "createdAt": 0, "type": "OWNED", "entries": [], "placeOrder": ["red"], "storagePlaces": [
+        { "id": "blue", "name": "Blue box", "kind": "BOX", "createdAt": 1, "sortBy": [] }] },
+      "expect": { "placeOrder": ["red"], "storagePlaces": [
+        { "id": "blue", "name": "Blue box", "kind": "BOX", "createdAt": 1, "sortBy": [] }] } }
+  ],
+  "templates": [
+    { "storage": [], "first": "tpl-colour" },
+    { "storage": [["red", "Red box"], ["blue", "Blue box"]], "first": "tpl-storage", "piles": ["Decks need", "Friends want", "Binder gaps", "Red box", "Blue box", "No place fits"],
+      "cards": [{ "place": "blue", "pile": "Blue box", "goesTo": "blue" }, { "place": null, "pile": "No place fits", "goesTo": "" }] }
+  ]
+}

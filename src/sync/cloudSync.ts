@@ -12,6 +12,7 @@ import { apiHeaders, OfflineError, restUrl } from './supabaseAuth'
 import { canonicalJson } from './canonicalJson'
 import { saveToStorage } from './storage'
 import { keepLastChecked, keepPlaceSizes, keepPlacesFromOlderApp } from '../collection/storagePlaces'
+import { keepPlaceRules } from '../collection/storageRules'
 import { keepForSaleFromOlderApp } from '../collection/selling'
 import { keepAlertOptionsFromOlderApp } from '../collection/wishlistTargets'
 import { keepPreReleaseFromOlderApp } from '../collection/spoilers'
@@ -431,7 +432,7 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
         : row.kind === 'deck'
           ? { ...mine, cards: [], considering: [], sideboard: [], tags: [], gameResults: [], versions: [], cameFrom: undefined }
           // The places too: each device's own, kept as additions rather than the cloud's replacing them.
-          : { ...mine, entries: [], storagePlaces: undefined, loans: undefined, sealed: undefined, graded: undefined, gear: undefined, sortRecipes: undefined, scanCorrections: undefined, collectionGoals: undefined }
+          : { ...mine, entries: [], storagePlaces: undefined, loans: undefined, sealed: undefined, graded: undefined, gear: undefined, sortRecipes: undefined, scanCorrections: undefined, collectionGoals: undefined, placeOrder: undefined }
       const merged = row.kind === 'deck'
         ? mergeDeck(base as Deck, mine as Deck, JSON.parse(theirJson) as Deck, (localEdit ?? 0) > row.edited_ms)
         : mergeCollection(base as Collection, mine as Collection, JSON.parse(theirJson) as Collection, (localEdit ?? 0) > row.edited_ms)
@@ -461,7 +462,7 @@ export async function pullChanges(snapshot: Library, startState: CloudState, use
       : row.kind === 'collection'
         // ...and the pile saved without its sealed product, graded copies or gear (collection/sealed.ts, graded.ts, gear.ts),
         // or its sorting recipes (collection/sortRecipes.ts), what the scanner learned (scan/scanCorrections.ts), or its collection goals (collection/collectionGoals.ts).
-        ? keepGoalsFromOlderApp(JSON.parse(mineJson) as Collection, keepCorrectionsFromOlderApp(JSON.parse(mineJson) as Collection, keepRecipesFromOlderApp(JSON.parse(mineJson) as Collection, keepGearFromOlderApp(JSON.parse(mineJson) as Collection, keepGradedFromOlderApp(JSON.parse(mineJson) as Collection, keepSealedFromOlderApp(JSON.parse(mineJson) as Collection, keepAlertOptionsFromOlderApp(JSON.parse(mineJson) as Collection, keepPreReleaseFromOlderApp(JSON.parse(mineJson) as Collection, keepForSaleFromOlderApp(JSON.parse(mineJson) as Collection, keepPlaceSizes(JSON.parse(mineJson) as Collection, keepLoansFromOlderApp(JSON.parse(mineJson) as Collection, keepLastChecked(JSON.parse(mineJson) as Collection, keepPlacesFromOlderApp(JSON.parse(mineJson) as Collection, theirs as Collection)))))))))))))
+        ? keepGoalsFromOlderApp(JSON.parse(mineJson) as Collection, keepCorrectionsFromOlderApp(JSON.parse(mineJson) as Collection, keepRecipesFromOlderApp(JSON.parse(mineJson) as Collection, keepGearFromOlderApp(JSON.parse(mineJson) as Collection, keepGradedFromOlderApp(JSON.parse(mineJson) as Collection, keepSealedFromOlderApp(JSON.parse(mineJson) as Collection, keepAlertOptionsFromOlderApp(JSON.parse(mineJson) as Collection, keepPreReleaseFromOlderApp(JSON.parse(mineJson) as Collection, keepForSaleFromOlderApp(JSON.parse(mineJson) as Collection, keepPlaceRules(JSON.parse(mineJson) as Collection, keepPlaceSizes(JSON.parse(mineJson) as Collection, keepLoansFromOlderApp(JSON.parse(mineJson) as Collection, keepLastChecked(JSON.parse(mineJson) as Collection, keepPlacesFromOlderApp(JSON.parse(mineJson) as Collection, theirs as Collection))))))))))))))
         // ...and its primer, folder, archive flag, companion and categories (decks/deckExtras.ts).
         // ...and its history (decks/deckHistory.ts), and a cube's settings (decks/cube.ts).
         : keepCubeFromOlderApp(JSON.parse(mineJson) as Deck, keepHistoryFromOlderApp(JSON.parse(mineJson) as Deck, keepDeckExtrasFromOlderApp(JSON.parse(mineJson) as Deck, keepCameFromFromOlderApp(JSON.parse(mineJson) as Deck, theirs as Deck))))
@@ -682,7 +683,7 @@ export function applyRescue(library: Library, rescue: Rescue): Library {
           ? JSON.parse(kept.base)
           : isDeck
             ? { ...mine, cards: [], considering: [], sideboard: [], tags: [], gameResults: [], versions: [], cameFrom: undefined }
-            : { ...mine, entries: [], storagePlaces: undefined, loans: undefined, sealed: undefined, graded: undefined, gear: undefined, sortRecipes: undefined, scanCorrections: undefined, collectionGoals: undefined }
+            : { ...mine, entries: [], storagePlaces: undefined, loans: undefined, sealed: undefined, graded: undefined, gear: undefined, sortRecipes: undefined, scanCorrections: undefined, collectionGoals: undefined, placeOrder: undefined }
         next = isDeck
           ? mergeDeck(base as Deck, mine as Deck, current as Deck, true)
           : mergeCollection(base as Collection, mine as Collection, current as Collection, true)

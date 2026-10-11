@@ -13,6 +13,8 @@ import type { FilterFacts } from './placeFilter'
 import { namesDecksUse } from './spares'
 import { placeChains, placesOf, type PlacedCard } from './storagePlaces'
 import { userTagIndex } from './userTags'
+import { copyFitsItsPlace } from './storageRules'
+import { ruleCardOfCopy } from './storageRulesView'
 
 /**
  * What judging [copies] needs (FilterFacts) — their cards' Scryfall data, the collection's copies,
@@ -31,6 +33,7 @@ export function useStorageFilterFacts(copies: PlacedCard[], searching = true): {
   const userTags = useMemo(() => userTagIndex(decks, collections), [decks, collections])
   const copyFacts = useMemo(() => copyFactsOf(collections, decks), [collections, decks])
   const chains = useMemo(() => placeChains(placesOf(collections)), [collections])
+  const byId = useMemo(() => new Map(placesOf(collections).map((p) => [p.id, p])), [collections])
   const usedNames = useMemo(() => namesDecksUse(decks), [decks])
   const facts = useMemo((): FilterFacts => {
     const card = new Map<string, CardFacts>()
@@ -46,7 +49,12 @@ export function useStorageFilterFacts(copies: PlacedCard[], searching = true): {
       searchMatches: (c, q) => matchesNameOrTag(c.entry.name, [...tagsOf(roleTags, c.entry.name), ...(userTags.get(c.entry.scryfallId) ?? [])], q),
       roleTags: (name) => roleTags.get(name.trim().toLowerCase()),
       userTags: (id) => userTags.get(id) ?? [],
+      // Doesn't fit its place (storageRules.ts): the copy against its place's rules.
+      fitsItsPlace: (c) => copyFitsItsPlace(byId, c, ruleCardOfCopy(
+        c, card.get(c.entry.scryfallId), advanced.get(c.entry.scryfallId), roleTags.get(c.entry.name.trim().toLowerCase()),
+        userTags.get(c.entry.scryfallId) ?? [], copyFacts, chains,
+      ), (n) => money.toUsd(n)),
     }
-  }, [data, copyFacts, chains, usedNames, money, roleTags, userTags])
+  }, [data, copyFacts, chains, usedNames, money, roleTags, userTags, byId])
   return { facts, data }
 }

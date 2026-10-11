@@ -9,7 +9,7 @@ import { ArtImage, IconButton, PageHeader, SearchPill, StatFigure, rise, toArtCr
 import { CardsFilterControls, CopyGroups, FilterButton } from '../collection/CardsFilterControls'
 import { useStorageFilterFacts } from '../collection/useStorageFilterFacts'
 import {
-  cardsFilterActive, cardsFilterCount, filterCopies, filterTotals, matchingPages, matchingPockets, placedCopyUsd, totalsLine,
+  cardsFilterActive, cardsFilterCount, copyFactsOfCopy, filterCopies, filterTotals, matchingPages, matchingPockets, placedCopyUsd, totalsLine,
 } from '../collection/placeFilter'
 import { usePlaceFilter } from '../collection/placeFilterStore'
 import { copiesByPlace, walkPullList } from '../collection/pullList'
@@ -17,8 +17,11 @@ import { startWalk } from '../collection/walkSession'
 import { PLACE_ICONS, PlaceDialog } from '../collection/StorageTab'
 import {
   cardsIn, childrenOf, copiesWithin, deletePlace, pagesOf, parentsOf, placeAndInside, placeSubtitle, placesOf, pocketsOf,
-  savePlace, sectionsOf, SORT_RULE_LABELS, storageSummary, type PlacedCard,
+  cardFactsOf, savePlace, sectionsOf, SORT_RULE_LABELS, storageSummary, suggestSpot, type PlacedCard,
 } from '../collection/storagePlaces'
+import { hasRule, holdsOf, misfits, moveMisfit, placeRules, ruleCardOf, rulesLine, sortedForRule, type Misfit } from '../collection/storageRules'
+import { MisfitsDialog } from '../collection/StorageRulesUi'
+import { entryFactsOf } from '../collection/storageRulesView'
 import { BinderList, BinderPagesView } from '../collection/BinderPagesView'
 import { binderPockets, closeGapsMoves, fitSteps, looseCopies, relocate, undoMoves, type PocketMove } from '../collection/binderPages'
 import { lastCheckedLabel } from '../collection/placeCheck'
@@ -64,7 +67,9 @@ export function PlacePage() {
   // Search and filter what's here with the Cards tab's filters (placeFilter.ts), kept for this place
   // while the app is open. Prices and the filters' card data come from the same lookup.
   const [filter, setFilter] = usePlaceFilter(id)
-  const { facts, data } = useStorageFilterFacts(within, filter.query.trim() !== '' || !!filter.basic.untagged)
+  // Role tags too when the place's rules hold untagged cards (storageRules.ts).
+  const rulesNeedTags = !!place && !!holdsOf(place)?.basic.untagged
+  const { facts, data } = useStorageFilterFacts(within, filter.query.trim() !== '' || !!filter.basic.untagged || rulesNeedTags)
   const [filterOpen, setFilterOpen] = useState(false)
   const filtering = cardsFilterActive(filter)
   const matchHere = useMemo(() => filterCopies(cards, filter, facts), [cards, filter, facts])
@@ -88,6 +93,15 @@ export function PlacePage() {
   const [closing, setClosing] = useState<PocketMove[] | null>(null)
   const [sizing, setSizing] = useState(false)
   const [splitting, setSplitting] = useState(false)
+  const [reviewing, setReviewing] = useState(false)
+  // What here doesn't fit the place's rules (storageRules.ts), once the cards' data is here.
+  const found = useMemo((): Misfit[] => {
+    if (!place || !data || !hasRule(place)) return []
+    return misfits(place, collections, (c) => {
+      const card = data.get(c.entry.scryfallId)
+      return card ? ruleCardOf(card, !!c.line.foil, facts.roleTags?.(c.entry.name), facts.userTags?.(c.entry.scryfallId) ?? [], copyFactsOfCopy(c, facts.copies.get(c.entry.scryfallId), facts.chains)) : null
+    }, (n) => money.toUsd(n))
+  }, [place, data, collections, facts, money])
   const showUndo = useUndoBar()
   const history = useCopyHistory()
   const recent = useMemo(() => movesOfPlace(history, placeAndInside(places, id), 10), [history, places, id])
@@ -129,6 +143,7 @@ export function PlacePage() {
   const copies = copiesWithin(summary, places, place.id)
   const inside = childrenOf(places, place.id)
   // While filtering, a box shows only its sections with a match, each open.
+  const factsOfEntry = entryFactsOf(data)
   const sections = filtering ? sectionsOf(place, matchHere).filter((s) => s.cards.length > 0) : sectionsOf(place, cards)
   const binder = place.kind === 'BINDER' ? pagesOf(place, cards) : null
   const hits = filtering && binder ? matchingPockets(place, cards, matchHere) : undefined
@@ -227,8 +242,16 @@ export function PlacePage() {
           </div>
         )}
         <HomeShareLine place={place} homes={homes} error={shareError} onError={setShareError} />
-        {place.sortRule && place.kind !== 'BINDER' && (
-          <p className="place-rule">Sorted {SORT_RULE_LABELS[place.sortRule].charAt(0).toLowerCase() + SORT_RULE_LABELS[place.sortRule].slice(1)}. New cards get a section by this rule.</p>
+        {place.kind !== 'BINDER' && rulesLine(place) && (
+          <p className="place-rule">{rulesLine(place)}. New cards get a section and a spot by these rules.</p>
+        )}
+        {/* What here doesn't fit the place's rules: the wrong place, or the wrong section. */}
+        {found.length > 0 && (
+          <button type="button" className="storage-row storage-card press" onClick={() => setReviewing(true)}>
+            <Icon name="rule" className="storage-icon gold" />
+            <div className="storage-text"><b>{(() => { const n = found.reduce((t, m) => t + m.card.line.qty, 0); return `${n} ${n === 1 ? 'card doesn’t' : 'cards don’t'} fit this place’s rules` })()}</b></div>
+            <span className="storage-n">Review</span>
+          </button>
         )}
         {place.kind === 'BINDER' && (
           <p className="place-rule">
@@ -301,7 +324,8 @@ export function PlacePage() {
                 section={s.name ?? ''}
                 title={s.name ?? (sections.length > 1 ? 'No section' : 'Cards')}
                 count={s.copies}
-                cards={s.cards}
+                // In the place's order when it has one (A–Z, by number, by price…).
+                cards={sortedForRule(placeRules(place).sortBy, s.cards, (c) => ({ ...(factsOfEntry(c.entry) ?? { name: c.entry.name }), foil: !!c.line.foil }))}
                 isOpen={filtering || open.has(s.name ?? '') || [...open].some((o) => o.toLowerCase() === (s.name ?? '').toLowerCase() && o !== '') || (sections.length === 1 && s.name === null)}
                 onToggle={() => toggle(s.name ?? '')}
                 onCard={openCard}
@@ -406,6 +430,21 @@ export function PlacePage() {
         </Dialog>
       )}
       {editing && <PlaceDialog place={place} onDismiss={() => setEditing(false)} />}
+      {reviewing && (
+        <MisfitsDialog
+          found={found}
+          spotFor={(m) => {
+            if (!m.to) return null
+            const card = data?.get(m.card.entry.scryfallId)
+            return suggestSpot(m.to, card ? { ...cardFactsOf(card), foil: !!m.card.line.foil } : null, collections, factsOfEntry).spot
+          }}
+          onMove={(moves) => {
+            changeStorage((c) => moves.reduce((cols, { misfit, spot }) => moveMisfit(cols, misfit, spot), c))
+            if (moves.length >= found.length) setReviewing(false)
+          }}
+          onDismiss={() => setReviewing(false)}
+        />
+      )}
       {adding && <PlaceDialog place={null} parentId={place.id} onDismiss={() => setAdding(false)} />}
       {deleting && (
         <Dialog

@@ -60,13 +60,19 @@ export type ApartKind = 'FOIL' | 'FOREIGN' | 'PLAYED'
 export const APART_KINDS: ApartKind[] = ['FOIL', 'FOREIGN', 'PLAYED']
 export const APART_LABELS: Record<ApartKind, string> = { FOIL: 'Foils', FOREIGN: 'Not English', PLAYED: 'Played' }
 
-export type LevelBy = 'VALUE' | 'COLOUR' | 'IDENTITY' | 'SET' | 'MANA_VALUE' | 'RARITY' | 'TYPE' | 'NAME' | 'NUMBER'
+export type LevelBy = 'VALUE' | 'COLOUR' | 'IDENTITY' | 'SET' | 'MANA_VALUE' | 'RARITY' | 'TYPE' | 'NAME' | 'NUMBER' | 'PLACE'
 /** In the editor's order: the common ways first. Stored by name, so the order is free to change. */
 export const LEVEL_BYS: LevelBy[] = ['VALUE', 'COLOUR', 'TYPE', 'SET', 'MANA_VALUE', 'RARITY', 'IDENTITY', 'NAME', 'NUMBER']
 export const LEVEL_LABELS: Record<LevelBy, string> = {
   VALUE: 'Value', COLOUR: 'Colour', IDENTITY: 'Colour identity', SET: 'Set', MANA_VALUE: 'Mana value',
-  RARITY: 'Rarity', TYPE: 'Card type', NAME: 'A–Z', NUMBER: 'Collector number',
+  RARITY: 'Rarity', TYPE: 'Card type', NAME: 'A–Z', NUMBER: 'Collector number', PLACE: 'Place',
 }
+
+/**
+ * The level of "Into my storage" (tpl-storage): a pile per place with rules, in the user's rule order,
+ * and one for cards no place fits (storageRules.ts). Not offered in the editor's levels.
+ */
+export const PLACE_LEVEL = 'PLACE'
 
 /**
  * One way of splitting. [cuts]: VALUE — the band edges in the user's currency, highest first ("$20+",
@@ -83,6 +89,9 @@ export interface SplitLevel {
   sets?: string[]
   lands?: boolean
   restOn?: boolean
+  /** PLACE: the places' ids, in rule order, and their names as the piles say them. */
+  places?: string[]
+  names?: string[]
 }
 
 /** Where one pile is filed: a place's id, BY_RULE ("the box whose rule fits"), or "" — no place (Unsorted). */
@@ -117,6 +126,10 @@ const uniq = <T>(list: T[]): T[] => list.filter((x, i) => list.indexOf(x) === i)
 
 /** A level as both apps keep it: only the fields its kind uses, tidied (sorted, no repeats). */
 export function splitLevel(l: SplitLevel): SplitLevel {
+  if (l.by === PLACE_LEVEL) {
+    const ids = l.places ?? []
+    return { by: PLACE_LEVEL, places: ids, names: ids.map((_, i) => l.names?.[i] ?? `Place ${i + 1}`) }
+  }
   const by: LevelBy = LEVEL_BYS.includes(l.by) ? l.by : 'COLOUR'
   if (by === 'VALUE') {
     const cuts = uniq((l.cuts ?? []).filter((n) => Number.isFinite(n) && n > 0).map((n) => Math.round(n * 100) / 100)).sort((a, b) => b - a)
@@ -168,10 +181,16 @@ export function sortRecipe(r: SortRecipe): SortRecipe {
  * Binder by set. [goals]: the user has a goal under way — then "What my collection needs" pulls out
  * the cards the goals need too (without one, that pile would only stand empty on the table).
  */
-export function recipeTemplates(sets: string[] = [], goals = false): SortRecipe[] {
+export function recipeTemplates(sets: string[] = [], goals = false, storage: { id: string; name: string }[] = []): SortRecipe[] {
   const smart: SmartKind[] = ['DECKS', 'FRIENDS', 'BINDER']
   const needs: SmartKind[] = goals ? ['DECKS', 'GOALS', 'FRIENDS', 'BINDER', 'TRADE'] : ['DECKS', 'FRIENDS', 'BINDER', 'TRADE']
+  // Into my storage: once a place holds something particular — a pile per place with rules, in rule order.
+  const mine: SortRecipe[] = storage.length === 0 ? [] : [{
+    id: STORAGE_TEMPLATE, name: 'Into my storage', pullOut: smart,
+    levels: [{ by: PLACE_LEVEL, places: storage.map((p) => p.id), names: storage.map((p) => p.name) }], apart: [], createdAt: 0,
+  }]
   return [
+    ...mine,
     { id: 'tpl-colour', name: 'Commander by colour', pullOut: smart, levels: [{ by: 'COLOUR', lands: true }], apart: [], createdAt: 0 },
     { id: 'tpl-type', name: 'By card type', pullOut: smart, levels: [{ by: 'TYPE' }], apart: [], createdAt: 0 },
     { id: 'tpl-set', name: 'Binder by set', pullOut: smart, levels: [splitLevel({ by: 'SET', sets: sets.slice(0, 5) }), splitLevel({ by: 'NUMBER' })], apart: [], createdAt: 0 },
@@ -192,6 +211,12 @@ export const newRecipe = (id: string, now: number): SortRecipe => ({
 })
 
 export const isTemplate = (r: SortRecipe): boolean => r.id.startsWith('tpl-')
+
+/** "Into my storage"'s id. */
+export const STORAGE_TEMPLATE = 'tpl-storage'
+
+/** Whether a recipe sorts into the places (its levels have PLACE): its cards need [RecipeCard.place]. */
+export const intoPlaces = (r: SortRecipe): boolean => r.levels.some((l) => l.by === PLACE_LEVEL)
 
 // ---- The piles ----
 
@@ -247,6 +272,8 @@ export function levelBuckets(level: SplitLevel, fmt: Fmt): RecipeBucket[] {
       return RARITY_BUCKETS.map(([key, label, band]) => ({ key, label, band }))
     case 'TYPE':
       return TYPE_SECTIONS.map((s) => ({ key: s.toLowerCase(), label: s, band: null }))
+    case 'PLACE':
+      return [...l.names!.map((n, i) => ({ key: `p${i}`, label: n, band: null })), { key: 'none', label: 'No place fits', band: null }]
     case 'NAME': {
       const letters = l.letters!
       return letters.map((c, i) => {
@@ -316,6 +343,7 @@ export function levelLine(level: SplitLevel, fmt: Fmt): string {
   const l = splitLevel(level)
   if (l.by === 'COLOUR') return l.lands ? 'W · U · B · R · G · Multi · Colourless · Lands' : 'W · U · B · R · G · Multi · Colourless/lands'
   if (l.by === 'IDENTITY') return 'W · U · B · R · G · Multi · Colourless'
+  if (l.by === PLACE_LEVEL) return 'A pile per place, in your rule order · No place fits'
   const buckets = levelBuckets(l, fmt)
   if (l.by === 'VALUE' && l.restOn) return `${buckets.slice(0, -1).map((b) => b.label).join(' · ')} apart, rest continue`
   if (l.by === 'SET' && l.sets!.length === 0) return 'One pile per set you name'
@@ -359,6 +387,8 @@ export interface RecipeCard {
   /** The language it's printed in, as Scryfall codes it ("en", "ja"…). */
   lang?: string | null
   played?: boolean
+  /** The place with rules it goes to (storageRules.ts placeFor), for "Into my storage"; null when none fits. */
+  place?: string | null
 }
 
 /** The card's price in US dollars for its finish, or null when not known. */
@@ -397,6 +427,10 @@ export function bucketOf(level: SplitLevel, card: RecipeCard, rate: number): str
     case 'NUMBER': return `c${lastAtOrBelow(l.cuts!, leadingNumber(card.collectorNumber))}`
     case 'RARITY': return ['mythic', 'rare', 'uncommon'].includes(card.rarity ?? '') ? card.rarity! : 'common'
     case 'TYPE': return typeSection(factsOf(card)).toLowerCase()
+    case 'PLACE': {
+      const i = l.places!.indexOf(card.place ?? '')
+      return i < 0 ? 'none' : `p${i}`
+    }
     case 'NAME': {
       const letter = letterOf(card.name)
       return `n${letter === '#' ? 0 : lastAtOrBelow(l.letters!, letter)}`
@@ -946,6 +980,14 @@ export function checkPileCard(derived: DerivedPiles, scans: RecipeScan[], pile: 
 export function pileGoesTo(recipe: SortRecipe, pile: RecipePile): string {
   const set = (recipe.goTo ?? []).find((g) => g.pile === pile.key)
   if (set) return set.to
+  // Into my storage: a place's pile goes to that place, "No place fits" to none.
+  const first = recipe.levels[0]
+  if (first?.by === PLACE_LEVEL) {
+    if (pile.key === 'L:none') return ''
+    const m = /^L:p(\d+)$/.exec(pile.key)
+    const id = m ? first.places?.[Number(m[1])] : undefined
+    if (id) return id
+  }
   return pile.key === 'S:DECKS' || pile.key === 'S:GOALS' || pile.key === 'S:FRIENDS' || pile.key === 'S:TRADE' ? '' : BY_RULE
 }
 

@@ -29,9 +29,10 @@ import { isBasicLand } from '../decks/missing'
 import { buildCardListText } from './cardListText'
 import { intoPile, pileEntryOf, withUnsortedPile } from './unsorted'
 import { sellRows } from './selling'
+import { hasRoom, placeFor, placeOrderOf, ruleCardOfFacts, type RuleCard } from './storageRules'
 import {
   copyKey, copyPlace, lentByEntry, lentCopies, lentFromDeck, lentOf, lentTag, mergeCopyPlaces, moveCopies, parentsOf, placeAndInside, placeCopies, placedCopies, placesOf,
-  placeTree, pocketLabel, positionHint, ruleSection, sameCardName, suggestSpot, tidied, unplacedCopies, withPlaces,
+  placeTree, pocketLabel, positionHint, sameCardName, suggestSpot, tidied, unplacedCopies, withPlaces,
   type CardFacts, type PlacedCard, type Spot,
 } from './storagePlaces'
 
@@ -712,19 +713,19 @@ export interface PutBackGroup {
 export interface PutBackList { groups: PutBackGroup[]; total: number }
 
 /**
- * The best place by rule for a card: the first box (in tree order) with a sorting rule it fits —
- * one with no sections takes any card, one with sections only cards its rule files in one of them.
- * Binders aren't sorted by rule. Null when none fits.
+ * The best place by rule for a card: the first place in the user's rule order whose rules it fits and
+ * (with [needRoom]) that has room (storageRules.ts placeFor) — [card] is the card as the places' "Holds" judge it; without
+ * it, as far as its sorting facts tell (ruleCardOfFacts). Null when none fits.
  */
-export function bestPlaceByRule(places: StoragePlace[], facts: CardFacts, collections: Collection[]): { spot: Spot; place: StoragePlace } | null {
-  for (const { place } of placeTree(places)) {
-    if (!place.sortRule || place.kind === 'BINDER') continue
-    const sections = place.sections ?? []
-    const section = ruleSection(place.sortRule, facts, sections)
-    if (sections.length > 0 && !(section && sections.some((s) => s.toLowerCase() === section.toLowerCase()))) continue
-    return { spot: suggestSpot(place, facts, collections).spot, place }
-  }
-  return null
+export function bestPlaceByRule(
+  places: StoragePlace[], facts: CardFacts, collections: Collection[], card?: RuleCard | null,
+  factsOf: (e: CollectionEntry) => CardFacts | null = () => null, toUsd: (n: number) => number = (n) => n,
+  /** Pass over a place that's full (putting away one card at a time); filing a sorted pile warns instead. */
+  needRoom = false,
+): { spot: Spot; place: StoragePlace } | null {
+  const place = placeFor(places, placeOrderOf(collections), card ?? ruleCardOfFacts(facts), (p) => !needRoom || hasRoom(p, collections), toUsd)
+  if (!place) return null
+  return { spot: suggestSpot(place, facts, collections, factsOf).spot, place }
 }
 
 /** "Mountains", "Plains", "Snow-Covered Islands". */

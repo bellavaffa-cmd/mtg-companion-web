@@ -581,7 +581,7 @@ const str = (v: unknown, fallback: string) => (typeof v === 'string' ? v : fallb
 const strList = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
 const oneOf = <T extends string>(v: unknown, options: readonly T[], fallback: T): T => (options.includes(v as T) ? (v as T) : fallback)
 
-function basicJson(b: CollectionFilter) {
+export function basicJson(b: CollectionFilter) {
   return {
     type: b.type,
     text: b.text,
@@ -594,7 +594,7 @@ function basicJson(b: CollectionFilter) {
 }
 
 // Keys in this order on both apps, so the JSON is the same text.
-function advancedJson(a: AdvancedFilter) {
+export function advancedJson(a: AdvancedFilter) {
   return {
     colorTarget: a.colorTarget, colorMode: a.colorMode, colors: wubrgOrder(a.colors), multicolor: a.multicolor,
     mvOp: a.mvOp, mv: a.mv, manaCost: a.manaCost,
@@ -612,7 +612,7 @@ export function savedFiltersToJson(list: SavedFilter[]): string {
   return JSON.stringify(list.map((s) => ({ id: s.id, name: s.name, basic: basicJson(s.basic), advanced: advancedJson(s.advanced) })))
 }
 
-function basicFrom(raw: Record<string, unknown>): CollectionFilter {
+export function basicFrom(raw: Record<string, unknown>): CollectionFilter {
   return {
     type: str(raw.type, ''),
     text: str(raw.text, ''),
@@ -623,7 +623,7 @@ function basicFrom(raw: Record<string, unknown>): CollectionFilter {
   }
 }
 
-function advancedFrom(raw: Record<string, unknown>): AdvancedFilter {
+export function advancedFrom(raw: Record<string, unknown>): AdvancedFilter {
   const d = NO_ADVANCED_FILTER
   return {
     colorTarget: oneOf(raw.colorTarget, ['color', 'identity'] as const, d.colorTarget),

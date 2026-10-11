@@ -4,7 +4,7 @@
 
 import type { ScryfallCard } from './scryfall'
 import type { DeckHistoryEntry } from '../decks/deckHistory'
-import type { SortRecipe } from '../collection/sortRecipes'
+import type { SortRecipe, SplitLevel } from '../collection/sortRecipes'
 import type { ScanCorrection } from '../scan/scanCorrections'
 import type { CollectionGoal } from '../collection/collectionGoals'
 
@@ -406,6 +406,25 @@ export interface StoragePlace {
   capacity?: number
   /** A binder's pages: its size is pages × pockets per page. Left out and 0 as [capacity]. */
   pages?: number
+  /**
+   * The place's rules (collection/storageRules.ts). [holds]: the cards it holds, as a saved filter's
+   * JSON — { basic, advanced } (advancedFilter.ts savedFiltersToJson, one filter) — left out for
+   * everything. [sectionsBy]: the one level its sections go by, a sorting recipe's level (SplitLevel).
+   * [sortBy]: the order inside a section, up to two of SORT_BYS ('NAME', 'NUMBER', 'MANA_VALUE',
+   * 'VALUE' — dearest first — 'SET'). Written by an app that knows rules once the place has had one:
+   * [sortBy] then always says, [] for none — so a place without it on a device that had it was saved by
+   * an app that doesn't know about rules (keepPlaceRules). [sortRule] is still written, as the nearest
+   * old rule, for those apps.
+   */
+  holds?: PlaceHolds
+  sectionsBy?: SplitLevel
+  sortBy?: string[]
+}
+
+/** A place's "Holds" filter as kept: a saved filter's "basic", and "advanced" when one is on. */
+export interface PlaceHolds {
+  basic?: Record<string, unknown>
+  advanced?: Record<string, unknown>
 }
 
 export interface Collection {
@@ -470,6 +489,13 @@ export interface Collection {
    * once none are left — so a pile with no "collectionGoals" key was saved by an app that doesn't know about them.
    */
   collectionGoals?: CollectionGoal[]
+  /**
+   * The Unsorted pile only: the order the places with rules are tried in when a card fits more than
+   * one (collection/storageRules.ts's "Rule order"), by place id — the user's choice. Left out until
+   * it's first set; then kept — so a pile without it on a device that had it was saved by an app that
+   * doesn't know about rules.
+   */
+  placeOrder?: string[]
 }
 
 // The pile's "sealed" and "graded" as JSON — locally and in sync, the Android app's exactly:

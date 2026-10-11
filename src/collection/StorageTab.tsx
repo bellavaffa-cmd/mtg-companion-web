@@ -15,7 +15,7 @@ import { ActionSheet } from '../components/ActionSheet'
 import { rise } from '../components/kit'
 import type { PlaceKind, SortRule, StoragePlace } from '../types/models'
 import {
-  canMoveInto, cardsByPlace, childrenOf, copiesWithin, defaultSections, DEFAULT_POCKETS, PLACE_KIND_LABELS, PLACE_KINDS, placeAndInside, placeSubtitle,
+  canMoveInto, cardsByPlace, childrenOf, copiesWithin, DEFAULT_POCKETS, PLACE_KIND_LABELS, PLACE_KINDS, placeAndInside, placeSubtitle,
   placeTree, placesOf, savePlace, SORT_RULE_LABELS, SORT_RULES, storageSummary, type PlacedCard, type StorageSummary,
 } from './storagePlaces'
 import { useUpkeep } from './useUpkeep'
@@ -29,6 +29,10 @@ import { useStorageFilterFacts } from './useStorageFilterFacts'
 import { cardsFilterActive, filterCopies, filterTotals, NO_CARDS_FILTER, placedCopyUsd, storageMatchingTitle, totalsLine, type CardsFilter } from './placeFilter'
 import { copiesByPlace, walkPullList } from './pullList'
 import { startWalk } from './walkSession'
+import { holdsMap, overlapLine, overlaps, placeOrderOf, placeRules, ruleSections, withRules, type Holds } from './storageRules'
+import type { SplitLevel } from './sortRecipes'
+import { HoldsDialog, RuleOrderDialog, RulesFields } from './StorageRulesUi'
+import { ruleCardsOf } from './storageRulesView'
 import './storage.css'
 
 export const PLACE_ICONS: Record<PlaceKind, string> = { BOX: 'inventory_2', BINDER: 'menu_book', DECK_BOX: 'style', SHELF: 'shelves', OTHER: 'category' }
@@ -53,6 +57,7 @@ export function StorageTab({ query = '', onSearchEverywhere, filter = NO_CARDS_F
   const [editing, setEditing] = useState<StoragePlace | 'new' | null>(null)
   const [choosing, setChoosing] = useState(false)
   const [more, setMore] = useState(false)
+  const [ruleOrder, setRuleOrder] = useState(false)
   const share = summary.total > 0 ? summary.placed / summary.total : 0
   const putAway = () => (places.length === 0 ? navigate('/collections/setup') : setChoosing(true))
   const upkeep = useUpkeep()
@@ -205,6 +210,7 @@ export function StorageTab({ query = '', onSearchEverywhere, filter = NO_CARDS_F
             { label: 'Space', icon: 'inventory_2', detail: 'How full each place is', onClick: () => navigate('/collections/space') },
             { label: 'To sell', icon: 'sell', detail: 'Copies marked to sell, with where they are', onClick: () => navigate('/collections/sell') },
             { label: 'Sort a new pile', icon: 'call_split', detail: 'Scan a pile into piles with a recipe', onClick: () => navigate('/scan?mode=sort') },
+            { label: 'Rule order', icon: 'low_priority', detail: 'Which place a card goes to when it fits more than one', onClick: () => setRuleOrder(true) },
             { label: 'Data and speed', icon: 'speed', detail: 'Save a backup of everything, or restore one', onClick: () => navigate('/settings/data') },
             { label: 'Sharing storage at home', icon: 'shelves', detail: 'Keep cards on the same shelf as someone you live with', onClick: () => navigate('/collections/household') },
           ]}
@@ -212,6 +218,7 @@ export function StorageTab({ query = '', onSearchEverywhere, filter = NO_CARDS_F
         />
       )}
       {editing && <PlaceDialog place={editing === 'new' ? null : editing} onDismiss={() => setEditing(null)} />}
+      {ruleOrder && <RuleOrderDialog onDismiss={() => setRuleOrder(false)} />}
       {choosing && (
         <PlacePicker
           title="Put cards away into…"
@@ -277,7 +284,11 @@ export function PlacePicker({ title, onPick, onClose, without }: { title: string
   )
 }
 
-/** Make a place, or change one: its name, what it is, where it sits and how it's organised. */
+/**
+ * Make a place, or change one: its name, what it is, where it sits and how it's organised — and its rules
+ * (storageRules.ts): what it holds, its sections and its order, with a warning when they overlap
+ * another place's.
+ */
 export function PlaceDialog({ place, parentId, onDismiss, onSaved }: {
   place: StoragePlace | null; parentId?: string; onDismiss: () => void; onSaved?: (id: string) => void
 }) {
@@ -288,36 +299,63 @@ export function PlaceDialog({ place, parentId, onDismiss, onSaved }: {
   const [parent, setParent] = useState(place?.parentId ?? parentId ?? '')
   const [note, setNote] = useState(place?.note ?? '')
   const [pockets, setPockets] = useState(String(place?.pocketsPerPage ?? DEFAULT_POCKETS))
+  // A binder's order (collection/binderPages.ts).
   const [rule, setRule] = useState<SortRule | ''>(place?.sortRule ?? '')
   const [sections, setSections] = useState((place?.sections ?? []).join(', '))
+  // The rules, as the place goes by them now — an older app's sorting rule read as what it meant.
+  const [start] = useState(() => (place ? placeRules(place) : { holds: null, sectionsBy: null, sortBy: [] as string[] }))
+  const [holds, setHolds] = useState<Holds | null>(start.holds)
+  const [level, setLevel] = useState<SplitLevel | null>(start.sectionsBy)
+  const [sortKey, setSortKey] = useState(start.sortBy.join(','))
+  const [choosingHolds, setChoosingHolds] = useState(false)
+  const [ruleOrder, setRuleOrder] = useState(false)
   const parents = placeTree(places).filter((n) => !place || canMoveInto(places, place.id, n.place.id))
+  const isBinder = kind === 'BINDER'
+  // The cards in storage as the rules judge them — only while what it holds is being set or checked.
+  const needCards = holds !== null || choosingHolds
+  const stored = useMemo(() => (needCards ? [...cardsByPlace(collections).values()].flat() : NO_COPIES), [needCards, collections])
+  const { facts } = useStorageFilterFacts(stored, needCards)
+  const ruleCards = useMemo(() => ruleCardsOf(stored, facts), [stored, facts])
 
-  const save = () => {
-    if (!name.trim()) return
-    const id = place?.id ?? crypto.randomUUID()
+  const built = (id: string): StoragePlace => {
     const list = sections.split(',').map((s) => s.trim()).filter(Boolean)
-    const next: StoragePlace = {
+    const base: StoragePlace = {
       id,
       name: name.trim(),
       kind,
       ...(parent ? { parentId: parent } : {}),
       ...(note.trim() ? { note: note.trim() } : {}),
-      ...(kind === 'BOX' && list.length > 0 ? { sections: list } : {}),
-      ...(kind === 'BINDER' && Number(pockets) > 0 && Number(pockets) !== DEFAULT_POCKETS ? { pocketsPerPage: Math.round(Number(pockets)) } : {}),
-      // A box's sorting rule, or a binder's order (collection/binderPages.ts).
-      ...((kind === 'BOX' || kind === 'BINDER') && rule ? { sortRule: rule } : {}),
+      ...(!isBinder && list.length > 0 ? { sections: list } : {}),
+      ...(isBinder && Number(pockets) > 0 && Number(pockets) !== DEFAULT_POCKETS ? { pocketsPerPage: Math.round(Number(pockets)) } : {}),
+      // A binder's order (collection/binderPages.ts); anything else's is written from its rules (withRules).
+      ...(isBinder && rule ? { sortRule: rule } : {}),
       createdAt: place?.createdAt ?? Date.now(),
       // When it was last checked (collection/placeCheck.ts) isn't changed here, nor its size (Change size, boxSpace.ts).
       ...(place?.lastChecked ? { lastChecked: place.lastChecked } : {}),
       ...(place?.capacity !== undefined ? { capacity: place.capacity } : {}),
       ...(place?.pages !== undefined ? { pages: place.pages } : {}),
+      ...(place?.holds ? { holds: place.holds } : {}),
+      ...(place?.sectionsBy ? { sectionsBy: place.sectionsBy } : {}),
+      ...(place?.sortBy ? { sortBy: place.sortBy } : {}),
     }
+    return withRules(base, holds ? holdsMap(holds.basic, holds.advanced) : null, isBinder ? null : level, isBinder ? [] : sortKey.split(',').filter(Boolean))
+  }
+  const overlapLines = holds && ruleCards.length > 0
+    ? overlaps(built(place?.id ?? 'new'), places, placeOrderOf(collections), ruleCards, (n) => facts.toUsd?.(n) ?? n).map(overlapLine)
+    : []
+
+  const save = () => {
+    if (!name.trim()) return
+    const id = place?.id ?? crypto.randomUUID()
+    const next = built(id)
     changeStorage((c) => savePlace(c, next))
     if (!place) countAction('place_created')
     onSaved?.(id)
     onDismiss()
   }
 
+  if (choosingHolds) return <HoldsDialog holds={holds} cards={ruleCards} onDone={(h) => { setHolds(h); setChoosingHolds(false) }} onDismiss={() => setChoosingHolds(false)} />
+  if (ruleOrder) return <RuleOrderDialog onDismiss={() => setRuleOrder(false)} />
   return (
     <Dialog
       title={place ? 'Change place' : 'New place'}
@@ -342,11 +380,11 @@ export function PlaceDialog({ place, parentId, onDismiss, onSaved }: {
       <div className="field-label" style={{ marginTop: 12 }}>Inside</div>
       <select className="input" aria-label="Inside" value={parent} onChange={(e) => setParent(e.target.value)}>
         <option value="">Nothing — it stands on its own</option>
-        {parents.map((n) => <option key={n.place.id} value={n.place.id}>{`${' '.repeat(n.depth)}${n.place.name}`}</option>)}
+        {parents.map((n) => <option key={n.place.id} value={n.place.id}>{`${' '.repeat(n.depth)}${n.place.name}`}</option>)}
       </select>
       <div className="field-label" style={{ marginTop: 12 }}>Note</div>
       <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Bulk, trade fodder…" />
-      {kind === 'BINDER' && (
+      {isBinder && (
         <>
           <div className="field-label" style={{ marginTop: 12 }}>Pockets per page</div>
           <input className="input" inputMode="numeric" value={pockets} onChange={(e) => setPockets(e.target.value.replace(/\D/g, ''))} />
@@ -358,25 +396,23 @@ export function PlaceDialog({ place, parentId, onDismiss, onSaved }: {
           <div className="dim" style={{ marginTop: 6 }}>With an order, Add cards in order says where new cards go and what to shift.</div>
         </>
       )}
-      {kind === 'BOX' && (
+      <RulesFields
+        isBinder={isBinder}
+        holds={holds}
+        onHolds={setHolds}
+        level={level}
+        onLevel={(l) => { setLevel(l); setSections(ruleSections(l).join(', ')) }}
+        sortKey={sortKey}
+        onSortKey={setSortKey}
+        overlaps={overlapLines}
+        onRuleOrder={() => setRuleOrder(true)}
+        onChooseHolds={() => setChoosingHolds(true)}
+      />
+      {!isBinder && (level || kind === 'BOX' || sections.trim()) && (
         <>
-          <div className="field-label" style={{ marginTop: 12 }}>Sorted</div>
-          <select
-            className="input"
-            aria-label="Sorted"
-            value={rule}
-            onChange={(e) => {
-              const next = e.target.value as SortRule | ''
-              setRule(next)
-              if (!sections.trim() && next) setSections(defaultSections(next).join(', '))
-            }}
-          >
-            <option value="">Not sorted</option>
-            {SORT_RULES.map((r) => <option key={r} value={r}>{SORT_RULE_LABELS[r]}</option>)}
-          </select>
           <div className="field-label" style={{ marginTop: 12 }}>Sections</div>
           <input className="input" value={sections} onChange={(e) => setSections(e.target.value)} placeholder="White, Blue, Black…" />
-          <div className="dim" style={{ marginTop: 6 }}>In order, with commas between. Cards put away go in the section the rule gives them.</div>
+          <div className="dim" style={{ marginTop: 6 }}>In order, with commas between. Cards put away go in the section the rule gives them; rename them as you like.</div>
         </>
       )}
     </Dialog>

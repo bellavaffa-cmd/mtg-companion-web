@@ -50,6 +50,7 @@
 import type { Collection, CollectionEntry, Deck, DeckCardEntry, GameResult } from '../types/models'
 import { sameJson } from './canonicalJson'
 import { keepPlaceSizes, keepPlacesFromOlderApp, mergeCopyPlaces, mergePlaceLists, tidied } from '../collection/storagePlaces'
+import { keepPlaceRules } from '../collection/storageRules'
 import { keepForSaleFromOlderApp } from '../collection/selling'
 import { keepAlertOptionsFromOlderApp } from '../collection/wishlistTargets'
 import { keepPreReleaseFromOlderApp } from '../collection/spoilers'
@@ -256,8 +257,9 @@ export function mergeCollection(base: Collection, mineIn: Collection, theirsIn: 
   // ...and one that doesn't know about sealed product, graded copies or gear left those as they were.
   // ...and one that doesn't know about sorting recipes left those as they were.
   // ...and one that doesn't know about collection goals left those as they were.
-  const mine = keepGoalsFromOlderApp(base, keepCorrectionsFromOlderApp(base, keepRecipesFromOlderApp(base, keepGearFromOlderApp(base, keepGradedFromOlderApp(base, keepSealedFromOlderApp(base, keepAlertOptionsFromOlderApp(base, keepPreReleaseFromOlderApp(base, keepForSaleFromOlderApp(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, mineIn))))))))))))
-  const theirs = keepGoalsFromOlderApp(base, keepCorrectionsFromOlderApp(base, keepRecipesFromOlderApp(base, keepGearFromOlderApp(base, keepGradedFromOlderApp(base, keepSealedFromOlderApp(base, keepAlertOptionsFromOlderApp(base, keepPreReleaseFromOlderApp(base, keepForSaleFromOlderApp(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, theirsIn))))))))))))
+  // ...and one that doesn't know about places' rules left those (and the rule order) as they were.
+  const mine = keepGoalsFromOlderApp(base, keepCorrectionsFromOlderApp(base, keepRecipesFromOlderApp(base, keepGearFromOlderApp(base, keepGradedFromOlderApp(base, keepSealedFromOlderApp(base, keepAlertOptionsFromOlderApp(base, keepPreReleaseFromOlderApp(base, keepForSaleFromOlderApp(base, keepPlaceRules(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, mineIn)))))))))))))
+  const theirs = keepGoalsFromOlderApp(base, keepCorrectionsFromOlderApp(base, keepRecipesFromOlderApp(base, keepGearFromOlderApp(base, keepGradedFromOlderApp(base, keepSealedFromOlderApp(base, keepAlertOptionsFromOlderApp(base, keepPreReleaseFromOlderApp(base, keepForSaleFromOlderApp(base, keepPlaceRules(base, keepPlaceSizes(base, keepLoansFromOlderApp(base, keepPlacesFromOlderApp(base, theirsIn)))))))))))))
   const placesIn = (list: CollectionEntry[]) => new Map(list.map((e) => [e.scryfallId, e]))
   const [b, m, t] = [placesIn(base.entries), placesIn(mine.entries), placesIn(theirs.entries)]
   // Each card's places line by line (one added on both sides keeps the other device's), then no more
@@ -282,7 +284,9 @@ export function mergeCollection(base: Collection, mineIn: Collection, theirsIn: 
   const sortRecipes = mergeRecipes(base.sortRecipes, mine.sortRecipes, theirs.sortRecipes, minePreferred)
   const scanCorrections = mergeCorrections(base.scanCorrections, mine.scanCorrections, theirs.scanCorrections, minePreferred)
   const collectionGoals = mergeGoals(base.collectionGoals, mine.collectionGoals, theirs.collectionGoals, minePreferred)
-  const { storagePlaces: _theirs, loans: _theirLoans, sealed: _theirSealed, graded: _theirGraded, gear: _theirGear, sortRecipes: _theirRecipes, scanCorrections: _theirCorrections, collectionGoals: _theirGoals, ...rest } = theirs
+  const { storagePlaces: _theirs, loans: _theirLoans, sealed: _theirSealed, graded: _theirGraded, gear: _theirGear, sortRecipes: _theirRecipes, scanCorrections: _theirCorrections, collectionGoals: _theirGoals, placeOrder: _theirOrder, ...rest } = theirs
+  // The rule order (storageRules.ts): whoever changed it, the more recent when both did.
+  const placeOrder = pick(base.placeOrder, mine.placeOrder, theirs.placeOrder, minePreferred)
   return {
     ...rest,
     ...(storagePlaces !== undefined ? { storagePlaces } : {}),
@@ -293,6 +297,7 @@ export function mergeCollection(base: Collection, mineIn: Collection, theirsIn: 
     ...(sortRecipes !== undefined ? { sortRecipes } : {}),
     ...(scanCorrections !== undefined ? { scanCorrections } : {}),
     ...(collectionGoals !== undefined ? { collectionGoals } : {}),
+    ...(placeOrder !== undefined ? { placeOrder } : {}),
     name: pick(base.name, mine.name, theirs.name, minePreferred),
     type: pick(base.type, mine.type, theirs.type, minePreferred),
     createdAt: Math.min(mine.createdAt, theirs.createdAt),

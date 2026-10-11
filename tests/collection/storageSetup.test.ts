@@ -34,7 +34,7 @@ test('boxes are sorted and everything sits on the shelf', () => {
   assert.equal(box.sortRule, 'COLOUR')
   assert.deepEqual(box.sections, COLOUR_SECTIONS)
   assert.deepEqual(made.map((p) => p.createdAt), [1000, 1001, 1002])
-  assert.equal(placeSubtitle({ ...box, note: 'Bulk' }), 'Bulk · by colour, then A–Z')
+  assert.equal(placeSubtitle({ ...box, note: 'Bulk' }), 'Bulk · by colour · A–Z')
   // Nine pockets is the default, so it isn't written; nor sections for a box not sorted.
   const plain = counts({ binders: 1, boxes: 1, boxRule: null, shelves: 0 })
   const [b, x] = setupPlaces(plain, setupDrafts(plain), {}, 0, ids())
