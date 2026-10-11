@@ -11,7 +11,9 @@ import { allCardsOf } from '../collection/allCards'
 import { storageSummary } from '../collection/storagePlaces'
 import { savedCount } from '../collection/cardDataStore'
 import { lastAllCardsOpen } from './perfStats'
-import { BACKUP_NOTE, lastSyncedLabel, offlineLabel, openLabel, QUICK_OPEN_MS } from './dataAndSpeed'
+import { BACKUP_NOTE, lastSyncedLabel, offlineLabel, openLabel, QUICK_OPEN_MS, tagsLabel } from './dataAndSpeed'
+import { requestRefs, retagNames, tagCoverage, tagProgress, useTagsVersion } from '../tags/roleTags'
+import { refsOf } from '../tags/tagPass'
 import { backupSummary, parseBackup, restoredMessage, summaryLines, type BackupFile, type RestoreMode } from '../sync/backupFile'
 import { download, makeBackup, restoreExtras } from '../sync/backupIo'
 import { ResetCollectionPanel } from './ResetCollectionPanel'
@@ -28,6 +30,17 @@ export function DataAndSpeedSection() {
     void savedCount(printings).then((n) => { if (live) setSaved(n) })
     return () => { live = false }
   }, [printings])
+  // Card tags: how many of the cards the user has (binders, Wishlist, decks) have a role tag (tags/tagPass.ts).
+  const tagVersion = useTagsVersion()
+  const tagRefs = useMemo(() => refsOf(collections, decks), [collections, decks])
+  // tagVersion: more tags became known.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const coverage = useMemo(() => tagCoverage(tagRefs.map((r) => r.name)), [tagRefs, tagVersion])
+  const tagging = tagProgress() != null
+  const retag = () => {
+    retagNames(tagRefs.map((r) => r.name))
+    requestRefs(tagRefs, { pauseMs: 250 })
+  }
   const [opened] = useState(lastAllCardsOpen)
   // "2 min ago" moves on while the page is open.
   const [now, setNow] = useState(() => Date.now())
@@ -95,6 +108,11 @@ export function DataAndSpeedSection() {
         <div className="data-row"><span>Card data saved for offline</span><b>{saved === null ? '…' : offlineLabel(saved, printings.length)}</b></div>
         <div className="data-row"><span>Opening All cards</span><b className={opened && opened.ms < QUICK_OPEN_MS ? 'quick' : undefined}>{openLabel(opened)}</b></div>
         <div className="data-row"><span>Last synced</span><b>{lastSyncedLabel(!!account, cloud.lastSyncedAt, now)}</b></div>
+        <div className="data-row tags-row">
+          <span>Card tags</span>
+          <b>{tagsLabel(coverage.tagged, coverage.total, tagging)}</b>
+          <button type="button" className="link" disabled={tagging} onClick={retag}>Retag now</button>
+        </div>
       </section>
       <section className="panel backup-panel">
         <h3>Backup</h3>

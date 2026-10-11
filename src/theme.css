@@ -4983,6 +4983,14 @@ button.tag-chip {
 .data-row > b.quick {
   color: var(--ok);
 }
+/* Card tags: the count, then Retag now. */
+.data-row.tags-row {
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.data-row.tags-row > span {
+  flex: 1;
+}
 .backup-panel h3 {
   margin: 0;
   font-size: 0.9375rem;

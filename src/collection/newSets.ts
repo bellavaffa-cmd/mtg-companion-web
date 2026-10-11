@@ -25,6 +25,8 @@ export const MIN_SHARED = 4
 export const COMMON_KEYWORDS = new Set([
   'flying', 'first strike', 'double strike', 'trample', 'haste', 'vigilance', 'reach', 'deathtouch', 'menace',
   'defender', 'flash', 'hexproof', 'indestructible', 'ward', 'lifelink', 'scry', 'mill', 'surveil',
+  // roleTags' type-line tags: every deck has lands, so they'd make every new land "fit".
+  'land', 'fixing', 'vanilla',
 ])
 
 /** A set's card, as much of it as the matching needs. */

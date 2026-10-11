@@ -7,7 +7,7 @@ import type { ReactNode } from 'react'
 import { Icon } from '../components/Icon'
 import { ManaSymbol } from '../components/ManaSymbols'
 import {
-  COLLECTION_FILTER_RARITIES,
+  COLLECTION_FILTER_RARITIES, UNTAGGED,
   type CollectionFilter, type FilterColor,
 } from './cardFilter'
 import { chipText, type FilterChip } from './advancedFilter'
@@ -17,7 +17,7 @@ const COLOR_NAMES: Record<FilterColor, string> = { W: 'White', U: 'Blue', B: 'Bl
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 const toggle = <T,>(list: T[], item: T) => (list.includes(item) ? list.filter((x) => x !== item) : [...list, item])
 
-export function CollectionFilterPanel({ filter, onChange, onAdvanced, onClear, anyOn }: {
+export function CollectionFilterPanel({ filter, onChange, onAdvanced, onClear, anyOn, userTagOptions = [] }: {
   filter: CollectionFilter
   onChange: (f: CollectionFilter) => void
   /** Opens the Advanced filters page. */
@@ -25,7 +25,10 @@ export function CollectionFilterPanel({ filter, onChange, onAdvanced, onClear, a
   /** Clears these filters and the advanced ones; offered while [anyOn]. */
   onClear: () => void
   anyOn: boolean
+  /** The user's own tags, to filter by (allUserTags). */
+  userTagOptions?: string[]
 }) {
+  const chosen = filter.userTags ?? []
   return (
     <div className="sf-panel collection-filter">
       {/* Named as in Search. */}
@@ -56,6 +59,19 @@ export function CollectionFilterPanel({ filter, onChange, onAdvanced, onClear, a
           {COLLECTION_FILTER_RARITIES.map((r) => (
             <button key={r} type="button" className="chip" aria-pressed={filter.rarities.includes(r)} onClick={() => onChange({ ...filter, rarities: toggle(filter.rarities, r) })}>
               {cap(r)}
+            </button>
+          ))}
+        </div>
+      </Row>
+      {/* Untagged: what the tag pass found no role for. Then the user's own tags, most used first. */}
+      <Row label="Tags">
+        <div className="chips wrap">
+          <button type="button" className="chip" aria-pressed={!!filter.untagged} onClick={() => onChange({ ...filter, untagged: !filter.untagged })}>
+            {UNTAGGED}
+          </button>
+          {userTagOptions.map((t) => (
+            <button key={t} type="button" className="chip" aria-pressed={chosen.includes(t)} onClick={() => onChange({ ...filter, userTags: toggle(chosen, t) })}>
+              {t}
             </button>
           ))}
         </div>
