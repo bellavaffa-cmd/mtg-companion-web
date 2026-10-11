@@ -1,6 +1,7 @@
-// The Collection's Storage tab: how much of the collection has a place, the places themselves as a
-// tree with their copies, the deck boxes and the copies lent out (the Loans page), Sort a new pile and
-// Value by place — and the dialogs to make, change and pick a place. The logic is in storagePlaces.ts. Mirrors the Android app's StorageTab.kt
+// The Collection's Storage tab: Put cards away (and the other storage tools under More), the places
+// themselves as a tree with their copies and the binders using them, then deck boxes, sealed, graded,
+// lent out and gear, and how much of the collection has a place — and the dialogs to make, change and
+// pick a place. The logic is in storagePlaces.ts. Mirrors the Android app's StorageTab.kt
 // (ui/collection/StorageTab.kt).
 
 import { countAction } from '../usage/usage'
@@ -21,36 +22,45 @@ import { useUpkeep } from './useUpkeep'
 import { sealedOf, sealedTotalUsd } from './sealed'
 import { useMoney } from '../money/currency'
 import { gearOf, gearSummary } from './gear'
+import { gradedOf } from './graded'
+import { bindersByPlace, bindersIn, inBindersLine } from './collectionLayout'
 import './storage.css'
 
 export const PLACE_ICONS: Record<PlaceKind, string> = { BOX: 'inventory_2', BINDER: 'menu_book', DECK_BOX: 'style', SHELF: 'shelves', OTHER: 'category' }
 
 const count = (n: number) => n.toLocaleString('en-GB')
 
-export function StorageTab() {
+export function StorageTab({ query = '', onSearchEverywhere }: { query?: string; onSearchEverywhere?: () => void } = {}) {
   const { collections, decks } = useSync()
   const navigate = useNavigate()
   const places = placesOf(collections)
   const summary = useMemo(() => storageSummary(collections, decks), [collections, decks])
+  const byPlace = useMemo(() => bindersByPlace(collections), [collections])
   const [editing, setEditing] = useState<StoragePlace | 'new' | null>(null)
   const [choosing, setChoosing] = useState(false)
+  const [more, setMore] = useState(false)
   const share = summary.total > 0 ? summary.placed / summary.total : 0
   const putAway = () => (places.length === 0 ? navigate('/collections/setup') : setChoosing(true))
   const upkeep = useUpkeep()
   const money = useMoney()
   const sealed = sealedOf(collections)
+  const graded = gradedOf(collections)
+  const gradedUsd = graded.reduce((n, g) => n + (g.valueUsd ?? 0), 0)
   const gearLine = useMemo(() => gearSummary(gearOf(collections), decks), [collections, decks])
+  const q = query.trim()
+  const found = q ? placeTree(places).filter((n) => n.place.name.toLowerCase().includes(q.toLowerCase())) : []
+  // A place's line: what it is, and the binders with copies in it ("in 2 binders").
+  const detail = (p: StoragePlace, withSubtitle: boolean) =>
+    [withSubtitle ? placeSubtitle(p) : '', inBindersLine(bindersIn(byPlace, places, p.id))].filter(Boolean).join(' · ')
 
   return (
     <>
-      <div className="storage-progress rise" style={rise(1)}>
-        <div className="storage-progress-h">{count(summary.placed)} of {count(summary.total)} {summary.total === 1 ? 'copy has' : 'copies have'} a place</div>
-        <div className="storage-bar"><div style={{ width: `${Math.round(share * 100)}%` }} /></div>
-        {summary.unplaced > 0 && (
-          <button type="button" className="link storage-progress-link" onClick={putAway}>
-            {count(summary.unplaced)} without a place · Put them away
-          </button>
-        )}
+      {/* Put cards away, and the rest of storage's tools behind More. */}
+      <div className="storage-actions rise" style={rise(1)}>
+        <button type="button" className="btn gold storage-putaway" onClick={putAway}>
+          <Icon name="qr_code_scanner" aria-hidden />Put cards away{summary.unplaced > 0 && ` · ${count(summary.unplaced)}`}
+        </button>
+        <button type="button" className="ib" aria-label="More storage tools" aria-haspopup="dialog" onClick={() => setMore(true)}><Icon name="more_vert" /></button>
       </div>
 
       <div className="storage-head rise" style={rise(2)}>
@@ -71,55 +81,81 @@ export function StorageTab() {
             ]}
           />
         )}
-        {childrenOf(places, null).map((top, i) => (
-          <PlaceGroup key={top.id} top={top} places={places} summary={summary} index={i} onOpen={(id) => navigate(`/collections/place/${id}`)} />
-        ))}
-        <button type="button" className="storage-row storage-card press rise" style={rise(4)} onClick={() => navigate('/decks')}>
-          <Icon name="style" className="storage-icon" />
-          <div className="storage-text"><b>Deck boxes</b><span>Your physical decks, kept up to date</span></div>
-          <span className="storage-n">{count(summary.inDecks)}</span>
-        </button>
-        <button type="button" className="storage-row storage-card press rise" style={rise(5)} onClick={() => navigate('/loans')}>
-          <Icon name="handshake" className="storage-icon" />
-          <div className="storage-text"><b>Lent out</b><span>Your loans, and what friends lent you</span></div>
-          <span className="storage-n">{count(summary.lent)}</span>
-        </button>
-        <button type="button" className="storage-row storage-card press rise" style={rise(5)} onClick={() => navigate('/collections/sealed')}>
-          <Icon name="inventory_2" className="storage-icon" />
-          <div className="storage-text"><b>Sealed</b><span>{sealed.length > 0 ? `${count(sealed.reduce((n, p) => n + p.count, 0))} sealed · ${money.format(sealedTotalUsd(sealed), true)}` : 'Booster boxes, bundles and precons'}</span></div>
-          <span className="storage-n">{count(sealed.reduce((n, p) => n + p.count, 0))}</span>
-        </button>
-        <button type="button" className="storage-row storage-card press rise" style={rise(5)} onClick={() => navigate('/collections/gear')}>
-          <Icon name="backpack" className="storage-icon" />
-          <div className="storage-text"><b>Gear</b><span>{gearLine}</span></div>
-          <Icon name="chevron_right" aria-hidden />
-        </button>
-        <button type="button" className="storage-row storage-card press rise" style={rise(5)} onClick={() => navigate('/settings/data')}>
-          <Icon name="speed" className="storage-icon" />
-          <div className="storage-text"><b>Data and speed</b><span>Save a backup of everything, or restore one</span></div>
-          <Icon name="chevron_right" aria-hidden />
-        </button>
-        <button type="button" className="storage-row storage-card press rise" style={rise(5)} onClick={() => navigate('/collections/household')}>
-          <Icon name="shelves" className="storage-icon" />
-          <div className="storage-text"><b>Sharing storage at home</b><span>Keep cards on the same shelf as someone you live with</span></div>
-          <Icon name="chevron_right" aria-hidden />
-        </button>
-        <div className="place-actions rise" style={rise(6)}>
-          <button type="button" className={upkeep.items.length > 0 ? 'btn soft' : 'btn line'} onClick={() => navigate('/collections/upkeep')}>
-            <Icon name="task_alt" aria-hidden />Upkeep{upkeep.items.length > 0 && <span className="badge-n">{upkeep.items.length}</span>}
-          </button>
-          <button type="button" className="btn line" onClick={() => navigate('/collections/setup')}><Icon name="inventory_2" aria-hidden />Set up storage</button>
-        </div>
-        <div className="place-actions rise" style={rise(6)}>
-          <button type="button" className="btn line" onClick={() => navigate('/sort')}><Icon name="call_split" aria-hidden />Sort a new pile</button>
-          <button type="button" className="btn line" onClick={() => navigate('/collections/value')}><Icon name="payments" aria-hidden />Value by place</button>
-        </div>
-        <div className="place-actions rise" style={rise(6)}>
-          <button type="button" className="btn line" onClick={() => navigate('/collections/space')}><Icon name="inventory_2" aria-hidden />Space</button>
-          <button type="button" className="btn line" onClick={() => navigate('/collections/sell')}><Icon name="sell" aria-hidden />To sell</button>
-        </div>
+        {q ? (
+          <>
+            {found.length === 0 && places.length > 0 && <div className="dim">No places match “{q}”.</div>}
+            {found.map((n) => (
+              <button key={n.place.id} type="button" className="storage-row storage-card press" onClick={() => navigate(`/collections/place/${n.place.id}`)}>
+                <Icon name={PLACE_ICONS[n.place.kind]} className={`storage-icon${n.depth > 0 ? ' gold' : ''}`} />
+                <div className="storage-text"><b>{n.place.name}</b><span>{detail(n.place, true)}</span></div>
+                <span className="storage-n">{count(copiesWithin(summary, places, n.place.id))}</span>
+              </button>
+            ))}
+            {onSearchEverywhere && <SearchEverywhereRow query={q} onClick={onSearchEverywhere} />}
+          </>
+        ) : (
+          <>
+            {childrenOf(places, null).map((top, i) => (
+              <PlaceGroup key={top.id} top={top} places={places} summary={summary} index={i} detail={detail} onOpen={(id) => navigate(`/collections/place/${id}`)} />
+            ))}
+            <button type="button" className="storage-row storage-card press rise" style={rise(4)} onClick={() => navigate('/decks')}>
+              <Icon name="style" className="storage-icon" />
+              <div className="storage-text"><b>Deck boxes</b><span>Your physical decks, kept up to date</span></div>
+              <span className="storage-n">{count(summary.inDecks)}</span>
+            </button>
+            <button type="button" className="storage-row storage-card press rise" style={rise(5)} onClick={() => navigate('/collections/sealed')}>
+              <Icon name="inventory_2" className="storage-icon" />
+              <div className="storage-text"><b>Sealed</b><span>{sealed.length > 0 ? `${count(sealed.reduce((n, p) => n + p.count, 0))} sealed · ${money.format(sealedTotalUsd(sealed), true)}` : 'Booster boxes, bundles and precons'}</span></div>
+              <span className="storage-n">{count(sealed.reduce((n, p) => n + p.count, 0))}</span>
+            </button>
+            <button type="button" className="storage-row storage-card press rise" style={rise(5)} onClick={() => navigate('/collections/graded-list')}>
+              <Icon name="verified" className="storage-icon" />
+              <div className="storage-text">
+                <b>Graded</b>
+                <span>{graded.length > 0 ? `${count(graded.length)} ${graded.length === 1 ? 'slab' : 'slabs'}${gradedUsd > 0 ? ` · ${money.format(gradedUsd, true)}` : ''}` : 'Slabs from PSA, BGS, CGC — mark one from a card\'s page'}</span>
+              </div>
+              <span className="storage-n">{count(graded.length)}</span>
+            </button>
+            <button type="button" className="storage-row storage-card press rise" style={rise(5)} onClick={() => navigate('/loans')}>
+              <Icon name="handshake" className="storage-icon" />
+              <div className="storage-text"><b>Lent out</b><span>Your loans, and what friends lent you</span></div>
+              <span className="storage-n">{count(summary.lent)}</span>
+            </button>
+            <button type="button" className="storage-row storage-card press rise" style={rise(5)} onClick={() => navigate('/collections/gear')}>
+              <Icon name="backpack" className="storage-icon" />
+              <div className="storage-text"><b>Gear</b><span>{gearLine}</span></div>
+              <Icon name="chevron_right" aria-hidden />
+            </button>
+            {/* How much of the collection has a place. */}
+            <div className="storage-progress rise" style={rise(6)}>
+              <div className="storage-progress-h">{count(summary.placed)} of {count(summary.total)} {summary.total === 1 ? 'copy has' : 'copies have'} a place</div>
+              <div className="storage-bar"><div style={{ width: `${Math.round(share * 100)}%` }} /></div>
+              {summary.unplaced > 0 && (
+                <button type="button" className="link storage-progress-link" onClick={putAway}>
+                  {count(summary.unplaced)} without a place · Put them away
+                </button>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
+      {more && (
+        <ActionSheet
+          title="Storage"
+          actions={[
+            { label: upkeep.items.length > 0 ? `Upkeep · ${upkeep.items.length}` : 'Upkeep', icon: 'task_alt', detail: "What's worth doing this week", onClick: () => navigate('/collections/upkeep') },
+            { label: 'Set up storage', icon: 'inventory_2', detail: 'Make your places from what you keep cards in', onClick: () => navigate('/collections/setup') },
+            { label: 'Value by place', icon: 'payments', detail: "What each box and binder is worth", onClick: () => navigate('/collections/value') },
+            { label: 'Space', icon: 'inventory_2', detail: 'How full each place is', onClick: () => navigate('/collections/space') },
+            { label: 'To sell', icon: 'sell', detail: 'Copies marked to sell, with where they are', onClick: () => navigate('/collections/sell') },
+            { label: 'Sort a new pile', icon: 'call_split', detail: 'Scan a pile into piles with a recipe', onClick: () => navigate('/sort') },
+            { label: 'Data and speed', icon: 'speed', detail: 'Save a backup of everything, or restore one', onClick: () => navigate('/settings/data') },
+            { label: 'Sharing storage at home', icon: 'shelves', detail: 'Keep cards on the same shelf as someone you live with', onClick: () => navigate('/collections/household') },
+          ]}
+          onClose={() => setMore(false)}
+        />
+      )}
       {editing && <PlaceDialog place={editing === 'new' ? null : editing} onDismiss={() => setEditing(null)} />}
       {choosing && (
         <PlacePicker
@@ -132,9 +168,20 @@ export function StorageTab() {
   )
 }
 
+/** "Search everywhere for “ram”": Find anything — your cards, places and decks at once. */
+export function SearchEverywhereRow({ query, onClick }: { query: string; onClick: () => void }) {
+  return (
+    <button type="button" className="storage-row storage-card press search-everywhere" onClick={onClick}>
+      <Icon name="travel_explore" className="storage-icon gold" />
+      <div className="storage-text"><b>Search everywhere for “{query.trim()}”</b><span>Your cards, places and decks</span></div>
+      <Icon name="chevron_right" aria-hidden />
+    </button>
+  )
+}
+
 /** A top-level place as a card, with every place inside it beneath. */
-function PlaceGroup({ top, places, summary, index, onOpen }: {
-  top: StoragePlace; places: StoragePlace[]; summary: StorageSummary; index: number; onOpen: (id: string) => void
+function PlaceGroup({ top, places, summary, index, detail, onOpen }: {
+  top: StoragePlace; places: StoragePlace[]; summary: StorageSummary; index: number; detail: (p: StoragePlace, withSubtitle: boolean) => string; onOpen: (id: string) => void
 }) {
   const within = placeAndInside(places, top.id)
   const inside = placeTree(places).filter((n) => n.place.id !== top.id && within.has(n.place.id))
@@ -143,13 +190,13 @@ function PlaceGroup({ top, places, summary, index, onOpen }: {
     <div className="storage-card rise" style={rise(Math.min(index, 6) + 3)}>
       <button type="button" className="storage-row press" onClick={() => onOpen(top.id)}>
         <Icon name={PLACE_ICONS[top.kind]} className="storage-icon" />
-        <div className="storage-text"><b>{top.name}</b>{kids === 0 && <span>{placeSubtitle(top)}</span>}</div>
+        <div className="storage-text"><b>{top.name}</b>{detail(top, kids === 0) && <span>{detail(top, kids === 0)}</span>}</div>
         <span className="storage-n">{kids > 0 ? `${kids} ${kids === 1 ? 'place' : 'places'}` : count(copiesWithin(summary, places, top.id))}</span>
       </button>
       {inside.map((n) => (
         <button key={n.place.id} type="button" className="storage-row storage-sub press" style={{ marginLeft: 24 * n.depth }} onClick={() => onOpen(n.place.id)}>
           <Icon name={PLACE_ICONS[n.place.kind]} className="storage-icon gold" />
-          <div className="storage-text"><b>{n.place.name}</b><span>{placeSubtitle(n.place)}</span></div>
+          <div className="storage-text"><b>{n.place.name}</b><span>{detail(n.place, true)}</span></div>
           <span className="storage-n">{count(copiesWithin(summary, places, n.place.id))}</span>
         </button>
       ))}

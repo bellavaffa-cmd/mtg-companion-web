@@ -3,7 +3,7 @@
 
 import { biggerImageUrl } from '../types/scryfall'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Icon } from './Icon'
 import { manaSymbolUrl } from './ManaSymbols'
@@ -166,8 +166,19 @@ export function SearchPill({
 
 /** A pill-shaped tab control whose highlight slides (with a little spring) to the selected tab. */
 export function SegmentedTabs({
-  labels, selected, onSelect, counts = {}, className = '',
-}: { labels: string[]; selected: number; onSelect: (i: number) => void; counts?: Record<number, number>; className?: string }) {
+  labels, selected, onSelect, counts = {}, className = '', idPrefix, ariaLabel, tabAttrs,
+}: {
+  labels: string[]; selected: number; onSelect: (i: number) => void; counts?: Record<number, number>; className?: string
+  /**
+   * With an id prefix, a full ARIA tab row: each tab is `${idPrefix}-tab-${i}` controlling the panel
+   * `${idPrefix}-panel`, only the selected tab is in the Tab order, and the arrow keys, Home and End
+   * move between tabs.
+   */
+  idPrefix?: string
+  ariaLabel?: string
+  /** Extra attributes on one tab (the What's new tour marks a tab with data-tour). */
+  tabAttrs?: (i: number) => Record<string, string>
+}) {
   const refs = useRef<(HTMLButtonElement | null)[]>([])
   const container = useRef<HTMLDivElement>(null)
   const [ind, setInd] = useState<{ x: number; w: number } | null>(null)
@@ -182,8 +193,19 @@ export function SegmentedTabs({
     if (container.current) observer.observe(container.current)
     return () => observer.disconnect()
   }, [selected, labels.join('|'), JSON.stringify(counts)]) // eslint-disable-line react-hooks/exhaustive-deps
+  const onKeyDown = (e: ReactKeyboardEvent) => {
+    if (!idPrefix) return
+    const last = labels.length - 1
+    const next = e.key === 'ArrowRight' ? (selected >= last ? 0 : selected + 1)
+      : e.key === 'ArrowLeft' ? (selected <= 0 ? last : selected - 1)
+      : e.key === 'Home' ? 0 : e.key === 'End' ? last : null
+    if (next == null) return
+    e.preventDefault()
+    onSelect(next)
+    refs.current[next]?.focus()
+  }
   return (
-    <div ref={container} className={`seg ${className}`} role="tablist">
+    <div ref={container} className={`seg ${className}`} role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown}>
       {ind && <span className="seg-ind" style={{ width: ind.w, transform: `translateX(${ind.x}px)` }} />}
       {labels.map((label, i) => (
         <button
@@ -192,7 +214,11 @@ export function SegmentedTabs({
           type="button"
           role="tab"
           aria-selected={i === selected}
+          id={idPrefix ? `${idPrefix}-tab-${i}` : undefined}
+          aria-controls={idPrefix ? `${idPrefix}-panel` : undefined}
+          tabIndex={idPrefix ? (i === selected ? 0 : -1) : undefined}
           onClick={() => onSelect(i)}
+          {...(tabAttrs?.(i) ?? {})}
         >
           {label}
           {counts[i] ? <span className="count">{counts[i]}</span> : null}

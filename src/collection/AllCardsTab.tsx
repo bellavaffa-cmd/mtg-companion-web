@@ -1,6 +1,7 @@
-// The Collection page's All cards tab: every card owned, in binders and decks, with the collection's
-// totals, a search by name or tag, a list or a grid, and — press and hold to pick — gathering cards
-// into a binder, adding them to a deck, exporting or removing them. Mirrors the Android app's
+// The Collection page's Cards tab: every card owned, in binders and decks, with the collection's
+// totals, the header's search by name or tag, quick filters (Lent out, For sale, No place yet, Graded),
+// Group by (set, binder, place), each row saying where its copies are, a list or a grid, and — press
+// and hold to pick — gathering cards into a binder, adding them to a deck, exporting or removing them. Mirrors the Android app's
 // CollectionsScreen (AllCardsTab).
 
 import { allUserTags, userTagIndex } from '../collection/userTags'
@@ -22,7 +23,7 @@ import { CardZoomModal, zoomSteps } from '../components/CardZoomModal'
 import { Dialog } from '../components/Dialog'
 import { ManaSymbol } from '../components/ManaSymbols'
 import { useLongPress } from '../components/useLongPress'
-import { ArtImage, IconButton, PillChip, SearchPill, rise, toArtCrop, useLayoutSize } from '../components/kit'
+import { ArtImage, PillChip, rise, toArtCrop, useLayoutSize } from '../components/kit'
 import { getCardsByIds } from '../api/scryfall'
 import { buyCardUrl } from '../api/buy'
 import { isUnsorted, type Collection } from '../types/models'
@@ -45,12 +46,37 @@ import { placeTree, placesOf } from './storagePlaces'
 import { useCardViewMode } from '../settings/settings'
 import { noteAllCardsOpened } from '../settings/perfStats'
 import { useProgressiveList } from '../components/useProgressiveList'
+import type { ReactNode } from 'react'
+import type { ScryfallCard } from '../types/scryfall'
+import {
+  binderKeys, chipDescription, chipText, GROUP_BY_LABELS, GROUP_BYS, groupLayout, locationIndex, NO_PLACE_TITLE, passesQuick, placeKeys, QUICK_FILTERS,
+  QUICK_LABELS, QUICK_MANAGE, quickCount, quickSets, setGroupDetail, setKeys, type CardGroupBy, type LayoutGroup, type LocationChip, type QuickFilter,
+} from './collectionLayout'
+import { LocationChips, PutAwayCard, type ChipActions } from './LocationChips'
+import { SearchEverywhereRow } from './StorageTab'
+import { getSets } from '../api/scryfall'
+import { setProgress, type SetInfo } from './setCompletion'
 
 
 // Scryfall's data for the cards owned, kept for this visit (see cardData.ts).
 const known = knownCards
 
-export function AllCardsTab({ onImport }: { onImport: () => void }) {
+export interface CardsTabProps {
+  onImport: () => void
+  /** The header's search, and setting it (a tag tapped in a zoom). */
+  query: string
+  onQueryChange: (q: string) => void
+  /** The header's filter button: the panel open, and how many filters are on (for its badge). */
+  filterOpen: boolean
+  onFiltersOn: (n: number) => void
+  group: CardGroupBy
+  onGroup: (g: CardGroupBy) => void
+  quick: QuickFilter | null
+  onQuick: (q: QuickFilter | null) => void
+  onSearchEverywhere: () => void
+}
+
+export function AllCardsTab({ onImport, query, onQueryChange: setQuery, filterOpen, onFiltersOn, group, onGroup, quick, onQuick, onSearchEverywhere }: CardsTabProps) {
   const { collections, decks, gatherIntoBinder, removeFromCollection, addCardsToDeck, changePrintingEverywhere, setCardTags, recordUndo } = useSync()
   const showUndo = useUndoBar()
   const confirmAdd = useAddCheck()
@@ -87,15 +113,18 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
     }))
   }, [cards, cardsById, dashboard])
 
-  const [query, setQuery] = useState('')
   // Color, type and rarity, as in Search — narrowing the same list the search field does.
   const [cardFilter, setCardFilter] = useState<CollectionFilter>(NO_COLLECTION_FILTER)
-  const [filterOpen, setFilterOpen] = useState(false)
   // The Advanced filters (a page of their own), on top of the panel's.
   const [advFilter, setAdvFilter] = useState<AdvancedFilter>(NO_ADVANCED_FILTER)
   const [advOpen, setAdvOpen] = useState(false)
   const filtering = filterActive(cardFilter) || advancedActive(advFilter)
   const filtersOn = filterCount(cardFilter) + advancedCount(advFilter)
+  useEffect(() => { onFiltersOn(filtersOn) }, [filtersOn, onFiltersOn])
+  // Where every printing's copies are (collectionLayout.ts), worked out once, not per row.
+  const chipIndex = useMemo(() => locationIndex(collections, decks), [collections, decks])
+  const quickIds = useMemo(() => quickSets(collections, chipIndex), [collections, chipIndex])
+  const [puttingAway, setPuttingAway] = useState<AllCard | null>(null)
   const facts = useMemo(() => {
     const m = new Map<string, CardFacts>()
     if (cardsById) for (const [id, c] of cardsById) m.set(id, cardFactsOf(c))
@@ -114,9 +143,11 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
     return [...m].map(([code, name]) => ({ code, name })).sort((x, y) => x.name.localeCompare(y.name))
   }, [cards, cardsById])
   const clearFilters = () => { setCardFilter(NO_COLLECTION_FILTER); setAdvFilter(NO_ADVANCED_FILTER) }
+  // Group by set says how much of each set you have: "41/92" (setCompletion.ts, Scryfall's sets).
+  const setSizes = useSetSizes(group === 'set', cards, cardsById)
+  const setSizesKey = setSizes.size
   // Opens as Settings → Card Display says; the toggle changes that default.
-  const [view, setView] = useCardViewMode('allCards')
-  const switchView = () => setView(view === 'list' ? 'grid' : 'list')
+  const [view] = useCardViewMode('allCards')
   const [zoomId, setZoomId] = useState<string | null>(null)
   // Spares: binder cards no deck of yours plays — the obvious things to trade away.
   const [sparesOnly, setSparesOnly] = useState(false)
@@ -143,14 +174,30 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
   const passes = (c: AllCard, basic: CollectionFilter, adv: AdvancedFilter) =>
     filterMatches(basic, facts.get(c.scryfallId)) && advancedMatches(adv, advFacts.get(c.scryfallId), copyFacts.get(c.scryfallId), (n) => money.toUsd(n))
   const named = useMemo(() => searchAllCards(cards, q, (c) => allCardTags(c, roleTags, userTags)), [cards, q, roleTags, userTags])
-  const shown = useMemo(
+  const unquick = useMemo(
     () => named.filter((c) => (!filtering || passes(c, cardFilter, advFilter)) && (!sparesOnly || inSpares(c))),
     // passes and inSpares read only what's listed here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [named, filtering, cardFilter, advFilter, sparesOnly, spareIds, facts, advFacts, copyFacts, money],
   )
+  const shown = useMemo(() => unquick.filter((c) => passesQuick(quick, c.scryfallId, c.name, quickIds)), [unquick, quick, quickIds])
+  // Group by: each group's header, then its cards — as one list, so it still comes a screenful at a time.
+  const rows = useMemo((): ({ kind: 'head'; group: LayoutGroup<AllCard> } | { kind: 'card'; card: AllCard; key: string })[] => {
+    if (group === 'none') return shown.map((card) => ({ kind: 'card', card, key: card.scryfallId }))
+    const groups = group === 'set'
+      ? groupLayout(shown, (c) => { const k = cardsById?.get(c.scryfallId); return setKeys(k?.set ? { code: k.set, name: k.set_name ?? '' } : null) }, 'Set not known yet', (code) => {
+        const p = setSizes.get(code)
+        return p ? setGroupDetail(p.owned, p.total) : null
+      })
+      : group === 'binder'
+      ? groupLayout(shown, (c) => binderKeys(c.sources.map((s) => ({ kind: s.kind === 'deck' ? 'deck' as const : 'binder' as const, id: s.id, name: s.name }))), 'No binder')
+      : groupLayout(shown, (c) => placeKeys(chipIndex.get(c.scryfallId) ?? []), NO_PLACE_TITLE)
+    return groups.flatMap((g) => [{ kind: 'head' as const, group: g }, ...g.items.map((card) => ({ kind: 'card' as const, card, key: `${g.key}|${card.scryfallId}` }))])
+    // setSizes is read when grouping by set.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown, group, cardsById, chipIndex, setSizesKey])
   // A screenful at a time: thousands of rows at once is what made a big collection slow to open.
-  const list = useProgressiveList(shown.length, shown)
+  const list = useProgressiveList(rows.length, rows)
   const noted = useRef(false)
   useEffect(() => {
     if (noted.current || cards.length === 0) return
@@ -245,7 +292,7 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
 
   return (
     <>
-      {unsorted && unsortedCards > 0 && (
+      {unsorted && unsortedCards > 0 && !q && !quick && (
         <div className="list wide-list rise" style={{ ...rise(1), marginBottom: 14 }}>
           <button type="button" className="brow press unsorted-row" onClick={() => navigate(`/collections/${unsorted.id}`)}>
             <div className="icon-tile"><Icon name="inbox" /></div>
@@ -258,27 +305,14 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
         </div>
       )}
 
-      <DashboardPanel dashboard={dashboard} loading={cardsById === undefined} />
-      {/* Where the value sits — by set, colour, rarity, type — and the dearest cards. */}
-      <BreakdownPanel breakdown={breakdown} onViewCard={(c) => navigate(`/card/${encodeURIComponent(c.name)}?id=${c.id}`)} />
+      {!q && !quick && group === 'none' && (
+        <>
+          <DashboardPanel dashboard={dashboard} loading={cardsById === undefined} />
+          {/* Where the value sits — by set, colour, rarity, type — and the dearest cards. */}
+          <BreakdownPanel breakdown={breakdown} onViewCard={(c) => navigate(`/card/${encodeURIComponent(c.name)}?id=${c.id}`)} />
+        </>
+      )}
 
-      <div className="row rise" style={{ ...rise(3), gap: 8, marginTop: 14, maxWidth: size === 'phone' ? undefined : 560 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <SearchPill value={query} onChange={setQuery} placeholder="Name or tag, e.g. ramp" />
-        </div>
-        <button
-          type="button"
-          className={`ib filter-ib${filtering || filterOpen ? ' on' : ''}`}
-          aria-expanded={filterOpen}
-          aria-label={filtering ? `Filters, ${filtersOn} on` : 'Filters'}
-          title={filtering ? `Filters, ${filtersOn} on` : 'Filters'}
-          onClick={() => setFilterOpen((o) => !o)}
-        >
-          <Icon name="filter_list" />
-          {filtersOn > 0 && <span className="filter-badge" aria-hidden>{filtersOn}</span>}
-        </button>
-        <IconButton icon={view === 'list' ? 'grid_view' : 'view_list'} label={view === 'list' ? 'Show as a grid' : 'Show as a list'} onClick={switchView} />
-      </div>
       {filterOpen && (
         <div className="rise" style={{ maxWidth: size === 'phone' ? undefined : 560 }}>
           <CollectionFilterPanel filter={cardFilter} onChange={setCardFilter} onAdvanced={() => setAdvOpen(true)} onClear={clearFilters} anyOn={filtering} />
@@ -309,7 +343,20 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
           onClose={() => setAdvOpen(false)}
         />
       )}
-      {(spareCards.length > 0 || decks.length > 0) && (
+      {/* Quick filters: one at a time; each has its full screen behind "Manage…". */}
+      <div className="ctabs-row" role="group" aria-label="Quick filters">
+        {QUICK_FILTERS.map((qf) => (
+          <PillChip key={qf} label={QUICK_LABELS[qf]} count={quickCount(qf, unquick, quickIds)} selected={quick === qf} onClick={() => onQuick(quick === qf ? null : qf)} />
+        ))}
+      </div>
+      {quick && (
+        <button type="button" className="link" style={{ marginTop: 8 }} onClick={() => navigate(QUICK_ROUTES[quick])}>Manage… · {QUICK_MANAGE[quick]}</button>
+      )}
+      <div className="ctabs-row" role="group" aria-label="Group by">
+        <span className="lbl">Group by</span>
+        {GROUP_BYS.map((g) => <PillChip key={g} label={GROUP_BY_LABELS[g]} selected={group === g} onClick={() => onGroup(g)} />)}
+      </div>
+      {(spareCards.length > 0 || decks.length > 0) && !quick && (
         <div className="chips" style={{ marginTop: 10 }}>
           {spareCards.length > 0 && (
             <PillChip
@@ -336,7 +383,7 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
       <div className="dim search-note">
         {sparesOnly
           ? <>{shown.length} spare {shown.length === 1 ? 'card' : 'cards'} — in your binders, in none of your decks</>
-          : filtering
+          : filtering || quick
             ? <>{shown.length} {shown.length === 1 ? 'card' : 'cards'}{dashboard && ` · ${money.format(shownValue)}`}{tagHits.length > 0 && ` · tag: ${tagHits.slice(0, 2).map(tagLabel).join(', ')}${tagHits.length > 2 ? '…' : ''}`}</>
           : q
             ? <>{shown.length} of {cards.length} unique match{tagHits.length > 0 && ` · tag: ${tagHits.slice(0, 2).map(tagLabel).join(', ')}${tagHits.length > 2 ? '…' : ''}`}</>
@@ -346,29 +393,46 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
       {notice && <div className="notice" style={{ marginTop: 10 }}><Icon name="check_circle" style={{ color: 'var(--ok)', fontSize: 18, marginRight: 6 }} />{notice}</div>}
 
       {shown.length === 0 ? (
-        <EmptyState icon="search_off" text={filtering ? 'No cards match these filters.' : <>No cards match “{query}”.</>} />
-      ) : view === 'grid' ? (
-        <div className="card-grid" style={{ marginTop: 14 }}>
-          {shown.slice(0, list.count).map((c) => (
-            <CardTile key={c.scryfallId} card={c} selecting={selecting} selected={pickedIds.has(c.scryfallId)} onToggle={() => toggle(c.scryfallId)} onZoom={() => setZoomId(c.scryfallId)} />
-          ))}
-        </div>
+        <EmptyState icon="search_off" text={quick && !q && !filtering ? `Nothing ${QUICK_LABELS[quick].toLowerCase()}.` : filtering || quick ? 'No cards match these filters.' : <>No cards match “{query}”.</>} />
       ) : (
-        <div className="list wide-list" style={{ marginTop: 14 }}>
-          {shown.slice(0, list.count).map((c) => (
-            <CardRow
-              key={c.scryfallId}
-              card={c}
-              price={dashboard?.prices.get(c.scryfallId)}
-              selecting={selecting}
-              selected={pickedIds.has(c.scryfallId)}
-              onToggle={() => toggle(c.scryfallId)}
-              onZoom={() => setZoomId(c.scryfallId)}
-            />
-          ))}
-        </div>
+        <CardRows
+          rows={rows.slice(0, list.count)}
+          grid={view === 'grid'}
+          setGroup={group === 'set'}
+          onOpenSet={(code) => navigate(`/collections/set/${encodeURIComponent(code)}`)}
+          render={(c, key) => view === 'grid'
+            ? <CardTile key={key} card={c} selecting={selecting} selected={pickedIds.has(c.scryfallId)} onToggle={() => toggle(c.scryfallId)} onZoom={() => setZoomId(c.scryfallId)} />
+            : (
+              <CardRow
+                key={key}
+                card={c}
+                chips={chipIndex.get(c.scryfallId) ?? []}
+                chipActions={{
+                  onPlace: (id, section, page) => navigate(placeLink(id, section, page)),
+                  onDeck: (id) => navigate(`/decks/${id}`),
+                  onLent: () => navigate('/loans'),
+                  onPutAway: () => setPuttingAway(c),
+                  onMore: () => navigate(`/card/${encodeURIComponent(c.name)}?id=${c.scryfallId}`),
+                }}
+                price={dashboard?.prices.get(c.scryfallId)}
+                selecting={selecting}
+                selected={pickedIds.has(c.scryfallId)}
+                onToggle={() => toggle(c.scryfallId)}
+                onZoom={() => setZoomId(c.scryfallId)}
+              />
+            )}
+        />
       )}
-      {shown.length > 0 && list.more && <div ref={list.ref} className="list-more dim">Showing {list.count} of {shown.length}…</div>}
+      {rows.length > 0 && list.more && <div ref={list.ref} className="list-more dim">Showing {Math.min(list.count, rows.length)} of {rows.length}…</div>}
+      {q && <SearchEverywhereRow query={query} onClick={onSearchEverywhere} />}
+      {puttingAway && (
+        <PutAwayCard
+          name={puttingAway.name}
+          scryfallId={puttingAway.scryfallId}
+          count={(chipIndex.get(puttingAway.scryfallId) ?? []).find((x) => x.kind === 'none')?.qty ?? 1}
+          onClose={() => setPuttingAway(null)}
+        />
+      )}
 
       {selecting && (
         <div className="select-bar" role="toolbar" aria-label="Selected cards">
@@ -469,6 +533,14 @@ export function AllCardsTab({ onImport }: { onImport: () => void }) {
                 </div>
               )}
             </div>
+            {/* Where its copies are kept: every place, deck and loan. */}
+            {(chipIndex.get(zoomCard.scryfallId) ?? []).length > 0 && (
+              <div className="loc-chips" style={{ marginTop: 8 }} aria-label="Where it is">
+                {(chipIndex.get(zoomCard.scryfallId) ?? []).map((chip, i) => (
+                  <span key={i} className={`loc-chip${chip.kind === 'none' ? ' amber' : ''}`}><span aria-hidden="true">{chip.kind === 'none' ? `No place yet ×${chip.qty}` : chipText(chip)}</span><span className="sr-only">{chipDescription(chip)}</span></span>
+                ))}
+              </div>
+            )}
             <button type="button" className="btn line sm" style={{ marginTop: 10 }} onClick={() => setChanging({ scryfallId: zoomCard.scryfallId, name: zoomCard.name })}>
               <Icon name="swap_horiz" aria-hidden />Change printing
             </button>
@@ -542,8 +614,8 @@ function DashboardPanel({ dashboard, loading }: { dashboard: CollectionDashboard
   )
 }
 
-function CardRow({ card, price, selecting, selected, onToggle, onZoom }: {
-  card: AllCard; price?: number; selecting: boolean; selected: boolean; onToggle: () => void; onZoom: () => void
+function CardRow({ card, chips, chipActions, price, selecting, selected, onToggle, onZoom }: {
+  card: AllCard; chips: LocationChip[]; chipActions: ChipActions; price?: number; selecting: boolean; selected: boolean; onToggle: () => void; onZoom: () => void
 }) {
   const money = useMoney()
   const longPress = useLongPress({ onLongPress: onToggle, onClick: selecting ? onToggle : onZoom, selected: selecting ? selected : undefined })
@@ -560,8 +632,10 @@ function CardRow({ card, price, selecting, selected, onToggle, onZoom }: {
         <div className="cmeta">
           <span><b>{card.total}</b> total</span>
           {card.proxies > 0 && <span className="badge soft">{card.proxies === card.total ? 'proxy' : `${card.proxies} proxy`}</span>}
-          <span>in {where.slice(0, 2).join(', ')}{where.length > 2 ? ` +${where.length - 2} more` : ''}</span>
+          {chips.length === 0 && <span>in {where.slice(0, 2).join(', ')}{where.length > 2 ? ` +${where.length - 2} more` : ''}</span>}
         </div>
+        {/* Where its copies are: "Blue box › Instants ×2", "Talrand deck ×1", "No place yet · Put away". */}
+        {!selecting && <LocationChips chips={chips} actions={chipActions} />}
       </div>
       {price != null ? <span className="cprice">{money.format(price)}</span> : <span />}
     </div>
@@ -584,4 +658,86 @@ function CardTile({ card, selecting, selected, onToggle, onZoom }: {
       <div className="card-cell-name" aria-hidden={card.imageUrl ? true : undefined}>{card.name}</div>
     </div>
   )
+}
+
+/** A place's page, at a box's section or a binder's page (a card row's place chip). */
+const placeLink = (id: string, section?: string, page?: number) => {
+  const p = new URLSearchParams()
+  if (section) p.set('section', section)
+  if (page) p.set('page', String(page))
+  const qs = p.toString()
+  return `/collections/place/${id}${qs ? `?${qs}` : ''}`
+}
+
+/** The full screen behind each quick filter's "Manage…". */
+const QUICK_ROUTES: Record<QuickFilter, string> = { lent: '/loans', sale: '/collections/sell', noplace: '/collections/upkeep', graded: '/collections/graded-list' }
+
+/** The Cards list: rows (or tiles) under their group headers; a set's header opens the set. */
+function CardRows({ rows, grid, setGroup, onOpenSet, render }: {
+  rows: ({ kind: 'head'; group: LayoutGroup<AllCard> } | { kind: 'card'; card: AllCard; key: string })[]
+  grid: boolean
+  setGroup: boolean
+  onOpenSet: (code: string) => void
+  render: (card: AllCard, key: string) => ReactNode
+}) {
+  // Runs of cards between headers, so a grid stays a grid under each header.
+  const blocks: ({ head: LayoutGroup<AllCard> } | { cards: { card: AllCard; key: string }[] })[] = []
+  for (const r of rows) {
+    if (r.kind === 'head') blocks.push({ head: r.group })
+    else {
+      const last = blocks[blocks.length - 1]
+      if (last && 'cards' in last) last.cards.push(r)
+      else blocks.push({ cards: [r] })
+    }
+  }
+  return (
+    <div style={{ marginTop: 14 }}>
+      {blocks.map((b, i) => {
+        if ('head' in b) {
+          const g = b.head
+          const inner = (
+            <>
+              <h3>{g.title}</h3>
+              {g.detail && <span className="detail" aria-label={`${g.detail} of the set`}>{g.detail}</span>}
+              <span className="n">{g.items.length} {g.items.length === 1 ? 'card' : 'cards'}</span>
+            </>
+          )
+          return setGroup && g.key
+            ? <button key={`h${i}`} type="button" className="cgroup-h press" onClick={() => onOpenSet(g.key)}>{inner}<Icon name="chevron_right" aria-hidden /></button>
+            : <div key={`h${i}`} className="cgroup-h">{inner}</div>
+        }
+        return (
+          <div key={`b${i}`} className={grid ? 'card-grid' : 'list wide-list'}>
+            {b.cards.map((r) => render(r.card, r.key))}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * How much of each set the user has, by set code — Scryfall's set list fetched when [on] (grouping by
+ * set), with the owned printings counted as the Sets page did (setCompletion.ts).
+ */
+function useSetSizes(on: boolean, cards: AllCard[], cardsById: Map<string, ScryfallCard> | null | undefined): Map<string, { owned: number; total: number }> {
+  const [sets, setSets] = useState<Map<string, SetInfo> | null>(null)
+  useEffect(() => {
+    if (!on || sets) return
+    let cancelled = false
+    getSets().then((found) => { if (!cancelled && found.size > 0) setSets(found) }).catch(() => { /* the headers just say the count */ })
+    return () => { cancelled = true }
+  }, [on, sets])
+  return useMemo(() => {
+    const out = new Map<string, { owned: number; total: number }>()
+    if (!on || !sets || !cardsById) return out
+    const owned = new Map<string, string>()
+    for (const c of cards) {
+      if (c.total - c.proxies <= 0) continue
+      const set = cardsById.get(c.scryfallId)?.set
+      if (set) owned.set(c.scryfallId, set)
+    }
+    for (const p of setProgress(owned, sets)) out.set(p.set.code.toLowerCase(), { owned: p.owned, total: p.set.cardCount })
+    return out
+  }, [on, sets, cards, cardsById])
 }

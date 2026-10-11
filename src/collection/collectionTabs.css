@@ -1,0 +1,81 @@
+/* The Collection's header, tabs and the location chips on card rows (CollectionsPage.tsx, LocationChips.tsx). */
+
+.ctabs-head { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.ctabs-search { display: flex; align-items: center; gap: 8px; }
+.ctabs-search .searchpill { flex: 1; min-width: 0; }
+.ctabs-attention {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  color: var(--warn);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ctabs-attention .icon { font-size: 18px; }
+.ctabs-tabs { max-width: 560px; }
+.ctabs-tabs .seg { width: 100%; }
+.ctabs-tabs .seg > button { flex: 1; }
+
+.ctabs-row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin-top: 10px; align-items: center; }
+.ctabs-row::-webkit-scrollbar { display: none; }
+.ctabs-row .lbl { color: var(--t2); font-size: 0.8125rem; white-space: nowrap; margin-right: 2px; }
+
+.cgroup-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 6px;
+  min-height: 40px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+  padding: 0;
+}
+button.cgroup-h { cursor: pointer; }
+.cgroup-h h3 { margin: 0; font-size: 0.9375rem; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cgroup-h .detail { color: var(--gold); font-weight: 700; font-size: 0.8125rem; }
+.cgroup-h .n { margin-left: auto; color: var(--t2); font-size: 0.8125rem; white-space: nowrap; }
+
+.loc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.loc-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 24px;
+  padding: 2px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--g2, rgba(255, 255, 255, 0.06));
+  color: var(--t1);
+  font: inherit;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+button.loc-chip { cursor: pointer; }
+.loc-chip.amber {
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 45%, transparent);
+}
+
+.storage-actions { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.storage-putaway { flex: 1; min-height: 48px; justify-content: center; }
+.search-everywhere { margin-top: 10px; }
+
+.goals-section { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; }
+.goals-section-h { display: flex; align-items: center; gap: 8px; }
+.goals-section-h h2 { margin: 0; font-size: 1rem; font-weight: 800; flex: 1; }
+.binders-h { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; }
+.binders-h h2 { margin: 0; font-size: 1rem; font-weight: 800; flex: 1; }

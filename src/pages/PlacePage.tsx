@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { useMoney } from '../money/currency'
@@ -55,7 +55,15 @@ export function PlacePage() {
     return [...ids].flatMap((p) => cardsIn(collections, p))
   }, [collections, places, id])
   const data = useCardData([...new Set(within.map((c) => c.entry.scryfallId))])
-  const [open, setOpen] = useState<Set<string>>(new Set())
+  // Opened at a box's section (a card row's place chip): that section open, and scrolled to.
+  const [startParams] = useSearchParams()
+  const startSection = startParams.get('section')
+  const [open, setOpen] = useState<Set<string>>(() => new Set(startSection ? [startSection] : []))
+  useEffect(() => {
+    if (!startSection || within.length === 0) return
+    const el = [...document.querySelectorAll<HTMLElement>('[data-section]')].find((e) => e.dataset.section?.toLowerCase() === startSection.toLowerCase())
+    el?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }, [startSection, within.length])
   const [more, setMore] = useState(false)
   const [editing, setEditing] = useState(false)
   const [adding, setAdding] = useState(false)
@@ -239,10 +247,11 @@ export function PlacePage() {
             {sections.map((s) => (
               <CardGroup
                 key={s.name ?? ''}
+                section={s.name ?? ''}
                 title={s.name ?? (sections.length > 1 ? 'No section' : 'Cards')}
                 count={s.copies}
                 cards={s.cards}
-                isOpen={open.has(s.name ?? '') || (sections.length === 1 && s.name === null)}
+                isOpen={open.has(s.name ?? '') || [...open].some((o) => o.toLowerCase() === (s.name ?? '').toLowerCase() && o !== '') || (sections.length === 1 && s.name === null)}
                 onToggle={() => toggle(s.name ?? '')}
                 onCard={openCard}
               />
@@ -367,11 +376,11 @@ export function PlacePage() {
   )
 }
 
-function CardGroup({ title, count, cards, isOpen, onToggle, onCard }: {
-  title: string; count?: number; cards: PlacedCard[]; isOpen: boolean; onToggle: () => void; onCard: (c: PlacedCard) => void
+function CardGroup({ title, count, cards, isOpen, onToggle, onCard, section }: {
+  title: string; count?: number; cards: PlacedCard[]; isOpen: boolean; onToggle: () => void; onCard: (c: PlacedCard) => void; section?: string
 }) {
   return (
-    <div className={`place-section${isOpen && cards.length > 0 ? ' open' : ''}`}>
+    <div className={`place-section${isOpen && cards.length > 0 ? ' open' : ''}`} data-section={section}>
       <button type="button" className="place-section-h" aria-expanded={isOpen} onClick={onToggle}>
         <b>{title}</b><span>{count ?? cards.reduce((n, c) => n + c.line.qty, 0)}</span>
       </button>

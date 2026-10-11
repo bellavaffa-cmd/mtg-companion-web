@@ -21,6 +21,8 @@ import { postGoalCompleted } from '../social/activity'
 import './storage.css'
 import './recipes.css'
 import './goals.css'
+import './collectionHome.css'
+import './collectionTabs.css'
 
 /** The bar: gold while going, green once complete. */
 export function GoalBar({ p, big }: { p: GoalProgress; big?: boolean }) {
@@ -47,22 +49,32 @@ export function GoalRow({ goal, p, onClick }: { goal: CollectionGoal; p: GoalPro
 }
 
 /** The Collection home's Goals card: the two open goals nearest done, and See all. */
-export function GoalsHomeCard() {
+/**
+ * The Binders tab's Goals: every open goal with its progress, nearest done first (narrowed by the
+ * Collection's search, [query]), how many are complete, New goal and See all.
+ */
+export function GoalsSection({ query = '' }: { query?: string }) {
   const navigate = useNavigate()
   const { goals, progress } = useGoals()
   const { open, done } = sortedGoals(goals, progress)
+  const q = query.trim().toLowerCase()
+  const shown = q ? open.filter((g) => g.name.toLowerCase().includes(q)) : open
   return (
-    <section className="chome-todo goals-home">
-      <div className="chome-head">
-        <h2>Goals</h2>
-        <button type="button" className="link" onClick={() => navigate('/collections/goals')}>{goals.length > 0 ? 'See all' : 'New goal'}</button>
+    <section className="goals-section" aria-labelledby="goals-h">
+      <div className="goals-section-h">
+        <h2 id="goals-h">Goals</h2>
+        {goals.length > 0 && <button type="button" className="link" onClick={() => navigate('/collections/goals')}>See all</button>}
+        <button type="button" className="btn soft sm" onClick={() => navigate('/collections/goals/new')}><Icon name="add" aria-hidden />New goal</button>
       </div>
-      {open.length === 0 ? (
+      {shown.length === 0 && !q ? (
         <button type="button" className="chome-row goal-empty" onClick={() => navigate(goals.length > 0 ? '/collections/goals' : '/collections/goals/new')}>
           <Icon name="flag" aria-hidden />
           <span>{done.length > 0 ? `${done.length} complete — set another goal` : 'Set a goal: finish a set, playsets, a foil deck…'}</span>
         </button>
-      ) : open.slice(0, 2).map((g) => <GoalRow key={g.id} goal={g} p={progress(g)} onClick={() => navigate(`/collections/goals/${encodeURIComponent(g.id)}`)} />)}
+      ) : shown.map((g) => <GoalRow key={g.id} goal={g} p={progress(g)} onClick={() => navigate(`/collections/goals/${encodeURIComponent(g.id)}`)} />)}
+      {done.length > 0 && shown.length > 0 && !q && (
+        <button type="button" className="link" style={{ alignSelf: 'flex-start' }} onClick={() => navigate('/collections/goals')}>{done.length} complete · See all</button>
+      )}
     </section>
   )
 }
