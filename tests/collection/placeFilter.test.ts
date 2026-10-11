@@ -11,6 +11,7 @@ import { copiesByPlace, walkingOrder, walkPullList } from '../../src/collection/
 import { cardsIn, placeChains, placesOf, type PlacedCard } from '../../src/collection/storagePlaces.ts'
 import { chipText } from '../../src/collection/collectionLayout.ts'
 import { namesDecksUse } from '../../src/collection/spares.ts'
+import { userTagIndex } from '../../src/collection/userTags.ts'
 import { normalizeDeck, type Collection, type CollectionEntry, type CopyPlace, type StoragePlace } from '../../src/types/models.ts'
 import type { ScryfallCard } from '../../src/types/scryfall.ts'
 
@@ -203,4 +204,38 @@ test('filters are kept per place while the app runs, and forgotten when cleared'
   memory = withFilter(memory, 'red', NO_CARDS_FILTER)
   assert.equal(memory.has('red'), false)
   assert.equal(memory.size, 1)
+})
+
+test("the Tags row — Untagged and your own tags — works on storage as on Cards", () => {
+  // Role tags by name (Goblin Guide looked up, no tag fits; Atraxa not looked up yet) and the user's
+  // own tags on each printing, from the collection (userTagIndex) as the pages give them.
+  const roles = new Map<string, string[]>([['lightning bolt', ['removal']], ['counterspell', ['counter']], ['goblin guide', []]])
+  const tagged: Collection[] = COLLECTIONS.map((c) => ({
+    ...c,
+    entries: c.entries.map((e) => (e.scryfallId === 'bolt' ? { ...e, userTags: ['Trade'] } : e.scryfallId === 'atx' ? { ...e, userTags: ['trade', 'Commander'] } : e)),
+  }))
+  const index = userTagIndex(DECKS, tagged)
+  const withTags: FilterFacts = { ...FACTS, roleTags: (n) => roles.get(n.trim().toLowerCase()), userTags: (id) => index.get(id) ?? [] }
+  const stored = [...cardsIn(tagged, 'red'), ...cardsIn(tagged, 'rares')]
+
+  // Untagged: only copies looked up with no role tag; a card not looked up yet isn't.
+  assert.deepEqual(names(filterCopies(stored, f({ basic: basic({ untagged: true }) }), withTags)), ['Goblin Guide ×1'])
+  // A tag of your own, any case; two need both.
+  assert.deepEqual(names(filterCopies(stored, f({ basic: basic({ userTags: ['TRADE'] }) }), withTags)),
+    ['Lightning Bolt ×2', 'Atraxa, Praetors\' Voice ×1', 'Lightning Bolt (foil) ×1'])
+  assert.deepEqual(names(filterCopies(stored, f({ basic: basic({ userTags: ['trade', 'commander'] }) }), withTags)), ['Atraxa, Praetors\' Voice ×1'])
+  // With the panel's other filters, and the Storage tab's heading counts them.
+  assert.deepEqual(names(filterCopies(stored, f({ basic: basic({ colors: ['R'], userTags: ['Trade'] }) }), withTags)),
+    ['Lightning Bolt ×2', 'Lightning Bolt (foil) ×1'])
+  const tags = f({ basic: basic({ untagged: true, userTags: ['Trade'] }) })
+  assert.equal(cardsFilterActive(tags), true)
+  assert.equal(cardsFilterCount(tags), 2)
+  assert.equal(storageMatchingTitle(tags), 'Cards in storage matching your filters')
+  // Their chips, each removable, as on Cards.
+  const chips = cardsFilterChips(tags, { binderName: () => undefined, formatLocal: (n) => `${n}` })
+  assert.deepEqual(chips.map((c) => c.key), ['untagged', 'usertag:Trade'])
+  assert.deepEqual(removeCardsFilterChip(tags, 'untagged').basic, basic({ untagged: false, userTags: ['Trade'] }))
+  assert.deepEqual(removeCardsFilterChip(tags, 'usertag:Trade').basic, basic({ untagged: true, userTags: [] }))
+  // Without tag facts (nothing looked up), Untagged leaves nothing rather than everything.
+  assert.deepEqual(filterCopies(stored, f({ basic: basic({ untagged: true }) }), FACTS), [])
 })

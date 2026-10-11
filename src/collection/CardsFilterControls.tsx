@@ -20,6 +20,7 @@ import { LocationChips } from './LocationChips'
 import { cardsFilterActive, cardsFilterChips, copyChip, removeCardsFilterChip, NO_CARDS_FILTER, type CardsFilter } from './placeFilter'
 import type { CopyGroup } from './pullList'
 import { placeTree, placesOf } from './storagePlaces'
+import { allUserTags } from './userTags'
 import { isWishlist } from './wishlist'
 
 /** The filter button by a search field: "Filters, 2 on". */
@@ -51,7 +52,9 @@ export function CardsFilterControls({ filter, onChange, open, countFor, data }: 
   countFor: (f: CardsFilter) => number
   data: Map<string, ScryfallCard> | undefined
 }) {
-  const { collections } = useSync()
+  const { collections, decks } = useSync()
+  // The user's own tags, offered in the panel's Tags row as on the Cards tab.
+  const userTagOptions = useMemo(() => allUserTags(decks, collections).slice(0, 12), [decks, collections])
   const money = useMoney()
   const [advOpen, setAdvOpen] = useState(false)
   const places = placesOf(collections)
@@ -73,6 +76,7 @@ export function CardsFilterControls({ filter, onChange, open, countFor, data }: 
             onAdvanced={() => setAdvOpen(true)}
             onClear={clear}
             anyOn={on}
+            userTagOptions={userTagOptions}
           />
           <div className="chips" style={{ marginTop: 8 }}>
             <PillChip label="Spares only" icon="swap_horiz" selected={filter.sparesOnly} onClick={() => onChange({ ...filter, sparesOnly: !filter.sparesOnly })} />

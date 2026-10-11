@@ -23,9 +23,10 @@ export const scannerModeOf = (key: string | null | undefined): ScannerMode | nul
 
 /**
  * Where the scanner was opened from: plain (the nav bar's Scan, Home, an empty state, the welcome
- * flow), Sort a new pile, a place's Put cards away or Check, or a deck's list ticked off (a fixed job).
+ * flow), Sort a new pile, a place's Put cards away or Check, a deck's list ticked off (a fixed job), or
+ * Storage's Walk this list ticked off (the same fixed job).
  */
-export type ScannerEntry = 'plain' | 'sort' | 'putAway' | 'check' | 'tick'
+export type ScannerEntry = 'plain' | 'sort' | 'putAway' | 'check' | 'tick' | 'walk'
 
 /** How the scanner opens: in [mode] (null: a fixed job of its own), and whether the mode switch shows. */
 export interface ScannerStart { mode: ScannerMode | null; showSwitch: boolean }
@@ -33,18 +34,24 @@ export interface ScannerStart { mode: ScannerMode | null; showSwitch: boolean }
 /**
  * The mode the scanner opens in. The plain entry opens in the mode last picked on the switch in this
  * browser ([last]), Add cards the first time; every other entry opens in its own job, and doesn't
- * change what's remembered. Ticking a deck's list is its own fixed job, with the switch hidden.
+ * change what's remembered. Ticking a deck's list, or the walk list, is its own fixed job, with the
+ * switch hidden.
  */
 export function scannerStart(entry: ScannerEntry, last: ScannerMode | null): ScannerStart {
   switch (entry) {
     case 'plain': return { mode: last ?? 'add', showSwitch: true }
-    case 'tick': return { mode: null, showSwitch: false }
+    case 'tick':
+    case 'walk': return { mode: null, showSwitch: false }
     default: return { mode: entry, showSwitch: true }
   }
 }
 
-/** The scanner's entry from its address: ?pull / ?putBack, ?putAway, ?check, ?sort / ?recipe / ?mode=sort. */
+/**
+ * The scanner's entry from its address: ?walk (unless putting away or checking, as ScanPage reads it),
+ * ?pull / ?putBack, ?putAway, ?check, ?sort / ?recipe / ?mode=sort.
+ */
 export function entryOf(params: URLSearchParams): ScannerEntry {
+  if (params.has('walk') && !params.has('putAway') && !params.has('check')) return 'walk'
   if (params.has('pull') || params.has('putBack')) return 'tick'
   if (params.has('putAway')) return 'putAway'
   if (params.has('check')) return 'check'

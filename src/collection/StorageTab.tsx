@@ -67,7 +67,7 @@ export function StorageTab({ query = '', onSearchEverywhere, filter = NO_CARDS_F
   const matchingOn = cardsFilterActive(searching)
   const known = useMemo(() => new Set(placesOf(collections).map((p) => p.id)), [collections])
   const stored = useMemo(() => [...cardsByPlace(collections).values()].flat().filter((c) => known.has(c.line.placeId)), [collections, known])
-  const { facts, data } = useStorageFilterFacts(matchingOn || filterOpen ? stored : NO_COPIES, q !== '')
+  const { facts, data } = useStorageFilterFacts(matchingOn || filterOpen ? stored : NO_COPIES, q !== '' || !!filter.basic.untagged)
   const matching = useMemo(() => (matchingOn ? filterCopies(stored, searching, facts) : NO_COPIES),
     // searching is filter with the query.
     // eslint-disable-next-line react-hooks/exhaustive-deps

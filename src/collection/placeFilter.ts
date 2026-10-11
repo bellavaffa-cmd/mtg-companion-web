@@ -6,7 +6,7 @@
 // tab's heading. Pure, so it can be tested. Mirrors the Android app's ui/collection/PlaceFilter.kt,
 // with the same tests (tests/collection/placeFilter.test.ts ↔ PlaceFilterTest.kt).
 
-import { filterActive, filterCount, filterMatches, NO_COLLECTION_FILTER, type CardFacts, type CollectionFilter } from './cardFilter'
+import { filterActive, filterCount, filterMatches, filterMatchesTags, NO_COLLECTION_FILTER, type CardFacts, type CollectionFilter } from './cardFilter'
 import {
   advancedActive, advancedCount, advancedMatches, filterChips, NO_ADVANCED_FILTER, removeChip,
   type AdvancedFacts, type AdvancedFilter, type ChipContext, type CopyFacts, type FilterChip,
@@ -50,6 +50,10 @@ export interface FilterFacts {
   toUsd?: (local: number) => number
   /** Whether the search finds a copy — its name and tags, as Cards searches. Plain name by default. */
   searchMatches?: (copy: PlacedCard, query: string) => boolean
+  /** A card's role tags by name (useRoleTags), for the Tags row's Untagged; undefined = not looked up yet. */
+  roleTags?: (name: string) => string[] | undefined
+  /** The user's own tags on a printing (userTagIndex), by scryfallId, for the Tags row's chips. */
+  userTags?: (scryfallId: string) => string[]
 }
 
 const nameMatches = (copy: PlacedCard, query: string) => copy.entry.name.toLowerCase().includes(query.trim().toLowerCase())
@@ -81,6 +85,8 @@ export function copyMatches(f: CardsFilter, copy: PlacedCard, facts: FilterFacts
   if (q && !(facts.searchMatches ?? nameMatches)(copy, q)) return false
   if (f.sparesOnly && facts.usedNames?.has(copy.entry.name.trim().toLowerCase()) !== false) return false
   if (!filterMatches(f.basic, facts.card(id))) return false
+  // The Tags row (Untagged, the user's own tags), judged as the Cards tab judges it.
+  if (!filterMatchesTags(f.basic, facts.roleTags?.(copy.entry.name), facts.userTags?.(id) ?? [])) return false
   if (advancedActive(f.advanced)) {
     const mine = copyFactsOfCopy(copy, facts.copies.get(id), facts.chains)
     if (!advancedMatches(f.advanced, facts.advanced(id), mine, facts.toUsd)) return false

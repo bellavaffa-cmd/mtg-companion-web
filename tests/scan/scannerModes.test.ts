@@ -21,6 +21,17 @@ test("ticking a deck's list is its own fixed job, with no switch", () => {
   assert.deepEqual(scannerStart('tick', 'sort'), { mode: null, showSwitch: false })
 })
 
+test("ticking Storage's walk list is the same fixed job, with no switch, whatever was last picked", () => {
+  for (const last of [null, ...SCANNER_MODES.map((m) => m.mode)]) {
+    assert.deepEqual(scannerStart('walk', last), { mode: null, showSwitch: false })
+  }
+  // Its address: Walk this list's Scan to tick is /scan?walk=1, not the plain scanner.
+  assert.equal(entryOf(new URLSearchParams('walk=1')), 'walk')
+  assert.equal(entryOf(new URLSearchParams('walk=1&pull=d1')), 'walk')
+  assert.equal(entryOf(new URLSearchParams('walk=1&putAway=red')), 'putAway')
+  assert.equal(entryOf(new URLSearchParams('walk=1&check=red')), 'check')
+})
+
 test('modes are kept by key', () => {
   for (const { mode } of SCANNER_MODES) assert.equal(scannerModeOf(mode), mode)
   assert.equal(scannerModeOf(null), null)

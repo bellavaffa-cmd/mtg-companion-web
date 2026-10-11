@@ -64,7 +64,7 @@ export function PlacePage() {
   // Search and filter what's here with the Cards tab's filters (placeFilter.ts), kept for this place
   // while the app is open. Prices and the filters' card data come from the same lookup.
   const [filter, setFilter] = usePlaceFilter(id)
-  const { facts, data } = useStorageFilterFacts(within, filter.query.trim() !== '')
+  const { facts, data } = useStorageFilterFacts(within, filter.query.trim() !== '' || !!filter.basic.untagged)
   const [filterOpen, setFilterOpen] = useState(false)
   const filtering = cardsFilterActive(filter)
   const matchHere = useMemo(() => filterCopies(cards, filter, facts), [cards, filter, facts])
