@@ -28,6 +28,7 @@ import { StorageSetupPage } from './pages/StorageSetupPage'
 import { UpkeepPage } from './pages/UpkeepPage'
 import { FindAnythingPage } from './pages/FindAnythingPage'
 import { SellPage } from './pages/SellPage'
+import { WalkListPage } from './pages/WalkListPage'
 import { SealedPage } from './pages/SealedPage'
 import { GradedPage } from './pages/GradedPage'
 import { GradedListPage } from './pages/GradedListPage'
@@ -135,6 +136,7 @@ export default function App() {
             <Route path="/collections/setup" element={<StorageSetupPage />} />
             <Route path="/collections/upkeep" element={<UpkeepPage />} />
             <Route path="/collections/sell" element={<SellPage />} />
+            <Route path="/collections/walk" element={<WalkListPage />} />
             <Route path="/collections/sealed" element={<SealedPage />} />
             <Route path="/collections/graded" element={<GradedPage />} />
             <Route path="/collections/graded-list" element={<GradedListPage />} />

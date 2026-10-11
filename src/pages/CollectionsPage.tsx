@@ -25,6 +25,9 @@ import {
   type CollectionTab,
 } from '../collection/collectionLayout'
 import { useMoney } from '../money/currency'
+import { FilterButton } from '../collection/CardsFilterControls'
+import { cardsFilterCount, STORAGE_FILTER_KEY } from '../collection/placeFilter'
+import { usePlaceFilter } from '../collection/placeFilterStore'
 import { useCardViewMode } from '../settings/settings'
 import { WhatsNewTour } from '../onboarding/WhatsNewTour'
 import { markTourSeen, tourSeen } from '../onboarding/whatsNewStore'
@@ -50,6 +53,8 @@ export function CollectionsPage() {
   const [query, setQuery] = useState('')
   const [filterOpen, setFilterOpen] = useState(false)
   const [filtersOn, setFiltersOn] = useState(0)
+  // The Storage tab's filters (the Cards tab's kind, over the copies in places), kept while the app is open.
+  const [storageFilter, setStorageFilter] = usePlaceFilter(STORAGE_FILTER_KEY)
   const [view, setView] = useCardViewMode('allCards')
   const group = groupByOf(params.get('group'))
   const quick = quickOf(params.get('quick'))
@@ -109,7 +114,7 @@ export function CollectionsPage() {
   const hints: Record<CollectionTab, string> = {
     cards: 'Search your cards, e.g. ramp',
     binders: 'Search binders and goals',
-    storage: 'Search your places',
+    storage: 'Search your places and the cards in them',
     wishlist: 'Search your wishlist',
   }
 
@@ -140,19 +145,10 @@ export function CollectionsPage() {
             {tab === 'cards' && (
               <>
                 <IconButton icon={view === 'list' ? 'grid_view' : 'view_list'} label={view === 'list' ? 'Show as a grid' : 'Show as a list'} onClick={() => setView(view === 'list' ? 'grid' : 'list')} />
-                <button
-                  type="button"
-                  className={`ib filter-ib${filtersOn > 0 || filterOpen ? ' on' : ''}`}
-                  aria-expanded={filterOpen}
-                  aria-label={filtersOn > 0 ? `Filters, ${filtersOn} on` : 'Filters'}
-                  title={filtersOn > 0 ? `Filters, ${filtersOn} on` : 'Filters'}
-                  onClick={() => setFilterOpen((o) => !o)}
-                >
-                  <Icon name="filter_list" />
-                  {filtersOn > 0 && <span className="filter-badge" aria-hidden>{filtersOn}</span>}
-                </button>
+                <FilterButton count={filtersOn} open={filterOpen} onClick={() => setFilterOpen((o) => !o)} />
               </>
             )}
+            {tab === 'storage' && <FilterButton count={cardsFilterCount(storageFilter)} open={filterOpen} onClick={() => setFilterOpen((o) => !o)} />}
           </div>
           {attention && (
             <button type="button" className="ctabs-attention press" aria-label={`${attention}: open Upkeep`} onClick={() => navigate('/collections/upkeep')}>
@@ -185,7 +181,7 @@ export function CollectionsPage() {
               onSearchEverywhere={searchEverywhere}
             />
           ) : tab === 'storage' ? (
-            <StorageTab query={query} onSearchEverywhere={searchEverywhere} />
+            <StorageTab query={query} onSearchEverywhere={searchEverywhere} filter={storageFilter} onFilterChange={setStorageFilter} filterOpen={filterOpen} />
           ) : tab === 'wishlist' ? (
             <CollectionDetailPage embeddedId={WISHLIST_ID} externalQuery={query} />
           ) : (

@@ -49,7 +49,7 @@ import { useProgressiveList } from '../components/useProgressiveList'
 import type { ReactNode } from 'react'
 import type { ScryfallCard } from '../types/scryfall'
 import {
-  binderKeys, chipDescription, chipText, GROUP_BY_LABELS, GROUP_BYS, groupLayout, locationIndex, NO_PLACE_TITLE, passesQuick, placeKeys, QUICK_FILTERS,
+  binderKeys, chipDescription, chipText, GROUP_BY_LABELS, placeLink, GROUP_BYS, groupLayout, locationIndex, NO_PLACE_TITLE, passesQuick, placeKeys, QUICK_FILTERS,
   QUICK_LABELS, QUICK_MANAGE, quickCount, quickSets, setGroupDetail, setKeys, type CardGroupBy, type LayoutGroup, type LocationChip, type QuickFilter,
 } from './collectionLayout'
 import { LocationChips, PutAwayCard, type ChipActions } from './LocationChips'
@@ -658,15 +658,6 @@ function CardTile({ card, selecting, selected, onToggle, onZoom }: {
       <div className="card-cell-name" aria-hidden={card.imageUrl ? true : undefined}>{card.name}</div>
     </div>
   )
-}
-
-/** A place's page, at a box's section or a binder's page (a card row's place chip). */
-const placeLink = (id: string, section?: string, page?: number) => {
-  const p = new URLSearchParams()
-  if (section) p.set('section', section)
-  if (page) p.set('page', String(page))
-  const qs = p.toString()
-  return `/collections/place/${id}${qs ? `?${qs}` : ''}`
 }
 
 /** The full screen behind each quick filter's "Manage…". */

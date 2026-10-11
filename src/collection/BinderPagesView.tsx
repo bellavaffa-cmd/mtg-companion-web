@@ -20,7 +20,7 @@ import { PlacePicker } from './StorageTab'
  * two at a time (collection/binderPages.ts). [preview]: the binder as a plan would leave it, read
  * only, with the [marked] pockets picked out. The Android app's BinderPagesView.kt.
  */
-export function BinderPagesView({ place, collections, data, page, onPage, preview = false, marked }: {
+export function BinderPagesView({ place, collections, data, page, onPage, preview = false, marked, hits }: {
   place: StoragePlace
   collections: Collection[]
   data: Map<string, ScryfallCard> | undefined
@@ -28,6 +28,8 @@ export function BinderPagesView({ place, collections, data, page, onPage, previe
   onPage: (page: number) => void
   preview?: boolean
   marked?: Set<number>
+  /** A filter's matches (placeFilter.ts matchingPockets): these pockets picked out, the other cards dimmed. */
+  hits?: Set<number>
 }) {
   const { changeStorage } = useSync()
   const navigate = useNavigate()
@@ -129,7 +131,7 @@ export function BinderPagesView({ place, collections, data, page, onPage, previe
           const card = here[0]
           const n = here.reduce((s, c) => s + c.line.qty, 0)
           const slot = pocketAt(i, pockets).slot
-          const cls = ['binder-pocket', card ? '' : 'empty', selected === i ? 'picked' : '', over === i ? 'over' : '', marked?.has(i) ? 'marked' : ''].filter(Boolean).join(' ')
+          const cls = ['binder-pocket', card ? '' : 'empty', selected === i ? 'picked' : '', over === i ? 'over' : '', marked?.has(i) ? 'marked' : '', hits && card ? (hits.has(i) ? 'hit' : 'dimmed') : ''].filter(Boolean).join(' ')
           return (
             <button
               key={i}

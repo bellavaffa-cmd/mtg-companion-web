@@ -32,7 +32,7 @@ import { sellRows } from './selling'
 import {
   copyKey, copyPlace, lentByEntry, lentCopies, lentFromDeck, lentOf, lentTag, mergeCopyPlaces, moveCopies, parentsOf, placeAndInside, placeCopies, placedCopies, placesOf,
   placeTree, pocketLabel, positionHint, ruleSection, sameCardName, suggestSpot, tidied, unplacedCopies, withPlaces,
-  type CardFacts, type Spot,
+  type CardFacts, type PlacedCard, type Spot,
 } from './storagePlaces'
 
 const nameKey = (name: string) => name.trim().toLowerCase()
@@ -365,6 +365,74 @@ export function sellPullList(collections: Collection[]): PullList {
     total: all.reduce((n, g) => n + g.rows.reduce((m, r) => m + r.qty, 0), 0),
     toBuy: 0,
     places: new Set(inPlaces.map((g) => g.placeId)).size,
+  }
+}
+
+// ---- Walk this list: any copies in storage, in walking order ----
+
+/** Some copies kept at one place (and section), for a filtered place or the Storage tab's results. */
+export interface CopyGroup {
+  key: string
+  placeId: string
+  section?: string
+  /** "Red box › Red", "Rares binder". */
+  title: string
+  /** The places it sits in: "Shelf, study". */
+  detail: string
+  copies: PlacedCard[]
+}
+
+/**
+ * [copies] grouped by place › section as you'd walk round to fetch them — places in the Storage
+ * tree's order, a box's own sections in order, then by page and pocket (a binder) or name (a box).
+ * Copies in a place that's gone are left out.
+ */
+export function copiesByPlace(copies: PlacedCard[], places: StoragePlace[]): CopyGroup[] {
+  const known = new Set(places.map((p) => p.id))
+  const groups = new Map<string, CopyGroup>()
+  for (const c of copies) {
+    if (!known.has(c.line.placeId)) continue
+    const head = placeGroup(places, c.line.placeId, c.line.section)
+    let g = groups.get(head.key)
+    if (!g) {
+      g = { ...head, placeId: c.line.placeId, ...(c.line.section ? { section: c.line.section } : {}), copies: [] }
+      groups.set(head.key, g)
+    }
+    g.copies.push(c)
+  }
+  for (const g of groups.values()) {
+    g.copies.sort((a, b) => compareInPlace({ name: a.entry.name, page: a.line.page, slot: a.line.slot }, { name: b.entry.name, page: b.line.page, slot: b.line.slot }))
+  }
+  return sortPlaceGroups([...groups.values()], places)
+}
+
+/** [copies] in the order you'd walk round to fetch them (see copiesByPlace). */
+export const walkingOrder = (copies: PlacedCard[], places: StoragePlace[]): PlacedCard[] =>
+  copiesByPlace(copies, places).flatMap((g) => g.copies)
+
+/**
+ * "Walk this list": any copies kept in places — a filtered place or the Storage tab's results — as a
+ * pull list (the deck pull list's groups and rows), to tick off by hand or with the scanner. A row a
+ * line of copies at one spot; its key stays the same while the collection does.
+ */
+export function walkPullList(copies: PlacedCard[], places: StoragePlace[]): PullList {
+  const byId = new Map(places.map((p) => [p.id, p]))
+  const groups: PullGroup[] = copiesByPlace(copies, places).map((g) => {
+    const rows = g.copies.map((c): PullRow => {
+      const spot = spotHint(byId.get(c.line.placeId), c.line, { name: c.entry.name })
+      const hint = [spot, c.line.foil ? 'foil' : null].filter(Boolean).join(' · ') || null
+      return {
+        key: `walk:${c.collectionId}:${c.entry.scryfallId}:${copyKey(c.line)}`, name: c.entry.name, scryfallId: c.entry.scryfallId, qty: c.line.qty,
+        source: { kind: 'place', collectionId: c.collectionId, scryfallId: c.entry.scryfallId, line: c.line }, hint, where: [g.title, hint].filter(Boolean).join(' · '),
+      }
+    })
+    return { key: g.key, kind: 'place', title: g.title, detail: g.detail, placeId: g.placeId, ...(g.section ? { section: g.section } : {}), rows }
+  })
+  return {
+    groups,
+    total: groups.reduce((n, g) => n + g.rows.reduce((m, r) => m + r.qty, 0), 0),
+    toBuy: 0,
+    places: new Set(groups.map((g) => g.placeId)).size,
   }
 }
 

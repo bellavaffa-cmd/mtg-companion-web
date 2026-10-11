@@ -5,8 +5,15 @@ import { useMoney } from '../money/currency'
 import { Icon } from '../components/Icon'
 import { Dialog } from '../components/Dialog'
 import { ActionSheet } from '../components/ActionSheet'
-import { ArtImage, IconButton, PageHeader, StatFigure, rise, toArtCrop, useBack } from '../components/kit'
-import { useCardData } from '../collection/cardData'
+import { ArtImage, IconButton, PageHeader, SearchPill, StatFigure, rise, toArtCrop, useBack } from '../components/kit'
+import { CardsFilterControls, CopyGroups, FilterButton } from '../collection/CardsFilterControls'
+import { useStorageFilterFacts } from '../collection/useStorageFilterFacts'
+import {
+  cardsFilterActive, cardsFilterCount, filterCopies, filterTotals, matchingPages, matchingPockets, placedCopyUsd, totalsLine,
+} from '../collection/placeFilter'
+import { usePlaceFilter } from '../collection/placeFilterStore'
+import { copiesByPlace, walkPullList } from '../collection/pullList'
+import { startWalk } from '../collection/walkSession'
 import { PLACE_ICONS, PlaceDialog } from '../collection/StorageTab'
 import {
   cardsIn, childrenOf, copiesWithin, deletePlace, pagesOf, parentsOf, placeAndInside, placeSubtitle, placesOf, pocketsOf,
@@ -54,7 +61,14 @@ export function PlacePage() {
     const ids = placeAndInside(places, id)
     return [...ids].flatMap((p) => cardsIn(collections, p))
   }, [collections, places, id])
-  const data = useCardData([...new Set(within.map((c) => c.entry.scryfallId))])
+  // Search and filter what's here with the Cards tab's filters (placeFilter.ts), kept for this place
+  // while the app is open. Prices and the filters' card data come from the same lookup.
+  const [filter, setFilter] = usePlaceFilter(id)
+  const { facts, data } = useStorageFilterFacts(within, filter.query.trim() !== '')
+  const [filterOpen, setFilterOpen] = useState(false)
+  const filtering = cardsFilterActive(filter)
+  const matchHere = useMemo(() => filterCopies(cards, filter, facts), [cards, filter, facts])
+  const matchInside = useMemo(() => filterCopies(within.filter((c) => c.line.placeId !== id), filter, facts), [within, id, filter, facts])
   // Opened at a box's section (a card row's place chip): that section open, and scrolled to.
   const [startParams] = useSearchParams()
   const startSection = startParams.get('section')
@@ -92,13 +106,20 @@ export function PlacePage() {
     )
   }
 
-  const value = data
-    ? within.reduce((sum, c) => {
-      const card = data.get(c.entry.scryfallId)
-      const price = Number(c.line.foil ? card?.prices?.usd_foil ?? card?.prices?.usd : card?.prices?.usd ?? card?.prices?.usd_foil) || 0
-      return sum + price * c.line.qty
-    }, 0)
-    : null
+  // A copy's price each (US dollars): foil copies at the foil price.
+  const usdOf = (c: PlacedCard): number | null => {
+    const card = data?.get(c.entry.scryfallId)
+    const n = (v: string | null | undefined) => (v ? Number(v) || null : null)
+    return placedCopyUsd(c, n(card?.prices?.usd), n(card?.prices?.usd_foil))
+  }
+  const value = data ? within.reduce((sum, c) => sum + (usdOf(c) ?? 0) * c.line.qty, 0) : null
+  const matching = [...matchHere, ...matchInside]
+  const totals = filterTotals(within, matching, data ? usdOf : null)
+  const walk = () => {
+    const q = filter.query.trim()
+    startWalk(`${place.name}${q ? ` · “${q}”` : ''}`, walkPullList(matching, places))
+    navigate('/collections/walk')
+  }
   // A copy's price, for Friends want these.
   const priceOf = (c: PlacedCard): number | null => {
     const card = data?.get(c.entry.scryfallId)
@@ -107,18 +128,21 @@ export function PlacePage() {
   }
   const copies = copiesWithin(summary, places, place.id)
   const inside = childrenOf(places, place.id)
-  const sections = sectionsOf(place, cards)
+  // While filtering, a box shows only its sections with a match, each open.
+  const sections = filtering ? sectionsOf(place, matchHere).filter((s) => s.cards.length > 0) : sectionsOf(place, cards)
   const binder = place.kind === 'BINDER' ? pagesOf(place, cards) : null
+  const hits = filtering && binder ? matchingPockets(place, cards, matchHere) : undefined
+  const hitPages = filtering && binder ? matchingPages(place, cards, matchHere) : []
   const toggle = (key: string) => setOpen((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n })
   const third = binder
     ? { value: binder.pages.length, label: binder.pages.length === 1 ? 'page' : 'pages' }
     : place.kind === 'BOX' || (place.sections?.length ?? 0) > 0
-      ? { value: sections.filter((s) => s.name !== null).length, label: 'sections' }
+      ? { value: sectionsOf(place, cards).filter((s) => s.name !== null).length, label: 'sections' }
       : { value: inside.length, label: inside.length === 1 ? 'place inside' : 'places inside' }
   const openCard = (c: PlacedCard) => navigate(`/card/${encodeURIComponent(c.entry.name)}?id=${c.entry.scryfallId}`)
   const pocketsInUse = binder ? binderPockets(place, cards) : []
   const waiting = binder ? looseCopies(place, cards).length : 0
-  const sectionNames = sections.flatMap((s) => (s.name !== null ? [s.name] : []))
+  const sectionNames = sectionsOf(place, cards).flatMap((s) => (s.name !== null ? [s.name] : []))
   const going = loadCheck(place.id)
   // How full it is, when it has a size (collection/boxSpace.ts).
   const space = spaceOf(place, collections)
@@ -183,6 +207,25 @@ export function PlacePage() {
           </button>
           <button type="button" className="btn line" onClick={() => navigate(`/collections/place/${place.id}/label`)}><Icon name="qr_code_2" aria-hidden />Label</button>
         </div>
+        <div className="place-filter">
+          <SearchPill value={filter.query} onChange={(query) => setFilter({ ...filter, query })} placeholder={`Search ${place.name}, e.g. goblin`} />
+          <FilterButton count={cardsFilterCount(filter)} open={filterOpen} onClick={() => setFilterOpen((o) => !o)} />
+        </div>
+        <CardsFilterControls
+          filter={filter}
+          onChange={setFilter}
+          open={filterOpen}
+          countFor={(f) => filterCopies(within, f, facts).reduce((n, c) => n + c.line.qty, 0)}
+          data={data}
+        />
+        {filtering && (
+          <div className="filter-line">
+            <b>{totalsLine(totals, (usd) => money.format(usd, true))}</b>
+            {matching.length > 0 && (
+              <button type="button" className="btn soft sm" onClick={walk}><Icon name="checklist" aria-hidden />Walk this list</button>
+            )}
+          </div>
+        )}
         <HomeShareLine place={place} homes={homes} error={shareError} onError={setShareError} />
         {place.sortRule && place.kind !== 'BINDER' && (
           <p className="place-rule">Sorted {SORT_RULE_LABELS[place.sortRule].charAt(0).toLowerCase() + SORT_RULE_LABELS[place.sortRule].slice(1)}. New cards get a section by this rule.</p>
@@ -196,7 +239,8 @@ export function PlacePage() {
         )}
         {place.lastChecked && <p className="place-rule">Last checked: {lastCheckedLabel(place.lastChecked, Date.now())}</p>}
 
-        {inside.length > 0 && (
+        {filtering && matchInside.length > 0 && <CopyGroups groups={copiesByPlace(matchInside, places)} places={places} />}
+        {inside.length > 0 && !filtering && (
           <div className="place-sections">
             {inside.map((p) => (
               <button key={p.id} type="button" className="storage-row storage-sub press" onClick={() => navigate(`/collections/place/${p.id}`)}>
@@ -214,12 +258,19 @@ export function PlacePage() {
               <button type="button" className={`pull-chip${listView ? '' : ' on'}`} aria-pressed={!listView} onClick={() => setListView(false)}>Pages</button>
               <button type="button" className={`pull-chip${listView ? ' on' : ''}`} aria-pressed={listView} onClick={() => setListView(true)}>List</button>
               <span className="count">
-                {cards.reduce((n, c) => n + c.line.qty, 0)} cards · {binder.pages.length} {binder.pages.length === 1 ? 'page' : 'pages'}
+                {filtering ? `${matchHere.reduce((n, c) => n + c.line.qty, 0)} of ` : ''}{cards.reduce((n, c) => n + c.line.qty, 0)} cards · {binder.pages.length} {binder.pages.length === 1 ? 'page' : 'pages'}
               </span>
             </div>
+            {filtering && !listView && (
+              <div className="match-pages">
+                {hitPages.length === 0 ? 'No pocket here matches.' : <>Matches on {hitPages.length === 1 ? 'page' : 'pages'}{hitPages.map((p) => (
+                  <button key={p} type="button" className={`pull-chip${p === page ? ' on' : ''}`} aria-pressed={p === page} onClick={() => setPage(p)}>{p}</button>
+                ))}</>}
+              </div>
+            )}
             {listView
-              ? <div className="place-pages"><BinderList place={place} cards={cards} onCard={openCard} /></div>
-              : <BinderPagesView place={place} collections={collections} data={data} page={page} onPage={setPage} />}
+              ? <div className="place-pages"><BinderList place={place} cards={filtering ? matchHere : cards} onCard={openCard} /></div>
+              : <BinderPagesView place={place} collections={collections} data={data} page={page} onPage={setPage} hits={hits} />}
             {!listView && (
               <div className="place-pages">
                 <button type="button" className="btn line block" onClick={() => navigate(`/collections/place/${place.id}/scan-page?page=${Math.min(Math.max(1, page), binder.pages.length + 1)}`)}>
@@ -227,9 +278,9 @@ export function PlacePage() {
                 </button>
               </div>
             )}
-            {!listView && binder.loose.length > 0 && (
+            {!listView && binder.loose.length > 0 && (!filtering || binder.loose.some((c) => matchHere.includes(c))) && (
               <div className="place-pages">
-                <CardGroup title="Not in a pocket yet" cards={binder.loose} isOpen onToggle={() => {}} onCard={openCard} />
+                <CardGroup title="Not in a pocket yet" cards={filtering ? binder.loose.filter((c) => matchHere.includes(c)) : binder.loose} isOpen onToggle={() => {}} onCard={openCard} />
               </div>
             )}
             {cards.length === 0 && <div className="dim" style={{ marginTop: 10 }}>Nothing here yet. Put cards away to fill it, pocket by pocket.</div>}
@@ -251,12 +302,13 @@ export function PlacePage() {
                 title={s.name ?? (sections.length > 1 ? 'No section' : 'Cards')}
                 count={s.copies}
                 cards={s.cards}
-                isOpen={open.has(s.name ?? '') || [...open].some((o) => o.toLowerCase() === (s.name ?? '').toLowerCase() && o !== '') || (sections.length === 1 && s.name === null)}
+                isOpen={filtering || open.has(s.name ?? '') || [...open].some((o) => o.toLowerCase() === (s.name ?? '').toLowerCase() && o !== '') || (sections.length === 1 && s.name === null)}
                 onToggle={() => toggle(s.name ?? '')}
                 onCard={openCard}
               />
             ))}
-            {cards.length === 0 && sections.length === 0 && inside.length === 0 && <div className="dim">Nothing here yet. Put cards away to fill it.</div>}
+            {filtering && matching.length === 0 && <div className="dim">No cards here match.</div>}
+            {!filtering && cards.length === 0 && sections.length === 0 && inside.length === 0 && <div className="dim">Nothing here yet. Put cards away to fill it.</div>}
           </div>
         )}
         {binder && cards.length > 0 && <FriendsWantSection cards={cards} priceOf={priceOf} />}

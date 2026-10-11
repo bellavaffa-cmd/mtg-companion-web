@@ -15,8 +15,8 @@ import { ActionSheet } from '../components/ActionSheet'
 import { rise } from '../components/kit'
 import type { PlaceKind, SortRule, StoragePlace } from '../types/models'
 import {
-  canMoveInto, childrenOf, copiesWithin, defaultSections, DEFAULT_POCKETS, PLACE_KIND_LABELS, PLACE_KINDS, placeAndInside, placeSubtitle,
-  placeTree, placesOf, savePlace, SORT_RULE_LABELS, SORT_RULES, storageSummary, type StorageSummary,
+  canMoveInto, cardsByPlace, childrenOf, copiesWithin, defaultSections, DEFAULT_POCKETS, PLACE_KIND_LABELS, PLACE_KINDS, placeAndInside, placeSubtitle,
+  placeTree, placesOf, savePlace, SORT_RULE_LABELS, SORT_RULES, storageSummary, type PlacedCard, type StorageSummary,
 } from './storagePlaces'
 import { useUpkeep } from './useUpkeep'
 import { sealedOf, sealedTotalUsd } from './sealed'
@@ -24,13 +24,27 @@ import { useMoney } from '../money/currency'
 import { gearOf, gearSummary } from './gear'
 import { gradedOf } from './graded'
 import { bindersByPlace, bindersIn, inBindersLine } from './collectionLayout'
+import { CardsFilterControls, CopyGroups } from './CardsFilterControls'
+import { useStorageFilterFacts } from './useStorageFilterFacts'
+import { cardsFilterActive, filterCopies, filterTotals, NO_CARDS_FILTER, placedCopyUsd, storageMatchingTitle, totalsLine, type CardsFilter } from './placeFilter'
+import { copiesByPlace, walkPullList } from './pullList'
+import { startWalk } from './walkSession'
 import './storage.css'
 
 export const PLACE_ICONS: Record<PlaceKind, string> = { BOX: 'inventory_2', BINDER: 'menu_book', DECK_BOX: 'style', SHELF: 'shelves', OTHER: 'category' }
 
 const count = (n: number) => n.toLocaleString('en-GB')
 
-export function StorageTab({ query = '', onSearchEverywhere }: { query?: string; onSearchEverywhere?: () => void } = {}) {
+const NO_COPIES: PlacedCard[] = []
+
+export function StorageTab({ query = '', onSearchEverywhere, filter = NO_CARDS_FILTER, onFilterChange, filterOpen = false }: {
+  query?: string
+  onSearchEverywhere?: () => void
+  /** The Storage tab's own filters (the header's filter button), with the header's search: also finds the cards in storage. */
+  filter?: CardsFilter
+  onFilterChange?: (f: CardsFilter) => void
+  filterOpen?: boolean
+} = {}) {
   const { collections, decks } = useSync()
   const navigate = useNavigate()
   const places = placesOf(collections)
@@ -48,6 +62,25 @@ export function StorageTab({ query = '', onSearchEverywhere }: { query?: string;
   const gradedUsd = graded.reduce((n, g) => n + (g.valueUsd ?? 0), 0)
   const gearLine = useMemo(() => gearSummary(gearOf(collections), decks), [collections, decks])
   const q = query.trim()
+  // The header's search and the filters, over every copy in storage: "Cards in storage matching …".
+  const searching: CardsFilter = { ...filter, query }
+  const matchingOn = cardsFilterActive(searching)
+  const known = useMemo(() => new Set(placesOf(collections).map((p) => p.id)), [collections])
+  const stored = useMemo(() => [...cardsByPlace(collections).values()].flat().filter((c) => known.has(c.line.placeId)), [collections, known])
+  const { facts, data } = useStorageFilterFacts(matchingOn || filterOpen ? stored : NO_COPIES, q !== '')
+  const matching = useMemo(() => (matchingOn ? filterCopies(stored, searching, facts) : NO_COPIES),
+    // searching is filter with the query.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [matchingOn, stored, filter, query, facts])
+  const usdOf = (c: PlacedCard) => {
+    const card = data?.get(c.entry.scryfallId)
+    const n = (v: string | null | undefined) => (v ? Number(v) || null : null)
+    return placedCopyUsd(c, n(card?.prices?.usd), n(card?.prices?.usd_foil))
+  }
+  const walk = () => {
+    startWalk(storageMatchingTitle(searching).replace('Cards in storage matching ', 'Storage · '), walkPullList(matching, places))
+    navigate('/collections/walk')
+  }
   const found = q ? placeTree(places).filter((n) => n.place.name.toLowerCase().includes(q.toLowerCase())) : []
   // A place's line: what it is, and the binders with copies in it ("in 2 binders").
   const detail = (p: StoragePlace, withSubtitle: boolean) =>
@@ -62,6 +95,28 @@ export function StorageTab({ query = '', onSearchEverywhere }: { query?: string;
         </button>
         <button type="button" className="ib" aria-label="More storage tools" aria-haspopup="dialog" onClick={() => setMore(true)}><Icon name="more_vert" /></button>
       </div>
+
+      {onFilterChange && (
+        <CardsFilterControls
+          filter={filter}
+          onChange={(f) => onFilterChange({ ...f, query: '' })}
+          open={filterOpen}
+          countFor={(f) => filterCopies(stored, { ...f, query }, facts).reduce((n, c) => n + c.line.qty, 0)}
+          data={data}
+        />
+      )}
+      {matchingOn && places.length > 0 && (
+        <section className="storage-matches" aria-label="Cards in storage">
+          <h2>{storageMatchingTitle(searching)}</h2>
+          <div className="filter-line">
+            <b>{totalsLine(filterTotals(stored, matching, data ? usdOf : null), (usd) => money.format(usd, true))}</b>
+            {matching.length > 0 && <button type="button" className="btn soft sm" onClick={walk}><Icon name="checklist" aria-hidden />Walk this list</button>}
+          </div>
+          {matching.length === 0
+            ? <div className="dim" style={{ marginTop: 8 }}>No cards in your places match.</div>
+            : <CopyGroups groups={copiesByPlace(matching, places)} places={places} />}
+        </section>
+      )}
 
       <div className="storage-head rise" style={rise(2)}>
         <h2>Your places</h2>
