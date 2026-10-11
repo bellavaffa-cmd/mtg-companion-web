@@ -85,7 +85,7 @@ export function CollectionFilterPanel({ filter, onChange, onAdvanced, onClear, a
 }
 
 /** The filters on, a chip each — tap one to take it off — and Clear all. */
-export function ActiveFilterChips({ chips, onRemove, onClear }: { chips: FilterChip[]; onRemove: (key: string) => void; onClear: () => void }) {
+export function ActiveFilterChips({ chips, onRemove, onClear, clearLabel = 'Clear all' }: { chips: FilterChip[]; onRemove: (key: string) => void; onClear: () => void; clearLabel?: string }) {
   return (
     <div className="chips wrap active-filters">
       {chips.map((c) => (
@@ -95,7 +95,7 @@ export function ActiveFilterChips({ chips, onRemove, onClear }: { chips: FilterC
           <Icon name="close" />
         </button>
       ))}
-      <button type="button" className="chip" onClick={onClear}>Clear all</button>
+      <button type="button" className="chip" onClick={onClear}>{clearLabel}</button>
     </div>
   )
 }

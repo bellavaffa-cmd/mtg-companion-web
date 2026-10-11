@@ -45,6 +45,7 @@ import { placeIdFromLabel } from '../collection/placeLabel'
 import { PlaceLabelSheet } from '../collection/PlaceLabelSheet'
 import { bestPlaceByRule, pullList, putBackList, rowToTick } from '../collection/pullList'
 import { loadPullProgress, loadPutBackProgress, tickRow } from '../collection/pullProgress'
+import { setWalkTicks, walkSession } from '../collection/walkSession'
 import { reconcile, type CheckScan } from '../collection/placeCheck'
 import { loadCheck, saveCheck, type CheckSession } from '../collection/checkSession'
 import { nearlyFull, overflowLine, roomLine, spaceOf, spaceRoom } from '../collection/boxSpace'
@@ -288,16 +289,21 @@ export function ScanPage() {
     : null
   // Scan-to-tick mode (?pull=<deck> or ?putBack=<deck>): each card scanned ticks its row on that deck's
   // pull list or put-back list (collection/pullList.ts), kept where the list keeps its ticks.
+  // ?walk=1: the Walk this list of a filtered place or the Storage tab (collection/walkSession.ts).
   const tickDeck = decks.find((d) => d.id === (params.get('pull') ?? params.get('putBack'))) ?? null
-  const tickKind: 'pull' | 'putBack' | null = !tickDeck || target || checkPlace ? null : params.get('pull') ? 'pull' : 'putBack'
+  const walk = params.has('walk') && !target && !checkPlace ? walkSession() : null
+  const tickKind: 'pull' | 'putBack' | 'walk' | null = walk ? 'walk' : !tickDeck || target || checkPlace ? null : params.get('pull') ? 'pull' : 'putBack'
   const [tickCount, setTickCount] = useState<{ done: number; of: number } | null>(null)
   const tickCard = useRef<((card: ScryfallCard) => void) | null>(null)
-  tickCard.current = tickDeck && tickKind
+  tickCard.current = tickKind === 'walk' || (tickDeck && tickKind)
     ? (card) => {
-      const rows: { key: string; name: string; qty: number; source?: { kind: string }; where?: string }[] = tickKind === 'pull'
-        ? pullList(tickDeck, collections, decks).groups.flatMap((g) => g.rows)
-        : putBackList(tickDeck, collections, loadPutBackProgress(tickDeck.id).mode === 'RULE' ? 'RULE' : 'ORIGIN').groups.flatMap((g) => g.rows)
-      const ticked = new Set((tickKind === 'pull' ? loadPullProgress(tickDeck.id) : loadPutBackProgress(tickDeck.id)).ticked)
+      const walking = tickKind === 'walk' ? walkSession() : null
+      const rows: { key: string; name: string; qty: number; source?: { kind: string }; where?: string }[] = walking
+        ? walking.list.groups.flatMap((g) => g.rows)
+        : tickKind === 'pull'
+        ? pullList(tickDeck!, collections, decks).groups.flatMap((g) => g.rows)
+        : putBackList(tickDeck!, collections, loadPutBackProgress(tickDeck!.id).mode === 'RULE' ? 'RULE' : 'ORIGIN').groups.flatMap((g) => g.rows)
+      const ticked = new Set(walking ? walking.ticked : (tickKind === 'pull' ? loadPullProgress(tickDeck!.id) : loadPutBackProgress(tickDeck!.id)).ticked)
       const row = rowToTick(rows, ticked, card.name)
       const countable = rows.filter((r) => r.source?.kind !== 'missing')
       const of = countable.reduce((n, r) => n + r.qty, 0)
@@ -310,7 +316,8 @@ export function ScanPage() {
         sayCard(`${card.name} is only in another deck — tick it on the list to take it`, card)
         return
       }
-      const now = new Set(tickRow(tickKind, tickDeck.id, row.key).ticked)
+      const now = walking ? new Set([...ticked, row.key]) : new Set(tickRow(tickKind === 'pull' ? 'pull' : 'putBack', tickDeck!.id, row.key).ticked)
+      if (walking) setWalkTicks(now)
       const done = countable.filter((r) => now.has(r.key)).reduce((n, r) => n + r.qty, 0)
       setTickCount({ done, of })
       sayCard(`${card.name} — ticked${row.where ? ` (${row.where})` : ''}`, card)
@@ -1387,10 +1394,10 @@ export function ScanPage() {
           </>
         )}
         <div id="scanmode-panel" role={start.showSwitch && scannerMode ? 'tabpanel' : undefined} aria-labelledby={start.showSwitch && scannerMode ? `scanmode-tab-${SCANNER_MODES.findIndex((m) => m.mode === scannerMode)}` : undefined}>
-        {tickDeck && tickKind && (
+        {tickKind && (tickKind === 'walk' || tickDeck) && (
           <div className="putaway-target" role="status">
             <span>
-              Ticking off: {tickKind === 'pull' ? 'pull list' : 'put back list'} for {tickDeck.name}
+              Ticking off: {tickKind === 'walk' ? `walk list · ${walk?.title ?? ''}` : `${tickKind === 'pull' ? 'pull list' : 'put back list'} for ${tickDeck?.name ?? ''}`}
               {tickCount ? ` · ${tickCount.done} of ${tickCount.of}` : ''}
             </span>
           </div>

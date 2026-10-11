@@ -120,6 +120,15 @@ export function findChipDescription(chip: FindChip): string {
   }
 }
 
+/** A place's page, at a box's section or a binder's page (a card row's place chip). */
+export const placeLink = (id: string, section?: string, page?: number) => {
+  const p = new URLSearchParams()
+  if (section) p.set('section', section)
+  if (page) p.set('page', String(page))
+  const qs = p.toString()
+  return `/collections/place/${id}${qs ? `?${qs}` : ''}`
+}
+
 /** At most this many chips on a row, then "+N". */
 export const ROW_CHIPS_MAX = 2
 

@@ -335,6 +335,23 @@ button.where-row { cursor: pointer; }
 .binder-pocket.picked, .binder-pocket.over { box-shadow: 0 0 0 2px var(--gold); }
 .binder-pocket.picked .slot { color: var(--gold-light); font-weight: 700; }
 .binder-pocket.marked { box-shadow: 0 0 0 2px var(--ok); }
+/* A filter on the place: its matches picked out, the rest dimmed. */
+.binder-pocket.hit { box-shadow: 0 0 0 2px var(--gold); }
+.binder-pocket.dimmed img { opacity: 0.28; filter: grayscale(0.6); }
+.place-filter { display: flex; gap: 6px; align-items: center; margin-top: 14px; }
+.place-filter .searchpill { flex: 1; min-width: 0; }
+.filter-line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-top: 10px; }
+.filter-line b { font-weight: 700; }
+.match-pages { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 10px 0 0; font-size: 0.8125rem; color: var(--t1); }
+.copy-groups { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.copy-group h3 { margin: 0 0 2px; font-size: 0.9375rem; }
+.copy-group .detail { font-size: 0.75rem; color: var(--t2); }
+.copy-row { display: flex; gap: 10px; align-items: center; width: 100%; padding: 6px 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.copy-row .thumb { width: 30px; height: 42px; border-radius: 4px; flex: none; }
+.copy-row .txt { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+.copy-row .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.storage-matches { margin-top: 18px; }
+.storage-matches h2 { font-size: 1rem; margin: 0; }
 .binder-chosen { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: var(--g1); display: flex; align-items: center; gap: 12px; }
 .binder-chosen .thumb { width: 36px; height: 50px; border-radius: 4px; flex: none; }
 .link-like { border: 0; background: none; padding: 0; color: var(--t0); font: inherit; text-align: left; cursor: pointer; }
