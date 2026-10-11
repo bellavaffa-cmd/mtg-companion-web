@@ -1,48 +1,64 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { Icon } from '../components/Icon'
 import { Dialog } from '../components/Dialog'
 import { ActionSheet } from '../components/ActionSheet'
 import { useLongPress } from '../components/useLongPress'
-import { ArtImage, IconButton, PageHeader, SegmentedTabs, StatFigure, rise, toArtCrop, useBack, useLayoutSize } from '../components/kit'
+import { ArtImage, IconButton, PageHeader, SearchPill, SegmentedTabs, StatFigure, rise, toArtCrop, useLayoutSize } from '../components/kit'
 import { SharedFriendsView } from '../social/SharedFriends'
 import { isUnsorted, type Collection } from '../types/models'
-import { isWishlist } from '../collection/wishlist'
+import { isWishlist, WISHLIST_ID } from '../collection/wishlist'
 import { ExportCollectionDialog, ImportCardsDialog } from '../collection/CardListDialogs'
 import { ShareCollectionDialog } from '../social/ShareWithFriend'
 import { TagBindersSection } from '../collection/TagBinders'
 import { AllCardsTab } from '../collection/AllCardsTab'
-import { SetsTab } from '../collection/SetsTab'
-import { StorageTab } from '../collection/StorageTab'
+import { SearchEverywhereRow, StorageTab } from '../collection/StorageTab'
+import { GoalsSection } from '../collection/GoalsUi'
 import { EmptyState } from '../components/EmptyState'
-import { CollectionHome } from '../collection/CollectionHome'
+import { CollectionDetailPage } from './CollectionDetailPage'
 import { useCollectionValue } from '../collection/valueHistory'
 import { placesOf } from '../collection/storagePlaces'
+import { useUpkeep } from '../collection/useUpkeep'
+import {
+  collectionRoute, COLLECTION_TABS, groupByOf, keptInPlacesLine, lastTab, needsAttentionLabel, placesUsed, quickOf, rememberTab, startTab, TAB_LABELS,
+  type CollectionTab,
+} from '../collection/collectionLayout'
 import { useMoney } from '../money/currency'
+import { useCardViewMode } from '../settings/settings'
 import { WhatsNewTour } from '../onboarding/WhatsNewTour'
 import { markTourSeen, tourSeen } from '../onboarding/whatsNewStore'
 import { shouldShowTour, tourSteps } from '../onboarding/whatsNew'
 import '../onboarding/onboarding.css'
+import '../collection/collectionTabs.css'
+import '../collection/collectionHome.css'
 
 export function CollectionsPage() {
   const { collections, decks, deleteCollection, accountsAvailable } = useSync()
-  // The Collection opens on its home (CollectionHome.tsx): its tiles open the tabs — All cards (first,
-  // like the Android app), your binders, where the cards are kept (Storage), your sets — how much of
-  // each you have — or (with accounts) what friends share with you — at ?tab=….
+  // The Collection: one header — its value (tap: over time), sync, one search over the tab you're on,
+  // the filters (Cards) and "Needs attention · N" — and four tabs, always there: Cards, Binders,
+  // Storage, Wishlist, at ?tab=…. Old tabs and the old home's tiles map onto these (collectionLayout.ts);
+  // with no tab it opens on the one used last. Mirrors the Android app's CollectionsScreen.kt.
   const [params, setParams] = useSearchParams()
-  const tabs = accountsAvailable ? ['all', 'binders', 'storage', 'sets', 'shared'] : ['all', 'binders', 'storage', 'sets']
-  const home = !tabs.includes(params.get('tab') ?? '')
-  const tab = home ? 'all' : params.get('tab')!
-  const sharedTab = tab === 'shared'
+  const route = collectionRoute(params.get('tab'))
+  const tab: CollectionTab = route?.tab ?? startTab(null, lastTab())
   const navigate = useNavigate()
-  const back = useBack('/collections')
   const money = useMoney()
   const value = useCollectionValue(collections)
+  const upkeep = useUpkeep()
+  const attention = needsAttentionLabel(upkeep.items.length)
+  const [query, setQuery] = useState('')
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [filtersOn, setFiltersOn] = useState(0)
+  const [view, setView] = useCardViewMode('allCards')
+  const group = groupByOf(params.get('group'))
+  const quick = quickOf(params.get('quick'))
+  const shared = params.get('tab') === 'shared' && accountsAvailable
   // The What's new tour, once on this device (onboarding/whatsNew.ts), or asked for from Settings (?tour).
   const [touring, setTouring] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [sheet, setSheet] = useState<Collection | null>(null)
+  const [menu, setMenu] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<Collection | null>(null)
   const [importing, setImporting] = useState<Collection | 'new' | null>(null)
   const [exporting, setExporting] = useState<Collection | null>(null)
@@ -51,114 +67,157 @@ export function CollectionsPage() {
 
   const owned = collections.filter((c) => c.type !== 'WISHLIST')
   const ownedCards = owned.reduce((s, c) => s + c.entries.reduce((n, e) => n + e.quantity + e.foilQuantity, 0), 0)
-  const unique = new Set(owned.flatMap((c) => c.entries.map((e) => e.scryfallId))).size
-  // The Unsorted pile counts as owned cards, but isn't listed or counted as a binder. Like the
-  // Wishlist it's always there, even empty — it's where a loose card goes.
-  const unsorted = collections.find(isUnsorted)
-  const binders = collections.filter((c) => !isUnsorted(c) && !isWishlist(c))
-  const unsortedCards = unsorted?.entries.reduce((n, e) => n + e.quantity + e.foilQuantity, 0) ?? 0
-  // The Wishlist first; it's always there.
-  const wishlist = collections.find(isWishlist)
-  const shown = wishlist ? [wishlist, ...binders] : binders
+
+  // An old route (?tab=all, sets, sealed, loans…) becomes the new one, kept in the address.
+  useEffect(() => {
+    const raw = params.get('tab')
+    if (!raw || raw === 'shared') return
+    if (route && (raw !== route.tab || route.group || route.quick)) {
+      const next = new URLSearchParams(params)
+      next.set('tab', route.tab)
+      if (route.group) next.set('group', route.group)
+      if (route.quick) next.set('quick', route.quick)
+      setParams(next, { replace: true })
+    }
+  }, [params, route, setParams])
+  useEffect(() => { rememberTab(tab) }, [tab])
+
+  const setTab = (t: CollectionTab) => {
+    const next = new URLSearchParams(params)
+    next.set('tab', t)
+    setParams(next, { replace: true })
+  }
+  const setParam = (key: string, v: string | null) => {
+    const next = new URLSearchParams(params)
+    next.set('tab', tab)
+    if (v) next.set(key, v)
+    else next.delete(key)
+    setParams(next, { replace: true })
+  }
+  const searchEverywhere = () => navigate(`/collections/find${query.trim() ? `?q=${encodeURIComponent(query.trim())}` : ''}`)
+  const onFiltersOn = useCallback((n: number) => setFiltersOn(n), [])
 
   const askedForTour = params.has('tour')
   useEffect(() => {
-    if (!home) return
     if (askedForTour || shouldShowTour(tourSeen(), { cards: ownedCards, decks: decks.length })) {
       markTourSeen()
       setTouring(true)
-      if (askedForTour) setParams({}, { replace: true })
+      if (askedForTour) { const next = new URLSearchParams(params); next.delete('tour'); setParams(next, { replace: true }) }
     }
-  }, [home, askedForTour, ownedCards, decks.length, setParams])
+  }, [askedForTour, ownedCards, decks.length, params, setParams])
+
+  const hints: Record<CollectionTab, string> = {
+    cards: 'Search your cards, e.g. ramp',
+    binders: 'Search binders and goals',
+    storage: 'Search your places',
+    wishlist: 'Search your wishlist',
+  }
+
+  if (shared) {
+    return (
+      <>
+        <PageHeader title="Shared with me" onBack={() => setTab('cards')} />
+        <div className={`content-scroll${wide ? '' : ' with-nav'}`}><SharedFriendsView /></div>
+      </>
+    )
+  }
 
   return (
     <>
       <PageHeader
         title="Collection"
-        onBack={home ? undefined : back}
-        actions={home
-          ? (value ? <button type="button" className="chome-value-h press" aria-label={`Collection value ${money.format(value.usd, true)}: see it over time`} onClick={() => navigate('/value')}>{money.format(value.usd, true)}</button> : undefined)
-          : wide
-          ? (
-            <>
-              <button type="button" className="btn line" onClick={() => setSharingAll(true)}><Icon name="group_add" />Share</button>
-              <button type="button" className="btn line" onClick={() => setImporting('new')}><Icon name="playlist_add" />Import list</button>
-              <button type="button" className="btn gold" onClick={() => setShowCreate(true)}><Icon name="add" />New binder</button>
-            </>
-          )
-          : (
-            <>
-              <IconButton icon="group_add" label="Share my collection" onClick={() => setSharingAll(true)} />
-              <IconButton icon="playlist_add" label="Import list" onClick={() => setImporting('new')} />
-              <IconButton icon="add" label="New binder" variant="gold" onClick={() => setShowCreate(true)} />
-            </>
-          )}
+        actions={
+          <span className="row" style={{ gap: 4, alignItems: 'center' }} data-tour="header">
+            {value && <button type="button" className="chome-value-h press" aria-label={`Collection value ${money.format(value.usd, true)}: see it over time`} onClick={() => navigate('/value')}>{money.format(value.usd, true)}</button>}
+            <IconButton icon="more_vert" label="More" onClick={() => setMenu(true)} />
+          </span>
+        }
       />
       <div className={`content-scroll${wide ? '' : ' with-nav'}`}>
-        {home ? <CollectionHome onImport={() => setImporting('new')} /> : <>
-        <div className="rise" style={{ ...rise(0), marginBottom: 14, maxWidth: 560 }}>
-          <SegmentedTabs
-            labels={accountsAvailable ? ['All cards', 'Binders', 'Storage', 'Sets', 'Shared'] : ['All cards', 'Binders', 'Storage', 'Sets']}
-            selected={tabs.indexOf(tab)}
-            onSelect={(i) => setParams({ tab: tabs[i] }, { replace: true })}
-          />
-        </div>
-        {sharedTab ? <SharedFriendsView /> : tab === 'storage' ? <StorageTab /> : tab === 'sets' ? <SetsTab /> : tab === 'all' ? <AllCardsTab onImport={() => setImporting('new')} /> : binders.length === 0 && unsortedCards === 0 && !wishlist?.entries.length ? (
-          <EmptyState
-            className="rise"
-            style={rise(1)}
-            icon="collections"
-            text="No binders yet. Import your collection from another app, or make a binder for the cards you own."
-            actions={[
-              { label: 'Import your collection', icon: 'playlist_add', onClick: () => setImporting('new') },
-              { label: 'New binder', icon: 'add', onClick: () => setShowCreate(true) },
-            ]}
-          />
-        ) : (
-          <>
-            <div className="stats rise" style={{ ...rise(1), maxWidth: wide ? 720 : undefined }}>
-              <StatFigure value={ownedCards} label="Cards owned" />
-              <StatFigure value={unique} label="Unique cards" />
-              <StatFigure value={binders.length} label="Binders" />
-            </div>
-            {unsorted && (
-              <div className="list wide-list rise" style={{ ...rise(2), marginBottom: 14 }}>
-                <button type="button" className="brow press unsorted-row" onClick={() => navigate(`/collections/${unsorted.id}`)}>
-                  <div className="icon-tile"><Icon name="inbox" /></div>
-                  <div style={{ minWidth: 0 }}>
-                    <div className="brow-name">Unsorted</div>
-                    <div className="brow-meta">
-                      {unsortedCards > 0
-                        ? <span><b>{unsortedCards}</b>{unsortedCards === 1 ? 'card' : 'cards'} not in a binder yet — open to sort them</span>
-                        : <span>Empty — for cards you own that aren't in a binder or a deck</span>}
-                    </div>
-                  </div>
-                  <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
+        <div className="ctabs-head rise" style={{ ...rise(0), maxWidth: wide ? 720 : undefined }}>
+          <div className="ctabs-search" data-tour="search">
+            <SearchPill value={query} onChange={setQuery} placeholder={hints[tab]} />
+            {tab === 'cards' && (
+              <>
+                <IconButton icon={view === 'list' ? 'grid_view' : 'view_list'} label={view === 'list' ? 'Show as a grid' : 'Show as a list'} onClick={() => setView(view === 'list' ? 'grid' : 'list')} />
+                <button
+                  type="button"
+                  className={`ib filter-ib${filtersOn > 0 || filterOpen ? ' on' : ''}`}
+                  aria-expanded={filterOpen}
+                  aria-label={filtersOn > 0 ? `Filters, ${filtersOn} on` : 'Filters'}
+                  title={filtersOn > 0 ? `Filters, ${filtersOn} on` : 'Filters'}
+                  onClick={() => setFilterOpen((o) => !o)}
+                >
+                  <Icon name="filter_list" />
+                  {filtersOn > 0 && <span className="filter-badge" aria-hidden>{filtersOn}</span>}
                 </button>
-              </div>
+              </>
             )}
-            <div className="list wide-list">
-              {shown.map((c, i) => (
-                <BinderRow
-                  key={c.id}
-                  collection={c}
-                  index={i}
-                  onOpen={() => navigate(`/collections/${c.id}`)}
-                  onMore={() => setSheet(c)}
-                />
-              ))}
-            </div>
-            <TagBindersSection />
-          </>
-        )}
-        </>}
+          </div>
+          {attention && (
+            <button type="button" className="ctabs-attention press" aria-label={`${attention}: open Upkeep`} onClick={() => navigate('/collections/upkeep')}>
+              <Icon name="warning" aria-hidden />{attention}
+            </button>
+          )}
+          <div className="ctabs-tabs" data-tour="tabs">
+            <SegmentedTabs
+              labels={COLLECTION_TABS.map((t) => TAB_LABELS[t])}
+              selected={COLLECTION_TABS.indexOf(tab)}
+              onSelect={(i) => setTab(COLLECTION_TABS[i])}
+              idPrefix="ctab"
+              ariaLabel="Collection"
+              tabAttrs={(i): Record<string, string> => (COLLECTION_TABS[i] === 'storage' || COLLECTION_TABS[i] === 'cards' ? { 'data-tour': COLLECTION_TABS[i] } : {})}
+            />
+          </div>
+        </div>
+        <div id="ctab-panel" role="tabpanel" aria-labelledby={`ctab-tab-${COLLECTION_TABS.indexOf(tab)}`}>
+          {tab === 'cards' ? (
+            <AllCardsTab
+              onImport={() => setImporting('new')}
+              query={query}
+              onQueryChange={setQuery}
+              filterOpen={filterOpen}
+              onFiltersOn={onFiltersOn}
+              group={group}
+              onGroup={(g) => setParam('group', g === 'none' ? null : g)}
+              quick={quick}
+              onQuick={(q) => setParam('quick', q)}
+              onSearchEverywhere={searchEverywhere}
+            />
+          ) : tab === 'storage' ? (
+            <StorageTab query={query} onSearchEverywhere={searchEverywhere} />
+          ) : tab === 'wishlist' ? (
+            <CollectionDetailPage embeddedId={WISHLIST_ID} externalQuery={query} />
+          ) : (
+            <BindersTab
+              query={query}
+              onImport={() => setImporting('new')}
+              onNewBinder={() => setShowCreate(true)}
+              onMore={setSheet}
+              onSearchEverywhere={searchEverywhere}
+            />
+          )}
+        </div>
       </div>
 
-      {touring && home && (
+      {touring && (
         <WhatsNewTour
           steps={tourSteps(placesOf(collections).length > 0)}
           onAction={(action) => navigate(action === 'find' ? '/collections/find' : '/collections/setup')}
           onClose={() => setTouring(false)}
+        />
+      )}
+
+      {menu && (
+        <ActionSheet
+          title="Collection"
+          actions={[
+            { label: 'Import list', icon: 'playlist_add', detail: 'A list from Moxfield, ManaBox, Archidekt…', onClick: () => setImporting('new') },
+            { label: 'New binder', icon: 'add', onClick: () => setShowCreate(true) },
+            { label: 'Share my collection', icon: 'group_add', detail: 'With a friend', onClick: () => setSharingAll(true) },
+            ...(accountsAvailable ? [{ label: 'Shared with me', icon: 'handshake', detail: 'What friends share with you', onClick: () => setParams({ tab: 'shared' }) }] : []),
+          ]}
+          onClose={() => setMenu(false)}
         />
       )}
 
@@ -202,8 +261,8 @@ export function CollectionsPage() {
           collection={importing === 'new' ? undefined : importing}
           onDismiss={() => setImporting(null)}
           onCreated={(id) => navigate(`/collections/${id}`)}
-          // Here the whole collection comes in unsorted by default; from a binder's menu, into it.
-          startInNewBinder={false}
+          // From Cards the whole collection comes in unsorted by default; from Binders, as a binder.
+          startInNewBinder={tab === 'binders'}
         />
       )}
       {sharingAll && <ShareCollectionDialog onClose={() => setSharingAll(false)} />}
@@ -214,7 +273,87 @@ export function CollectionsPage() {
   )
 }
 
-function BinderRow({ collection, index, onOpen, onMore }: { collection: Collection; index: number; onOpen: () => void; onMore: () => void }) {
+/** The Binders tab: the Unsorted pile, the binders (each saying where it's kept), tag binders and Goals. */
+function BindersTab({ query, onImport, onNewBinder, onMore, onSearchEverywhere }: {
+  query: string; onImport: () => void; onNewBinder: () => void; onMore: (c: Collection) => void; onSearchEverywhere: () => void
+}) {
+  const { collections } = useSync()
+  const navigate = useNavigate()
+  const wide = useLayoutSize() !== 'phone'
+  const q = query.trim().toLowerCase()
+  const known = useMemo(() => new Set(placesOf(collections).map((p) => p.id)), [collections])
+  // The Unsorted pile counts as owned cards, but isn't listed or counted as a binder. Like the
+  // Wishlist (a tab of its own) it's always there, even empty — it's where a loose card goes.
+  const unsorted = collections.find(isUnsorted)
+  const allBinders = collections.filter((c) => !isUnsorted(c) && !isWishlist(c) && c.type !== 'WISHLIST')
+  const binders = q ? allBinders.filter((c) => c.name.toLowerCase().includes(q)) : allBinders
+  const unsortedCards = unsorted?.entries.reduce((n, e) => n + e.quantity + e.foilQuantity, 0) ?? 0
+  const ownedCards = collections.filter((c) => c.type !== 'WISHLIST').reduce((s, c) => s + c.entries.reduce((n, e) => n + e.quantity + e.foilQuantity, 0), 0)
+  const unique = new Set(collections.filter((c) => c.type !== 'WISHLIST').flatMap((c) => c.entries.map((e) => e.scryfallId))).size
+  return (
+    <>
+      {!q && (
+        <div className="stats rise" style={{ ...rise(1), maxWidth: wide ? 720 : undefined }}>
+          <StatFigure value={ownedCards} label="Cards owned" />
+          <StatFigure value={unique} label="Unique cards" />
+          <StatFigure value={allBinders.length} label="Binders" />
+        </div>
+      )}
+      {unsorted && !q && (
+        <div className="list wide-list rise" style={{ ...rise(2), marginBottom: 14 }}>
+          <button type="button" className="brow press unsorted-row" onClick={() => navigate(`/collections/${unsorted.id}`)}>
+            <div className="icon-tile"><Icon name="inbox" /></div>
+            <div style={{ minWidth: 0 }}>
+              <div className="brow-name">Unsorted</div>
+              <div className="brow-meta">
+                {unsortedCards > 0
+                  ? <span><b>{unsortedCards}</b>{unsortedCards === 1 ? 'card' : 'cards'} not in a binder yet — open to sort them</span>
+                  : <span>Empty — for cards you own that aren't in a binder or a deck</span>}
+              </div>
+            </div>
+            <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
+          </button>
+        </div>
+      )}
+      <div className="binders-h">
+        <h2>Binders</h2>
+        <button type="button" className="btn soft sm" onClick={onNewBinder}><Icon name="add" aria-hidden />New binder</button>
+      </div>
+      {allBinders.length === 0 && unsortedCards === 0 ? (
+        <EmptyState
+          className="rise"
+          style={rise(1)}
+          icon="collections"
+          text="No binders yet. Import your collection from another app, or make a binder for the cards you own."
+          actions={[
+            { label: 'Import your collection', icon: 'playlist_add', onClick: onImport },
+            { label: 'New binder', icon: 'add', onClick: onNewBinder },
+          ]}
+        />
+      ) : binders.length === 0 && q ? (
+        <div className="dim">No binders match “{query.trim()}”.</div>
+      ) : (
+        <div className="list wide-list">
+          {binders.map((c, i) => (
+            <BinderRow
+              key={c.id}
+              collection={c}
+              index={i}
+              kept={keptInPlacesLine(placesUsed(c, known), c.entries.reduce((n, e) => n + e.quantity + e.foilQuantity, 0))}
+              onOpen={() => navigate(`/collections/${c.id}`)}
+              onMore={() => onMore(c)}
+            />
+          ))}
+        </div>
+      )}
+      {!q && <TagBindersSection />}
+      <GoalsSection query={query} />
+      {q && <SearchEverywhereRow query={query} onClick={onSearchEverywhere} />}
+    </>
+  )
+}
+
+function BinderRow({ collection, index, kept, onOpen, onMore }: { collection: Collection; index: number; kept: string; onOpen: () => void; onMore: () => void }) {
   // The row takes the pointer; its name is the keyboard button, since the row holds the actions button.
   const { role, tabIndex, onKeyDown, ...pointer } = useLongPress({ onLongPress: onMore, onClick: onOpen })
   const total = collection.entries.reduce((s, e) => s + e.quantity + e.foilQuantity, 0)
@@ -231,7 +370,7 @@ function BinderRow({ collection, index, onOpen, onMore }: { collection: Collecti
         <div className="brow-meta">
           {isWishlist(collection)
             ? <><span>Cards you want</span><span><b>{total}</b>{total === 1 ? 'card' : 'cards'}</span><span>not counted as owned</span></>
-            : <><span><b>{total}</b>cards</span><span><b>{collection.entries.length}</b>unique</span></>}
+            : <><span><b>{total}</b>cards</span><span><b>{collection.entries.length}</b>unique</span>{kept && <span>{kept}</span>}</>}
         </div>
       </div>
       <button

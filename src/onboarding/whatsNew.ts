@@ -1,14 +1,14 @@
-// The What's new tour: a few spotlight steps over the Collection's home, shown once on a device after
-// updating to a version with new collection features (the home, Storage, Find anything…), and again
+// The What's new tour: a few spotlight steps over the Collection's tabs, shown once on a device after
+// updating to a version with new collection features (the tabs, Storage, Find anything…), and again
 // from Settings › Getting started. Which steps, their words and whether it's been seen are here, pure;
 // WhatsNewTour.tsx draws it. Mirrors the Android app's data/WhatsNew.kt (tests:
 // tests/onboarding/whatsNew.test.ts ↔ WhatsNewTest.kt).
 
 /** This tour. A later one gets a new id, and shows once more. */
-export const TOUR_ID = 'collection-home-1'
+export const TOUR_ID = 'collection-tabs-1'
 
-/** The part of the screen a step lights up. */
-export type TourTarget = 'home-tiles' | 'home-storage' | 'home-find' | 'home-sealed' | 'home-todo'
+/** The part of the screen a step lights up: the tab row, the Storage and Cards tabs, the search bar, the header. */
+export type TourTarget = 'tabs' | 'storage' | 'search' | 'cards' | 'header'
 
 /** What a step's call to action does: set up storage, or open Find anything. */
 export type TourAction = 'storage-setup' | 'find'
@@ -17,31 +17,31 @@ export interface TourStep { target: TourTarget; title: string; body: string; cta
 
 export const TOUR_STEPS: TourStep[] = [
   {
-    target: 'home-tiles',
-    title: 'Your collection has a home',
-    body: "What it's worth, what's where and what needs doing, on one page. Each tile opens its part of the collection.",
+    target: 'tabs',
+    title: 'Your collection in four tabs',
+    body: 'Cards, Binders, Storage and Wishlist, always one tap away. The Collection opens on the tab you used last.',
   },
   {
-    target: 'home-storage',
+    target: 'storage',
     title: 'Know where every card is',
-    body: 'Make your boxes and binders here, then scan cards as you put them away. Any card page will tell you where it is.',
+    body: 'Make your boxes and binders on Storage, then scan cards as you put them away. Sealed product and graded cards live there too.',
     cta: { label: 'Set it up', action: 'storage-setup' },
   },
   {
-    target: 'home-find',
-    title: 'Find anything',
-    body: 'One search for your cards, your places and your decks. Each card says where every copy is — the box, the deck, who borrowed it.',
+    target: 'search',
+    title: 'One search',
+    body: "It searches the tab you're on. Search everywhere, at the bottom, finds your cards, places and decks at once.",
     cta: { label: 'Try it', action: 'find' },
   },
   {
-    target: 'home-sealed',
-    title: 'Boxes, slabs, loans and sales',
-    body: "Sealed product and graded cards have places too, and what's lent out or marked to sell is counted here.",
+    target: 'cards',
+    title: 'Every card says where it is',
+    body: "Each card shows its box, deck or who borrowed it. No place yet puts it away. Group by set, binder or place, or show only what's lent out, for sale or graded.",
   },
   {
-    target: 'home-todo',
+    target: 'header',
     title: 'A little upkeep',
-    body: 'The few things worth doing this week, each with a button that does it. Upkeep has the rest.',
+    body: "What it's worth and whether it's synced, up top. Needs attention shows when something is worth doing this week.",
   },
 ]
 

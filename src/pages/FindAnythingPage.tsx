@@ -4,6 +4,7 @@ import { useSync } from '../sync/SyncContext'
 import { Icon } from '../components/Icon'
 import { useBack } from '../components/kit'
 import { buildFindIndex, chipLabel, copiesLine, finder } from '../collection/findAnything'
+import { findChipDescription } from '../collection/collectionLayout'
 import '../collection/collectionHome.css'
 
 /**
@@ -64,7 +65,8 @@ export function FindAnythingPage() {
                   {c.chips.length > 0 && (
                     <div className="find-chips">
                       {c.chips.map((chip) => (
-                        <span key={`${chip.kind}|${chip.label}|${chip.placeId ?? ''}|${chip.deckId ?? ''}`} className={`find-chip${chip.kind === 'lent' ? ' lent' : ''}`}>{chipLabel(chip)}</span>
+                        // Each chip says itself in full to a screen reader ("Stored in Red box, Colourless section, 1 copy").
+                        <span key={`${chip.kind}|${chip.label}|${chip.placeId ?? ''}|${chip.deckId ?? ''}`} className={`find-chip${chip.kind === 'lent' ? ' lent' : ''}`}><span aria-hidden="true">{chipLabel(chip)}</span><span className="sr-only">{findChipDescription(chip)}</span></span>
                       ))}
                     </div>
                   )}

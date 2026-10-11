@@ -1,7 +1,6 @@
-// The Collection's home: what it's worth, one search over everything, a tile for each part of the
-// collection with its numbers ("8 places · 92% placed"), the few things worth doing this week (from
-// Upkeep) and Scan / Sort a pile / Import. The numbers and the to-do lines are worked out here, pure,
-// so they can be tested. Mirrors the Android app's data/CollectionHome.kt line for line (tests:
+// The Collection's numbers (what's owned, placed, sealed and graded, lent and to sell) and the To do
+// lines from Upkeep — once the home's tiles, now the Collection's tabs and its Needs attention list
+// (collectionLayout.ts). Worked out here, pure, so they can be tested. Mirrors the Android app's data/CollectionHome.kt line for line (tests:
 // tests/collection/collectionHome.test.ts ↔ CollectionHomeTest.kt).
 
 import type { Collection, Deck } from '../types/models'
@@ -60,30 +59,6 @@ export function homeNumbers(collections: Collection[], decks: Deck[]): HomeNumbe
     lentOut: summary.lent,
     toSell: sellRows(collections).reduce((n, r) => n + sellQty(r), 0),
   }
-}
-
-const count = (n: number) => n.toLocaleString('en-GB')
-
-/** One tile: its name and the line under it. */
-export interface HomeTile { key: HomeTileKey; title: string; line: string }
-export type HomeTileKey = 'all' | 'storage' | 'binders' | 'sets' | 'sealed' | 'loans'
-
-/** The six tiles, in the home's order, with [money] writing an amount the way the app shows prices. */
-export function homeTiles(n: HomeNumbers, money: (usd: number) => string): HomeTile[] {
-  return [
-    { key: 'all', title: 'All cards', line: `${count(n.cards)} · filters` },
-    { key: 'storage', title: 'Storage', line: n.places === 0 ? 'Set up your places' : `${count(n.places)} ${n.places === 1 ? 'place' : 'places'} · ${n.placedPercent}% placed` },
-    { key: 'binders', title: 'Binders', line: `${count(n.binders)} · wishlist` },
-    { key: 'sets', title: 'Sets', line: 'completion' },
-    {
-      key: 'sealed',
-      title: 'Sealed and graded',
-      line: n.sealedAndGraded === 0
-        ? 'Boxes and slabs'
-        : `${count(n.sealedAndGraded)} ${n.sealedAndGraded === 1 ? 'item' : 'items'}` + (n.sealedAndGradedUsd > 0 ? ` · ${money(n.sealedAndGradedUsd)}` : ''),
-    },
-    { key: 'loans', title: 'Loans and selling', line: `${count(n.lentOut)} out · ${count(n.toSell)} to sell` },
-  ]
 }
 
 /** One line of the home's To do: Upkeep's item, said short, with its button. */

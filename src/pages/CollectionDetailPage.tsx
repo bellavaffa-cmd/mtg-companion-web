@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { useProgressiveList } from '../components/useProgressiveList'
 import { allUserTags, userTagsOf } from '../collection/userTags'
 import { PrintingPicker } from '../components/PrintingPicker'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
+import { entryChips, type LocationChip } from '../collection/collectionLayout'
+import { LocationChips, PutAwayCard, type ChipActions } from '../collection/LocationChips'
+import { lentByEntry, lentCopies, placesOf } from '../collection/storagePlaces'
 import { EmptyState } from '../components/EmptyState'
 import { SamplesBar } from '../onboarding/GetStarted'
 import { useSync } from '../sync/SyncContext'
@@ -43,8 +46,15 @@ import { conditionName, copyBadges, languageName } from '../collection/copyDetai
 // The same order as localeCompare, one collator reused.
 const byName = new Intl.Collator()
 
-export function CollectionDetailPage() {
-  const { id } = useParams<{ id: string }>()
+/**
+ * A binder's page. [embeddedId]: shown as the Collection's Wishlist tab — no header of its own (the
+ * Collection's is above) and searched by the Collection's search, [externalQuery].
+ */
+export function CollectionDetailPage({ embeddedId, externalQuery }: { embeddedId?: string; externalQuery?: string } = {}) {
+  const params = useParams<{ id: string }>()
+  const id = embeddedId ?? params.id
+  const embedded = embeddedId !== undefined
+  const navigate = useNavigate()
   const back = useBack('/collections?tab=binders')
   const {
     collections, decks, setEntryQuantities, setEntryPriceAlert, setEntryPriceAlerts, setEntryPriceAlertAbove, setEntryCopyDetails, removeEntryFromCollection, removeEntriesFromCollection, moveEntries,
@@ -91,7 +101,8 @@ export function CollectionDetailPage() {
   const [alerting, setAlerting] = useState<CollectionEntry | null>(null)
   const [zoomId, setZoomId] = useState<string | null>(null)
   const [sheet, setSheet] = useState<CollectionEntry | null>(null)
-  const [filter, setFilter] = useState('')
+  const [ownFilter, setFilter] = useState('')
+  const filter = externalQuery ?? ownFilter
   // List or grid: opens as Settings → Card Display says; the toggle changes that default.
   const [view, setView] = useCardViewMode('binder')
   const [sharing, setSharing] = useState(false)
@@ -127,8 +138,13 @@ export function CollectionDetailPage() {
   )
   // A screenful at a time: the Unsorted pile of a big collection has thousands of cards.
   const list = useProgressiveList(shown.length, shown)
+  // Where each row's copies are (collectionLayout.ts): its places, and copies with no place yet.
+  const placeMap = useMemo(() => new Map(placesOf(collections).map((p) => [p.id, p])), [collections])
+  const lentMap = useMemo(() => lentByEntry(lentCopies(collections, decks)), [collections, decks])
+  const [puttingAway, setPuttingAway] = useState<CollectionEntry | null>(null)
 
   if (!collection) {
+    if (embedded) return <div className="dim">Your wishlist is loading…</div>
     return (
       <>
         <TopBar title="Binder" onBack={back} />
@@ -246,7 +262,7 @@ export function CollectionDetailPage() {
       <div className="rise" style={{ ...rise(2), marginTop: 14, maxWidth: size === 'phone' ? undefined : 480 }}>
         <div className="row" style={{ gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            {(collection.entries.length > 8 || filter) && <SearchPill value={filter} onChange={setFilter} placeholder="Name or tag, e.g. ramp" />}
+            {!embedded && (collection.entries.length > 8 || filter) && <SearchPill value={filter} onChange={setFilter} placeholder="Name or tag, e.g. ramp" />}
           </div>
           <IconButton icon={view === 'list' ? 'grid_view' : 'view_list'} label={view === 'list' ? 'Show as a grid' : 'Show as a list'} onClick={() => setView(view === 'list' ? 'grid' : 'list')} />
         </div>
@@ -290,6 +306,18 @@ export function CollectionDetailPage() {
             considering={entry.auto ? decksConsidering(decks, entry.name).join(', ') || undefined : undefined}
             onIncrement={() => setQty(entry, entry.quantity + 1, entry.foilQuantity)}
             onDecrement={() => setQty(entry, entry.quantity - 1, entry.foilQuantity)}
+            chips={wishlist ? [] : entryChips(collection.id, entry, placeMap, lentMap)}
+            chipActions={{
+              onPlace: (placeId, section, page) => {
+                const qs = new URLSearchParams()
+                if (section) qs.set('section', section)
+                if (page) qs.set('page', String(page))
+                navigate(`/collections/place/${placeId}${qs.toString() ? `?${qs}` : ''}`)
+              },
+              onLent: () => navigate('/loans'),
+              onPutAway: () => setPuttingAway(entry),
+              onMore: () => navigate(`/card/${encodeURIComponent(entry.name)}?id=${entry.scryfallId}`),
+            }}
           />
         ))}
         {shown.length === 0 && <div className="empty-state">Nothing in this binder matches “{filter}”.</div>}
@@ -317,40 +345,46 @@ export function CollectionDetailPage() {
   const addHere = (card: ScryfallCard) => addCardTo(card, { kind: 'binder', id: collection.id, name: collection.name, quantity: 1, foil: false })
   const addCards = <CardSearchResults onAdd={addHere} placeholder="Search Scryfall to add cards" />
 
+  const headerActions = (
+    <>
+      <IconButton icon="playlist_add" label="Import list" variant={embedded || titleProgress >= 0.6 ? '' : 'glass'} onClick={() => setListDialog('import')} />
+      <IconButton icon="ios_share" label="Export list" variant={embedded || titleProgress >= 0.6 ? '' : 'glass'} onClick={() => setListDialog('export')} />
+      {isWishlist(collection) && collection.entries.length > 0 && (
+        <IconButton
+          icon="shopping_cart"
+          label="Buy these cards at TCGplayer"
+          variant={embedded || titleProgress >= 0.6 ? '' : 'glass'}
+          onClick={() => {
+            const url = buyListUrl(collection.entries.map((e) => ({ name: e.name, quantity: e.quantity })))
+            if (url) window.open(url, '_blank', 'noopener,noreferrer')
+          }}
+        />
+      )}
+      <IconButton icon="group_add" label="Share with friends" variant={embedded || titleProgress >= 0.6 ? '' : 'glass'} onClick={() => setSharing(true)} />
+    </>
+  )
   return (
     <>
-      <TopBar
-        title={collection.name}
-        onBack={back}
-        progress={titleProgress}
-        actions={
-          <>
-            <IconButton icon="playlist_add" label="Import list" variant={titleProgress < 0.6 ? 'glass' : ''} onClick={() => setListDialog('import')} />
-            <IconButton icon="ios_share" label="Export list" variant={titleProgress < 0.6 ? 'glass' : ''} onClick={() => setListDialog('export')} />
-            {isWishlist(collection) && collection.entries.length > 0 && (
-              <IconButton
-                icon="shopping_cart"
-                label="Buy these cards at TCGplayer"
-                variant={titleProgress < 0.6 ? 'glass' : ''}
-                onClick={() => {
-                  const url = buyListUrl(collection.entries.map((e) => ({ name: e.name, quantity: e.quantity })))
-                  if (url) window.open(url, '_blank', 'noopener,noreferrer')
-                }}
-              />
-            )}
-            <IconButton icon="group_add" label="Share with friends" variant={titleProgress < 0.6 ? 'glass' : ''} onClick={() => setSharing(true)} />
-          </>
-        }
-      />
-      <div className="content-scroll">
-        <div className="binder-head rise" style={rise(0)}>
-          <div className="eyebrow">{unsorted ? 'Not in a binder yet' : collection.type === 'WISHLIST' ? 'Wishlist' : 'Binder'}</div>
-          <div className="row" style={{ alignItems: 'baseline', gap: 12 }}>
-            <h1 style={{ flex: 1, minWidth: 0 }}>{collection.name}</h1>
-            {/* What the Wishlist would cost today. */}
-            {wishlist && total != null && <span className="wishlist-total" aria-label={`All of it: ${formatUsd(total)}`}>{money.format(total, true)}</span>}
+      {!embedded && <TopBar title={collection.name} onBack={back} progress={titleProgress} actions={headerActions} />}
+      <div className={embedded ? undefined : 'content-scroll'}>
+        {embedded ? (
+          <div className="row" style={{ alignItems: 'center', gap: 8 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {/* What the Wishlist would cost today. */}
+              {wishlist && total != null && <span className="wishlist-total" aria-label={`All of it: ${formatUsd(total)}`}>{money.format(total, true)} <span className="dim">to buy it all</span></span>}
+            </div>
+            {headerActions}
           </div>
-        </div>
+        ) : (
+          <div className="binder-head rise" style={rise(0)}>
+            <div className="eyebrow">{unsorted ? 'Not in a binder yet' : collection.type === 'WISHLIST' ? 'Wishlist' : 'Binder'}</div>
+            <div className="row" style={{ alignItems: 'baseline', gap: 12 }}>
+              <h1 style={{ flex: 1, minWidth: 0 }}>{collection.name}</h1>
+              {/* What the Wishlist would cost today. */}
+              {wishlist && total != null && <span className="wishlist-total" aria-label={`All of it: ${formatUsd(total)}`}>{money.format(total, true)}</span>}
+            </div>
+          </div>
+        )}
         {collection.sample && <SamplesBar style={{ marginTop: 10 }} />}
         {isWishlist(collection) && (collection.notWanted ?? []).length > 0 && (
           <div className="rise" style={{ ...rise(1), margin: '10px 0 0', maxWidth: 720 }}>
@@ -544,6 +578,14 @@ export function CollectionDetailPage() {
         />
       )}
 
+      {puttingAway && (
+        <PutAwayCard
+          name={puttingAway.name}
+          scryfallId={puttingAway.scryfallId}
+          count={entryChips(collection.id, puttingAway, placeMap, lentMap).find((c) => c.kind === 'none')?.qty ?? 1}
+          onClose={() => setPuttingAway(null)}
+        />
+      )}
       {listDialog === 'import' && <ImportCardsDialog collection={collection} onDismiss={() => setListDialog(null)} />}
       {listDialog === 'export' && <ExportCollectionDialog collection={collection} onDismiss={() => setListDialog(null)} />}
       {sharing && <ShareDialog kind="collection" itemId={collection.id} name={collection.name} onClose={() => setSharing(false)} />}
@@ -561,7 +603,7 @@ export function CollectionDetailPage() {
           knownUserTags={knownTags}
           onUserTags={(next) => setCardTags(zoomEntry.scryfallId, next)}
           buyUrl={buyCardUrl(null, zoomEntry.name)}
-          onTagClick={(label) => { setZoomId(null); setFilter(label) }}
+          onTagClick={(label) => { setZoomId(null); if (!embedded) setFilter(label) }}
           onSelectSimilar={addHere}
           similarActionLabel="Tap a card to add it to this binder"
           onClose={() => setZoomId(null)}
@@ -598,9 +640,12 @@ export function CollectionDetailPage() {
 }
 
 function EntryRow({
-  entry, selecting, selected, price: livePrice, considering, onTarget, onToggle, onZoom, onMore, onIncrement, onDecrement,
+  entry, selecting, selected, price: livePrice, considering, onTarget, onToggle, onZoom, onMore, onIncrement, onDecrement, chips = [], chipActions = {},
 }: {
   entry: CollectionEntry
+  /** Owned binders: where this entry's copies are (collectionLayout.ts's entryChips). */
+  chips?: LocationChip[]
+  chipActions?: ChipActions
   /** Wishlists: opens the card's target sheet; the row then says how far off its target it is. */
   onTarget?: () => void
   /** The Wishlist: the decks considering a card it has because of them. */
@@ -647,6 +692,7 @@ function EntryRow({
             {preRelease && <span className="dim considering">{preRelease} · no price yet</span>}
           </div>
         </div>
+        {!selecting && <LocationChips chips={chips} actions={chipActions} />}
         {onTarget && (
           <button type="button" className="target-row" onClick={onTarget}>
             <TargetLineText entry={entry} price={price} />

@@ -30,6 +30,7 @@ import { FindAnythingPage } from './pages/FindAnythingPage'
 import { SellPage } from './pages/SellPage'
 import { SealedPage } from './pages/SealedPage'
 import { GradedPage } from './pages/GradedPage'
+import { GradedListPage } from './pages/GradedListPage'
 import { CopyPhotoPage } from './pages/CopyPhotoPage'
 import { DecksPage } from './pages/DecksPage'
 import { PreconsPage } from './pages/PreconsPage'
@@ -136,6 +137,7 @@ export default function App() {
             <Route path="/collections/sell" element={<SellPage />} />
             <Route path="/collections/sealed" element={<SealedPage />} />
             <Route path="/collections/graded" element={<GradedPage />} />
+            <Route path="/collections/graded-list" element={<GradedListPage />} />
             <Route path="/collections/gear" element={<GearPage />} />
             <Route path="/collections/photos" element={<CopyPhotoPage />} />
             <Route path="/collections/household" element={<HouseholdPage />} />
