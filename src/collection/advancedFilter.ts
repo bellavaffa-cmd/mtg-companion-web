@@ -11,6 +11,7 @@ import { GAME_MODE_LABELS, GAME_MODES, type Collection, type Deck } from '../typ
 import { CARD_CONDITIONS, languageName } from './copyDetails'
 import { COLLECTION_FILTER_RARITIES, NO_COLLECTION_FILTER, type CollectionFilter, type FilterColor } from './cardFilter'
 import { NO_PLACE, placeChains, placeFactsOf, placesOf } from './storagePlaces'
+import { ownedCopies, ownedProxies } from './ownedCopies'
 
 /** How a number is compared: stored as these, shown as ≤ ≥ ≠. */
 export type CompareOp = '=' | '<' | '<=' | '>' | '>=' | '!='
@@ -255,7 +256,7 @@ export interface CopyFacts {
 }
 
 /**
- * By scryfallId, the copies in the owned binders (not wishlists) and in decks — the places All cards
+ * By scryfallId, the copies in the owned binders (not wishlists) and in owned decks (countsAsOwned) — the places All cards
  * lists and cardSources names. A deck keeps no finish, so its copies count as non-foil.
  */
 export function copyFactsOf(collections: Collection[], decks: Deck[]): Map<string, CopyFacts> {
@@ -290,10 +291,11 @@ export function copyFactsOf(collections: Collection[], decks: Deck[]): Map<strin
   }
   for (const d of decks) {
     for (const e of d.cards) {
-      if (e.quantity <= 0) continue
+      const n = ownedCopies(d, e) + ownedProxies(d, e)
+      if (n <= 0) continue
       const f = of(e.scryfallId)
-      f.nonfoil += e.quantity
-      f.copies += e.quantity
+      f.nonfoil += n
+      f.copies += n
       f.inDeck = true
     }
   }

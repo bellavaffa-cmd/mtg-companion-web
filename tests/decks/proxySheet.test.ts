@@ -69,7 +69,7 @@ test('choosing how many: never below 0 or above 99', () => {
 })
 
 test('from a pull list, a deck and Spread thin', () => {
-  const d = deck('COLLECTION', card('Sol Ring'), card('Bolt', 4), card('Forest', 10))
+  const d = deck('VIRTUAL', card('Sol Ring'), card('Bolt', 4), card('Forest', 10))
   const fromPull = picksFromNeeds(d, [{ name: 'Bolt', scryfallId: 'other', qty: 2 }, { name: 'bolt', scryfallId: 'other', qty: 1 }])
   assert.equal(fromPull.length, 1)
   assert.equal(fromPull[0].copies, 3)
@@ -88,7 +88,7 @@ test('from a pull list, a deck and Spread thin', () => {
 })
 
 test('printed copies marked as proxies, never more than the deck plays', () => {
-  const d = deck('COLLECTION', card('Bolt', 4, { proxyQuantity: 1 }), card('Sol Ring'))
+  const d = deck('VIRTUAL', card('Bolt', 4, { proxyQuantity: 1 }), card('Sol Ring'))
   const picks: ProxyPick[] = [
     { name: 'Bolt', scryfallId: 'id-Bolt', imageUrl: null, copies: 5 },
     { name: 'Sol Ring', scryfallId: 'id-Sol Ring', imageUrl: null, copies: 1 },

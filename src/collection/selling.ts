@@ -16,9 +16,9 @@ import { isUnsorted, type Collection, type CollectionEntry, type CopyPlace, type
 import { isBasicLand } from '../decks/missing'
 import { languageName } from './copyDetails'
 import { namesDecksUse } from './spares'
-import { realCopiesOf } from './unsorted'
 import { unitPrice } from './valueByPlace'
 import { lentTag, placesOf, sameCardName, splitPlaces, withPlaces } from './storagePlaces'
+import { ownedCopies } from './ownedCopies'
 
 /** A printing's facts for selling: set, number and prices (US dollars, and Cardmarket's euros; null: none). */
 export interface SellPrinting { set: string; number: string; usd: number | null; usdFoil: number | null; eur?: number | null }
@@ -137,11 +137,11 @@ function withMarks(collections: Collection[], marks: Map<string, number>): Colle
   })
 }
 
-/** Copies of each card owned, by name: the binders', the Unsorted pile's and physical decks' real ones (sortPiles.ts ownedCounts). */
+/** Copies of each card owned, by name: the binders', the Unsorted pile's and owned decks' real ones (sortPiles.ts ownedCounts). */
 function ownedByName(collections: Collection[], decks: Deck[]): Map<string, number> {
   const out = new Map<string, number>()
   for (const c of owned(collections)) for (const e of c.entries) out.set(nameKey(e.name), (out.get(nameKey(e.name)) ?? 0) + e.quantity + (e.foilQuantity ?? 0))
-  for (const d of decks) for (const e of realCopiesOf(d)) out.set(nameKey(e.name), (out.get(nameKey(e.name)) ?? 0) + e.quantity)
+  for (const d of decks) for (const e of d.cards) { const n = ownedCopies(d, e); if (n > 0) out.set(nameKey(e.name), (out.get(nameKey(e.name)) ?? 0) + n) }
   return out
 }
 

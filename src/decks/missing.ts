@@ -6,7 +6,7 @@
  */
 
 import type { Collection, Deck, DeckCardEntry } from '../types/models'
-import { proxyCopies } from './proxies'
+import { ownedCopies } from '../collection/ownedCopies'
 
 const BASICS = new Set(['plains', 'island', 'swamp', 'mountain', 'forest', 'wastes'])
 
@@ -18,9 +18,8 @@ export const isBasicLand = (name: string) => BASICS.has(key(name).replace(/^snow
 /** Copies of each card this deck really holds — proxies are print-outs, not copies you have. */
 export function copiesHeld(deck: Deck): Map<string, number> {
   const held = new Map<string, number>()
-  if (deck.ownership !== 'PHYSICAL' && deck.ownership !== 'PROXY') return held
   for (const entry of deck.cards) {
-    const real = entry.quantity - proxyCopies(deck, entry)
+    const real = ownedCopies(deck, entry)
     if (real > 0) held.set(key(entry.name), (held.get(key(entry.name)) ?? 0) + real)
   }
   return held

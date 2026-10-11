@@ -1,0 +1,67 @@
+{
+  "_about": "Which deck copies count as owned (src/collection/ownedCopies.ts; the Android app's data/OwnedCopies.kt). Run by tests/collection/ownedCopies.test.ts and by the Android app's OwnedCopiesTest.kt (a copy in app/src/test/resources). A card's name is its id; qty defaults to 1; proxies is the card's proxyQuantity (left out: none set). A deck's ownership left out is PHYSICAL; \"\" is a deck saved with no ownership, which counts as PHYSICAL. cube: a cube (gameMode CUBE, archived). allCards: each printing on All cards as [copies, proxies]; valued: the copies the dashboard prices (copies less proxies), cards with none left out; homeCards: the Collection home's All cards count; ownedPrintings: set completion's real copies by printing; youOwn: the smart piles' / scan panel's copies owned by name.",
+  "cases": [
+    {
+      "name": "a Virtual deck's cards aren't owned",
+      "binders": [{ "cards": [{ "id": "bolt" }] }],
+      "decks": [{ "ownership": "VIRTUAL", "cards": [{ "id": "ring" }, { "id": "bolt", "qty": 2 }] }],
+      "expect": { "allCards": { "bolt": [1, 0] }, "valued": { "bolt": 1 }, "homeCards": 1, "ownedPrintings": { "bolt": 1 }, "youOwn": { "bolt": 1 } }
+    },
+    {
+      "name": "a Prototype deck's cards aren't owned",
+      "binders": [{ "cards": [{ "id": "bolt" }] }],
+      "decks": [{ "ownership": "PROTOTYPE", "cards": [{ "id": "ring" }, { "id": "bolt", "qty": 2 }] }],
+      "expect": { "allCards": { "bolt": [1, 0] }, "valued": { "bolt": 1 }, "homeCards": 1, "ownedPrintings": { "bolt": 1 }, "youOwn": { "bolt": 1 } }
+    },
+    {
+      "name": "a cube's cards aren't owned, even one an older app marked Physical",
+      "binders": [{ "cards": [{ "id": "bolt" }] }],
+      "decks": [
+        { "ownership": "VIRTUAL", "cube": true, "cards": [{ "id": "ring" }, { "id": "bolt" }] },
+        { "ownership": "PHYSICAL", "cube": true, "cards": [{ "id": "crypt" }] }
+      ],
+      "expect": { "allCards": { "bolt": [1, 0] }, "valued": { "bolt": 1 }, "homeCards": 1, "ownedPrintings": { "bolt": 1 }, "youOwn": { "bolt": 1 } }
+    },
+    {
+      "name": "a Proxy deck's proxies are copies but worth nothing; real copies swapped in are owned",
+      "binders": [],
+      "decks": [{ "ownership": "PROXY", "cards": [{ "id": "lotus" }, { "id": "mox", "proxies": 0 }, { "id": "bolt", "qty": 4, "proxies": 3 }] }],
+      "expect": {
+        "allCards": { "lotus": [1, 1], "mox": [1, 0], "bolt": [4, 3] },
+        "valued": { "mox": 1, "bolt": 1 },
+        "homeCards": 3,
+        "ownedPrintings": { "mox": 1, "bolt": 1 },
+        "youOwn": { "mox": 1, "bolt": 1 }
+      }
+    },
+    {
+      "name": "a Physical deck's cards still count, its marked proxies unvalued",
+      "binders": [{ "cards": [{ "id": "ring", "qty": 2 }] }],
+      "decks": [{ "ownership": "PHYSICAL", "cards": [{ "id": "ring" }, { "id": "bolt", "qty": 4, "proxies": 1 }] }],
+      "expect": { "allCards": { "ring": [3, 0], "bolt": [4, 1] }, "valued": { "ring": 3, "bolt": 3 }, "homeCards": 2, "ownedPrintings": { "ring": 3, "bolt": 3 }, "youOwn": { "ring": 3, "bolt": 3 } }
+    },
+    {
+      "name": "a deck saved with no ownership counts as Physical",
+      "binders": [],
+      "decks": [{ "ownership": "", "cards": [{ "id": "ring", "qty": 2 }] }],
+      "expect": { "allCards": { "ring": [2, 0] }, "valued": { "ring": 2 }, "homeCards": 1, "ownedPrintings": { "ring": 2 }, "youOwn": { "ring": 2 } }
+    },
+    {
+      "name": "the wishlist and a sample deck own nothing",
+      "binders": [{ "wishlist": true, "cards": [{ "id": "dream" }] }],
+      "decks": [{ "ownership": "PHYSICAL", "sample": true, "cards": [{ "id": "ring" }] }],
+      "expect": { "allCards": {}, "valued": {}, "homeCards": 0, "ownedPrintings": {}, "youOwn": {} }
+    },
+    {
+      "name": "mixed: only the owned decks add up",
+      "binders": [{ "cards": [{ "id": "ring" }] }],
+      "decks": [
+        { "ownership": "PHYSICAL", "cards": [{ "id": "ring" }, { "id": "elf", "qty": 2 }] },
+        { "ownership": "PROXY", "cards": [{ "id": "ring" }] },
+        { "ownership": "VIRTUAL", "cards": [{ "id": "ring", "qty": 3 }, { "id": "elf" }] },
+        { "ownership": "PROTOTYPE", "cards": [{ "id": "goblin", "qty": 4 }] }
+      ],
+      "expect": { "allCards": { "ring": [3, 1], "elf": [2, 0] }, "valued": { "ring": 2, "elf": 2 }, "homeCards": 2, "ownedPrintings": { "ring": 2, "elf": 2 }, "youOwn": { "ring": 2, "elf": 2 } }
+    }
+  ]
+}

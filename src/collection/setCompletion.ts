@@ -5,7 +5,7 @@
 // Mirrors the Android app's data/SetCompletion.kt.
 
 import type { Collection, Deck } from '../types/models'
-import { proxyCopies } from '../decks/proxies'
+import { ownedCopies } from './ownedCopies'
 
 /** A set as Scryfall describes it. [cardCount]: how many printings it has; [releasedAt]: "2024-08-02". */
 export interface SetInfo {
@@ -68,7 +68,8 @@ export function missingFromSet<T>(setCards: T[], owned: Set<string>, id: (card: 
 
 /**
  * Real copies held of each printing, by scryfallId, counted as All cards counts them: owned binders
- * (the Unsorted pile too) and every deck's cards, proxies left out. Wishlists don't count.
+ * (the Unsorted pile too) and the real copies in owned decks (ownedCopies: not Virtual, Prototype or
+ * a cube), proxies left out. Wishlists don't count.
  */
 export function ownedPrintings(collections: Collection[], decks: Deck[]): Map<string, number> {
   const out = new Map<string, number>()
@@ -77,6 +78,6 @@ export function ownedPrintings(collections: Collection[], decks: Deck[]): Map<st
     if (c.type === 'WISHLIST') continue
     for (const e of c.entries) add(e.scryfallId, e.quantity + e.foilQuantity)
   }
-  for (const d of decks) for (const e of d.cards) add(e.scryfallId, e.quantity - proxyCopies(d, e))
+  for (const d of decks) for (const e of d.cards) add(e.scryfallId, ownedCopies(d, e))
   return out
 }

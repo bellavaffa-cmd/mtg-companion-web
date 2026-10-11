@@ -7,8 +7,8 @@
 
 import { languageName } from '../collection/copyDetails'
 import { placedCopies, placesOf, sameCardName } from '../collection/storagePlaces'
-import { realCopiesOf } from '../collection/unsorted'
 import type { Collection, Deck } from '../types/models'
+import { ownedCopies } from '../collection/ownedCopies'
 
 /** How a scan was identified, for the panel's "From small print" / "By name" / "Best guess" / "Learned". */
 export type ScanHow = 'SMALL_PRINT' | 'NAME' | 'SIGHT' | 'LEARNED' | 'PICKED'
@@ -99,8 +99,8 @@ export function panelPrice(usd: string | null | undefined, usdFoil: string | nul
 export interface OwnedSummary { samePrinting: number; otherPrintings: number; places: [string, number][] }
 
 /**
- * Copies of the card [name] in binders, the Unsorted pile, storage places and decks that hold their own
- * copies — the scan's own pile isn't in any of those yet. This printing ([cardId]) by where they are
+ * Copies of the card [name] in binders, the Unsorted pile, storage places and the real copies in owned
+ * decks (ownedCopies) — the scan's own pile isn't in any of those yet. This printing ([cardId]) by where they are
  * (a place's name, "Krenko deck", or the binder for copies with no place), most first.
  */
 export function ownedSummary(collections: Collection[], decks: Deck[], cardId: string, name: string): OwnedSummary {
@@ -128,9 +128,10 @@ export function ownedSummary(collections: Collection[], decks: Deck[], cardId: s
     }
   }
   for (const d of decks) {
-    for (const e of realCopiesOf(d)) {
-      if (!sameCardName(e.name, name)) continue
-      if (e.scryfallId === cardId) { same += e.quantity; at(`${d.name} deck`, e.quantity) } else other += e.quantity
+    for (const e of d.cards) {
+      const n = ownedCopies(d, e)
+      if (n <= 0 || !sameCardName(e.name, name)) continue
+      if (e.scryfallId === cardId) { same += n; at(`${d.name} deck`, n) } else other += n
     }
   }
   // Most first; a sort that keeps ties in the order they were found, as Android's does.

@@ -1,11 +1,12 @@
 // All cards: every card the user owns — in any binder (the Unsorted pile too, never a wishlist) or
-// any deck — one row a printing, with the copies added up and where they are. Plus the totals
+// any deck that counts as owned (ownedCopies.ts: Physical and Proxy, never Virtual, Prototype, a cube
+// or a sample) — one row a printing, with the copies added up and where they are. Plus the totals
 // panel over them, and what picking some of them can do. Mirrors the Android app's
 // CollectionsViewModel (allCards), Dashboard.kt and CollectionRepository (gatherInto, removeEverywhere).
 
 import type { Collection, CollectionEntry, Deck } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
-import { proxyCopies } from '../decks/proxies'
+import { ownedCopies, ownedProxies } from './ownedCopies'
 import { withCopiesOf } from './copyDetails'
 import { matchesNameOrTag, tagsOf } from '../tags/roleTags'
 
@@ -32,7 +33,7 @@ export interface AllCard {
 
 const owns = (c: Collection) => c.type !== 'WISHLIST'
 
-/** Every card in [collections]' owned binders and in [decks], by printing, A to Z. */
+/** Every card in [collections]' owned binders and in [decks] that count as owned, by printing, A to Z. */
 export function allCardsOf(collections: Collection[], decks: Deck[]): AllCard[] {
   const byCard = new Map<string, AllCard>()
   const add = (e: { scryfallId: string; name: string; imageUrl: string | null; backImageUrl?: string | null; tags?: string[] }, quantity: number, source: CardSource) => {
@@ -54,9 +55,10 @@ export function allCardsOf(collections: Collection[], decks: Deck[]): AllCard[] 
   }
   for (const d of decks) {
     for (const e of d.cards) {
-      // A deck marked Proxy is proxies until real copies are swapped in, card by card.
-      const proxies = proxyCopies(d, e)
-      add(e, e.quantity - proxies, { kind: 'deck', id: d.id, name: d.name, quantity: e.quantity - proxies })
+      // Real copies, then proxies (held, worth nothing); both 0 for a deck that isn't owned.
+      const real = ownedCopies(d, e)
+      const proxies = ownedProxies(d, e)
+      add(e, real, { kind: 'deck', id: d.id, name: d.name, quantity: real })
       add(e, proxies, { kind: 'deck', id: d.id, name: d.name, quantity: proxies, proxy: true })
     }
   }

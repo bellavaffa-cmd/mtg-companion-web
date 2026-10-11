@@ -6,7 +6,7 @@
  * Mirrors the Android app's withUnsortedPile in data/CollectionModels.kt.
  */
 
-import { UNSORTED_COLLECTION_ID, UNSORTED_COLLECTION_NAME, isUnsorted, type Collection, type CollectionEntry, type Deck, type DeckCardEntry } from '../types/models'
+import { UNSORTED_COLLECTION_ID, UNSORTED_COLLECTION_NAME, isUnsorted, ownershipOf, type Collection, type CollectionEntry, type Deck, type DeckCardEntry } from '../types/models'
 import { isWishlist } from './wishlist'
 import { proxyCopies } from '../decks/proxies'
 
@@ -64,7 +64,7 @@ export function takenFromUnsorted(entries: CollectionEntry[], scryfallId: string
 }
 
 /** Whether a deck holds the user's own copies — only then does adding to it take them out of Unsorted. */
-export const holdsOwnCopies = (deck: Deck) => deck.ownership === 'PHYSICAL'
+export const holdsOwnCopies = (deck: Deck) => ownershipOf(deck) === 'PHYSICAL'
 
 /**
  * The real copies a deck holds, as Unsorted entries — where its cards go when the deck is deleted but

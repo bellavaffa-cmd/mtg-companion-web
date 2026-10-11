@@ -94,6 +94,15 @@ export const DECK_OWNERSHIP_OPTIONS = ['PHYSICAL', 'PROXY', 'VIRTUAL', 'PROTOTYP
 export type DeckOwnership = (typeof DECK_OWNERSHIP_OPTIONS)[number]
 export const DECK_OWNERSHIP_DEFAULT: DeckOwnership = 'PHYSICAL'
 
+/**
+ * A deck's ownership as the apps judge it: one saved with none, or with one this app doesn't know,
+ * is Physical — the Android app's DeckOwnership.fromName.
+ */
+export function ownershipOf(deck: Pick<Deck, 'ownership'>): DeckOwnership {
+  const o = deck.ownership as string | null | undefined
+  return (DECK_OWNERSHIP_OPTIONS as readonly string[]).includes(o ?? '') ? (o as DeckOwnership) : DECK_OWNERSHIP_DEFAULT
+}
+
 export const DECK_OWNERSHIP_LABELS: Record<DeckOwnership, string> = {
   PHYSICAL: 'Physical',
   PROXY: 'Proxy',

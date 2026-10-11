@@ -13,10 +13,11 @@
 
 import type { Collection, CollectionEntry, Deck } from '../types/models'
 import { missingCards } from '../decks/missing'
-import { realCopiesOf, withUnsortedPile } from './unsorted'
+import { withUnsortedPile } from './unsorted'
 import { addedHere, placePath, placesOf, placeTree, putAway, sameCardName, suggestSpot, type CardFacts, type PutAwayStep, type Spot } from './storagePlaces'
 import { bestPlaceByRule } from './pullList'
 import { isUnsorted } from '../types/models'
+import { ownedCopies } from './ownedCopies'
 
 export type PileKind = 'VALUE' | 'PRICE' | 'SPARES' | 'WANTED' | 'BULK'
 export const PILE_KINDS: PileKind[] = ['VALUE', 'PRICE', 'SPARES', 'WANTED', 'BULK']
@@ -113,14 +114,14 @@ export function pileFor(rules: PileRule[], f: SortFacts): PileChoice | null {
 
 const key = (name: string) => name.trim().toLowerCase().split(' // ')[0].trim()
 
-/** Copies of each card owned (by name): the binders' and the Unsorted pile's, and physical decks' real ones. */
+/** Copies of each card owned (by name): the binders' and the Unsorted pile's, and owned decks' real ones (ownedCopies). */
 export function ownedCounts(collections: Collection[], decks: Deck[]): Map<string, number> {
   const out = new Map<string, number>()
   for (const c of collections) {
     if (c.type === 'WISHLIST') continue
     for (const e of c.entries) out.set(key(e.name), (out.get(key(e.name)) ?? 0) + e.quantity + (e.foilQuantity ?? 0))
   }
-  for (const d of decks) for (const e of realCopiesOf(d)) out.set(key(e.name), (out.get(key(e.name)) ?? 0) + e.quantity)
+  for (const d of decks) for (const e of d.cards) { const n = ownedCopies(d, e); if (n > 0) out.set(key(e.name), (out.get(key(e.name)) ?? 0) + n) }
   return out
 }
 

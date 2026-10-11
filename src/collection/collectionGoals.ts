@@ -23,8 +23,8 @@ import type { Collection, CollectionEntry, Deck, DeckCardEntry } from '../types/
 import { isUnsorted } from '../types/models'
 import { sameJson } from '../sync/canonicalJson'
 import { withUnsortedPile } from './unsorted'
-import { proxyCopies } from '../decks/proxies'
 import { isBasicLand } from '../decks/missing'
+import { countsAsOwned, ownedCopies } from './ownedCopies'
 
 // ---- What a goal is ----
 
@@ -259,9 +259,6 @@ export function goalTargets(goal: CollectionGoal, decks: Deck[]): GoalCard[] {
   })
 }
 
-/** Real copies each deck holds, by printing and name — a deck you hold (or a proxy deck's real ones). */
-const holdsCards = (d: Deck) => !d.sample && (d.ownership === 'PHYSICAL' || d.ownership === 'PROXY')
-
 /**
  * The copies [goal] counts of each card it could want, by its card key: owned binders, boxes and
  * the Unsorted pile (wishlists never), and with [countDecks] the real copies in decks held. A foil
@@ -277,12 +274,12 @@ export function goalCounts(goal: CollectionGoal, collections: Collection[], deck
   }
   if (goal.countDecks === true) {
     for (const d of decks) {
-      if (!holdsCards(d)) continue
+      if (!countsAsOwned(d)) continue
       // The foil copies the deck's pull list brought in, by name, handed out to its cards in order.
       const foils = new Map<string, number>()
       if (foil) for (const f of d.cameFrom ?? []) if (f.foil === true) foils.set(goalNameKey(f.name), (foils.get(goalNameKey(f.name)) ?? 0) + f.qty)
       for (const e of d.cards) {
-        const real = e.quantity - proxyCopies(d, e)
+        const real = ownedCopies(d, e)
         if (real <= 0) continue
         if (!foil) { add(goalCardKey(goal, e), real); continue }
         const left = foils.get(goalNameKey(e.name)) ?? 0

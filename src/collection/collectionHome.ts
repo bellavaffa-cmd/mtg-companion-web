@@ -13,6 +13,7 @@ import { sellRows, sellQty } from './selling'
 import { placedPercent } from './storageSetup'
 import { placesOf, storageSummary } from './storagePlaces'
 import { deckTitle, type UpkeepItem, type UpkeepKind } from './upkeep'
+import { ownedCopies, ownedProxies } from './ownedCopies'
 
 /** What the home's tiles say. */
 export interface HomeNumbers {
@@ -45,7 +46,7 @@ export function homeNumbers(collections: Collection[], decks: Deck[]): HomeNumbe
     if (c.type === 'WISHLIST') continue
     for (const e of c.entries) if (copiesOf(e) > 0) printings.add(e.scryfallId)
   }
-  for (const d of decks) for (const e of d.cards) if (e.quantity > 0) printings.add(e.scryfallId)
+  for (const d of decks) for (const e of d.cards) if (ownedCopies(d, e) + ownedProxies(d, e) > 0) printings.add(e.scryfallId)
   const sealed = sealedOf(collections)
   const graded = gradedOf(collections)
   const wishlist = collections.find(isWishlist)

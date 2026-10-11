@@ -9,11 +9,11 @@
 // (tests/decks/deckUpgrade.test.ts) and by the Android app (DeckUpgradeTest.kt), which mirrors this
 // file as data/DeckUpgrade.kt rule for rule.
 
-import { UNSORTED_COLLECTION_ID, type Collection, type CollectionEntry, type Deck, type DeckCardEntry } from '../types/models'
+import { UNSORTED_COLLECTION_ID, ownershipOf, type Collection, type CollectionEntry, type Deck, type DeckCardEntry } from '../types/models'
 import { intoPile, pileEntryOf, realCopiesLeaving, withUnsortedPile } from '../collection/unsorted'
 import { estimateBracket, isLandType } from './deckAnalysis'
 import { cardNameKeys } from './comboPieces'
-import { proxyCopies } from './proxies'
+import { ownedCopies } from '../collection/ownedCopies'
 
 /** The jobs swaps are matched on, the most important first: a card doing several counts for the first. */
 export const UPGRADE_ROLES = [
@@ -267,7 +267,7 @@ export interface OwnedSource {
   placeKey: string | null
 }
 
-const holdsCards = (deck: Deck) => deck.ownership === 'PHYSICAL' || deck.ownership === 'PROXY'
+const holdsCards = (deck: Deck) => ownershipOf(deck) === 'PHYSICAL' || ownershipOf(deck) === 'PROXY'
 
 /**
  * Every card the user owns outside [deckId], by name key: the copies in binders, boxes and the Unsorted
@@ -309,7 +309,7 @@ export function ownedSources(collections: Collection[], decks: Deck[], deckId: s
     for (const e of d.cards) {
       const key = nameKey(e.name)
       if (holdsCards(d)) {
-        if (e.quantity - proxyCopies(d, e) > 0 && !heldIn.has(key)) heldIn.set(key, { name: e.name, scryfallId: e.scryfallId, deck: d.name })
+        if (ownedCopies(d, e) > 0 && !heldIn.has(key)) heldIn.set(key, { name: e.name, scryfallId: e.scryfallId, deck: d.name })
       } else {
         const need = Math.max(0, e.quantity - Math.max(0, e.proxyQuantity ?? 0))
         if (need <= 0) continue

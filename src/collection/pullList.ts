@@ -21,7 +21,7 @@
 // tests (tests/collection/pullList.test.ts ↔ PullListTest.kt).
 
 import {
-  isUnsorted,
+  isUnsorted, ownershipOf,
   type CameFrom, type Collection, type CollectionEntry, type CopyPlace, type Deck, type DeckCardEntry, type StoragePlace,
 } from '../types/models'
 import { proxyCopies } from '../decks/proxies'
@@ -39,7 +39,7 @@ const nameKey = (name: string) => name.trim().toLowerCase()
 const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
 
 /** Whether a deck holds real copies of its cards: Physical, or Proxy with real cards swapped in. */
-export const holdsCards = (deck: Deck): boolean => deck.ownership === 'PHYSICAL' || deck.ownership === 'PROXY'
+export const holdsCards = (deck: Deck): boolean => ownershipOf(deck) === 'PHYSICAL' || ownershipOf(deck) === 'PROXY'
 
 /** The deck's cards, its commanders among them (once). */
 function deckEntries(deck: Deck): DeckCardEntry[] {
