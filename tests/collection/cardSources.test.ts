@@ -31,3 +31,23 @@ test('a card page counts every printing, place by place', () => {
   const decks = [{ id: 'd', name: 'Tempo', cards: [{ scryfallId: 'p1', name: 'Delver of Secrets // Insectile Aberration', quantity: 1 }] }] as unknown as Deck[]
   assert.deepEqual(sourcesForName(collections, decks, 'Delver of Secrets').map((s) => [s.name, s.quantity]), [['Binder', 4], ['Tempo', 1]])
 })
+
+test("where you own it: no Virtual, Prototype, cube or sample deck, and not the Wishlist", () => {
+  const collections = [
+    { id: 'b', name: 'Binder', type: 'OWNED', createdAt: 0, entries: [{ scryfallId: 's', name: 'Sol Ring', imageUrl: null, quantity: 1, foilQuantity: 0 }] },
+    { id: 'w', name: 'Wishlist', type: 'WISHLIST', createdAt: 0, entries: [{ scryfallId: 's', name: 'Sol Ring', imageUrl: null, quantity: 1, foilQuantity: 0 }] },
+  ] as unknown as Collection[]
+  const deck = (id: string, ownership: string, more: object = {}) =>
+    ({ id, name: id, ownership, gameMode: 'COMMANDER', cards: [{ scryfallId: 's', name: 'Sol Ring', quantity: 1 }], ...more })
+  const decks = [
+    deck('Physical', 'PHYSICAL'), deck('Proxy', 'PROXY'), deck('Virtual', 'VIRTUAL'), deck('Prototype', 'PROTOTYPE'),
+    deck('Cube', 'VIRTUAL', { gameMode: 'CUBE', archived: true }), deck('Sample', 'PHYSICAL', { sample: true }), deck('Unset', ''),
+  ] as unknown as Deck[]
+  const held = cardSources(collections, decks).get('s')!
+  assert.deepEqual(held.map((s) => s.name), ['Binder', 'Physical', 'Proxy', 'Unset'])
+  assert.equal(sourcesLabel(held), 'In 3 decks and 1 binder')
+  assert.deepEqual(sourcesForName(collections, decks, 'Sol Ring').map((s) => s.name), ['Binder', 'Physical', 'Proxy', 'Unset'])
+  // A card only in a Virtual deck and on the Wishlist is owned nowhere.
+  assert.equal(cardSources([collections[1]], [decks[2]]).has('s'), false)
+  assert.deepEqual(sourcesForName([collections[1]], [decks[2]], 'Sol Ring'), [])
+})

@@ -1,8 +1,10 @@
-// Where each printing is held — every binder and deck holding copies of it — for "Where you own it"
-// on search results and the card page. Mirrors the Android app's buildCardSources and the zoom's
+// Where each printing is owned — every owned binder (never the Wishlist) and every deck that counts as
+// owned (ownedCopies.ts countsAsOwned: not Virtual, Prototype, a cube or a sample) holding copies of
+// it — for "Where you own it" on search results and the card page. Mirrors the Android app's buildCardSources and the zoom's
 // "In 2 decks and 1 binder" line (ui/common/CardZoomDialog.kt).
 
-import type { Collection, Deck } from '../types/models'
+import type { Collection, Deck, DeckCardEntry } from '../types/models'
+import { countsAsOwned, ownedCopies, ownedProxies } from './ownedCopies'
 
 export interface HeldIn {
   kind: 'binder' | 'deck'
@@ -11,7 +13,10 @@ export interface HeldIn {
   quantity: number
 }
 
-/** scryfallId -> the binders and decks holding it; a card held nowhere isn't in the map. */
+/** Copies of [e] a deck holds that count as owned: real ones and proxies, as All cards counts them. */
+const deckCopies = (d: Deck, e: DeckCardEntry) => ownedCopies(d, e) + ownedProxies(d, e)
+
+/** scryfallId -> the owned binders and owned decks holding it; a card owned nowhere isn't in the map. */
 export function cardSources(collections: Collection[], decks: Deck[]): Map<string, HeldIn[]> {
   const out = new Map<string, HeldIn[]>()
   const add = (id: string, source: HeldIn) => {
@@ -21,10 +26,12 @@ export function cardSources(collections: Collection[], decks: Deck[]): Map<strin
     else out.set(id, [source])
   }
   for (const c of collections) {
+    if (c.type === 'WISHLIST') continue
     for (const e of c.entries) add(e.scryfallId, { kind: 'binder', id: c.id, name: c.name, quantity: e.quantity + e.foilQuantity })
   }
   for (const d of decks) {
-    for (const e of d.cards) add(e.scryfallId, { kind: 'deck', id: d.id, name: d.name, quantity: e.quantity })
+    if (!countsAsOwned(d)) continue
+    for (const e of d.cards) add(e.scryfallId, { kind: 'deck', id: d.id, name: d.name, quantity: deckCopies(d, e) })
   }
   return out
 }
@@ -41,7 +48,7 @@ export function sourcesLabel(sources: HeldIn[]): string {
 }
 
 /**
- * Every binder and deck holding any printing of [name] — a card page is about the card, not one
+ * Every owned binder and owned deck (as [cardSources]) holding any printing of [name] — a card page is about the card, not one
  * printing — with each place's copies added up. A double-faced card answers to its front face too.
  */
 export function sourcesForName(collections: Collection[], decks: Deck[], name: string): HeldIn[] {
@@ -55,7 +62,13 @@ export function sourcesForName(collections: Collection[], decks: Deck[], name: s
     const had = out.get(key)
     out.set(key, had ? { ...had, quantity: had.quantity + source.quantity } : source)
   }
-  for (const c of collections) for (const e of c.entries) if (matches(e.name)) add({ kind: 'binder', id: c.id, name: c.name, quantity: e.quantity + e.foilQuantity })
-  for (const d of decks) for (const e of d.cards) if (matches(e.name)) add({ kind: 'deck', id: d.id, name: d.name, quantity: e.quantity })
+  for (const c of collections) {
+    if (c.type === 'WISHLIST') continue
+    for (const e of c.entries) if (matches(e.name)) add({ kind: 'binder', id: c.id, name: c.name, quantity: e.quantity + e.foilQuantity })
+  }
+  for (const d of decks) {
+    if (!countsAsOwned(d)) continue
+    for (const e of d.cards) if (matches(e.name)) add({ kind: 'deck', id: d.id, name: d.name, quantity: deckCopies(d, e) })
+  }
   return [...out.values()]
 }
