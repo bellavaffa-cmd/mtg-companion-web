@@ -1,5 +1,5 @@
 import { countAction } from '../usage/usage'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getByExactName, getByFuzzyName, getBySetAndNumber, getCardsByIds, getPrintings, OfflineError } from '../api/scryfall'
 import { canBeFoil, deckPlace, doneMessage } from '../collection/addTo'
@@ -9,7 +9,7 @@ import { AddToSheet, type AddTarget } from '../components/AddToSheet'
 import { useAddCheck } from '../components/useAddCheck'
 import { useUndoBar } from '../components/useUndoBar'
 import { Icon } from '../components/Icon'
-import { ArtImage, IconButton, PillChip, toArtCrop, useBack } from '../components/kit'
+import { ArtImage, IconButton, PillChip, SegmentedTabs, toArtCrop, useBack } from '../components/kit'
 import { Dialog } from '../components/Dialog'
 import { PrintingPicker, printingName } from '../components/PrintingPicker'
 import { DifferentCardSearch } from '../components/DifferentCardSearch'
@@ -36,14 +36,14 @@ import { copyNumber, grouped, onlyRepeats, repeatedCards, saveNewest, scannedTwi
 import { useSync } from '../sync/SyncContext'
 import { cardRecognised, unlockScanAudio } from '../scan/scanFeedback'
 import { rarityLabel } from '../scan/scanSounds'
-import { UNSORTED_COLLECTION_ID } from '../types/models'
+import { UNSORTED_COLLECTION_ID, type StoragePlace } from '../types/models'
 import { isLimited } from '../decks/limited'
 import { backImageUrl, cardTags, displayImageUrl, type ScryfallCard } from '../types/scryfall'
 import { addedHere, cardFactsOf, placesOf, pocketLabel, putAway, suggestSpot, undoPutAway, type PutAwayResult, type PutAwayStep, type Spot } from '../collection/storagePlaces'
 import { PlacePicker } from '../collection/StorageTab'
 import { placeIdFromLabel } from '../collection/placeLabel'
 import { PlaceLabelSheet } from '../collection/PlaceLabelSheet'
-import { pullList, putBackList, rowToTick } from '../collection/pullList'
+import { bestPlaceByRule, pullList, putBackList, rowToTick } from '../collection/pullList'
 import { loadPullProgress, loadPutBackProgress, tickRow } from '../collection/pullProgress'
 import { reconcile, type CheckScan } from '../collection/placeCheck'
 import { loadCheck, saveCheck, type CheckSession } from '../collection/checkSession'
@@ -58,7 +58,13 @@ import {
   apartOf, checkPileCard, deckNeedsOf, derivePiles, fileRecipe, friendWantsOf, goalNeedsOf, HandsFreeCapture, orderedBinders, ownedOf, pileFor, reasonsFor,
   sortCard as sortRecipeCard, spokenPile, type ApartKind, type RecipeChoice, type RecipeCard, type RecipeScan, type SmartContext,
 } from '../collection/sortRecipes'
-import { loadRecipeSession, loadVoice, saveRecipeSession, sayOutLoud, type RecipeSessionState } from '../collection/recipeSession'
+import { loadLastRecipe, loadRecipeSession, loadVoice, saveRecipeSession, sayOutLoud, setLastRecipeId, startRecipeSession, type RecipeSessionState } from '../collection/recipeSession'
+import { isTemplate, recipeLine, recipesOf, type SortRecipe } from '../collection/sortRecipes'
+import {
+  canLetAppChoose, carryOver, dismissSortTip, entryOf as scannerEntryOf, loadLastMode, PUT_AWAY_BY_RULE, saveLastMode, SCANNER_MODES, scannerStart, sortStart, sortTipSeen,
+  type ScannerMode,
+} from '../scan/scannerModes'
+import '../scan/scannerModes.css'
 import { RecipeScanPanel } from '../collection/RecipeScanPanel'
 import { useCardData } from '../collection/cardData'
 import { tradeMatches, type TradeMatch } from '../social/more'
@@ -144,6 +150,9 @@ function savePile(rows: ScanRow[]): number {
   })
 }
 
+/** Sort a pile's recipe picker, over the camera: loaded when first opened, as /sort is. */
+const RecipeSheet = lazy(() => import('./SortRecipesPage').then((m) => ({ default: m.RecipeSheet })))
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /**
@@ -209,32 +218,45 @@ export function ScanPage() {
   // than gathered into a pile (see collection/storagePlaces.ts).
   const [params, setParams] = useSearchParams()
   const target = placesOf(collections).find((p) => p.id === params.get('putAway')) ?? null
+  // Put away's "Let the app choose" (?putAway=RULE): each card goes to the box whose rule fits it.
+  const putAwayAuto = !target && params.get('putAway') === PUT_AWAY_BY_RULE
   const [session, setSession] = useState<PutAwayRow[]>([])
   const [choosingPlace, setChoosingPlace] = useState(false)
-  /** Puts [card] away into the target; read by the camera loop, so it always sees the place chosen now. */
-  const putAwayCard = useRef<((card: ScryfallCard, id: number) => void) | null>(null)
+  /**
+   * Puts [card] away into the target (or the box whose rule fits it); read by the camera loop, so it
+   * always sees the place chosen now. False when no box's rule fits: the card goes in Add cards instead.
+   */
+  const putAwayCard = useRef<((card: ScryfallCard, id: number) => boolean) | null>(null)
+  const putInto = (target: StoragePlace, card: ScryfallCard, id: number) => {
+    const got: { row?: PutAwayRow } = {}
+    changeStorage((c) => {
+      const { spot, hint } = suggestSpot(target, cardFactsOf(card), c)
+      const o = putAway(c, card, spot, entryOf(card))
+      const where = spot.section ?? (spot.page && spot.slot ? pocketLabel(spot.page, spot.slot) : target.name)
+      got.row = { id, card, hint, where, spot, result: o.result, label: o.label, step: o.step }
+      return o.collections
+    })
+    const row = got.row
+    if (!row) return
+    // The copy's history (collection/copyHistory.ts): put away from where it was, or added here.
+    const placesNow = placesOf(collections)
+    const fromPlace = row.step?.from ? placesNow.find((p) => p.id === row.step!.from!.placeId) : undefined
+    const here = { id: target.id, name: [target.name, row.spot.section].filter(Boolean).join(' › ') }
+    if (row.result === 'new') recordMoves([addedMove(Date.now(), { name: card.name, scryfallId: card.id }, 1, here, 'by scanning')])
+    else if (row.result !== 'here') recordMoves([putAwayMove(Date.now(), { name: card.name, scryfallId: card.id }, 1, here, fromPlace ? { id: fromPlace.id, name: fromPlace.name } : row.step?.collectionId === UNSORTED_COLLECTION_ID ? { id: '', name: 'Unsorted' } : null, 'by scanning')])
+    setSession((list) => [row, ...list])
+    sayCard(`${card.name} — ${row.label}`, card)
+  }
   putAwayCard.current = target
-    ? (card, id) => {
-      const got: { row?: PutAwayRow } = {}
-      changeStorage((c) => {
-        const { spot, hint } = suggestSpot(target, cardFactsOf(card), c)
-        const o = putAway(c, card, spot, entryOf(card))
-        const where = spot.section ?? (spot.page && spot.slot ? pocketLabel(spot.page, spot.slot) : target.name)
-        got.row = { id, card, hint, where, spot, result: o.result, label: o.label, step: o.step }
-        return o.collections
-      })
-      const row = got.row
-      if (!row) return
-      // The copy's history (collection/copyHistory.ts): put away from where it was, or added here.
-      const placesNow = placesOf(collections)
-      const fromPlace = row.step?.from ? placesNow.find((p) => p.id === row.step!.from!.placeId) : undefined
-      const here = { id: target.id, name: [target.name, row.spot.section].filter(Boolean).join(' › ') }
-      if (row.result === 'new') recordMoves([addedMove(Date.now(), { name: card.name, scryfallId: card.id }, 1, here, 'by scanning')])
-      else if (row.result !== 'here') recordMoves([putAwayMove(Date.now(), { name: card.name, scryfallId: card.id }, 1, here, fromPlace ? { id: fromPlace.id, name: fromPlace.name } : row.step?.collectionId === UNSORTED_COLLECTION_ID ? { id: '', name: 'Unsorted' } : null, 'by scanning')])
-      setSession((list) => [row, ...list])
-      sayCard(`${card.name} — ${row.label}`, card)
-    }
-    : null
+    ? (card, id) => { putInto(target, card, id); return true }
+    : putAwayAuto
+      ? (card, id) => {
+        const best = bestPlaceByRule(placesOf(collections), cardFactsOf(card), collections)
+        if (!best) return false
+        putInto(best.place, card, id)
+        return true
+      }
+      : null
   // Check mode (?check=<place>): each card scanned is matched against what's listed in that place (or
   // one section of it), live — "belongs here", "should be in Blue", "listed in Krenko deck" — and
   // Finish check opens the results (collection/placeCheck.ts, CheckResultsPage.tsx). The scans are
@@ -467,6 +489,121 @@ export function ScanPage() {
   }
   const recipeMissRef = useRef(recipeMiss)
   recipeMissRef.current = recipeMiss
+  // ---- The scanner's modes (scan/scannerModes.ts): Add cards · Sort a pile · Put away · Check ----
+  // The mode is in the address, so a reload or a link lands in it; ?mode=sort|putAway|check is that mode
+  // with its sorter or place not picked yet. Ticking a deck's list is a job of its own, with no switch.
+  const modeParam = params.get('mode')
+  const scannerMode: ScannerMode | null = tickKind ? null
+    : target || putAwayAuto || modeParam === 'putAway' ? 'putAway'
+      : checkPlace || modeParam === 'check' ? 'check'
+        : sortMode || recipeMode || modeParam === 'sort' ? 'sort'
+          : 'add'
+  const [start] = useState(() => scannerStart(scannerEntryOf(params), loadLastMode()))
+  /** The recipe picker over the camera: at a recipe's Lay out step ({ layout: id }), or the picker itself. */
+  const [recipeSheet, setRecipeSheet] = useState<{ layout: string | null } | null>(null)
+  const [askCarry, setAskCarry] = useState<number | null>(null)
+  const [carryAsked, setCarryAsked] = useState(false)
+  const [choosingCheck, setChoosingCheck] = useState(false)
+  const [tipSeen, setTipSeen] = useState(sortTipSeen)
+  const hideTip = () => { dismissSortTip(); setTipSeen(true) }
+  // The place last put away into, or checked, here: coming back to that mode goes back to it.
+  const lastPutAway = useRef<string | null>(params.get('putAway'))
+  const lastCheck = useRef<string | null>(params.get('check'))
+  useEffect(() => { const id = params.get('putAway'); if (id) lastPutAway.current = id }, [params])
+  useEffect(() => { const id = params.get('check'); if (id) lastCheck.current = id }, [params])
+  const sorting = (sortMode && !!sort) || (recipeMode && !!recipe)
+  const waitingLine = scannerMode === 'sort' && !sorting ? 'Start the sort first — or pick a recipe'
+    : scannerMode === 'putAway' && !target && !putAwayAuto ? 'Pick where the cards go first'
+      : scannerMode === 'check' && !(check && checkPlace) ? 'Pick the place to check first'
+        : null
+  /** Read by addScanned: cards wait while a mode needs its place or recipe, or the recipe picker is up. */
+  const waiting = useRef<string | null>(null)
+  waiting.current = recipeSheet ? 'Pick a recipe first' : waitingLine
+  /** The recipe last sorted with: your own as it is now in the collection, or a template as it was. */
+  const lastRecipe = useMemo<SortRecipe | null>(() => {
+    const last = loadLastRecipe()
+    return last ? recipesOf(collections).find((r) => r.id === last.id) ?? last : null
+  }, [collections, recipe]) // eslint-disable-line react-hooks/exhaustive-deps
+  const go = (next: Record<string, string>) => setParams(next, { replace: true })
+  /** Sort a pile, picked: a sort under way carries on; otherwise Start (the recipe used last) or pick one. */
+  const enterSort = () => {
+    const withRecipe = loadRecipeSession()
+    const classic = loadSort()
+    const last = loadLastRecipe()
+    switch (sortStart(withRecipe ? withRecipe.scans.length : null, classic ? classic.scans.length : null, last !== null)) {
+      case 'resumeRecipe':
+        setRecipe(withRecipe)
+        go({ recipe: '' })
+        setStatus(`Carrying on: ${withRecipe?.scans.length ?? 0} sorted with ${withRecipe?.recipe.name ?? 'the recipe'}`)
+        break
+      case 'resumeClassic':
+        setSort(classic)
+        go({ sort: '' })
+        setStatus('Carrying on with the sort')
+        break
+      default:
+        go({ mode: 'sort' })
+        setStatus('Sort a pile: start, or pick how it splits')
+    }
+  }
+  /** Start: a new sort with [r] (the recipe used last, as it is). */
+  const startRecipe = (r: SortRecipe) => {
+    if (!isTemplate(r)) setLastRecipeId(r.id)
+    setRecipe(startRecipeSession(r))
+    go({ recipe: '' })
+    setStatus(`Sorting with ${r.name} — show the first card`)
+  }
+  const startClassic = () => {
+    setSort(loadSort() ?? { source: '', rules: loadPiles(collections), newCards: true, scans: [] })
+    go({ sort: '' })
+    setStatus('Sorting into piles — show the first card')
+  }
+  const chooseCheck = (id: string) => {
+    changeCheck(loadCheck(id) ?? { placeId: id, section: null, scans: [] })
+    go({ check: id })
+    setStatus('Scan everything in it, one card at a time')
+  }
+  /**
+   * The mode switch: [to] is what the scanner does now, without stopping the camera, remembered in this
+   * browser for the nav bar's Scan. The Add cards list is never touched (carryOver); Put away and Check
+   * go back to the place they last had here, or ask for one; Sort a pile carries on or offers Start.
+   */
+  const switchMode = (to: ScannerMode) => {
+    saveLastMode(to)
+    if (to === scannerMode) return
+    const places = placesOf(collections)
+    if (to === 'add') {
+      go({})
+      setStatus(scanned.length > 0 ? `Adding cards — ${scanned.length} in the list` : 'Scan cards to add them to the list')
+    } else if (to === 'sort') {
+      enterSort()
+    } else if (to === 'putAway') {
+      const was = lastPutAway.current
+      if (was && (was === PUT_AWAY_BY_RULE || places.some((p) => p.id === was))) { go({ putAway: was }); setStatus('Scan cards to put them away') }
+      else { go({ mode: 'putAway' }); setStatus('Pick where the cards go') }
+    } else {
+      const was = lastCheck.current
+      if (was && places.some((p) => p.id === was)) chooseCheck(was)
+      else { go({ mode: 'check' }); setStatus('Pick the place to check') }
+    }
+  }
+  /** A tap on the switch: asking first about the Add cards list when it's needed. */
+  const pickMode = (to: ScannerMode) => {
+    if (to === 'sort' && !tipSeen) hideTip()
+    if (carryOver(scannerMode, to, scanned.length, carryAsked) === 'ask') setAskCarry(scanned.length)
+    else switchMode(to)
+  }
+  // Opening: the nav bar's Scan in the mode last picked, and Sort a new pile (?mode=sort) with what sortStart says.
+  const opened = useRef(false)
+  useEffect(() => {
+    if (opened.current) return
+    opened.current = true
+    if (modeParam === 'sort' || (scannerEntryOf(params) === 'plain' && start.mode === 'sort')) enterSort()
+    else if (scannerEntryOf(params) === 'plain' && start.mode && start.mode !== 'add') switchMode(start.mode)
+  }) // eslint-disable-line react-hooks/exhaustive-deps
+  // Opened in Sort a pile, the tip has done its job.
+  useEffect(() => { if (scannerMode === 'sort' && !tipSeen) hideTip() }, [scannerMode]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // A box label read by the camera: what it offers, over the camera (PlaceLabelSheet).
   const [labelId, setLabelId] = useState<string | null>(null)
   const labelShown = useRef<string | null>(null)
@@ -619,26 +756,34 @@ export function ScanPage() {
   /** Every scan is its own row, newest first, so a card read twice shows twice. */
   const addScanned = (card: ScryfallCard, exact = false, note = ''): number => {
     const id = nextScanId++
-    // While a box label's sheet is up, cards wait.
+    // While a box label's sheet is up, cards wait; and while a mode needs its place or recipe.
     if (labelShown.current) return id
+    if (waiting.current) { setStatusRarity(null); setStatus(waiting.current); return id }
     countAction('card_scanned')
     // Its sound and buzz (Settings › Scanner): by rarity, or a sting for a valuable card.
     cardRecognised(card)
+    const putAway = putAwayCard.current
     const modeCard = recipeCard.current
       ? () => recipeCard.current?.(card, id)
       : sortCard.current
       ? () => sortCard.current?.(card, id)
       : tickCard.current
         ? () => tickCard.current?.(card)
-        : putAwayCard.current
-          ? () => putAwayCard.current?.(card, id)
-          : checkCard.current
-            ? () => checkCard.current?.(card, exact)
-            : null
+        : checkCard.current
+          ? () => checkCard.current?.(card, exact)
+          : null
     if (modeCard) {
       modeCard()
       setFlash((n) => n + 1)
       return id
+    }
+    if (putAway) {
+      if (putAway(card, id)) {
+        setFlash((n) => n + 1)
+        return id
+      }
+      // Let the app choose, and no box's rule fits it: it waits in Add cards.
+      note = ' — no box’s rule fits it, so it’s in Add cards for now'
     }
     setPanel((p) => ({ ...p, rows: [...p.rows, id] }))
     setScanned((list) => {
@@ -1123,12 +1268,13 @@ export function ScanPage() {
     setStatus(`${row.card.name} taken off the list`)
   }
 
-  const panelOn = showPanel && !target && !tickKind && !checkPlace && !sortMode && !recipeMode
+  const panelOn = showPanel && scannerMode === 'add'
   const panelRow = panelOn ? lastScanned(panel, scanned) : null
 
   const total = scanned.length
   // The nav bar and the sidebar are the app's own links: caught here, asked about, then followed.
-  useLeaveGuard(scanned.length > 0, useCallback((go: () => void) => setLeaving(() => go), []))
+  // Only on Add cards: in the other modes the list waits untouched (kept in the tab) for Add cards.
+  useLeaveGuard(scannerMode === 'add' && scanned.length > 0, useCallback((go: () => void) => setLeaving(() => go), []))
   const repeats = repeatedCards(scanned)
   // With nothing scanned twice the filter has nothing to hide — and its chip is gone, so leaving it
   // on would leave an empty list and no way back.
@@ -1194,7 +1340,7 @@ export function ScanPage() {
     <>
       <TopBar
         title={target ? 'Put away' : tickKind ? 'Scan to tick' : checkPlace ? 'Check' : sortMode ? 'Sorting a new pile' : recipeMode && recipe ? `Sorting: ${recipe.recipe.name}` : 'Scan'}
-        onBack={() => (scanned.length > 0 && !target && !tickKind && !checkPlace ? setLeaving(() => back) : back())}
+        onBack={() => (scannerMode === 'add' && scanned.length > 0 ? setLeaving(() => back) : back())}
         actions={
           <>
           {torch && (
@@ -1220,6 +1366,27 @@ export function ScanPage() {
         }
       />
       <div className="content-scroll scan-page">
+        {start.showSwitch && scannerMode && (
+          <>
+            <SegmentedTabs
+              className="scan-modes"
+              idPrefix="scanmode"
+              ariaLabel="What the scanner does"
+              labels={SCANNER_MODES.map((m) => m.label)}
+              selected={SCANNER_MODES.findIndex((m) => m.mode === scannerMode)}
+              onSelect={(i) => pickMode(SCANNER_MODES[i].mode)}
+              counts={scannerMode !== 'add' && scanned.length > 0 ? { 0: scanned.length } : {}}
+              tabAttrs={(i): Record<string, string> => (i === 0 && scanned.length > 0 ? { 'aria-label': `Add cards, ${scanned.length} in the list` } : {})}
+            />
+            {!tipSeen && scannerMode !== 'sort' && (
+              <div className="scan-tip" role="status">
+                <span className="scan-tip-text"><b>New: sort a pile while you scan</b>Tap Sort a pile and each card is told its pile as you scan it.</span>
+                <IconButton icon="close" label="Dismiss tip" onClick={hideTip} />
+              </div>
+            )}
+          </>
+        )}
+        <div id="scanmode-panel" role={start.showSwitch && scannerMode ? 'tabpanel' : undefined} aria-labelledby={start.showSwitch && scannerMode ? `scanmode-tab-${SCANNER_MODES.findIndex((m) => m.mode === scannerMode)}` : undefined}>
         {tickDeck && tickKind && (
           <div className="putaway-target" role="status">
             <span>
@@ -1238,9 +1405,9 @@ export function ScanPage() {
             )}
           </div>
         )}
-        {target && (
-          <button type="button" className="putaway-target" onClick={() => setChoosingPlace(true)} aria-label={`Putting away into ${target.name} — change`}>
-            <span>Putting away into: {target.name}</span>
+        {(target || putAwayAuto) && (
+          <button type="button" className="putaway-target" onClick={() => setChoosingPlace(true)} aria-label={`Putting away into ${target ? target.name : 'the box whose rule fits'} — change`}>
+            <span>Putting away into: {target ? target.name : 'the box whose rule fits'}</span>
             <Icon name="expand_more" aria-hidden />
           </button>
         )}
@@ -1311,13 +1478,50 @@ export function ScanPage() {
           <button type="submit" className="btn gold" disabled={!typed.trim() || lookingUp}>Add</button>
         </form>
 
-        {sortMode && sort && <SortPilePanel session={sort} onChange={setSort} onDone={fileSort} />}
-        {recipeMode && !recipe && (
-          <div className="empty-state" style={{ marginTop: 12 }}>
-            <div>Pick a recipe to sort with first.</div>
-            <button type="button" className="btn gold" onClick={() => navigate('/sort')}>Pick a recipe</button>
-          </div>
+        {scannerMode === 'sort' && !sorting && (
+          <section className="scan-mode-prompt" aria-labelledby="scan-prompt-h">
+            {lastRecipe ? (
+              <>
+                <h2 id="scan-prompt-h">{lastRecipe.name} · last used</h2>
+                <p>{recipeLine(lastRecipe, (n) => money.formatLocal(n, Number.isInteger(n)))}</p>
+                <div className="scan-mode-actions">
+                  <button type="button" className="btn gold" onClick={() => startRecipe(lastRecipe)}>Start</button>
+                  <button type="button" className="btn line" onClick={() => setRecipeSheet({ layout: null })}>Change recipe</button>
+                </div>
+                <button type="button" className="btn line block" onClick={() => setRecipeSheet({ layout: lastRecipe.id })}>Lay out piles first</button>
+              </>
+            ) : (
+              <>
+                <h2 id="scan-prompt-h">Sort a pile</h2>
+                <p>Scan a pile and each card is told which pile it goes on — by colour, type, set, value, or what your decks and binders need.</p>
+                <button type="button" className="btn gold block" onClick={() => setRecipeSheet({ layout: null })}>Choose a recipe</button>
+              </>
+            )}
+          </section>
         )}
+        {scannerMode === 'putAway' && !target && !putAwayAuto && (
+          <section className="scan-mode-prompt" aria-labelledby="scan-prompt-h">
+            <h2 id="scan-prompt-h">Put cards away</h2>
+            <p>
+              Pick the box or binder, and each card you scan goes straight in.
+              {canLetAppChoose(placesOf(collections)) && ' Or let the app choose: each card goes to the box whose rule fits it.'}
+            </p>
+            <div className="scan-mode-actions">
+              <button type="button" className="btn gold" onClick={() => setChoosingPlace(true)}>Pick a place</button>
+              {canLetAppChoose(placesOf(collections)) && (
+                <button type="button" className="btn line" onClick={() => { go({ putAway: PUT_AWAY_BY_RULE }); setStatus('Each card goes where its box’s rule says') }}>Let the app choose</button>
+              )}
+            </div>
+          </section>
+        )}
+        {scannerMode === 'check' && !(check && checkPlace) && (
+          <section className="scan-mode-prompt" aria-labelledby="scan-prompt-h">
+            <h2 id="scan-prompt-h">Check a place</h2>
+            <p>Scan everything in it, one card at a time: you'll see what's missing and what doesn't belong.</p>
+            <button type="button" className="btn gold block" onClick={() => setChoosingCheck(true)}>Pick a place</button>
+          </section>
+        )}
+        {sortMode && sort && <SortPilePanel session={sort} onChange={setSort} onDone={fileSort} />}
         {recipeMode && recipe && derived && (
           <RecipeScanPanel
             session={recipe}
@@ -1427,14 +1631,14 @@ export function ScanPage() {
           </>
         )}
 
-        {!target && !tickKind && pileKept < scanned.length && (
+        {scannerMode === 'add' && pileKept < scanned.length && (
           <div className="notice warn" style={{ marginTop: 12 }}>
             This browser is out of room to keep the whole pile. If the page reloads, only the newest {pileKept} of
             your {scanned.length} scans come back — add them to a deck or binder soon.
           </div>
         )}
 
-        {!target && !tickKind && scanned.length > 0 && (
+        {scannerMode === 'add' && scanned.length > 0 && (
           <>
             <div className="scan-list-head">
               <span>
@@ -1502,7 +1706,49 @@ export function ScanPage() {
             </div>
           </>
         )}
+        </div>
       </div>
+
+      {recipeSheet && (
+        <Suspense fallback={null}>
+        <RecipeSheet
+          layout={recipeSheet.layout}
+          onClose={() => setRecipeSheet(null)}
+          onScan={() => {
+            setRecipeSheet(null)
+            const next = loadRecipeSession()
+            if (next) { setRecipe(next); go({ recipe: '' }); setStatus(`Sorting with ${next.recipe.name} — show the first card`) }
+            else enterSort()
+          }}
+          onClassic={() => { setRecipeSheet(null); startClassic() }}
+        />
+        </Suspense>
+      )}
+
+      {choosingCheck && (
+        <PlacePicker
+          title="Check which place?"
+          onPick={(id) => { setChoosingCheck(false); chooseCheck(id) }}
+          onClose={() => setChoosingCheck(false)}
+        />
+      )}
+
+      {askCarry !== null && (
+        <Dialog
+          title={`Keep the ${askCarry} scanned ${askCarry === 1 ? 'card' : 'cards'} in the list?`}
+          onDismiss={() => setAskCarry(null)}
+          actions={
+            <>
+              <button type="button" className="btn danger" onClick={() => { setAskCarry(null); setCarryAsked(true); setScanned([]); switchMode('sort') }}>Clear the list</button>
+              <button type="button" className="btn gold" onClick={() => { setAskCarry(null); setCarryAsked(true); switchMode('sort') }}>Keep them</button>
+            </>
+          }
+        >
+          <p className="muted" style={{ margin: 0 }}>
+            {askCarry === 1 ? "It hasn't" : "They haven't"} been added anywhere yet. The pile you sort now is filed on its own — the list waits in Add cards until you come back to it.
+          </p>
+        </Dialog>
+      )}
 
       {leaving && (
         <Dialog

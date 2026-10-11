@@ -1,0 +1,104 @@
+/* The scanner's mode switch, its one-time tip, each mode's prompt and the recipe picker over the camera
+   (scan/scannerModes.ts, pages/ScanPage.tsx). */
+
+.seg.scan-modes {
+  margin: 4px 0 10px;
+}
+
+.seg.scan-modes button {
+  flex: 1 1 0;
+  min-width: max-content;
+  padding: 0 10px;
+}
+
+.scan-tip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 12px;
+  padding: 6px 4px 6px 14px;
+  border-radius: 14px;
+  background: var(--gold-light);
+  color: var(--gold-ink);
+}
+
+/* The arrow, at Sort a pile: the second of four tabs, its middle 3/8 of the way across. */
+.scan-tip::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: calc(37.5% - 7px);
+  width: 14px;
+  height: 14px;
+  background: var(--gold-light);
+  transform: rotate(45deg);
+}
+
+.scan-tip-text {
+  position: relative;
+  flex: 1;
+  font-size: 13px;
+}
+
+.scan-tip-text b {
+  display: block;
+  font-size: 14px;
+}
+
+.scan-tip .ib,
+.scan-tip button {
+  position: relative;
+  color: var(--gold-ink);
+}
+
+.scan-mode-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  background: var(--g1);
+}
+
+.scan-mode-prompt h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.scan-mode-prompt p {
+  margin: 0;
+  color: var(--t1);
+  font-size: 14px;
+}
+
+.scan-mode-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.scan-mode-actions .btn {
+  flex: 1;
+}
+
+/* The recipe picker, over the camera (which keeps running behind it). */
+.recipe-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: var(--bg);
+  animation: recipe-sheet-in 0.28s var(--spring, ease-out);
+}
+
+@keyframes recipe-sheet-in {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recipe-sheet { animation: none; }
+}

@@ -23,6 +23,7 @@ export interface RecipeVoice { speak: boolean; auto: boolean }
 const SESSION_KEY = 'mtgweb_recipe_session'
 const VOICE_KEY = 'mtgweb_recipe_voice'
 const LAST_KEY = 'mtgweb_recipe_last'
+const LAST_RECIPE_KEY = 'mtgweb_recipe_last_recipe'
 
 export function loadRecipeSession(): RecipeSessionState | null {
   try {
@@ -38,7 +39,19 @@ export function saveRecipeSession(session: RecipeSessionState | null) {
   try {
     if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session))
     else localStorage.removeItem(SESSION_KEY)
+    // The recipe last sorted with — a template or your own — for the scanner's Sort a pile: "Start".
+    if (session) localStorage.setItem(LAST_RECIPE_KEY, JSON.stringify(session.recipe))
   } catch { /* this visit only */ }
+}
+
+/** The recipe last sorted with, as it was then (a recipe of your own may have changed since: see the collection's). */
+export function loadLastRecipe(): SortRecipe | null {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LAST_RECIPE_KEY) ?? 'null') as SortRecipe | null
+    return raw && raw.id ? sortRecipe(raw) : null
+  } catch {
+    return null
+  }
 }
 
 /** A new sort with [recipe]. */

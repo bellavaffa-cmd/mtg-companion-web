@@ -1,3 +1,4 @@
+import { resetScannerTips, sortTipSeen } from '../scan/scannerModes'
 import { useEffect, useRef, useState } from 'react'
 import { useMoney } from '../money/currency'
 import { previewCue, setScanSound, useScanSound } from '../scan/scanFeedback'
@@ -188,6 +189,7 @@ export function ScannerSection() {
         note="The card just scanned stays under the camera until the next one: its set code and number, how it was recognised, and Change printing, Foil and Undo."
         onChange={setLastScanned}
       />
+      <ScannerTips />
       <div className="settings-divider" />
       <LearnedCorrections />
       <div className="settings-divider" />
@@ -201,5 +203,21 @@ export function ScannerSection() {
         ))}
       </div>
     </section>
+  )
+}
+
+/** The scanner's one-time tips ("New: sort a pile while you scan"), shown again (scan/scannerModes.ts). */
+function ScannerTips() {
+  const [seen, setSeen] = useState(sortTipSeen)
+  return (
+    <div className="settings-row">
+      <span className="grow">
+        Scanner tips
+        <span className="muted" style={{ display: 'block', fontSize: 13 }}>
+          {seen ? 'Seen. Show them again the next time the scanner opens.' : "They'll show the next time the scanner opens."}
+        </span>
+      </span>
+      <button type="button" className="btn line" disabled={!seen} onClick={() => { resetScannerTips(); setSeen(false) }}>Show tips again</button>
+    </div>
   )
 }
