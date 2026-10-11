@@ -149,7 +149,7 @@ export function StorageTab({ query = '', onSearchEverywhere }: { query?: string;
             { label: 'Value by place', icon: 'payments', detail: "What each box and binder is worth", onClick: () => navigate('/collections/value') },
             { label: 'Space', icon: 'inventory_2', detail: 'How full each place is', onClick: () => navigate('/collections/space') },
             { label: 'To sell', icon: 'sell', detail: 'Copies marked to sell, with where they are', onClick: () => navigate('/collections/sell') },
-            { label: 'Sort a new pile', icon: 'call_split', detail: 'Scan a pile into piles with a recipe', onClick: () => navigate('/sort') },
+            { label: 'Sort a new pile', icon: 'call_split', detail: 'Scan a pile into piles with a recipe', onClick: () => navigate('/scan?mode=sort') },
             { label: 'Data and speed', icon: 'speed', detail: 'Save a backup of everything, or restore one', onClick: () => navigate('/settings/data') },
             { label: 'Sharing storage at home', icon: 'shelves', detail: 'Keep cards on the same shelf as someone you live with', onClick: () => navigate('/collections/household') },
           ]}

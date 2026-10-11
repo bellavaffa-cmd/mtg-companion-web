@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { useNavigate, useSearchParams, type NavigateOptions } from 'react-router-dom'
 import { useSync } from '../sync/SyncContext'
 import { useMoney } from '../money/currency'
 import { Icon } from '../components/Icon'
@@ -30,8 +30,72 @@ import '../collection/recipes.css'
  * hear them), and, once the scanner's Done, what went where. The logic is collection/sortRecipes.ts;
  * the scanning is ScanPage.tsx's ?recipe mode. At /sort (?edit=<id>, ?layout=<id>, ?summary).
  */
-export function SortRecipesPage() {
+/**
+ * The recipe flow's way around: the router's, or — open over the scanner (RecipeSheet) — the sheet's
+ * own, so picking, building and laying out a recipe happen without leaving the camera.
+ */
+interface RecipeFlowNav {
+  path: string
+  navigate: (to: string, options?: NavigateOptions) => void
+  back: () => void
+}
+
+const RecipeFlow = createContext<RecipeFlowNav | null>(null)
+
+function useFlowNavigate(): (to: string, options?: NavigateOptions) => void {
+  const navigate = useNavigate()
+  const flow = useContext(RecipeFlow)
+  return flow ? flow.navigate : (to, options) => { void navigate(to, options) }
+}
+
+function useFlowBack(fallback: string): () => void {
+  const back = useBack(fallback)
+  const flow = useContext(RecipeFlow)
+  return flow ? flow.back : back
+}
+
+function useFlowParams(): URLSearchParams {
   const [params] = useSearchParams()
+  const flow = useContext(RecipeFlow)
+  return flow ? new URLSearchParams(flow.path.split('?')[1] ?? '') : params
+}
+
+/**
+ * The recipe picker over the scanner's camera (Sort a pile's Change recipe, or Lay out piles first at
+ * [layout]): Your recipes, Start from, Make your own, Lay out. Start scanning comes back to the camera
+ * ([onScan], the sort kept in recipeSession.ts); Keep, spares, decks, bulk is the classic sorter
+ * ([onClassic]). Anywhere else it would go, it goes, leaving the scanner.
+ */
+export function RecipeSheet({ layout, onScan, onClassic, onClose }: { layout: string | null; onScan: () => void; onClassic: () => void; onClose: () => void }) {
+  const navigate = useNavigate()
+  const [path, setPath] = useState(layout ? `/sort?layout=${encodeURIComponent(layout)}` : '/sort')
+  const flow: RecipeFlowNav = {
+    path,
+    navigate: (to, options) => {
+      if (to === '/scan?recipe') onScan()
+      else if (to === '/scan?sort') onClassic()
+      else if (to === '/sort' || to.startsWith('/sort?')) setPath(to)
+      else void navigate(to, options)
+    },
+    back: () => (path === '/sort' ? onClose() : setPath('/sort')),
+  }
+  const back = flow.back
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') back() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [back])
+  return (
+    <div className="recipe-sheet" role="dialog" aria-modal="true" aria-label="Sort a pile: pick a recipe">
+      <RecipeFlow.Provider value={flow}>
+        <SortRecipesPage key={path} />
+      </RecipeFlow.Provider>
+    </div>
+  )
+}
+
+export function SortRecipesPage() {
+  const params = useFlowParams()
   const { collections } = useSync()
   // The sets the binders kept in order by set collect, for Binder by set.
   const setBinderIds = useMemo(() => placesOf(collections).filter((p) => p.kind === 'BINDER' && p.sortRule === 'SET')
@@ -62,8 +126,8 @@ function useFmt() {
 }
 
 function RecipePicker({ templates }: { templates: SortRecipe[] }) {
-  const navigate = useNavigate()
-  const back = useBack('/collections')
+  const navigate = useFlowNavigate()
+  const back = useFlowBack('/collections')
   const { collections } = useSync()
   const { fmt } = useFmt()
   const mine = recipesOf(collections)
@@ -133,8 +197,8 @@ function templateLine(r: SortRecipe, fmt: (n: number) => string): string {
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : `r${Date.now()}${Math.random().toString(16).slice(2)}`)
 
 function RecipeEditor({ start }: { start: SortRecipe | null }) {
-  const navigate = useNavigate()
-  const back = useBack('/sort')
+  const navigate = useFlowNavigate()
+  const back = useFlowBack('/sort')
   const { changeStorage } = useSync()
   const { money, fmt } = useFmt()
   const [draft, setDraft] = useState<SortRecipe>(() => (start ? { ...sortRecipe(start), ...(isTemplate(start) ? { id: newId(), createdAt: Date.now() } : {}) } : newRecipe(newId(), Date.now())))
@@ -279,8 +343,8 @@ function textOf(l: SplitLevel): string {
 }
 
 function RecipeLayout({ start }: { start: SortRecipe }) {
-  const navigate = useNavigate()
-  const back = useBack('/sort')
+  const navigate = useFlowNavigate()
+  const back = useFlowBack('/sort')
   const { collections, changeStorage } = useSync()
   const { fmt } = useFmt()
   const [draft, setDraft] = useState(() => sortRecipe(start))
@@ -380,8 +444,8 @@ function RecipeLayout({ start }: { start: SortRecipe }) {
 }
 
 function RecipeSummaryView() {
-  const navigate = useNavigate()
-  const back = useBack('/sort')
+  const navigate = useFlowNavigate()
+  const back = useFlowBack('/sort')
   const { collections, changeStorage } = useSync()
   const { money, fmt } = useFmt()
   const [session, setSession] = useState(loadRecipeSession)
