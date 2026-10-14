@@ -6,7 +6,7 @@ import { keepBindersFromOlderApp } from '../../src/decks/binderRefs.ts'
 import { backupJson, buildBackup, parseBackup, restoreLibrary } from '../../src/sync/backupFile.ts'
 import { withBackupAdded } from '../../src/sync/libraryBackup.ts'
 import { withDeckPrinting } from '../../src/collection/printings.ts'
-import { withSwapIn } from '../../src/decks/proxies.ts'
+import { withSwapIn } from '../../src/decks/swapIn.ts'
 import { moveToConsidering, swapConsidered } from '../../src/decks/considering.ts'
 import type { Library } from '../../src/sync/cloudSync.ts'
 import type { Collection, Deck, DeckCardEntry } from '../../src/types/models.ts'
@@ -101,12 +101,14 @@ test('a printing change keeps the binders, and two entries joined add theirs up'
   assert.equal('binders' in plain.cards[0], false)
 })
 
-test('swapping a proxy for the real card, and moving cards to and from Considering, keep the binders', () => {
+test('swapping a proxy for the real card sorts it into its binder; moving cards to and from Considering keeps the binders', () => {
   const pile = { ...deck([{ ...card('sol', 2, refs), name: 'Sol Ring' }], { id: 'p', ownership: 'PROXY' }) }
   const binderWithSol: Collection = { ...binder('b9'), entries: [{ scryfallId: 'sol2', name: 'Sol Ring', imageUrl: null, quantity: 1, foilQuantity: 0 }] }
   const swapped = withSwapIn([binderWithSol], [pile], 'p', 'sol')
   assert.notEqual(swapped.decks[0], pile)
-  assert.deepEqual(swapped.decks[0].cards[0].binders, refs)
+  // The copy swapped in is sorted into the binder it came out of (collection/binderFlows.ts); refs the
+  // card had over copies it didn't hold (all proxies) are cut.
+  assert.deepEqual(swapped.decks[0].cards[0].binders, [{ id: 'b9', qty: 1 }])
 
   const d = deck([card('sol', 1, refs), card('ring', 1)], { considering: [card('opt', 1)] })
   const back = swapConsidered(moveToConsidering(d, 'sol'), 'ring', 'sol')

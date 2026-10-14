@@ -9,8 +9,8 @@
 // (tests/decks/deckUpgrade.test.ts) and by the Android app (DeckUpgradeTest.kt), which mirrors this
 // file as data/DeckUpgrade.kt rule for rule.
 
-import { UNSORTED_COLLECTION_ID, ownershipOf, type Collection, type CollectionEntry, type Deck, type DeckCardEntry } from '../types/models'
-import { intoPile, pileEntryOf, realCopiesLeaving, withUnsortedPile } from '../collection/unsorted'
+import { ownershipOf, type Collection, type Deck, type DeckCardEntry } from '../types/models'
+import { returnCopies } from '../collection/binderFlows'
 import { estimateBracket, isLandType } from './deckAnalysis'
 import { cardNameKeys } from './comboPieces'
 import { ownedCopies } from '../collection/ownedCopies'
@@ -357,7 +357,8 @@ export function withUpgrade(deck: Deck, cutId: string, add: DeckCardEntry): Deck
 
 /**
  * [swaps] made in deck [deckId], in one change: each as withUpgrade, and the real copies of each card
- * cut (a physical deck's, proxies aside) back to the Unsorted pile, as moving a card to Considering does.
+ * cut (proxies aside) back to their binders or No binder, as moving a card to Considering does
+ * (collection/binderFlows.ts returnCopies).
  */
 export function applyUpgrades(
   collections: Collection[], decks: Deck[], deckId: string, swaps: { cutId: string; add: DeckCardEntry }[],
@@ -365,18 +366,17 @@ export function applyUpgrades(
   const before = decks.find((d) => d.id === deckId)
   if (!before) return { collections, decks }
   let deck = before
-  const back: CollectionEntry[] = []
+  let cols = collections
   for (const s of swaps) {
-    const cut = deck.cards.find((c) => c.scryfallId === s.cutId)
+    if (!deck.cards.some((c) => c.scryfallId === s.cutId)) continue
     const next = withUpgrade(deck, s.cutId, s.add)
-    if (next === deck || !cut) continue
-    const leaving = realCopiesLeaving(deck, cut, 0)
-    if (leaving > 0) back.push(pileEntryOf(cut, leaving))
-    deck = next
+    if (next === deck) continue
+    // The cut card's copies go back where they belong, as when it's taken out by hand.
+    const r = returnCopies(cols, deck, next)
+    cols = r.collections
+    deck = r.deck ?? next
   }
   if (deck === before) return { collections, decks }
-  const cols = back.length === 0 ? collections
-    : withUnsortedPile(collections).map((c) => (c.id === UNSORTED_COLLECTION_ID ? { ...c, entries: intoPile(c.entries, back) } : c))
   return { collections: cols, decks: decks.map((d) => (d.id === deckId ? deck : d)) }
 }
 

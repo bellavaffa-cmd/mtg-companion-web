@@ -49,9 +49,11 @@ export interface DeckCardEntry {
    * Which binders this card's real copies are sorted into, by binder (Collection) id and count. Set on
    * main deck cards; only those show in a binder (collection/binderViews.ts). Kept through edits, sync
    * and backups (decks/binderRefs.ts). Absent until first set, then kept as [] when none. Merged as one
-   * value, whoever changed it, not line by line. The phone's DeckCardEntry.binders.
+   * value, whoever changed it, not line by line. [foil]: how many of a ref's copies are foil, left out
+   * when none — so a foil that came out of a binder goes back as one (collection/binderFlows.ts). The
+   * phone's DeckCardEntry.binders.
    */
-  binders?: { id: string; qty: number }[] | null
+  binders?: { id: string; qty: number; foil?: number }[] | null
 }
 
 export interface GameResult {

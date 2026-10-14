@@ -13,8 +13,8 @@ import {
   versionDiff, wholeList, withNamedVersion, withRestore, type HistoryItem, type HistoryLine,
 } from '../decks/deckHistory'
 import { historyContext, historyHere } from '../decks/historyDevice'
-import { intoPile, pileEntryOf, realCopiesLeaving, withUnsortedPile } from '../collection/unsorted'
-import { UNSORTED_COLLECTION_ID, type Collection, type Deck, type DeckCardEntry, type GameMode } from '../types/models'
+import { applyReturned, copiesBack, returnCopies, tidiedRefs, withCardCount } from '../collection/binderFlows'
+import { type Collection, type Deck, type DeckCardEntry, type GameMode } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 import '../collection/storage.css'
 
@@ -246,12 +246,20 @@ export function DeckVersionPage() {
       const current = ds.find((d) => d.id === deck.id)
       if (!current) return { collections: cols, decks: ds }
       const plan = restoreList(current, then, known)
-      // Real copies going out land on the Unsorted pile, as when they're taken out by hand.
-      const leaving = plan.cuts.map((c) => pileEntryOf(c.entry, realCopiesLeaving(current, c.entry, c.newQuantity))).filter((e) => e.quantity > 0)
-      const restored = withRestore(current, plan.deck, entry.at, historyContext())
-      const collections = leaving.length === 0 ? cols
-        : withUnsortedPile(cols).map((c) => (c.id === UNSORTED_COLLECTION_ID ? { ...c, entries: intoPile(c.entries, leaving) } : c))
-      result = { incoming: plan.incoming, out: leaving.reduce((n, e) => n + e.quantity, 0), missing: plan.missing.reduce((n, l) => n + l.q, 0) }
+      // Real copies going out go back to their binders (the rest to No binder), as when they're taken out by hand.
+      let collections = cols
+      let from = current
+      let out = 0
+      for (const c of plan.cuts) {
+        const r = returnCopies(collections, from, withCardCount(from, c.entry.scryfallId, c.newQuantity))
+        collections = r.collections
+        from = applyReturned(from, r)
+        out += copiesBack(r)
+      }
+      // The list as restored, with the binders and spots its cards still have.
+      const kept = plan.deck.cards.map((e) => { const was = from.cards.find((x) => x.scryfallId === e.scryfallId); return was?.binders != null ? { ...e, binders: was.binders } : e })
+      const restored = tidiedRefs(withRestore(current, { ...plan.deck, cards: kept, ...(from.cameFrom !== undefined ? { cameFrom: from.cameFrom } : {}) }, entry.at, historyContext()))
+      result = { incoming: plan.incoming, out, missing: plan.missing.reduce((n, l) => n + l.q, 0) }
       return { collections, decks: ds.map((d) => (d.id === deck.id ? restored : d)) }
     })
     const r = result as { incoming: number; out: number; missing: number } | null
@@ -259,7 +267,7 @@ export function DeckVersionPage() {
     const pull = deck.ownership === 'PHYSICAL' && r.incoming > 0
     const parts = [
       pull ? `Its pull list has the ${r.incoming} ${r.incoming === 1 ? 'card' : 'cards'} coming back.` : '',
-      r.out > 0 ? `The ${r.out} ${r.out === 1 ? 'card' : 'cards'} taken out ${r.out === 1 ? 'is' : 'are'} in No binder.` : '',
+      r.out > 0 ? `The ${r.out} ${r.out === 1 ? 'card' : 'cards'} taken out ${r.out === 1 ? 'is' : 'are'} back in ${r.out === 1 ? 'its binder' : 'their binders'} (or No binder).` : '',
       r.missing > 0 ? `${r.missing} ${r.missing === 1 ? 'card' : 'cards'} couldn't be found, so ${r.missing === 1 ? "it's" : "they're"} left out.` : '',
       "Today's list is in the history, so you can go back to it.",
     ].filter(Boolean)

@@ -98,38 +98,6 @@ export function proxiesHeldElsewhere(collections: Collection[], decks: Deck[], d
   return out
 }
 
-/** A binder holding a spare copy of [name] — where a swapped-in card comes from. */
-function binderWithCopy(collections: Collection[], name: string): Collection | undefined {
-  return collections.find((c) => c.type !== 'WISHLIST' && c.entries.some((e) => key(e.name) === key(name) && e.quantity + e.foilQuantity > 0))
-}
+// Swapping a proxy for a binder's copy (withSwapIn) is in swapIn.ts: it records the binder (collection/binderFlows.ts),
+// and this low-level file stays free of the collection code.
 
-/**
- * One proxy swapped for the real card: the deck keeps the same card, one copy of it stops being a
- * proxy, and the binder copy that took its place is gone from the binder — it's in the deck now.
- * Unchanged (the same objects) when there's no proxy of that card, or no copy to swap in.
- */
-export function withSwapIn(collections: Collection[], decks: Deck[], deckId: string, scryfallId: string): { collections: Collection[]; decks: Deck[] } {
-  const deck = decks.find((d) => d.id === deckId)
-  const entry = deck?.cards.find((e) => e.scryfallId === scryfallId)
-  if (!deck || !entry || proxyCopies(deck, entry) === 0) return { collections, decks }
-  const binder = binderWithCopy(collections, entry.name)
-  if (!binder) return { collections, decks }
-
-  const nextDecks = decks.map((d) => (d.id !== deckId ? d : {
-    ...d,
-    cards: d.cards.map((e) => (e.scryfallId !== scryfallId ? e : { ...e, proxyQuantity: proxyCopies(deck, entry) - 1 })),
-  }))
-  const nextCollections = collections.map((c) => {
-    if (c.id !== binder.id) return c
-    let taken = false
-    const entries = c.entries.flatMap((e) => {
-      if (taken || key(e.name) !== key(entry.name)) return [e]
-      taken = true
-      // A plain copy first; a foil only if that's all there is.
-      const next = e.quantity > 0 ? { ...e, quantity: e.quantity - 1 } : { ...e, foilQuantity: e.foilQuantity - 1 }
-      return next.quantity + next.foilQuantity > 0 ? [next] : []
-    })
-    return { ...c, entries }
-  })
-  return { collections: nextCollections, decks: nextDecks }
-}

@@ -34,7 +34,7 @@ import { missingCards } from '../decks/missing'
 import { canPair, secondCommanderKind, SECOND_COMMANDER_NOUN, type SecondCommanderKind } from '../decks/pairing'
 import { buyCardUrl, buyListUrl } from '../api/buy'
 import { deckProxyCopies, proxiesHeldElsewhere, proxyCopies, proxySwaps } from '../decks/proxies'
-import { realCopiesOf } from '../collection/unsorted'
+import { heldCopies } from '../collection/binderFlows'
 import { holdsCards, pullNeeds } from '../collection/pullList'
 import { matchedTags, matchesNameOrTag, tagLabel, tagsOf, useRoleTags } from '../tags/roleTags'
 import { useAddCardTo } from '../components/useAddCardTo'
@@ -1056,9 +1056,9 @@ export function DeckDetailPage() {
       )}
 
       {confirmDelete && (() => {
-        // A physical deck holds real cards: they can go back to the Unsorted pile rather than out of
-        // the collection with the deck. Proxies, and decks that hold no real cards, have nothing to keep.
-        const real = realCopiesOf(deck).reduce((n, e) => n + e.quantity, 0)
+        // A deck that holds real cards: they can go back to their binders (or No binder) rather than out
+        // of the collection with the deck. Proxies, and decks that hold no real cards, have nothing to keep.
+        const real = heldCopies(deck)
         const remove = (keepCards: boolean) => { deleteDeck(deck.id, keepCards); navigate('/decks', { replace: true }) }
         return (
           <Dialog
@@ -1081,7 +1081,7 @@ export function DeckDetailPage() {
           >
             {real > 0 && (
               <p style={{ margin: '0 0 8px' }}>
-                “{deck.name}” holds {real} of your cards. <b>Delete deck, keep cards</b> puts them in No binder; <b>Delete deck and cards</b> takes them out of your collection with the deck.
+                “{deck.name}” holds {real} of your cards. <b>Delete deck, keep cards</b> puts them back in the binders they're listed in, the rest in No binder; <b>Delete deck and cards</b> takes them out of your collection with the deck.
               </p>
             )}
             <p className="muted" style={{ margin: 0 }}>{real > 0 ? 'The deck' : `“${deck.name}”`} will be removed here and, if you're signed in, from your other devices too.</p>
@@ -1381,10 +1381,11 @@ function DeckDetails({ deck, onDelete }: { deck: Deck; onDelete: () => void }) {
   const [tagInput, setTagInput] = useState('')
   // A physical deck becoming one that holds no real cards: asked what happens to the cards it has.
   const [leaving, setLeaving] = useState<DeckOwnership | null>(null)
-  const realCards = realCopiesOf(deck).reduce((n, e) => n + e.quantity, 0)
+  const leavingCards = (o: DeckOwnership) => heldCopies(deck) - heldCopies({ ...deck, ownership: o })
+  const realCards = leaving ? leavingCards(leaving) : 0
   const chooseOwnership = (o: DeckOwnership) => {
     if (o === deck.ownership) return
-    if (deck.ownership === 'PHYSICAL' && o !== 'PHYSICAL' && realCards > 0) setLeaving(o)
+    if (leavingCards(o) > 0) setLeaving(o)
     else setDeckOwnership(deck.id, o)
   }
   const usesCommander = GAME_MODES_USING_COMMANDER.has(deck.gameMode as GameMode)
@@ -1426,7 +1427,7 @@ function DeckDetails({ deck, onDelete }: { deck: Deck; onDelete: () => void }) {
             }
           >
             <p style={{ margin: 0 }}>
-              “{deck.name}” holds {realCards} of your cards, and a {DECK_OWNERSHIP_LABELS[leaving].toLowerCase()} deck doesn't count its cards as yours. <b>Keep cards</b> puts them in No binder; <b>Remove the cards</b> takes them out of your collection.
+              “{deck.name}” holds {realCards} of your cards, and a {DECK_OWNERSHIP_LABELS[leaving].toLowerCase()} deck doesn't count its cards as yours. <b>Keep cards</b> puts them back in the binders they're listed in (the rest in No binder); <b>Remove the cards</b> takes them out of your collection.
             </p>
           </Dialog>
         )}

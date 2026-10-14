@@ -6,6 +6,15 @@ import type { Deck, DeckCardEntry } from '../types/models'
 
 export type BinderRef = NonNullable<DeckCardEntry['binders']>[number]
 
+/** A ref's foil copies, never more than its count. */
+export const foilsOf = (r: BinderRef): number => Math.min(Math.max(0, r.foil ?? 0), Math.max(0, r.qty))
+
+/** A ref as both apps write it: [foil] left out when none. */
+export function binderRef(id: string, qty: number, foil = 0): BinderRef {
+  const f = Math.min(foil, qty)
+  return f > 0 ? { id, qty, foil: f } : { id, qty }
+}
+
 /**
  * [theirs] with each card's binders taken from [source] where [theirs] came without them — a deck
  * saved by an app that doesn't know about them leaves them as they were. The same object when
@@ -29,7 +38,7 @@ export function joinedBinders(a: DeckCardEntry['binders'], b: DeckCardEntry['bin
   const out: BinderRef[] = []
   for (const ref of [...(a ?? []), ...(b ?? [])]) {
     const at = out.findIndex((r) => r.id === ref.id)
-    if (at >= 0) out[at] = { ...out[at], qty: out[at].qty + ref.qty }
+    if (at >= 0) out[at] = binderRef(ref.id, out[at].qty + ref.qty, foilsOf(out[at]) + foilsOf(ref))
     else out.push(ref)
   }
   return out

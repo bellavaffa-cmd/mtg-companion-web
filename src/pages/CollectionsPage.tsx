@@ -24,6 +24,7 @@ import {
   collectionRoute, COLLECTION_TABS, groupByOf, lastTab, needsAttentionLabel, placesUsed, quickOf, rememberTab, startTab, TAB_LABELS,
   type CollectionTab,
 } from '../collection/collectionLayout'
+import { deckCopiesStayLine } from '../collection/binderFlows'
 import { binderView, deckCopiesByBinder, inDecksOf, keptInPlacesAndDecksLine, NO_BINDER_TITLE, noBinderLine, ownCopiesOf, unsortedView, viewDecks, viewTotal, type BinderView } from '../collection/binderViews'
 import { useMoney } from '../money/currency'
 import { FilterButton } from '../collection/CardsFilterControls'
@@ -237,6 +238,8 @@ export function CollectionsPage() {
       {confirmDelete && (() => {
         // Copies, not different cards: "its 40 cards" for a binder of 4 × 10 cards.
         const copies = confirmDelete.entries.reduce((n, e) => n + e.quantity + e.foilQuantity, 0)
+        // Deck copies it lists stay in their decks, and show in No binder after (collection/binderFlows.ts).
+        const stay = deckCopiesStayLine(inDecksOf(binderView(confirmDelete.id, collections, decks)))
         return (
         <Dialog
           title="Delete this binder?"
@@ -248,7 +251,7 @@ export function CollectionsPage() {
             </>
           }
         >
-          <p className="muted" style={{ margin: 0 }}>“{confirmDelete.name}” and its {copies} {copies === 1 ? 'card' : 'cards'} will be removed here and on your other devices.</p>
+          <p className="muted" style={{ margin: 0 }}>“{confirmDelete.name}” and its {copies} {copies === 1 ? 'card' : 'cards'} will be removed here and on your other devices.{stay ? ` ${stay}` : ''}</p>
         </Dialog>
         )
       })()}

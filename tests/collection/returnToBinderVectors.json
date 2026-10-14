@@ -1,0 +1,312 @@
+{
+  "about": "Copies moving between binders and decks (src/collection/binderFlows.ts, the Android app's data/BinderFlows.kt): into a deck out of a binder the copies leave it and the deck's card is sorted into it (binders: [{ id, qty, foil? }]), the spot noted on the deck (cameFrom); out of a deck the copies in no binder go first, to No binder, then the last ref first, back into its binder (a binder that's gone: No binder), to the spot it came from. Run by tests/collection/binderFlows.test.ts and the Android app's BinderFlowsTest.kt. 'places' are the storage places there are (ids). A collection is { id, type, entries: [{ id, name?, qty, foil?, places?: [{ placeId, qty, foil?, section? }] }] } ('unsorted' is the pile); the deck { id, ownership?, cards: [{ id, name?, qty, proxies?, binders? }], cameFrom? } (name defaults to id). 'do' is the flow: fromBinder { binder, card, qty } (the binder screen's Move / Copy to a deck), countDown { card, to }, remove { card }, deleteDeck (keeping its cards), ownership { to }, deleteBinder { binder }, swapIn { card } (a proxy swapped for a real copy), pull (the pull list, every row ticked, Move pulled into deck box), putBack (the put-back list by where cards came from, Done). expect.collections: every collection but the Wishlist, its entries (places left out when none); expect.deck: the deck after (null: gone), proxies, binders and cameFrom left out when not set; expect.binders / expect.noBinder: the views, as in binderViewVectors.json. Every case also checks that All cards' real copies are the same after (less a deleted binder's own) and that the views add up to them.",
+  "cases": [
+    {
+      "name": "binder to a physical deck: the copies leave, the card is sorted into the binder, its spot noted",
+      "places": ["box"],
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [{ "id": "sol", "name": "Sol Ring", "qty": 2, "places": [{ "placeId": "box", "qty": 1, "section": "C" }] }] },
+        { "id": "unsorted", "type": "OWNED", "entries": [] }
+      ],
+      "deck": { "id": "d1", "cards": [] },
+      "do": { "flow": "fromBinder", "binder": "b1", "card": "sol", "qty": 2 },
+      "expect": {
+        "collections": { "b1": [], "unsorted": [] },
+        "deck": { "cards": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 2 }] }], "cameFrom": [{ "name": "Sol Ring", "placeId": "box", "qty": 1, "section": "C" }] },
+        "binders": { "b1": { "own": 0, "deck": [["d1", "sol", 2]] } },
+        "noBinder": { "own": 0, "deck": [] }
+      }
+    },
+    {
+      "name": "binder to a physical deck that has the card: plain first, the foil counted on the ref",
+      "places": [],
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [{ "id": "sol", "qty": 1, "foil": 1 }] },
+        { "id": "unsorted", "type": "OWNED", "entries": [] }
+      ],
+      "deck": { "id": "d1", "cards": [{ "id": "sol", "qty": 1, "binders": [] }] },
+      "do": { "flow": "fromBinder", "binder": "b1", "card": "sol", "qty": 2 },
+      "expect": {
+        "collections": { "b1": [], "unsorted": [] },
+        "deck": { "cards": [{ "id": "sol", "qty": 3, "binders": [{ "id": "b1", "qty": 2, "foil": 1 }] }] },
+        "binders": { "b1": { "own": 0, "deck": [["d1", "sol", 2]] } },
+        "noBinder": { "own": 0, "deck": [["d1", "sol", 1]] }
+      }
+    },
+    {
+      "name": "binder to a proxy deck: the copy is a real one there",
+      "places": [],
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [{ "id": "sol", "qty": 1 }] },
+        { "id": "unsorted", "type": "OWNED", "entries": [] }
+      ],
+      "deck": { "id": "d1", "ownership": "PROXY", "cards": [{ "id": "sol", "qty": 1 }] },
+      "do": { "flow": "fromBinder", "binder": "b1", "card": "sol", "qty": 1 },
+      "expect": {
+        "collections": { "b1": [], "unsorted": [] },
+        "deck": { "cards": [{ "id": "sol", "qty": 2, "proxies": 1, "binders": [{ "id": "b1", "qty": 1 }] }] },
+        "binders": { "b1": { "own": 0, "deck": [["d1", "sol", 1]] } },
+        "noBinder": { "own": 0, "deck": [] }
+      }
+    },
+    {
+      "name": "binder to a virtual deck: only the card is listed, the copy stays in the binder",
+      "places": [],
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [{ "id": "sol", "qty": 1 }] },
+        { "id": "unsorted", "type": "OWNED", "entries": [] }
+      ],
+      "deck": { "id": "d1", "ownership": "VIRTUAL", "cards": [] },
+      "do": { "flow": "fromBinder", "binder": "b1", "card": "sol", "qty": 1 },
+      "expect": {
+        "collections": { "b1": [{ "id": "sol", "qty": 1 }], "unsorted": [] },
+        "deck": { "cards": [{ "id": "sol", "qty": 1 }] },
+        "binders": { "b1": { "own": 1, "deck": [] } },
+        "noBinder": { "own": 0, "deck": [] }
+      }
+    },
+    {
+      "name": "No binder to a physical deck: no binder ref, the spot noted",
+      "places": ["box"],
+      "collections": [
+        { "id": "unsorted", "type": "OWNED", "entries": [{ "id": "sol", "name": "Sol Ring", "qty": 1, "places": [{ "placeId": "box", "qty": 1 }] }] }
+      ],
+      "deck": { "id": "d1", "cards": [] },
+      "do": { "flow": "fromBinder", "binder": "unsorted", "card": "sol", "qty": 1 },
+      "expect": {
+        "collections": { "unsorted": [] },
+        "deck": { "cards": [{ "id": "sol", "qty": 1 }], "cameFrom": [{ "name": "Sol Ring", "placeId": "box", "qty": 1 }] },
+        "binders": {},
+        "noBinder": { "own": 0, "deck": [["d1", "sol", 1]] }
+      }
+    },
+    {
+      "name": "count down: the copy in no binder leaves first, to No binder",
+      "places": [],
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [] },
+        { "id": "unsorted", "type": "OWNED", "entries": [] }
+      ],
+      "deck": { "id": "d1", "cards": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 1 }] }] },
+      "do": { "flow": "countDown", "card": "sol", "to": 1 },
+      "expect": {
+        "collections": { "b1": [], "unsorted": [{ "id": "sol", "qty": 1 }] },
+        "deck": { "cards": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }] },
+        "binders": { "b1": { "own": 0, "deck": [["d1", "sol", 1]] } },
+        "noBinder": { "own": 1, "deck": [] }
+      }
+    },
+    {
+      "name": "count down: then the last ref first, back into its binder at its spot",
+      "places": ["box"],
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [] },
+        { "id": "b2", "type": "OWNED", "entries": [] },
+        { "id": "unsorted", "type": "OWNED", "entries": [] }
+      ],
+      "deck": {
+        "id": "d1",
+        "cards": [{ "id": "sol", "name": "Sol Ring", "qty": 2, "binders": [{ "id": "b1", "qty": 1 }, { "id": "b2", "qty": 1 }] }],
+        "cameFrom": [{ "name": "Sol Ring", "placeId": "box", "qty": 1, "section": "S" }]
+      },
+      "do": { "flow": "countDown", "card": "sol", "to": 1 },
+      "expect": {
+        "collections": { "b1": [], "b2": [{ "id": "sol", "qty": 1, "places": [{ "placeId": "box", "qty": 1, "section": "S" }] }], "unsorted": [] },
+        "deck": { "cards": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }], "cameFrom": [] },
+        "binders": { "b1": { "own": 0, "deck": [["d1", "sol", 1]] }, "b2": { "own": 1, "deck": [] } },
+        "noBinder": { "own": 0, "deck": [] }
+      }
+    },
+    {
+      "name": "count down: a copy in no binder doesn't take the spot of one still sorted into a binder",
+      "places": ["box"],
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [] },
+        { "id": "unsorted", "type": "OWNED", "entries": [] }
+      ],
+      "deck": {
+        "id": "d1",
+        "cards": [{ "id": "sol", "name": "Sol Ring", "qty": 2, "binders": [{ "id": "b1", "qty": 1 }] }],
+        "cameFrom": [{ "name": "Sol Ring", "placeId": "box", "qty": 1 }]
+      },
+      "do": { "flow": "countDown", "card": "sol", "to": 1 },
+      "expect": {
+        "collections": { "b1": [], "unsorted": [{ "id": "sol", "qty": 1 }] },
+        "deck": { "cards": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }], "cameFrom": [{ "name": "Sol Ring", "placeId": "box", "qty": 1 }] },
+        "binders": { "b1": { "own": 0, "deck": [["d1", "sol", 1]] } },
+        "noBinder": { "own": 1, "deck": [] }
+      }
+    },
+    {
+      "name": "count down a proxy deck: its real copy leaves, back to its binder",
+      "places": [],
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [] },
+        { "id": "unsorted", "type": "OWNED", "entries": [] }
+      ],
+      "deck": { "id": "d1", "ownership": "PROXY", "cards": [{ "id": "sol", "qty": 2, "proxies": 1, "binders": [{ "id": "b1", "qty": 1 }] }] },
+      "do": { "flow": "countDown", "card": "sol", "to": 1 },
+      "expect": {
+        "collections": { "b1": [{ "id": "sol", "qty": 1 }], "unsorted": [] },
+        "deck": { "cards": [{ "id": "sol", "qty": 1, "proxies": 1, "binders": [] }] },
+        "binders": { "b1": { "own": 1, "deck": [] } },
+        "noBinder": { "own": 0, "deck": [] }
+      }
+    },
+    {
+      "name": "remove: a foil goes back a foil, beside the copy already in the binder",
+      "places": [],
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [{ "id": "sol", "qty": 1 }] },
+        { "id": "unsorted", "type": "OWNED", "entries": [] }
+      ],
+      "deck": { "id": "d1", "cards": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 2, "foil": 1 }] }] },
+      "do": { "flow": "remove", "card": "sol" },
+      "expect": {
+        "collections": { "b1": [{ "id": "sol", "qty": 2, "foil": 1 }], "unsorted": [] },
+        "deck": { "cards": [] },
+        "binders": { "b1": { "own": 3, "deck": [] } },
+        "noBinder": { "own": 0, "deck": [] }
+      }
+    },
+    {
+      "name": "delete a deck keeping its cards: each back to its binder and spot, the rest and a gone binder's to No binder",
+      "places": ["box"],
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [] },
+        { "id": "unsorted", "type": "OWNED", "entries": [] }
+      ],
+      "deck": {
+        "id": "d1",
+        "cards": [
+          { "id": "sol", "name": "Sol Ring", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] },
+          { "id": "bolt", "qty": 2 },
+          { "id": "path", "qty": 1, "binders": [{ "id": "gone", "qty": 1 }] }
+        ],
+        "cameFrom": [{ "name": "Sol Ring", "placeId": "box", "qty": 1 }]
+      },
+      "do": { "flow": "deleteDeck" },
+      "expect": {
+        "collections": { "b1": [{ "id": "sol", "qty": 1, "places": [{ "placeId": "box", "qty": 1 }] }], "unsorted": [{ "id": "bolt", "qty": 2 }, { "id": "path", "qty": 1 }] },
+        "deck": null,
+        "binders": { "b1": { "own": 1, "deck": [] } },
+        "noBinder": { "own": 3, "deck": [] }
+      }
+    },
+    {
+      "name": "a physical deck made virtual: its copies go back to their binders, its refs emptied",
+      "places": [],
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [] },
+        { "id": "unsorted", "type": "OWNED", "entries": [] }
+      ],
+      "deck": { "id": "d1", "cards": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }, { "id": "bolt", "qty": 1 }] },
+      "do": { "flow": "ownership", "to": "VIRTUAL" },
+      "expect": {
+        "collections": { "b1": [{ "id": "sol", "qty": 1 }], "unsorted": [{ "id": "bolt", "qty": 1 }] },
+        "deck": { "ownership": "VIRTUAL", "cards": [{ "id": "sol", "qty": 1, "binders": [] }, { "id": "bolt", "qty": 1 }] },
+        "binders": { "b1": { "own": 1, "deck": [] } },
+        "noBinder": { "own": 1, "deck": [] }
+      }
+    },
+    {
+      "name": "a physical deck made a proxy deck: its cards are all proxies now, so the copies go back",
+      "places": [],
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [] },
+        { "id": "unsorted", "type": "OWNED", "entries": [] }
+      ],
+      "deck": { "id": "d1", "cards": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 2 }] }] },
+      "do": { "flow": "ownership", "to": "PROXY" },
+      "expect": {
+        "collections": { "b1": [{ "id": "sol", "qty": 2 }], "unsorted": [] },
+        "deck": { "ownership": "PROXY", "cards": [{ "id": "sol", "qty": 2, "binders": [] }] },
+        "binders": { "b1": { "own": 2, "deck": [] } },
+        "noBinder": { "own": 0, "deck": [] }
+      }
+    },
+    {
+      "name": "delete a binder: its own copies go; deck copies stay in their deck, in No binder",
+      "places": [],
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [{ "id": "sol", "qty": 1 }] },
+        { "id": "unsorted", "type": "OWNED", "entries": [] }
+      ],
+      "deck": { "id": "d1", "cards": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }] },
+      "do": { "flow": "deleteBinder", "binder": "b1" },
+      "expect": {
+        "collections": { "unsorted": [] },
+        "deck": { "cards": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }] },
+        "binders": {},
+        "noBinder": { "own": 0, "deck": [["d1", "sol", 1]] }
+      }
+    },
+    {
+      "name": "a proxy swapped for a binder's copy: the binder lists it in the deck, its spot noted",
+      "places": ["box"],
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [{ "id": "sol", "name": "Sol Ring", "qty": 1, "places": [{ "placeId": "box", "qty": 1 }] }] },
+        { "id": "unsorted", "type": "OWNED", "entries": [] }
+      ],
+      "deck": { "id": "d1", "ownership": "PROXY", "cards": [{ "id": "sol", "name": "Sol Ring", "qty": 1 }] },
+      "do": { "flow": "swapIn", "card": "sol" },
+      "expect": {
+        "collections": { "b1": [], "unsorted": [] },
+        "deck": { "cards": [{ "id": "sol", "qty": 1, "proxies": 0, "binders": [{ "id": "b1", "qty": 1 }] }], "cameFrom": [{ "name": "Sol Ring", "placeId": "box", "qty": 1 }] },
+        "binders": { "b1": { "own": 0, "deck": [["d1", "sol", 1]] } },
+        "noBinder": { "own": 0, "deck": [] }
+      }
+    },
+    {
+      "name": "a proxy swapped for a copy in No binder: no binder ref",
+      "places": [],
+      "collections": [
+        { "id": "unsorted", "type": "OWNED", "entries": [{ "id": "sol", "qty": 1 }] }
+      ],
+      "deck": { "id": "d1", "ownership": "PROXY", "cards": [{ "id": "sol", "qty": 1 }] },
+      "do": { "flow": "swapIn", "card": "sol" },
+      "expect": {
+        "collections": { "unsorted": [] },
+        "deck": { "cards": [{ "id": "sol", "qty": 1, "proxies": 0 }] },
+        "binders": {},
+        "noBinder": { "own": 0, "deck": [["d1", "sol", 1]] }
+      }
+    },
+    {
+      "name": "the pull list: a copy pulled from a binder sorts the deck's card into it",
+      "places": ["box"],
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [{ "id": "sol", "name": "Sol Ring", "qty": 1, "places": [{ "placeId": "box", "qty": 1 }] }] },
+        { "id": "unsorted", "type": "OWNED", "entries": [] }
+      ],
+      "deck": { "id": "d1", "ownership": "VIRTUAL", "cards": [{ "id": "sol", "name": "Sol Ring", "qty": 1 }] },
+      "do": { "flow": "pull" },
+      "expect": {
+        "collections": { "b1": [], "unsorted": [] },
+        "deck": { "ownership": "PHYSICAL", "cards": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }], "cameFrom": [{ "name": "Sol Ring", "placeId": "box", "qty": 1 }] },
+        "binders": { "b1": { "own": 0, "deck": [["d1", "sol", 1]] } },
+        "noBinder": { "own": 0, "deck": [] }
+      }
+    },
+    {
+      "name": "the put-back list: the copy from a spot back to its binder there, the other to No binder",
+      "places": ["box"],
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [] },
+        { "id": "unsorted", "type": "OWNED", "entries": [] }
+      ],
+      "deck": {
+        "id": "d1",
+        "cards": [{ "id": "sol", "name": "Sol Ring", "qty": 2, "binders": [{ "id": "b1", "qty": 1 }] }],
+        "cameFrom": [{ "name": "Sol Ring", "placeId": "box", "qty": 1 }]
+      },
+      "do": { "flow": "putBack" },
+      "expect": {
+        "collections": { "b1": [{ "id": "sol", "qty": 1, "places": [{ "placeId": "box", "qty": 1 }] }], "unsorted": [{ "id": "sol", "qty": 1 }] },
+        "deck": { "ownership": "VIRTUAL", "cards": [{ "id": "sol", "qty": 2, "binders": [] }], "cameFrom": [] },
+        "binders": { "b1": { "own": 1, "deck": [] } },
+        "noBinder": { "own": 1, "deck": [] }
+      }
+    }
+  ]
+}

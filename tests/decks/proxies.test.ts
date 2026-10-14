@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { deckProxyCopies, proxiesHeldElsewhere, proxyCopies, proxySwaps, spareCopies, withSwapIn } from '../../src/decks/proxies.ts'
+import { deckProxyCopies, proxiesHeldElsewhere, proxyCopies, proxySwaps, spareCopies } from '../../src/decks/proxies.ts'
+import { withSwapIn } from '../../src/decks/swapIn.ts'
 import type { Collection, CollectionEntry, Deck, DeckCardEntry } from '../../src/types/models.ts'
 
 // Proxies in a deck, and swapping them for the real card. The Android app has the same checks —

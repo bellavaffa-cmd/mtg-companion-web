@@ -21,10 +21,13 @@
 // tests (tests/collection/pullList.test.ts ↔ PullListTest.kt).
 
 import {
-  isUnsorted, ownershipOf,
+  UNSORTED_COLLECTION_ID, isUnsorted, ownershipOf,
   type CameFrom, type Collection, type CollectionEntry, type CopyPlace, type Deck, type DeckCardEntry, type StoragePlace,
 } from '../types/models'
 import { proxyCopies } from '../decks/proxies'
+import { binderRef, foilsOf, type BinderRef } from '../decks/binderRefs'
+import { assignedCopies, sortingBinderIds } from './binderCore'
+import { putBackOrder, tidiedRefs, withRef } from './binderFlows'
 import { isBasicLand } from '../decks/missing'
 import { buildCardListText } from './cardListText'
 import { intoPile, pileEntryOf, withUnsortedPile } from './unsorted'
@@ -524,9 +527,18 @@ export function movePulled(deck: Deck, list: PullList, ticked: ReadonlySet<strin
   let cols = collections
   let others = decks
   const pulled = new Map<string, number>()
+  // Which binder each name's pulled copies came out of, in order ('' : not a binder's), for the deck's
+  // card to be sorted into it (binderFlows.ts).
+  const from = new Map<string, BinderRef[]>()
+  const valid = sortingBinderIds(collections)
   const came: CameFrom[] = []
   const taken: TakenFromDeck[] = []
-  const note = (name: string, n: number) => pulled.set(nameKey(name), (pulled.get(nameKey(name)) ?? 0) + n)
+  const note = (name: string, n: number, binder: string | null = null, foil = false) => {
+    pulled.set(nameKey(name), (pulled.get(nameKey(name)) ?? 0) + n)
+    const queue = from.get(nameKey(name)) ?? []
+    queue.push(binder !== null && valid.has(binder) ? binderRef(binder, n, foil ? n : 0) : { id: '', qty: n })
+    from.set(nameKey(name), queue)
+  }
   const known = new Map(placesOf(collections).map((p) => [p.id, p]))
   const editEntry = (collectionId: string, scryfallId: string, fn: (e: CollectionEntry) => CollectionEntry | null) => {
     cols = cols.map((c) => {
@@ -549,7 +561,7 @@ export function movePulled(deck: Deck, list: PullList, ticked: ReadonlySet<strin
       if (moved <= 0) continue
       const after = fewer(entry, moved, !!src.line.foil)
       editEntry(src.collectionId, src.scryfallId, () => after)
-      note(row.name, moved)
+      note(row.name, moved, src.collectionId, !!src.line.foil)
       came.push({ name: row.name, ...copyPlace(src.line, moved, !!src.line.foil) })
     } else if (src.kind === 'loose') {
       const e = cols.find((c) => c.id === src.collectionId)?.entries.find((x) => x.scryfallId === src.scryfallId)
@@ -560,7 +572,7 @@ export function movePulled(deck: Deck, list: PullList, ticked: ReadonlySet<strin
       if (n <= 0) continue
       const after = fewer(clean, n, src.foil)
       editEntry(src.collectionId, src.scryfallId, () => after)
-      note(row.name, n)
+      note(row.name, n, src.collectionId, src.foil)
     } else if (src.kind === 'deck') {
       const other = others.find((d) => d.id === src.deckId)
       if (!other) continue
@@ -586,6 +598,24 @@ export function movePulled(deck: Deck, list: PullList, ticked: ReadonlySet<strin
   if (moved === 0) return { collections, decks, moved: 0, taken: [], nowPhysical: false, proxies: proxiesOf(deck) }
 
   const wasHeld = holdsCards(deck)
+  /** [e] sorted into the binders its [take] pulled copies came out of. */
+  const sorted = (e: DeckCardEntry, take: number): DeckCardEntry => {
+    const queue = from.get(nameKey(e.name))
+    if (!queue) return e
+    let refs = wasHeld ? assignedCopies(deck, e) : []
+    let want = take
+    let any = false
+    while (want > 0 && queue.length > 0) {
+      const r = queue.shift()!
+      const n = Math.min(want, r.qty)
+      want -= n
+      if (r.qty > n) queue.unshift(binderRef(r.id, r.qty - n, Math.max(0, foilsOf(r) - n)))
+      if (r.id === '') continue
+      refs = withRef(refs, binderRef(r.id, n, Math.min(n, foilsOf(r))))
+      any = true
+    }
+    return any ? { ...e, binders: refs } : e
+  }
   const cards = deck.cards.map((e) => {
     const left = pulled.get(nameKey(e.name)) ?? 0
     if (wasHeld) {
@@ -593,20 +623,20 @@ export function movePulled(deck: Deck, list: PullList, ticked: ReadonlySet<strin
       const take = Math.min(left, proxies)
       if (take <= 0) return e
       pulled.set(nameKey(e.name), left - take)
-      return withProxies(e, proxies - take, deck.ownership === 'PROXY')
+      return sorted(withProxies(e, proxies - take, deck.ownership === 'PROXY'), take)
     }
     const marked = Math.max(0, e.proxyQuantity ?? 0)
     const take = Math.min(left, Math.max(0, e.quantity - marked))
     pulled.set(nameKey(e.name), left - take)
-    return withProxies(e, e.quantity - take, false)
+    return sorted(withProxies(e, e.quantity - take, false), take)
   })
   const cameFrom = came.length > 0 || deck.cameFrom !== undefined ? tidyCameFrom([...(deck.cameFrom ?? []), ...came]) : undefined
-  const next = withCommandersFrom({
+  const next = withCommandersFrom(tidiedRefs({
     ...deck,
     cards,
     ownership: wasHeld ? deck.ownership : 'PHYSICAL',
     ...(cameFrom !== undefined ? { cameFrom } : {}),
-  })
+  }))
   return {
     collections: cols,
     decks: others.map((d) => (d.id === deck.id ? next : d)),
@@ -814,42 +844,59 @@ export interface TakeApartResult {
 }
 
 /**
- * "Done: deck taken apart": every copy on [list] goes back into the collection as the Unsorted pile's
- * — as a deck's cards do when it's deleted with its cards kept (intoPile) — each given its place.
- * The deck stays, as a virtual list: its proxies and where its cards came from are cleared, so
- * building it again starts afresh.
+ * "Done: deck taken apart": every copy on [list] goes back into the collection — as a deck's cards do
+ * when it's deleted with its cards kept (binderFlows.ts returnCopies): the copies in no binder to the
+ * Unsorted pile, the ones sorted into a binder back into that binder (putBackOrder) — each given its
+ * place. The deck stays, as a virtual list: its proxies, its cards' binders and where its cards came
+ * from are cleared, so building it again starts afresh.
  */
 export function takeApart(deck: Deck, list: PutBackList, collections: Collection[]): TakeApartResult {
-  let pile = withUnsortedPile(collections).find(isUnsorted)!.entries
+  let cols = withUnsortedPile(collections)
+  const valid = sortingBinderIds(cols)
+  const order = new Map(deck.cards.map((e) => [e.scryfallId, putBackOrder(deck, e, valid)]))
   let placed = 0
   let unplaced = 0
+  const put = (collectionId: string, e: DeckCardEntry, row: PutBackRow, qty: number) => {
+    cols = cols.map((c) => {
+      if (c.id !== collectionId) return c
+      let entries = intoPile(c.entries, [{ ...pileEntryOf(e, row.foil ? 0 : qty), foilQuantity: row.foil ? qty : 0 }])
+      if (row.dest) {
+        const at = entries.findIndex((x) => x.scryfallId === row.scryfallId)
+        const { entry, moved } = placeCopies(entries[at], row.dest, qty, row.foil)
+        entries = entries.map((x, i) => (i === at ? entry : x))
+        placed += moved
+        unplaced += qty - moved
+      } else {
+        unplaced += qty
+      }
+      return { ...c, entries }
+    })
+  }
   for (const row of list.groups.flatMap((g) => g.rows)) {
     const e = deck.cards.find((c) => c.scryfallId === row.scryfallId)
     if (!e || row.qty <= 0) continue
-    const adding = { ...pileEntryOf(e, row.foil ? 0 : row.qty), foilQuantity: row.foil ? row.qty : 0 }
-    pile = intoPile(pile, [adding])
-    if (row.dest) {
-      const dest = row.dest
-      const at = pile.findIndex((x) => x.scryfallId === row.scryfallId)
-      const { entry, moved } = placeCopies(pile[at], dest, row.qty, row.foil)
-      pile = pile.map((x, i) => (i === at ? entry : x))
-      placed += moved
-      unplaced += row.qty - moved
-    } else {
-      unplaced += row.qty
+    let left = row.qty
+    const queue = order.get(e.scryfallId) ?? []
+    while (left > 0 && queue.length > 0) {
+      const [to, n] = queue.shift()!
+      const take = Math.min(n, left)
+      if (n > take) queue.unshift([to, n - take])
+      put(to, e, row, take)
+      left -= take
     }
+    // Copies the deck doesn't count as owned (a sample's): to the pile, as before.
+    if (left > 0) put(UNSORTED_COLLECTION_ID, e, row, left)
   }
-  const collectionsOut = withUnsortedPile(collections).map((c) => (isUnsorted(c) ? { ...c, entries: pile } : c))
   const strip = (e: DeckCardEntry): DeckCardEntry => { const { proxyQuantity: _p, ...rest } = e; return rest }
   const next: Deck = {
     ...deck,
     ownership: 'VIRTUAL',
-    cards: deck.cards.map(strip),
+    cards: deck.cards.map((e) => { const s = strip(e); return e.binders != null ? { ...s, binders: [] } : s }),
     commander: deck.commander ? strip(deck.commander) : null,
     partnerCommander: deck.partnerCommander ? strip(deck.partnerCommander) : null,
     ...(deck.cameFrom !== undefined ? { cameFrom: [] } : {}),
   }
-  return { collections: collectionsOut, deck: next, placed, unplaced }
+  return { collections: cols, deck: next, placed, unplaced }
 }
 
 /**

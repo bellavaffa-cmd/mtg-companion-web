@@ -15,10 +15,12 @@
 
 import { NO_BINDER_TITLE, shownName, UNSORTED_COLLECTION_ID, type Collection, type CollectionEntry, type Deck, type DeckCardEntry } from '../types/models'
 import { countsAsOwned, ownedCopies } from './ownedCopies'
-import { isWishlist } from './wishlist'
 import { deckTitle } from './upkeep'
 import { GROUP_NONE, keptInPlacesLine, type GroupKey } from './collectionLayout'
-import type { BinderRef } from '../decks/binderRefs'
+import { binderRef, foilsOf, type BinderRef } from '../decks/binderRefs'
+import { assignedCopies, sortingBinderIds, sortsInto } from './binderCore'
+
+export { assignedCopies, sortingBinderIds }
 
 /** What the Unsorted pile is called wherever it shows (its id and kind stay "unsorted"). */
 export { NO_BINDER_TITLE }
@@ -26,30 +28,8 @@ export { NO_BINDER_TITLE }
 /** A binder's name as shown: the Unsorted pile is "No binder". */
 export { shownName }
 
-/** Whether [c] is a binder deck copies can be sorted into: one of the user's own, not the pile, not a wishlist. */
-const sortsInto = (c: Collection): boolean => c.type !== 'WISHLIST' && c.id !== UNSORTED_COLLECTION_ID && !isWishlist(c)
-
-/**
- * Which binders [entry]'s copies in [deck] are in, as far as it has real owned copies: the refs in
- * order, each cut down to the copies left, the same binder twice made one, none for a deck that
- * doesn't count as owned or a card with only proxies.
- */
-export function assignedCopies(deck: Deck, entry: DeckCardEntry): BinderRef[] {
-  let left = ownedCopies(deck, entry)
-  const refs = entry.binders
-  if (left <= 0 || !refs || refs.length === 0) return []
-  const out: BinderRef[] = []
-  for (const ref of refs) {
-    if (left <= 0) break
-    const take = Math.min(Math.max(0, ref.qty), left)
-    if (take <= 0) continue
-    left -= take
-    const at = out.findIndex((r) => r.id === ref.id)
-    if (at >= 0) out[at] = { ...out[at], qty: out[at].qty + take }
-    else out.push({ id: ref.id, qty: take })
-  }
-  return out
-}
+// sortsInto and assignedCopies are in binderCore.ts, which the copy flows (binderFlows.ts, pullList.ts)
+// use without the rest of this file.
 
 /** Some of a deck card's real copies, shown in a binder's view. */
 export interface DeckCopies {
@@ -195,26 +175,28 @@ export function withCardBinders(deck: Deck, scryfallId: string, refs: BinderRef[
  */
 export function movedRefs(current: BinderRef[], from: string | null, to: string | null, qty: number, valid: Set<string>): BinderRef[] {
   let left = qty
+  let foils = 0
   const out: BinderRef[] = []
   for (const r of current) {
     const leaving = from === null ? !valid.has(r.id) : r.id === from
     if (leaving && left > 0) {
       const take = Math.min(left, r.qty)
       left -= take
-      if (r.qty - take > 0) out.push({ ...r, qty: r.qty - take })
+      // Plain copies first; a foil goes with them only when that's what's left.
+      const foil = Math.max(0, take - (r.qty - foilsOf(r)))
+      foils += foil
+      if (r.qty - take > 0) out.push(binderRef(r.id, r.qty - take, foilsOf(r) - foil))
     } else out.push(r)
   }
   const moved = qty - (from === null ? 0 : left)
   if (to !== null && moved > 0) {
     const at = out.findIndex((r) => r.id === to)
-    if (at >= 0) out[at] = { ...out[at], qty: out[at].qty + moved }
-    else out.push({ id: to, qty: moved })
+    if (at >= 0) out[at] = binderRef(to, out[at].qty + moved, foilsOf(out[at]) + foils)
+    else out.push(binderRef(to, moved, foils))
   }
   return out
 }
 
-/** The binders deck copies can be sorted into, by id. */
-export const sortingBinderIds = (collections: Collection[]): Set<string> => new Set(collections.filter(sortsInto).map((c) => c.id))
 
 /** The binders deck copies can be sorted into, A to Z. */
 export const sortingBinders = (collections: Collection[]): Collection[] =>

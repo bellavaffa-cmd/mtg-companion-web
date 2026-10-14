@@ -28,11 +28,13 @@ import {
   libraryIsAnotherAccounts, loadCloudState, loadRescue, noteDeleted, pullChanges, pushPending, recordLocalEdits, RESCUE_MAX_AGE_MS,
   saveCloudState, saveRescue, UnauthorizedError,
 } from './cloudSync'
-import { holdsOwnCopies, intoPile, pileEntryOf, realCopiesLeaving, realCopiesOf, takenFromUnsorted, withUnsortedPile } from '../collection/unsorted'
+import { holdsOwnCopies, takenFromUnsorted, withUnsortedPile } from '../collection/unsorted'
+import { applyReturned, returnCopies, sendToDeck, tidiedRefs, withCardCount } from '../collection/binderFlows'
+import { ownedCopies } from '../collection/ownedCopies'
 import { withDeckPrinting, withEntryPrinting } from '../collection/printings'
 import { WISHLIST_ID, withWantedCards, withWishlist, withWishlistCardWantedAgain, withoutWishlistCard, type WantedCard } from '../collection/wishlist'
 import { gatherInto, removeEverywhere } from '../collection/allCards'
-import { withSwapIn } from '../decks/proxies'
+import { withSwapIn } from '../decks/swapIn'
 import { canPair } from '../decks/pairing'
 import { moveToConsidering as movedToConsidering, swapConsidered as swappedConsidered } from '../decks/considering'
 import { entryFromCard } from '../decks/newDeck'
@@ -197,7 +199,7 @@ interface SyncContextValue {
    * commanders. [gameMode] is Commander unless said otherwise.
    */
   createDeckWithCards: (name: string, cards: DeckCardEntry[], commander?: DeckCardEntry | null, partnerCommander?: DeckCardEntry | null, gameMode?: GameMode) => Deck
-  /** Deletes a deck; with [keepCards], its real copies go back to the Unsorted pile first (see realCopiesOf). */
+  /** Deletes a deck; with [keepCards], its real copies go back to their binders first, the rest to No binder (see returnCopies). */
   deleteDeck: (deckId: string, keepCards?: boolean) => void
   /** Returns a warning if the resulting copy count breaks the deck's format rules (singleton, max
    * copies) — informational only, the card is added either way. Null if there's no issue.
@@ -218,8 +220,9 @@ interface SyncContextValue {
   setGameMode: (deckId: string, mode: GameMode) => void
   /**
    * Changes whether a deck holds the user's real cards. Becoming physical, the loose copies it now
-   * holds come out of the Unsorted pile; no longer physical, its real copies go back to the pile —
-   * or, with [keepCards] false, out of the collection (see realCopiesOf).
+   * holds come out of the Unsorted pile; no longer counting its cards as owned, its real copies go back
+   * to their binders, the rest to No binder — or, with [keepCards] false, out of the collection (see
+   * collection/binderFlows.ts returnCopies).
    */
   setDeckOwnership: (deckId: string, ownership: DeckOwnership, keepCards?: boolean) => void
   setDeckTags: (deckId: string, tags: string[]) => void
@@ -303,6 +306,13 @@ interface SyncContextValue {
   addToWishlist: (cards: WantedCard[]) => void
   /** One proxy in a deck swapped for a real copy out of a binder (see decks/proxies.ts). */
   swapInProxy: (deckId: string, scryfallId: string) => void
+  /**
+   * [cards] (each [quantity] copies, plain first) sent from the binder [collectionId] into deck
+   * [deckId]'s main list, in one change (collection/binderFlows.ts sendToDeck): into a deck that holds
+   * its cards they leave the binder and the deck's card is sorted into it, so it's still listed there;
+   * any other deck only lists the card.
+   */
+  sendFromBinder: (deckId: string, collectionId: string, cards: { card: ScryfallCard; quantity: number }[]) => void
   /** Undoes "not interested": the card comes back while a deck considers it. */
   wantAgain: (cardName: string) => void
   /** Moves cards in and out of binders in one change (a trade); answers the ones there weren't enough copies of. */
@@ -921,14 +931,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const deleteDeck = useCallback(
     (deckId: string, keepCards = false) => updateLibrary((lib) => {
       const deck = lib.decks.find((d) => d.id === deckId)
-      const kept = keepCards && deck ? realCopiesOf(deck) : []
-      const withPile = kept.length ? withUnsortedPile(lib.collections) : lib.collections
+      // Its copies go back to the binders they're sorted into, the rest to No binder (returnCopies).
+      const collections = keepCards && deck ? returnCopies(lib.collections, deck, null).collections : lib.collections
       // Said out loud, so the sync knows this is a deletion and not a library that went missing.
-      return noteDeleted({
-        ...lib,
-        decks: lib.decks.filter((d) => d.id !== deckId),
-        collections: kept.length ? withPile.map((c) => (c.id === UNSORTED_COLLECTION_ID ? { ...c, entries: intoPile(c.entries, kept) } : c)) : lib.collections,
-      }, [`deck:${deckId}`])
+      return noteDeleted({ ...lib, decks: lib.decks.filter((d) => d.id !== deckId), collections }, [`deck:${deckId}`])
     }),
     [updateLibrary],
   )
@@ -1026,22 +1032,20 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   )
 
   /**
-   * [next] with the Unsorted pile following a deck card's count going from what it was in [lib] to
-   * [quantity]: copies added are loose ones out of the pile; real copies leaving go back to it (proxies
-   * aside — see realCopiesLeaving). Only the deck page's own changes call this; the scanner's adds and
-   * moves between binders and decks say for themselves where a card is.
+   * [next] with the collection following a deck card's count going from what it was in [lib] to
+   * [quantity]: copies added are loose ones out of the pile; real copies leaving go back to the binders
+   * they're sorted into, the rest to No binder, each to the spot it came from (collection/binderFlows.ts
+   * returnCopies). Only the deck page's own changes call this; the scanner's adds and moves between
+   * binders and decks say for themselves where a card is.
    */
   const pileFollows = useCallback((lib: Library, next: Library, deckId: string, scryfallId: string, quantity: number): Library => {
     const deck = lib.decks.find((d) => d.id === deckId)
     const entry = deck?.cards.find((c) => c.scryfallId === scryfallId)
     if (!deck || !entry) return next
     if (quantity > entry.quantity) return outOfPile(next, deckId, { id: entry.scryfallId, name: entry.name }, quantity - entry.quantity)
-    const leaving = realCopiesLeaving(deck, entry, quantity)
-    if (leaving === 0) return next
-    return {
-      ...next,
-      collections: withUnsortedPile(next.collections).map((c) => (c.id === UNSORTED_COLLECTION_ID ? { ...c, entries: intoPile(c.entries, [pileEntryOf(entry, leaving)]) } : c)),
-    }
+    const r = returnCopies(next.collections, deck, withCardCount(deck, scryfallId, quantity))
+    if (r.back.length === 0 && r.refs.size === 0) return next
+    return { ...next, collections: r.collections, decks: next.decks.map((d) => (d.id === deckId ? applyReturned(d, r) : d)) }
   }, [outOfPile])
 
   const removeCardFromDeck = useCallback(
@@ -1210,23 +1214,20 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         if (!before || before.ownership === ownership) return lib
         const next = mapDeck(lib, deckId, (deck) => ({ ...deck, ownership }))
         const after = next.decks.find((d) => d.id === deckId)!
-        if (holdsOwnCopies(before) && !holdsOwnCopies(after)) {
-          // Its real cards are loose again — unless they're going out of the collection with it.
-          const kept = keepCards ? realCopiesOf(before) : []
-          if (!kept.length) return next
-          return {
-            ...next,
-            collections: withUnsortedPile(next.collections).map((c) => (c.id === UNSORTED_COLLECTION_ID ? { ...c, entries: intoPile(c.entries, kept) } : c)),
-          }
+        // Copies it no longer counts as owned go back to their binders (or out of the collection with
+        // it); copies it now counts are loose ones, out of the Unsorted pile.
+        const r = keepCards ? returnCopies(next.collections, before, after) : null
+        let out: Library = r
+          ? { ...next, collections: r.collections, decks: next.decks.map((d) => (d.id === deckId ? r.deck! : d)) }
+          : { ...next, decks: next.decks.map((d) => (d.id === deckId ? tidiedRefs(d) : d)) }
+        for (const e of after.cards) {
+          const more = ownedCopies(after, e) - ownedCopies(before, e)
+          if (more > 0) out = { ...out, collections: out.collections.map((c) => (c.id === UNSORTED_COLLECTION_ID ? { ...c, entries: takenFromUnsorted(c.entries, e.scryfallId, e.name, more).entries } : c)) }
         }
-        if (!holdsOwnCopies(before) && holdsOwnCopies(after)) {
-          // The deck now holds real copies: the loose ones are what went into it.
-          return realCopiesOf(after).reduce((l, e) => outOfPile(l, deckId, { id: e.scryfallId, name: e.name }, e.quantity), next)
-        }
-        return next
+        return out
       })
     },
-    [updateLibrary, mapDeck, outOfPile],
+    [updateLibrary, mapDeck],
   )
 
   const setCardTags = useCallback(
@@ -1402,6 +1403,26 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   const swapInProxy = useCallback(
     (deckId: string, scryfallId: string) => updateLibrary((lib) => ({ ...lib, ...withSwapIn(lib.collections, lib.decks, deckId, scryfallId) })),
+    [updateLibrary],
+  )
+
+  const sendFromBinder = useCallback(
+    (deckId: string, collectionId: string, cards: { card: ScryfallCard; quantity: number }[]) => {
+      // Their prices are known now, for the value before and after in the deck's history.
+      for (const { card } of cards) knownCards.set(card.id, card)
+      updateLibrary((lib) => {
+        let deck = lib.decks.find((d) => d.id === deckId)
+        if (!deck) return lib
+        let collections = lib.collections
+        for (const { card, quantity } of cards) {
+          const out = sendToDeck(collections, deck, collectionId, card.id, quantity, entryFromCard(card, quantity))
+          collections = out.collections
+          deck = out.deck
+        }
+        const sent = deck
+        return { ...lib, collections, decks: lib.decks.map((d) => (d.id === deckId ? sent : d)) }
+      })
+    },
     [updateLibrary],
   )
 
@@ -1668,13 +1689,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       addToWishlist,
       wantAgain,
       swapInProxy,
+      sendFromBinder,
       removeEntriesFromCollection,
     }),
     [
       library, account, cloud, mergePrompt, resolveMerge, libraryBackup, restoreLibraryBackup, restoreBackup, resetCollection, pendingReset, undoReset, commitReset, discardLibraryBackup, passwordRecovery, linkNotice, storageFullNotice, signIn, signUp, signOut,
       signInWithToken, syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
       setReplaceable, changeDeckBinders, setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, setCardTags, addGameResult,
-      addCardsToDeck, stopConsidering, considerIntoDeck, moveToConsidering, swapConsidered, importIntoDeck, addCardToSideboard, setSideboardQuantity, moveToSideboard, moveToMain, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
+      addCardsToDeck, stopConsidering, considerIntoDeck, moveToConsidering, swapConsidered, importIntoDeck, addCardToSideboard, setSideboardQuantity, moveToSideboard, moveToMain, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy, sendFromBinder,
       setEntryQuantities, setEntryPriceAlert, setEntryPriceAlerts, setEntryPriceAlertAbove, setEntryCopyDetails, changeCollections, changeStorage, changeDecksAndStorage, importIntoCollection, moveEntries, recordUndo, removeEntriesFromCollection,
     ],
   )

@@ -42,6 +42,8 @@ import { biggerImageUrl } from '../types/scryfall'
 import { CopyDetailsButton } from '../collection/CopyDetails'
 import { CopyBadge } from '../components/CopyBadge'
 import { conditionName, copyBadges, languageName } from '../collection/copyDetails'
+import { copiesMoveInto } from '../collection/binderFlows'
+import { deckTitle } from '../collection/upkeep'
 import { assignedCopies, binderView, deckCopyRows, inDecksBadge, inDecksOf, movedRefs, shownName, sortingBinderIds, sortingBinders, withCardBinders, type DeckCopyRow } from '../collection/binderViews'
 import { BinderPickDialog, DeckCopyCardRow } from '../collection/BinderViewsUi'
 
@@ -60,7 +62,7 @@ export function CollectionDetailPage({ embeddedId, externalQuery }: { embeddedId
   const back = useBack('/collections?tab=binders')
   const {
     collections, decks, setEntryQuantities, setEntryPriceAlert, setEntryPriceAlerts, setEntryPriceAlertAbove, setEntryCopyDetails, removeEntryFromCollection, removeEntriesFromCollection, moveEntries,
-    notInterested, wantAgain, changeEntryPrinting, setCardTags, addCardToDeck, addCardsToDeck, recordUndo, changeDeckBinders,
+    notInterested, wantAgain, changeEntryPrinting, setCardTags, sendFromBinder, addCardsToDeck, recordUndo, changeDeckBinders,
   } = useSync()
   const addCardTo = useAddCardTo()
   const confirmAdd = useAddCheck()
@@ -249,22 +251,30 @@ export function CollectionDetailPage({ embeddedId, externalQuery }: { embeddedId
       full = ok
     }
     const going = cards.filter((e) => full.some((c) => c.id === e.scryfallId))
+    // Into a deck that holds its cards, the copies always move — copied or not, a copy can't be in two
+    // places — and the deck's card is sorted into this binder, so it's still listed here; any other
+    // deck (Virtual, Prototype) only lists the card (collection/binderFlows.ts).
+    const deck = decks.find((d) => d.id === target.id)
+    const moves = !target.considering && copiesMoveInto(deck)
     const undo = recordUndo(() => {
       if (target.considering) {
         addCardsToDeck(target.id, full, true)
         return
       }
-      for (const card of full) {
+      sendFromBinder(target.id, collection.id, full.flatMap((card) => {
         const entry = cards.find((e) => e.scryfallId === card.id)
-        if (!entry) continue
+        if (!entry) return []
         const taken = takenOf(entry)
-        // These copies come from this binder, not the Unsorted pile.
-        addCardToDeck(target.id, card, taken.quantity + taken.foilQuantity, false)
-        if (verb === 'move') setEntryQuantities(collection.id, entry.scryfallId, entry.quantity - taken.quantity, entry.foilQuantity - taken.foilQuantity)
-      }
+        return [{ card, quantity: taken.quantity + taken.foilQuantity }]
+      }))
     })
+    const said = target.considering || (verb === 'move' && moves) ? verb : 'add'
+    const note = target.considering ? undefined
+      : !moves ? `A ${(deck?.ownership ?? 'virtual').toLowerCase()} deck: your copies stay in ${shownName(collection)}`
+      : unsorted ? undefined
+      : `Still listed in ${shownName(collection)}: In ${deckTitle(deck?.name ?? target.name)}`
     showUndo(undo
-      ? { message: doneMessage(verb, label(going.length > 0 ? going : cards), deckPlace(target.name, target.considering)), undo }
+      ? { message: doneMessage(said, label(going.length > 0 ? going : cards), deckPlace(target.name, target.considering)) + (note ? ` · ${note}` : ''), undo }
       : { message: `${target.name} already has ${cards.length === 1 ? 'it' : 'them'}` })
   }
   const entryList = collection.entries.length === 0 && allDeckRows.length === 0 ? (
