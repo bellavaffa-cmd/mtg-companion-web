@@ -45,6 +45,13 @@ export interface DeckCardEntry {
    * additions kept, and one either took off stays off. The phone's DeckCardEntry.categories.
    */
   categories?: string[]
+  /**
+   * Which binders this card's real copies are sorted into, by binder (Collection) id and count. Main
+   * deck cards only, never Considering or the sideboard. Written by the phone; this app only keeps it
+   * (decks/binderRefs.ts). Absent until first set, then kept as [] when none. Merged as one value,
+   * whoever changed it, not line by line. The phone's DeckCardEntry.binders.
+   */
+  binders?: { id: string; qty: number }[] | null
 }
 
 export interface GameResult {

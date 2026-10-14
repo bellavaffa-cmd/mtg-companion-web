@@ -7,6 +7,7 @@ import { intoPile, withUnsortedPile } from '../collection/unsorted'
 import { isWishlist, WISHLIST_ID } from '../collection/wishlist'
 import type { Library } from './cloudSync'
 import { isSample } from '../onboarding/onboarding'
+import { withBinderIds } from '../decks/binderRefs'
 
 /** The Wishlist or the Unsorted pile with nothing in it: always there, so not something the user made. */
 export const isEmptyStandingCollection = (c: Collection): boolean =>
@@ -31,7 +32,12 @@ export function libraryCounts(lib: { decks: Deck[]; collections: Collection[] })
  * considering them come back by themselves with that deck).
  */
 export function withBackupAdded(current: Library, backup: Library, newId: () => string): Library {
-  const decks = [...current.decks, ...backup.decks.map((d) => ({ ...d, id: newId() }))]
+  // Binders come back with new ids, so the deck cards that say which binder their copies are in
+  // (decks/binderRefs.ts) are pointed at the new ones.
+  const deckIds = backup.decks.map(() => newId())
+  const binderIds = new Map<string, string>()
+  for (const c of backup.collections) if (c.id !== UNSORTED_COLLECTION_ID && !isWishlist(c)) binderIds.set(c.id, newId())
+  const decks = [...current.decks, ...backup.decks.map((d, i) => ({ ...withBinderIds(d, binderIds), id: deckIds[i] }))]
   let collections = current.collections
   for (const c of backup.collections) {
     if (c.id === UNSORTED_COLLECTION_ID) {
@@ -45,7 +51,7 @@ export function withBackupAdded(current: Library, backup: Library, newId: () => 
         ? collections.map((w) => (w === wishlist ? { ...w, entries: [...w.entries, ...added.filter((e) => !w.entries.some((x) => x.scryfallId === e.scryfallId))] } : w))
         : [...collections, { ...c, entries: added }]
     } else {
-      collections = [...collections, { ...c, id: newId() }]
+      collections = [...collections, { ...c, id: binderIds.get(c.id)! }]
     }
   }
   return { ...current, decks, collections }

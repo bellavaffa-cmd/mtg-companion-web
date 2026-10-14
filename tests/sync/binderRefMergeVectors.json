@@ -1,0 +1,163 @@
+{
+  "about": "Which binders a deck card's copies are in (DeckCardEntry.binders: [{ id, qty }], main deck cards only). Run by both apps: tests/sync/binderRefs.test.ts and the Android app's ItemMerge tests. A card is { id, qty, binders? }: a missing binders key is a save by an app that doesn't know the field; null is the same as missing. merge: mergeDeck(base, mine, theirs, minePreferred) — binders are one whole value going to whoever changed it (mine on a conflict when minePreferred), never added up line by line; a side missing the key has it put back from base first (keepBindersFromOlderApp); a card added on both sides takes it from whichever side has it. Each merge is also run the other way round (theirs as mine, !minePreferred) and must land on the same cards. expect lists the merged main deck cards: no binders key means none (missing or null). keep: keepBindersFromOlderApp(source, theirs) — each card of theirs without binders (missing or null) takes source's non-null binders for the same id; sameObject: nothing changed, so theirs comes back as it was.",
+  "merge": [
+    {
+      "name": "nobody knows about binders: none after the merge",
+      "minePreferred": true,
+      "base": [{ "id": "sol", "qty": 1 }],
+      "mine": [{ "id": "sol", "qty": 2 }],
+      "theirs": [{ "id": "sol", "qty": 1 }],
+      "expect": [{ "id": "sol", "qty": 2 }]
+    },
+    {
+      "name": "set on this device only: this device's",
+      "minePreferred": false,
+      "base": [{ "id": "sol", "qty": 2 }],
+      "mine": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 2 }] }],
+      "theirs": [{ "id": "sol", "qty": 2 }],
+      "expect": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 2 }] }]
+    },
+    {
+      "name": "set on the other device only: the other device's",
+      "minePreferred": true,
+      "base": [{ "id": "sol", "qty": 2 }],
+      "mine": [{ "id": "sol", "qty": 2 }],
+      "theirs": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 1 }] }],
+      "expect": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 1 }] }]
+    },
+    {
+      "name": "changed on one side, unchanged on the other: the change",
+      "minePreferred": false,
+      "base": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 2 }] }],
+      "mine": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 1 }, { "id": "b2", "qty": 1 }] }],
+      "theirs": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 2 }] }],
+      "expect": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 1 }, { "id": "b2", "qty": 1 }] }]
+    },
+    {
+      "name": "both changed differently: the more recent edit's whole list, not the two added up (this device's)",
+      "minePreferred": true,
+      "base": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 2 }] }],
+      "mine": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b2", "qty": 2 }] }],
+      "theirs": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 1 }, { "id": "b3", "qty": 1 }] }],
+      "expect": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b2", "qty": 2 }] }]
+    },
+    {
+      "name": "both changed differently: the more recent edit's whole list (the other device's)",
+      "minePreferred": false,
+      "base": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 2 }] }],
+      "mine": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b2", "qty": 2 }] }],
+      "theirs": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 1 }, { "id": "b3", "qty": 1 }] }],
+      "expect": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 1 }, { "id": "b3", "qty": 1 }] }]
+    },
+    {
+      "name": "counts add up while the binders go whole to the more recent edit",
+      "minePreferred": true,
+      "base": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 2 }] }],
+      "mine": [{ "id": "sol", "qty": 3, "binders": [{ "id": "b1", "qty": 2 }, { "id": "b2", "qty": 1 }] }],
+      "theirs": [{ "id": "sol", "qty": 4, "binders": [{ "id": "b1", "qty": 2 }, { "id": "b3", "qty": 2 }] }],
+      "expect": [{ "id": "sol", "qty": 5, "binders": [{ "id": "b1", "qty": 2 }, { "id": "b2", "qty": 1 }] }]
+    },
+    {
+      "name": "taken out of every binder: kept as an empty list",
+      "minePreferred": false,
+      "base": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }],
+      "mine": [{ "id": "sol", "qty": 1, "binders": [] }],
+      "theirs": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }],
+      "expect": [{ "id": "sol", "qty": 1, "binders": [] }]
+    },
+    {
+      "name": "an older app's save on the other side: the binders kept",
+      "minePreferred": false,
+      "base": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 2 }] }],
+      "mine": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 2 }] }],
+      "theirs": [{ "id": "sol", "qty": 3 }],
+      "expect": [{ "id": "sol", "qty": 3, "binders": [{ "id": "b1", "qty": 2 }] }]
+    },
+    {
+      "name": "an older app's save on this side, the other changed them: the change",
+      "minePreferred": true,
+      "base": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 2 }] }],
+      "mine": [{ "id": "sol", "qty": 2 }],
+      "theirs": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b2", "qty": 2 }] }],
+      "expect": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b2", "qty": 2 }] }]
+    },
+    {
+      "name": "an older app's save on the other side, this side changed them: the change",
+      "minePreferred": false,
+      "base": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 2 }] }],
+      "mine": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b2", "qty": 2 }] }],
+      "theirs": [{ "id": "sol", "qty": 2, "binders": null }],
+      "expect": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b2", "qty": 2 }] }]
+    },
+    {
+      "name": "older apps on both sides: the binders kept",
+      "minePreferred": true,
+      "base": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 2 }] }],
+      "mine": [{ "id": "sol", "qty": 2 }],
+      "theirs": [{ "id": "sol", "qty": 1 }],
+      "expect": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 2 }] }]
+    },
+    {
+      "name": "a card removed on one side stays removed, binders and all",
+      "minePreferred": true,
+      "base": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }, { "id": "bolt", "qty": 1 }],
+      "mine": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b2", "qty": 1 }] }, { "id": "bolt", "qty": 1 }],
+      "theirs": [{ "id": "bolt", "qty": 1 }],
+      "expect": [{ "id": "bolt", "qty": 1 }]
+    },
+    {
+      "name": "added on one side: as it came",
+      "minePreferred": false,
+      "base": [],
+      "mine": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }],
+      "theirs": [],
+      "expect": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }]
+    },
+    {
+      "name": "added on both sides, binders on one: that side's",
+      "minePreferred": false,
+      "base": [],
+      "mine": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 2 }] }],
+      "theirs": [{ "id": "sol", "qty": 1 }],
+      "expect": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 2 }] }]
+    },
+    {
+      "name": "added on both sides with different binders: the more recent edit's",
+      "minePreferred": true,
+      "base": [],
+      "mine": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }],
+      "theirs": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b2", "qty": 1 }] }],
+      "expect": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }]
+    }
+  ],
+  "keep": [
+    {
+      "name": "a card saved without binders takes them back",
+      "source": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }, { "id": "bolt", "qty": 1, "binders": [] }],
+      "theirs": [{ "id": "sol", "qty": 3 }, { "id": "bolt", "qty": 1, "binders": null }],
+      "sameObject": false,
+      "expect": [{ "id": "sol", "qty": 3, "binders": [{ "id": "b1", "qty": 1 }] }, { "id": "bolt", "qty": 1, "binders": [] }]
+    },
+    {
+      "name": "a card that has them, even an empty list, keeps its own",
+      "source": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }],
+      "theirs": [{ "id": "sol", "qty": 1, "binders": [] }],
+      "sameObject": true,
+      "expect": [{ "id": "sol", "qty": 1, "binders": [] }]
+    },
+    {
+      "name": "nothing to take back: the same deck",
+      "source": [{ "id": "sol", "qty": 1, "binders": null }, { "id": "bolt", "qty": 1 }],
+      "theirs": [{ "id": "sol", "qty": 1 }, { "id": "ring", "qty": 1 }],
+      "sameObject": true,
+      "expect": [{ "id": "sol", "qty": 1 }, { "id": "ring", "qty": 1 }]
+    },
+    {
+      "name": "only the same card's: a card only in theirs stays without",
+      "source": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }],
+      "theirs": [{ "id": "ring", "qty": 1 }, { "id": "sol", "qty": 1 }],
+      "sameObject": false,
+      "expect": [{ "id": "ring", "qty": 1 }, { "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }]
+    }
+  ]
+}

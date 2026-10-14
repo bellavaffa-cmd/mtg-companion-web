@@ -10,6 +10,7 @@
 
 import type { CollectionEntry, Deck, DeckCardEntry } from '../types/models'
 import { proxyCopies } from '../decks/proxies'
+import { joinedBinders } from '../decks/binderRefs'
 import { backImageUrl, cardTags, displayImageUrl, partnerAbility, type ScryfallCard } from '../types/scryfall'
 import { withPlaces } from './storagePlaces'
 
@@ -83,10 +84,13 @@ export function withDeckPrinting(deck: Deck, oldId: string, card: ScryfallCard):
     // One entry, the copies added together. Proxies are counted out of each before they're
     // joined: "unset" means something different on its own than it does beside a number.
     const bothUnset = old.proxyQuantity === undefined && already.proxyQuantity === undefined
+    // Which binders the copies are in comes along too (decks/binderRefs.ts).
+    const binders = joinedBinders(already.binders, old.binders)
     const merged: DeckCardEntry = {
       ...already,
       quantity: already.quantity + old.quantity,
       proxyQuantity: bothUnset ? undefined : proxyCopies(deck, already) + proxyCopies(deck, old),
+      ...(binders !== undefined ? { binders } : {}),
     }
     cards = deck.cards.filter((e) => e.scryfallId !== oldId).map((e) => (e.scryfallId === card.id ? merged : e))
   } else if (old) {

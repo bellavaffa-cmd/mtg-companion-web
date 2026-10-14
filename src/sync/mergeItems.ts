@@ -45,6 +45,9 @@
 //  - A cube's settings (decks/cube.ts, the deck's "cube") merge field by field like a deck's name; a
 //    cube saved by an app that doesn't know about cubes leaves them as they were. Its cards merge card
 //    by card like any deck's.
+//  - Which binders a deck card's copies are in (decks/binderRefs.ts, the card's "binders") is one value
+//    that goes to whoever changed it, not added up line by line; a deck saved by an app that doesn't know
+//    about it leaves it as it was.
 // The Android app merges the same way — see data/supabase/ItemMerge.kt.
 
 import type { Collection, CollectionEntry, Deck, DeckCardEntry, GameResult } from '../types/models'
@@ -65,6 +68,7 @@ import { keepGoalsFromOlderApp, mergeGoals } from '../collection/collectionGoals
 import { keepDeckExtrasFromOlderApp, mergeDeckExtras } from '../decks/deckExtras'
 import { keepHistoryFromOlderApp, mergeHistory } from '../decks/deckHistory'
 import { keepCubeFromOlderApp, mergeCubeSettings } from '../decks/cube'
+import { keepBindersFromOlderApp } from '../decks/binderRefs'
 // The phone keeps this many saved versions of a deck (DeckRepository.MAX_VERSIONS).
 import { MAX_VERSIONS } from '../decks/versions'
 
@@ -99,6 +103,11 @@ interface EntryRules<T> {
   counts: (keyof T)[]
   /** Fields that are a set of words, merged like a deck's tags rather than one side winning. */
   sets?: (keyof T)[]
+  /**
+   * Fields merged as one whole value (like any other field), which a card added on both sides takes
+   * from whichever side has it rather than only from the other device's copy (a deck card's binders).
+   */
+  wholes?: (keyof T)[]
 }
 
 /**
@@ -140,6 +149,12 @@ function mergeEntries<T extends { scryfallId: string }>(
         const merged = { ...added }
         for (const field of rules.counts) {
           merged[field] = Math.max(Number(m[field] ?? 0), Number(t[field] ?? 0)) as T[keyof T]
+        }
+        for (const field of rules.wholes ?? []) {
+          // Nothing to agree on, so one side having it counts as that side's change.
+          const value = pick(undefined, m[field], t[field], minePreferred)
+          if (value === undefined) delete merged[field]
+          else merged[field] = value as T[keyof T]
         }
         out.push(merged)
       } else {
@@ -201,6 +216,9 @@ function mergeGameResults(base: GameResult[], mine: GameResult[], theirs: GameRe
 }
 
 const DECK_COUNTS: EntryRules<DeckCardEntry> = { counts: ['quantity'], sets: ['userTags', 'categories'] }
+// The main deck's cards also say which binders their copies are in (decks/binderRefs.ts): one value,
+// whoever changed it, never added up line by line.
+const DECK_CARDS: EntryRules<DeckCardEntry> = { ...DECK_COUNTS, wholes: ['binders'] }
 const COLLECTION_COUNTS: EntryRules<CollectionEntry> = { counts: ['quantity', 'foilQuantity'], sets: ['userTags'] }
 
 /** [minePreferred]: this device's edit is the more recent one, so it wins any field both changed. */
@@ -208,8 +226,9 @@ export function mergeDeck(base: Deck, mineIn: Deck, theirsIn: Deck, minePreferre
   // A side saved by an app that doesn't know where the deck's copies came from left that as it was.
   // ...and the same for its primer, folder, archive flag, companion and categories.
   // ...and its history (decks/deckHistory.ts), and a cube's settings (decks/cube.ts).
-  const mine = keepCubeFromOlderApp(base, keepHistoryFromOlderApp(base, keepDeckExtrasFromOlderApp(base, keepCameFromFromOlderApp(base, mineIn))))
-  const theirs = keepCubeFromOlderApp(base, keepHistoryFromOlderApp(base, keepDeckExtrasFromOlderApp(base, keepCameFromFromOlderApp(base, theirsIn))))
+  // ...and which binders its cards' copies are in (decks/binderRefs.ts).
+  const mine = keepBindersFromOlderApp(base, keepCubeFromOlderApp(base, keepHistoryFromOlderApp(base, keepDeckExtrasFromOlderApp(base, keepCameFromFromOlderApp(base, mineIn)))))
+  const theirs = keepBindersFromOlderApp(base, keepCubeFromOlderApp(base, keepHistoryFromOlderApp(base, keepDeckExtrasFromOlderApp(base, keepCameFromFromOlderApp(base, theirsIn)))))
   const cube = mergeCubeSettings(base.cube, mine.cube, theirs.cube, minePreferred)
   const history = mergeHistory(mine.history, theirs.history)
   const cameFrom = mergeCameFrom(base.cameFrom, mine.cameFrom, theirs.cameFrom)
@@ -242,7 +261,7 @@ export function mergeDeck(base: Deck, mineIn: Deck, theirsIn: Deck, minePreferre
     createdAt: Math.min(mine.createdAt, theirs.createdAt),
     commander: pick(base.commander, mine.commander, theirs.commander, minePreferred),
     partnerCommander: pick(base.partnerCommander, mine.partnerCommander, theirs.partnerCommander, minePreferred),
-    cards: mergeEntries(base.cards, mine.cards, theirs.cards, DECK_COUNTS, minePreferred),
+    cards: mergeEntries(base.cards, mine.cards, theirs.cards, DECK_CARDS, minePreferred),
     tags: mergeStringSet(base.tags ?? [], mine.tags ?? [], theirs.tags ?? []),
     gameResults: mergeGameResults(base.gameResults ?? [], mine.gameResults ?? [], theirs.gameResults ?? []),
   }

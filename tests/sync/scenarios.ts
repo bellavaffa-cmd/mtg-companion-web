@@ -442,6 +442,28 @@ export function syncScenarios(cas: boolean) {
     assert.deepEqual((sim.row('d1')!.data as { cameFrom?: unknown }).cameFrom, [line])
   })
 
+  // Which binders a deck card's copies are in (DeckCardEntry.binders, decks/binderRefs.ts) rides the
+  // same way: an app from before it saves the deck's cards without the key, and this app puts it back.
+  test("an older app's save of a deck doesn't lose which binders its cards' copies are in", async () => {
+    const built = (name: string, binders?: object[]) =>
+      ({ id: 'd1', name, commander: null, partnerCommander: null,
+        cards: [{ scryfallId: 'a', name: 'Sol Ring', imageUrl: null, quantity: 2, canBeCommander: false, typeLine: null, partnerAbility: null, ...(binders ? { binders } : {}) }],
+        gameMode: 'COMMANDER', createdAt: 1, tags: [], gameResults: [], ownership: 'PHYSICAL' }) as unknown as cs.Library['decks'][number]
+    const refs = [{ id: 'b1', qty: 1 }, { id: 'b2', qty: 1 }]
+    sim.reset('A', 'B')
+    sim.setLibrary('A', { decks: [built('Krenko', refs)], collections: [] })
+    await sim.settle('A', 'B')
+    assert.deepEqual(sim.library('B').decks[0].cards[0].binders, refs)
+    // B is an older app: it renames the deck and saves its cards without the key it doesn't know.
+    sim.setLibrary('B', { decks: [built('Krenko goblins')], collections: [] })
+    await sim.pass('B')
+    await sim.settle('A')
+    const a = sim.library('A').decks[0]
+    assert.equal(a.name, 'Krenko goblins')
+    assert.deepEqual(a.cards[0].binders, refs)
+    assert.deepEqual((sim.row('d1')!.data as { cards: { binders?: unknown }[] }).cards[0].binders, refs)
+  })
+
   // The primer, folder, archive flag, companion and categories (decks/deckExtras.ts) ride the same way.
   test("an older app's save of a deck doesn't lose its primer, folder or categories", async () => {
     const built = (name: string, extras: object = {}, categories?: string[]) =>
