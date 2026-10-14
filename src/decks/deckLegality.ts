@@ -15,9 +15,53 @@ export interface Issue {
   card: string | null
   reason: string
   kind: IssueKind
-  /** A copy-limit issue: the main-deck row it sits on, and the count that row could be cut to, when that's enough. */
+  /**
+   * The row the issue is about (a banned or off-colour card, too many copies), so it can be opened,
+   * moved or removed. A copy-limit issue: its main-deck row, and the count that row could be cut to,
+   * when that's enough.
+   */
   scryfallId?: string
   fixQuantity?: number
+  /** The problem is in the sideboard, not the main deck. */
+  sideboard?: boolean
+}
+
+/**
+ * A deck's check, whole. [unchecked]: cards (main deck and sideboard) whose legality couldn't be read —
+ * no card data for them (offline, still loading) — so no issues doesn't yet mean legal
+ * (legalitySummary.ts). Mirrors the Android app's LegalityReport.
+ */
+export interface LegalityReport {
+  mode: string
+  label: string
+  deckSize: number
+  exactSize: boolean
+  hasSideboard: boolean
+  totalCards: number
+  legal: boolean
+  issues: Issue[]
+  unchecked: number
+}
+
+/** A report from its parts: [deckLegality] makes one from a deck; tests make their own. */
+export function legalityReport(gameMode: string, totalCards: number, issues: Issue[], unchecked = 0): LegalityReport {
+  const rules = formatRules(gameMode)
+  return {
+    mode: gameMode, label: rules.label, deckSize: rules.deckSize, exactSize: rules.exactSize, hasSideboard: hasSideboard(gameMode),
+    totalCards, legal: issues.length === 0, issues, unchecked,
+  }
+}
+
+/** [deckIssues] with what the summary needs: the format's size, and how many cards couldn't be checked. */
+export function deckLegality(deck: Deck, cardsById: Map<string, ScryfallCard>): LegalityReport {
+  const format = (FORMATS[deck.gameMode] ?? FORMATS.COMMANDER).scryfall
+  const ids = new Set([...deck.cards, ...(deck.sideboard ?? [])].map((e) => e.scryfallId))
+  let unchecked = 0
+  for (const id of ids) {
+    const card = cardsById.get(id)
+    if (!card || (format !== '' && card.legalities?.[format] == null)) unchecked++
+  }
+  return legalityReport(deck.gameMode, deck.cards.reduce((n, c) => n + c.quantity, 0), deckIssues(deck, cardsById), unchecked)
 }
 
 /** Per format: Scryfall's key, how big a deck is, whether that size is exact, copies allowed. */
@@ -111,10 +155,10 @@ export function deckIssues(deck: Deck, cardsById: Map<string, ScryfallCard>): Is
     // printing and the sideboard counted together.)
     switch (card?.legalities?.[format.scryfall]) {
       case 'banned':
-        issues.push({ card: entry.name, reason: `Banned in ${label}.`, kind: 'LEGALITY' })
+        issues.push({ card: entry.name, reason: `Banned in ${label}.`, kind: 'LEGALITY', scryfallId: entry.scryfallId })
         break
       case 'not_legal':
-        issues.push({ card: entry.name, reason: `Not legal in ${label}.`, kind: 'LEGALITY' })
+        issues.push({ card: entry.name, reason: `Not legal in ${label}.`, kind: 'LEGALITY', scryfallId: entry.scryfallId })
         break
     }
 
@@ -122,7 +166,7 @@ export function deckIssues(deck: Deck, cardsById: Map<string, ScryfallCard>): Is
     if (commanderIdentity && card && !isCommanderCard) {
       const outside = (card.color_identity ?? []).filter((c) => !commanderIdentity!.has(c))
       if (outside.length > 0) {
-        issues.push({ card: entry.name, reason: `Outside the commander's colour identity (${outside.join('')}).`, kind: 'COLOR_IDENTITY' })
+        issues.push({ card: entry.name, reason: `Outside the commander's colour identity (${outside.join('')}).`, kind: 'COLOR_IDENTITY', scryfallId: entry.scryfallId })
       }
     }
   }
@@ -135,17 +179,17 @@ export function deckIssues(deck: Deck, cardsById: Map<string, ScryfallCard>): Is
   // In Commander the companion waits outside the 100, where a sideboard would be: one copy of it is fine.
   const companionOutside = !hasSideboard(mode) && companionEntry(deck) ? 1 : 0
   if (sideboardCount - companionOutside > 0 && !hasSideboard(mode)) {
-    issues.push({ card: null, reason: `${label} has no sideboard — ${sideboardCount} card${sideboardCount === 1 ? '' : 's'} still there.`, kind: 'DECK_SIZE' })
+    issues.push({ card: null, reason: `${label} has no sideboard — ${sideboardCount} card${sideboardCount === 1 ? '' : 's'} still there.`, kind: 'DECK_SIZE', sideboard: true })
   } else if (sideLimit !== null && sideboardCount > sideLimit) {
-    issues.push({ card: null, reason: `Sideboard has ${sideboardCount} cards; ${label} allows at most ${sideLimit}.`, kind: 'DECK_SIZE' })
+    issues.push({ card: null, reason: `Sideboard has ${sideboardCount} cards; ${label} allows at most ${sideLimit}.`, kind: 'DECK_SIZE', sideboard: true })
   }
   for (const entry of side) {
     switch (cardsById.get(entry.scryfallId)?.legalities?.[format.scryfall]) {
       case 'banned':
-        issues.push({ card: entry.name, reason: `Banned in ${label} (sideboard).`, kind: 'LEGALITY' })
+        issues.push({ card: entry.name, reason: `Banned in ${label} — it's in the sideboard.`, kind: 'LEGALITY', scryfallId: entry.scryfallId, sideboard: true })
         break
       case 'not_legal':
-        issues.push({ card: entry.name, reason: `Not legal in ${label} (sideboard).`, kind: 'LEGALITY' })
+        issues.push({ card: entry.name, reason: `Not legal in ${label} — it's in the sideboard.`, kind: 'LEGALITY', scryfallId: entry.scryfallId, sideboard: true })
         break
     }
   }

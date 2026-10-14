@@ -3227,8 +3227,75 @@ select.input.sf-sort {
 }
 
 .legal-fix {
-  display: block;
   margin-top: 4px;
+}
+.legal-fixes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+.legal-fixes:empty {
+  display: none;
+}
+.legal-card {
+  display: block;
+  padding: 0;
+  text-align: left;
+}
+.legal-groups {
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+}
+.legal-group-head {
+  margin: 0 0 6px;
+  font-size: 0.8438rem;
+  font-weight: 800;
+  color: var(--t0);
+}
+.legal-size {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--t1);
+}
+.legal-note {
+  margin: 6px 0 0;
+  font-size: 0.8125rem;
+  color: var(--t1);
+}
+.legal-dialog {
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+}
+.legal-dialog .legal-ok {
+  margin-top: 8px;
+}
+
+/* The deck header's pill: the reason it isn't legal, opening the dialog of every problem. */
+.legal-pill {
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.legal-pill:disabled {
+  cursor: default;
+}
+.legal-pill.ok {
+  background: var(--gold-soft);
+  color: var(--gold);
+}
+.legal-pill.bad {
+  background: color-mix(in srgb, var(--error) 18%, transparent);
+  color: var(--error);
+}
+.legal-pill.checking {
+  background: var(--g2);
+  color: var(--t1);
 }
 
 /* ---- Stats: the summary strip, the legality badge, and panels that fold away ---- */
@@ -3325,6 +3392,13 @@ select.input.sf-sort {
 }
 .legal-head.bad {
   color: var(--error);
+}
+.legal-badge.checking,
+.legal-head.checking {
+  color: var(--t1);
+}
+.legal-badge.checking {
+  background: var(--g2);
 }
 
 /* Importing a card list: the pasted text keeps its columns. */
