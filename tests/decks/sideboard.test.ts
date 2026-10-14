@@ -98,7 +98,7 @@ test('a sideboard holds at most fifteen, and Commander has none', () => {
 test('a banned sideboard card is an issue too', () => {
   const deck = modern([], [card('oko', 1, 'Oko')])
   const issue = deckIssues(deck, new Map([['oko', scry('oko', 'Oko', { modern: 'banned' })]])).find((i) => i.kind === 'LEGALITY')!
-  assert.equal(issue.reason, 'Banned in Modern (sideboard).')
+  assert.equal(issue.reason, "Banned in Modern — it's in the sideboard.")
 })
 
 test('adding a card warns about copies already in the sideboard', () => {

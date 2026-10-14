@@ -1,0 +1,545 @@
+{
+ "about": "Why a deck isn't legal: the header pill's words, the sheet's groups (kind, heading, each issue's card in order) and the deck-size fix. The same cases in both apps (tests/decks/legalitySummary.test.ts, LegalitySummaryTest.kt).",
+ "cases": [
+  {
+   "name": "legal",
+   "mode": "COMMANDER",
+   "totalCards": 100,
+   "issues": [],
+   "summary": "Legal",
+   "groups": [],
+   "sizeFix": 0,
+   "sizeFixLabel": null,
+   "unchecked": 0,
+   "loading": false
+  },
+  {
+   "name": "still loading",
+   "mode": "COMMANDER",
+   "totalCards": 100,
+   "loading": true,
+   "issues": [],
+   "summary": "Checking…",
+   "groups": [],
+   "sizeFix": 0,
+   "sizeFixLabel": null,
+   "unchecked": 0
+  },
+  {
+   "name": "some cards not checked, nothing found",
+   "mode": "MODERN",
+   "totalCards": 60,
+   "unchecked": 3,
+   "issues": [],
+   "summary": "Checking…",
+   "groups": [],
+   "sizeFix": 0,
+   "sizeFixLabel": null,
+   "loading": false
+  },
+  {
+   "name": "three banned",
+   "mode": "COMMANDER",
+   "totalCards": 100,
+   "issues": [
+    {
+     "card": "Mana Crypt",
+     "reason": "Banned in Commander.",
+     "kind": "LEGALITY"
+    },
+    {
+     "card": "Jeweled Lotus",
+     "reason": "Banned in Commander.",
+     "kind": "LEGALITY"
+    },
+    {
+     "card": "Dockside Extortionist",
+     "reason": "Banned in Commander.",
+     "kind": "LEGALITY"
+    }
+   ],
+   "summary": "Not legal · 3 banned",
+   "groups": [
+    [
+     "LEGALITY",
+     "Banned or not legal in Commander",
+     [
+      "Mana Crypt",
+      "Jeweled Lotus",
+      "Dockside Extortionist"
+     ]
+    ]
+   ],
+   "sizeFix": 0,
+   "sizeFixLabel": null,
+   "unchecked": 0,
+   "loading": false
+  },
+  {
+   "name": "banned and not legal, one in the sideboard: main deck first",
+   "mode": "MODERN",
+   "totalCards": 60,
+   "issues": [
+    {
+     "card": "Oko, Thief of Crowns",
+     "reason": "Banned in Modern — it's in the sideboard.",
+     "kind": "LEGALITY",
+     "sideboard": true
+    },
+    {
+     "card": "Black Lotus",
+     "reason": "Not legal in Modern.",
+     "kind": "LEGALITY"
+    }
+   ],
+   "summary": "Not legal · 2 not legal",
+   "groups": [
+    [
+     "LEGALITY",
+     "Banned or not legal in Modern",
+     [
+      "Black Lotus",
+      "Oko, Thief of Crowns"
+     ]
+    ]
+   ],
+   "sizeFix": 0,
+   "sizeFixLabel": null,
+   "unchecked": 0,
+   "loading": false
+  },
+  {
+   "name": "two short of 100",
+   "mode": "COMMANDER",
+   "totalCards": 98,
+   "issues": [
+    {
+     "card": null,
+     "reason": "Deck has 98 cards; Commander requires exactly 100.",
+     "kind": "DECK_SIZE"
+    }
+   ],
+   "summary": "Not legal · 98/100 cards",
+   "groups": [
+    [
+     "DECK_SIZE",
+     "Deck size",
+     [
+      null
+     ]
+    ]
+   ],
+   "sizeFix": 2,
+   "sizeFixLabel": "Add 2 cards",
+   "unchecked": 0,
+   "loading": false
+  },
+  {
+   "name": "one over 100",
+   "mode": "COMMANDER",
+   "totalCards": 101,
+   "issues": [
+    {
+     "card": null,
+     "reason": "Deck has 101 cards; Commander requires exactly 100.",
+     "kind": "DECK_SIZE"
+    }
+   ],
+   "summary": "Not legal · 101/100 cards",
+   "groups": [
+    [
+     "DECK_SIZE",
+     "Deck size",
+     [
+      null
+     ]
+    ]
+   ],
+   "sizeFix": -1,
+   "sizeFixLabel": "Remove 1 card",
+   "unchecked": 0,
+   "loading": false
+  },
+  {
+   "name": "short of a 60-card minimum",
+   "mode": "MODERN",
+   "totalCards": 59,
+   "issues": [
+    {
+     "card": null,
+     "reason": "Deck has 59 cards; Modern requires at least 60.",
+     "kind": "DECK_SIZE"
+    }
+   ],
+   "summary": "Not legal · 59/60 cards",
+   "groups": [
+    [
+     "DECK_SIZE",
+     "Deck size",
+     [
+      null
+     ]
+    ]
+   ],
+   "sizeFix": 1,
+   "sizeFixLabel": "Add 1 card",
+   "unchecked": 0,
+   "loading": false
+  },
+  {
+   "name": "over a minimum is fine",
+   "mode": "MODERN",
+   "totalCards": 75,
+   "issues": [],
+   "summary": "Legal",
+   "groups": [],
+   "sizeFix": 0,
+   "sizeFixLabel": null,
+   "unchecked": 0,
+   "loading": false
+  },
+  {
+   "name": "no commander",
+   "mode": "BRAWL",
+   "totalCards": 60,
+   "issues": [
+    {
+     "card": null,
+     "reason": "No commander set — Brawl needs a commander.",
+     "kind": "COMMANDER"
+    }
+   ],
+   "summary": "Not legal · no commander",
+   "groups": [
+    [
+     "COMMANDER",
+     "Commander",
+     [
+      null
+     ]
+    ]
+   ],
+   "sizeFix": 0,
+   "sizeFixLabel": null,
+   "unchecked": 0,
+   "loading": false
+  },
+  {
+   "name": "commanders that can't pair",
+   "mode": "COMMANDER",
+   "totalCards": 100,
+   "issues": [
+    {
+     "card": null,
+     "reason": "Atraxa, Praetors' Voice and Edgar Markov can't be commanders together.",
+     "kind": "COMMANDER"
+    }
+   ],
+   "summary": "Not legal · commanders can't pair",
+   "groups": [
+    [
+     "COMMANDER",
+     "Commander",
+     [
+      null
+     ]
+    ]
+   ],
+   "sizeFix": 0,
+   "sizeFixLabel": null,
+   "unchecked": 0,
+   "loading": false
+  },
+  {
+   "name": "mixed kinds: a count, most important group first",
+   "mode": "COMMANDER",
+   "totalCards": 99,
+   "unchecked": 2,
+   "issues": [
+    {
+     "card": "Sol Ring",
+     "reason": "Commander is singleton — only 1 copy allowed (has 2).",
+     "kind": "COPY_LIMIT"
+    },
+    {
+     "card": "Mana Crypt",
+     "reason": "Banned in Commander.",
+     "kind": "LEGALITY"
+    },
+    {
+     "card": null,
+     "reason": "Deck has 99 cards; Commander requires exactly 100.",
+     "kind": "DECK_SIZE"
+    },
+    {
+     "card": null,
+     "reason": "No commander set — Commander needs a commander.",
+     "kind": "COMMANDER"
+    }
+   ],
+   "summary": "Not legal · 4 problems",
+   "groups": [
+    [
+     "COMMANDER",
+     "Commander",
+     [
+      null
+     ]
+    ],
+    [
+     "DECK_SIZE",
+     "Deck size",
+     [
+      null
+     ]
+    ],
+    [
+     "LEGALITY",
+     "Banned or not legal in Commander",
+     [
+      "Mana Crypt"
+     ]
+    ],
+    [
+     "COPY_LIMIT",
+     "Too many copies",
+     [
+      "Sol Ring"
+     ]
+    ]
+   ],
+   "sizeFix": 1,
+   "sizeFixLabel": "Add 1 card",
+   "loading": false
+  },
+  {
+   "name": "sideboard too big",
+   "mode": "MODERN",
+   "totalCards": 60,
+   "issues": [
+    {
+     "card": null,
+     "reason": "Sideboard has 16 cards; Modern allows at most 15.",
+     "kind": "DECK_SIZE",
+     "sideboard": true
+    }
+   ],
+   "summary": "Not legal · sideboard too big",
+   "groups": [
+    [
+     "DECK_SIZE",
+     "Deck size",
+     [
+      null
+     ]
+    ]
+   ],
+   "sizeFix": 0,
+   "sizeFixLabel": null,
+   "unchecked": 0,
+   "loading": false
+  },
+  {
+   "name": "a sideboard where there's none",
+   "mode": "COMMANDER",
+   "totalCards": 100,
+   "issues": [
+    {
+     "card": null,
+     "reason": "Commander has no sideboard — 2 cards still there.",
+     "kind": "DECK_SIZE",
+     "sideboard": true
+    }
+   ],
+   "summary": "Not legal · cards in the sideboard",
+   "groups": [
+    [
+     "DECK_SIZE",
+     "Deck size",
+     [
+      null
+     ]
+    ]
+   ],
+   "sizeFix": 0,
+   "sizeFixLabel": null,
+   "unchecked": 0,
+   "loading": false
+  },
+  {
+   "name": "size and sideboard together",
+   "mode": "MODERN",
+   "totalCards": 58,
+   "issues": [
+    {
+     "card": null,
+     "reason": "Sideboard has 16 cards; Modern allows at most 15.",
+     "kind": "DECK_SIZE",
+     "sideboard": true
+    },
+    {
+     "card": null,
+     "reason": "Deck has 58 cards; Modern requires at least 60.",
+     "kind": "DECK_SIZE"
+    }
+   ],
+   "summary": "Not legal · 2 problems",
+   "groups": [
+    [
+     "DECK_SIZE",
+     "Deck size",
+     [
+      null,
+      null
+     ]
+    ]
+   ],
+   "sizeFix": 2,
+   "sizeFixLabel": "Add 2 cards",
+   "unchecked": 0,
+   "loading": false
+  },
+  {
+   "name": "off-colour cards",
+   "mode": "COMMANDER",
+   "totalCards": 100,
+   "issues": [
+    {
+     "card": "Lightning Bolt",
+     "reason": "Outside the commander's colour identity (R).",
+     "kind": "COLOR_IDENTITY"
+    },
+    {
+     "card": "Llanowar Elves",
+     "reason": "Outside the commander's colour identity (G).",
+     "kind": "COLOR_IDENTITY"
+    }
+   ],
+   "summary": "Not legal · 2 off-colour",
+   "groups": [
+    [
+     "COLOR_IDENTITY",
+     "Outside the commander's colours",
+     [
+      "Lightning Bolt",
+      "Llanowar Elves"
+     ]
+    ]
+   ],
+   "sizeFix": 0,
+   "sizeFixLabel": null,
+   "unchecked": 0,
+   "loading": false
+  },
+  {
+   "name": "one card with too many copies",
+   "mode": "STANDARD",
+   "totalCards": 60,
+   "issues": [
+    {
+     "card": "Shock",
+     "reason": "Max 4 copies allowed (has 5).",
+     "kind": "COPY_LIMIT"
+    }
+   ],
+   "summary": "Not legal · too many copies",
+   "groups": [
+    [
+     "COPY_LIMIT",
+     "Too many copies",
+     [
+      "Shock"
+     ]
+    ]
+   ],
+   "sizeFix": 0,
+   "sizeFixLabel": null,
+   "unchecked": 0,
+   "loading": false
+  },
+  {
+   "name": "two cards with too many copies",
+   "mode": "STANDARD",
+   "totalCards": 60,
+   "issues": [
+    {
+     "card": "Shock",
+     "reason": "Max 4 copies allowed (has 5).",
+     "kind": "COPY_LIMIT"
+    },
+    {
+     "card": "Duress",
+     "reason": "Max 4 copies allowed (has 3 + 2 in the sideboard).",
+     "kind": "COPY_LIMIT"
+    }
+   ],
+   "summary": "Not legal · 2 with too many copies",
+   "groups": [
+    [
+     "COPY_LIMIT",
+     "Too many copies",
+     [
+      "Shock",
+      "Duress"
+     ]
+    ]
+   ],
+   "sizeFix": 0,
+   "sizeFixLabel": null,
+   "unchecked": 0,
+   "loading": false
+  },
+  {
+   "name": "the companion",
+   "mode": "MODERN",
+   "totalCards": 60,
+   "issues": [
+    {
+     "card": "Lurrus of the Dream-Den",
+     "reason": "The companion isn't in the sideboard.",
+     "kind": "COMPANION"
+    }
+   ],
+   "summary": "Not legal · companion",
+   "groups": [
+    [
+     "COMPANION",
+     "Companion",
+     [
+      "Lurrus of the Dream-Den"
+     ]
+    ]
+   ],
+   "sizeFix": 0,
+   "sizeFixLabel": null,
+   "unchecked": 0,
+   "loading": false
+  },
+  {
+   "name": "a found problem wins over cards not checked",
+   "mode": "COMMANDER",
+   "totalCards": 97,
+   "unchecked": 40,
+   "issues": [
+    {
+     "card": null,
+     "reason": "Deck has 97 cards; Commander requires exactly 100.",
+     "kind": "DECK_SIZE"
+    }
+   ],
+   "summary": "Not legal · 97/100 cards",
+   "groups": [
+    [
+     "DECK_SIZE",
+     "Deck size",
+     [
+      null
+     ]
+    ]
+   ],
+   "sizeFix": 3,
+   "sizeFixLabel": "Add 3 cards",
+   "loading": false
+  }
+ ]
+}

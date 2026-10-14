@@ -53,6 +53,8 @@ import { ProxyPrintDialog } from '../components/ProxyPrintDialog'
 import { markPrintedAsProxies, picksForDeck } from '../decks/proxySheet'
 import { CompareScreen, ComparePickerDialog, type CompareTarget } from '../components/CompareDialogs'
 import { Dialog } from '../components/Dialog'
+import { LegalityDialog, LegalityPill, type LegalityActions } from '../components/DeckLegality'
+import { deckLegality, type Issue } from '../decks/deckLegality'
 import {
   ArtImage, CountUp, IconButton, ManaPips, PillChip, SearchPill, SegmentedTabs, TYPE_GROUPS, TYPE_PLURALS,
   primaryTypeOf, rise, toArtCrop, useBack, useLayoutSize, useScrollProgress,
@@ -166,6 +168,8 @@ export function DeckDetailPage() {
   // Taking the last copy out removes the card, which is easy to do by accident on a small − button:
   // it's asked about first. The card being asked about, while the question is up.
   const [removingLast, setRemovingLast] = useState<DeckCardEntry | null>(null)
+  // The header's legality pill tapped: every problem, in a dialog (DeckLegality.tsx).
+  const [legalityOpen, setLegalityOpen] = useState(false)
   // What the deck asks for that your binders and the decks you hold don't cover — for
   // "Who has it?", buying, and the Wishlist. Copies in another deck of yours count.
   const missing = useMemo(() => (deck ? missingCards(deck, collections, decks) : []), [deck, collections, decks])
@@ -258,6 +262,37 @@ export function DeckDetailPage() {
   const zoomConsidered = !!zoomEntry && !deck.cards.some((c) => c.scryfallId === zoomEntry.scryfallId)
   const commanders = [deck.commander, deck.partnerCommander].filter((c): c is DeckCardEntry => !!c)
   const figures = deckFigures(deck, cardData)
+  // Null while the cards' data loads: the pill says "Checking…". Offline, the cards it couldn't read count as unchecked.
+  const legality = cardData === undefined ? null : deckLegality(deck, cardData ?? new Map())
+  const legalityEntry = (issue: Issue) => (issue.sideboard ? side : deck.cards).find((c) => c.scryfallId === issue.scryfallId)
+  const legalityActions: LegalityActions = {
+    onOpen: (issue) => {
+      if (!issue.scryfallId) return
+      setLegalityOpen(false)
+      if (issue.sideboard) setSideZoomId(issue.scryfallId)
+      else setZoomId(issue.scryfallId)
+    },
+    onReduce: (issue) => {
+      const { scryfallId, fixQuantity: quantity } = issue
+      if (!scryfallId || quantity == null) return
+      const undo = recordUndo(() => setCardQuantity(deck.id, scryfallId, quantity))
+      showUndo({ message: `Reduced ${issue.card ?? ''} to ${quantity} ${quantity === 1 ? 'copy' : 'copies'}.`, undo })
+    },
+    onMoveToConsidering: (issue) => {
+      const entry = legalityEntry(issue)
+      if (entry) toConsidering(entry)
+    },
+    onRemove: (issue) => {
+      const entry = legalityEntry(issue)
+      if (!entry) return
+      if (issue.sideboard) { setLegalityOpen(false); setRemovingSide(entry) } else if (commanderIds.has(entry.scryfallId)) { setLegalityOpen(false); setRemovingCommander(entry) } else {
+        const undo = recordUndo(() => removeCardFromDeck(deck.id, entry.scryfallId))
+        showUndo({ message: `Removed ${entry.name} from ${deck.name}.`, undo })
+      }
+    },
+    onSizeFix: (adding) => { setLegalityOpen(false); setTabName(adding ? 'Suggestions' : 'Cards') },
+    canConsider: (issue) => !issue.sideboard && !commanderIds.has(issue.scryfallId),
+  }
   const q = filter.trim().toLowerCase()
   const matches = (c: DeckCardEntry) =>
     passesFilter(c, cardFilter, combo) &&
@@ -737,6 +772,8 @@ export function DeckDetailPage() {
               <span><b>{totalCards}</b>cards</span>
               {usesCommander && commanders.length > 0 && <span>{GAME_MODE_LABELS[deck.gameMode as GameMode]}</span>}
               <span className="bchip">{deck.sample ? 'Sample' : DECK_OWNERSHIP_LABELS[deck.ownership]}</span>
+              {/* Whether the deck is legal, and the main reason it isn't; tapping it opens every problem. */}
+              {deck.cards.length > 0 && <LegalityPill report={legality} loading={cardData === undefined} onClick={() => setLegalityOpen(true)} />}
               {size === 'tablet' && figures && figures.value > 0 && <span><b>{money.format(figures.value, true)}</b>value</span>}
             </div>
           </div>
@@ -1184,6 +1221,15 @@ export function DeckDetailPage() {
         />
       )}
       {compareWith && <CompareScreen deck={deck} target={compareWith} onClose={() => setCompareWith(null)} />}
+      {legalityOpen && legality && (
+        <LegalityDialog
+          report={legality}
+          actions={legalityActions}
+          // On a desktop-width window Stats is already beside the cards.
+          onSeeStats={tabs.includes('Stats') ? () => { setLegalityOpen(false); setTabName('Stats') } : undefined}
+          onClose={() => setLegalityOpen(false)}
+        />
+      )}
       {goldfish && <PlaytestDialog deck={deck} cardsById={cardData} onClose={() => setGoldfish(false)} />}
       {printingProxies && (
         <ProxyPrintDialog
