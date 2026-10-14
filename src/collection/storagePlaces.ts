@@ -868,7 +868,7 @@ export interface PutAwayStep {
 export interface PutAwayOutcome {
   collections: Collection[]
   result: PutAwayResult
-  /** "moved from Unsorted", "moved from Trade binder", "already here", "new to collection". */
+  /** "moved from No binder", "moved from Trade binder", "already here", "new to collection". */
   label: string
   step: PutAwayStep | null
 }
@@ -916,7 +916,7 @@ export function putAway(collections: Collection[], card: { id: string; name: str
       return {
         collections: mapEntry(collections, c.id, e.scryfallId, () => entry),
         result: 'placed',
-        label: isUnsorted(c) ? 'moved from Unsorted' : 'given a place',
+        label: isUnsorted(c) ? 'moved from No binder' : 'given a place',
         step: { collectionId: c.id, scryfallId: e.scryfallId, from: null, to: copyPlace(to, 1, f), added: false },
       }
     }

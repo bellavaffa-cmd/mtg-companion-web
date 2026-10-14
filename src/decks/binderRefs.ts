@@ -1,6 +1,6 @@
-// Which binders a deck card's real copies are sorted into (DeckCardEntry.binders). The phone writes
-// it; this app doesn't show or change it yet, only keeps it: through every edit, through the sync's
-// merge (as one value, whoever changed it — sync/mergeItems.ts), and through backups.
+// Which binders a deck card's real copies are sorted into (DeckCardEntry.binders). Shown and changed by
+// binders as views (collection/binderViews.ts), and kept through every edit, through the sync's merge
+// (as one value, whoever changed it — sync/mergeItems.ts), and through backups.
 
 import type { Deck, DeckCardEntry } from '../types/models'
 

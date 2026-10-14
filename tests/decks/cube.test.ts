@@ -184,7 +184,7 @@ test('where each card stands: in the box, owned elsewhere, proxy or not owned', 
   assert.equal(cubeBoxPlace(cube, 'box', 2).name, 'Pauper box')
   assert.deepEqual(cubeStatus(cube, collections).map((s) => `${s.name}: ${s.state} ${s.inBox}/${s.elsewhere} ${s.where}`), [
     'Lightning Bolt: IN_BOX 1/1 Red box ×1',
-    'Sol Ring: OWNED 0/1 No place (Unsorted) ×1',
+    'Sol Ring: OWNED 0/1 No place (No binder) ×1',
     'Elvish Mystic: OWNED 0/1 Red box ×1',
     'Black Lotus: NOT_OWNED 0/0 ',
     'Mox Pearl: PROXY 0/0 ',

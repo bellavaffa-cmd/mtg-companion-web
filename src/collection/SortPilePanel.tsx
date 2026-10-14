@@ -52,7 +52,7 @@ export function SortPilePanel({ session, onChange, onDone }: { session: SortSess
         <div className={`sort-tile${last.pile < 0 ? ' none' : ''}`} style={last.pile >= 0 ? { background: PILE_COLOURS[last.pile % PILE_COLOURS.length] } : undefined} role="status">
           <span className="num">{last.pile >= 0 ? last.pile + 1 : '–'}</span>
           <div className="txt">
-            <span>{last.pile >= 0 ? `Pile ${last.pile + 1} · ${lastWhere}` : 'No pile fits · Unsorted'}</span>
+            <span>{last.pile >= 0 ? `Pile ${last.pile + 1} · ${lastWhere}` : 'No pile fits · No binder'}</span>
             <b>{last.name}</b>
             <span>{[RARITY[last.rarity ?? ''] ?? '', last.usd != null ? money.format(last.usd) : 'No price'].filter(Boolean).join(' · ')}{last.why && last.why !== 'Bulk' ? ` · ${last.why}` : ''}</span>
           </div>
@@ -157,7 +157,7 @@ function PilesDialog({ rules, onDismiss, onSave }: { rules: PileRule[]; onDismis
                   onChange={(e) => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 0) change(i, { ...r, keep: n }) }} />
               )}
               <select className="input" aria-label="Where it goes" value={r.to ?? ''} onChange={(e) => change(i, { ...r, to: e.target.value || undefined })}>
-                <option value="">No place (Unsorted)</option>
+                <option value="">No place · No binder</option>
                 <option value={BY_RULE}>The box whose rule fits</option>
                 {places.map((n) => <option key={n.place.id} value={n.place.id}>{`${' '.repeat(n.depth)}${n.place.name}`}</option>)}
               </select>

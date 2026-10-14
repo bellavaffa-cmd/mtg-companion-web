@@ -5,6 +5,7 @@
 // CollectionsViewModel (allCards), Dashboard.kt and CollectionRepository (gatherInto, removeEverywhere).
 
 import type { Collection, CollectionEntry, Deck } from '../types/models'
+import { shownName } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 import { ownedCopies, ownedProxies } from './ownedCopies'
 import { withCopiesOf } from './copyDetails'
@@ -50,7 +51,7 @@ export function allCardsOf(collections: Collection[], decks: Deck[]): AllCard[] 
   for (const c of collections.filter(owns)) {
     for (const e of c.entries) {
       const q = e.quantity + e.foilQuantity
-      add(e, q, { kind: 'binder', id: c.id, name: c.name, quantity: q })
+      add(e, q, { kind: 'binder', id: c.id, name: shownName(c), quantity: q })
     }
   }
   for (const d of decks) {

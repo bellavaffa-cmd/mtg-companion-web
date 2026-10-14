@@ -4,6 +4,7 @@
 // "In 2 decks and 1 binder" line (ui/common/CardZoomDialog.kt).
 
 import type { Collection, Deck, DeckCardEntry } from '../types/models'
+import { shownName } from '../types/models'
 import { countsAsOwned, ownedCopies, ownedProxies } from './ownedCopies'
 
 export interface HeldIn {
@@ -27,7 +28,7 @@ export function cardSources(collections: Collection[], decks: Deck[]): Map<strin
   }
   for (const c of collections) {
     if (c.type === 'WISHLIST') continue
-    for (const e of c.entries) add(e.scryfallId, { kind: 'binder', id: c.id, name: c.name, quantity: e.quantity + e.foilQuantity })
+    for (const e of c.entries) add(e.scryfallId, { kind: 'binder', id: c.id, name: shownName(c), quantity: e.quantity + e.foilQuantity })
   }
   for (const d of decks) {
     if (!countsAsOwned(d)) continue
@@ -64,7 +65,7 @@ export function sourcesForName(collections: Collection[], decks: Deck[], name: s
   }
   for (const c of collections) {
     if (c.type === 'WISHLIST') continue
-    for (const e of c.entries) if (matches(e.name)) add({ kind: 'binder', id: c.id, name: c.name, quantity: e.quantity + e.foilQuantity })
+    for (const e of c.entries) if (matches(e.name)) add({ kind: 'binder', id: c.id, name: shownName(c), quantity: e.quantity + e.foilQuantity })
   }
   for (const d of decks) {
     if (!countsAsOwned(d)) continue

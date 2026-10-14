@@ -27,6 +27,7 @@ import { ArtImage, PillChip, rise, toArtCrop, useLayoutSize } from '../component
 import { getCardsByIds } from '../api/scryfall'
 import { buyCardUrl } from '../api/buy'
 import { isUnsorted, type Collection } from '../types/models'
+import { binderGroupIndex, NO_BINDER_TITLE, noBinderLine, unsortedView, viewTotal } from './binderViews'
 import { isWishlist } from './wishlist'
 import { allCardsOf, allCardTags, searchAllCards, copiesInBinders, gatherCounts, csvExportEntries, dashboardOf, exportEntries, type AllCard, type CollectionDashboard } from './allCards'
 import { spares } from './spares'
@@ -49,8 +50,8 @@ import { useProgressiveList } from '../components/useProgressiveList'
 import type { ReactNode } from 'react'
 import type { ScryfallCard } from '../types/scryfall'
 import {
-  binderKeys, chipDescription, chipText, GROUP_BY_LABELS, placeLink, GROUP_BYS, groupLayout, locationIndex, NO_PLACE_TITLE, passesQuick, placeKeys, QUICK_FILTERS,
-  QUICK_LABELS, QUICK_MANAGE, quickCount, quickSets, setGroupDetail, setKeys, type CardGroupBy, type LayoutGroup, type LocationChip, type QuickFilter,
+  chipDescription, chipText, GROUP_BY_LABELS, placeLink, GROUP_BYS, groupLayout, locationIndex, NO_PLACE_TITLE, passesQuick, placeKeys, QUICK_FILTERS,
+  QUICK_LABELS, QUICK_MANAGE, quickCount, quickSets, setGroupDetail, setKeys, type CardGroupBy, type GroupKey, type LayoutGroup, type LocationChip, type QuickFilter,
 } from './collectionLayout'
 import { LocationChips, PutAwayCard, type ChipActions } from './LocationChips'
 import { SearchEverywhereRow } from './StorageTab'
@@ -184,6 +185,7 @@ export function AllCardsTab({ onImport, query, onQueryChange: setQuery, filterOp
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [named, filtering, cardFilter, advFilter, sparesOnly, spareIds, facts, advFacts, copyFacts, money, roleTags, userTags],
   )
+  const binderGroups = useMemo(() => (group === 'binder' ? binderGroupIndex(collections, decks) : new Map<string, GroupKey[]>()), [group, collections, decks])
   const shown = useMemo(() => unquick.filter((c) => passesQuick(quick, c.scryfallId, c.name, quickIds)), [unquick, quick, quickIds])
   // Group by: each group's header, then its cards — as one list, so it still comes a screenful at a time.
   const rows = useMemo((): ({ kind: 'head'; group: LayoutGroup<AllCard> } | { kind: 'card'; card: AllCard; key: string })[] => {
@@ -194,12 +196,13 @@ export function AllCardsTab({ onImport, query, onQueryChange: setQuery, filterOp
         return p ? setGroupDetail(p.owned, p.total) : null
       })
       : group === 'binder'
-      ? groupLayout(shown, (c) => binderKeys(c.sources.map((s) => ({ kind: s.kind === 'deck' ? 'deck' as const : 'binder' as const, id: s.id, name: s.name }))), 'No binder')
+      // The binders each card shows in, deck copies sorted into one included (collection/binderViews.ts).
+      ? groupLayout(shown, (c) => binderGroups.get(c.scryfallId) ?? [], NO_BINDER_TITLE)
       : groupLayout(shown, (c) => placeKeys(chipIndex.get(c.scryfallId) ?? []), NO_PLACE_TITLE)
     return groups.flatMap((g) => [{ kind: 'head' as const, group: g }, ...g.items.map((card) => ({ kind: 'card' as const, card, key: `${g.key}|${card.scryfallId}` }))])
     // setSizes is read when grouping by set.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shown, group, cardsById, chipIndex, setSizesKey])
+  }, [shown, group, cardsById, chipIndex, setSizesKey, binderGroups])
   // A screenful at a time: thousands of rows at once is what made a big collection slow to open.
   const list = useProgressiveList(rows.length, rows)
   const noted = useRef(false)
@@ -276,7 +279,8 @@ export function AllCardsTab({ onImport, query, onQueryChange: setQuery, filterOp
   }
 
   const unsorted = collections.find(isUnsorted)
-  const unsortedCards = unsorted?.entries.reduce((n, e) => n + e.quantity + e.foilQuantity, 0) ?? 0
+  // No binder: the pile's own cards and the deck copies in no binder (collection/binderViews.ts).
+  const noBinder = unsortedView(collections, decks)
   const zoomCard = cards.find((c) => c.scryfallId === zoomId) ?? null
 
   if (cards.length === 0) {
@@ -296,13 +300,13 @@ export function AllCardsTab({ onImport, query, onQueryChange: setQuery, filterOp
 
   return (
     <>
-      {unsorted && unsortedCards > 0 && !q && !quick && (
+      {unsorted && viewTotal(noBinder) > 0 && !q && !quick && (
         <div className="list wide-list rise" style={{ ...rise(1), marginBottom: 14 }}>
           <button type="button" className="brow press unsorted-row" onClick={() => navigate(`/collections/${unsorted.id}`)}>
             <div className="icon-tile"><Icon name="inbox" /></div>
             <div style={{ minWidth: 0 }}>
-              <div className="brow-name">Unsorted</div>
-              <div className="brow-meta"><span><b>{unsortedCards}</b>{unsortedCards === 1 ? 'card' : 'cards'} not in a binder yet — open to sort them</span></div>
+              <div className="brow-name">{NO_BINDER_TITLE}</div>
+              <div className="brow-meta"><span>{noBinderLine(noBinder)}</span></div>
             </div>
             <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
           </button>

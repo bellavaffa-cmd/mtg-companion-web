@@ -73,11 +73,11 @@ export function pileTitle(r: PileRule, fmt: (usd: number) => string): string {
   }
 }
 
-/** Where a pile goes, in words: a place's name, "The box whose rule fits", or "No place (Unsorted)". */
+/** Where a pile goes, in words: a place's name, "The box whose rule fits", or "No place · No binder". */
 export function pileGoesTo(r: PileRule, collections: Collection[]): string {
   if (r.to === BY_RULE) return 'The box whose rule fits'
   const place = r.to ? placesOf(collections).find((p) => p.id === r.to) : undefined
-  return place ? place.name : 'No place (Unsorted)'
+  return place ? place.name : 'No place · No binder'
 }
 
 // ---- What each card is ----

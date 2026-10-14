@@ -1,0 +1,158 @@
+{
+  "about": "Binders as views (src/collection/binderViews.ts, the Android app's data/BinderViews.kt): a binder shows its own cards and the deck copies sorted into it (a deck card's binders: [{ id, qty }]); No binder (the Unsorted pile) shows its own cards and every owned deck copy in no binder, or in one that's gone or is a wishlist. Only decks whose cards count as owned (Physical, Proxy; never Virtual, Prototype, a cube or a sample), only real copies (proxies never), refs walked in order and clamped to the card's owned copies. Run by tests/collection/binderViews.test.ts and the Android app's BinderViewsTest.kt. A collection is { id, type, entries: [{ id, qty, foil? }] } (id 'unsorted' is the pile, 'wishlist' the Wishlist); a deck is { id, ownership?, gameMode?, sample?, cards: [{ id, qty, proxies?, binders? }] }. expect.binders lists every binder (an OWNED collection that isn't the pile) with own: its own copies and deck: the deck copies it shows, decks in order and their cards in order, as [deck, card, qty]; expect.noBinder the same for No binder. Every case also checks that the views add up to All cards' real copies.",
+  "cases": [
+    {
+      "name": "a physical deck's copies with no binder show in No binder",
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [{ "id": "sol", "qty": 1, "foil": 1 }] },
+        { "id": "unsorted", "type": "OWNED", "entries": [{ "id": "bolt", "qty": 2 }] },
+        { "id": "wishlist", "type": "WISHLIST", "entries": [{ "id": "jace", "qty": 3 }] }
+      ],
+      "decks": [{ "id": "d1", "cards": [{ "id": "sol", "qty": 2 }] }],
+      "expect": {
+        "binders": { "b1": { "own": 2, "deck": [] } },
+        "noBinder": { "own": 2, "deck": [["d1", "sol", 2]] }
+      }
+    },
+    {
+      "name": "sorted into a binder: shown there, not in No binder",
+      "collections": [{ "id": "b1", "type": "OWNED", "entries": [] }],
+      "decks": [{ "id": "d1", "cards": [{ "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 2 }] }] }],
+      "expect": {
+        "binders": { "b1": { "own": 0, "deck": [["d1", "sol", 2]] } },
+        "noBinder": { "own": 0, "deck": [] }
+      }
+    },
+    {
+      "name": "one deck card's copies in two binders",
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [] },
+        { "id": "b2", "type": "OWNED", "entries": [{ "id": "sol", "qty": 1 }] }
+      ],
+      "decks": [{ "id": "d1", "cards": [{ "id": "sol", "qty": 3, "binders": [{ "id": "b1", "qty": 1 }, { "id": "b2", "qty": 2 }] }] }],
+      "expect": {
+        "binders": { "b1": { "own": 0, "deck": [["d1", "sol", 1]] }, "b2": { "own": 1, "deck": [["d1", "sol", 2]] } },
+        "noBinder": { "own": 0, "deck": [] }
+      }
+    },
+    {
+      "name": "more sorted than the deck has: the refs in order, cut to its copies",
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [] },
+        { "id": "b2", "type": "OWNED", "entries": [] }
+      ],
+      "decks": [{ "id": "d1", "cards": [
+        { "id": "sol", "qty": 2, "binders": [{ "id": "b1", "qty": 2 }, { "id": "b2", "qty": 2 }] },
+        { "id": "bolt", "qty": 3, "binders": [{ "id": "b1", "qty": 5 }] },
+        { "id": "path", "qty": 1, "binders": [{ "id": "b2", "qty": 1 }, { "id": "b1", "qty": 1 }] }
+      ] }],
+      "expect": {
+        "binders": { "b1": { "own": 0, "deck": [["d1", "sol", 2], ["d1", "bolt", 3]] }, "b2": { "own": 0, "deck": [["d1", "path", 1]] } },
+        "noBinder": { "own": 0, "deck": [] }
+      }
+    },
+    {
+      "name": "fewer sorted than the deck has: the rest in No binder",
+      "collections": [{ "id": "b1", "type": "OWNED", "entries": [] }],
+      "decks": [{ "id": "d1", "cards": [{ "id": "sol", "qty": 4, "binders": [{ "id": "b1", "qty": 1 }] }] }],
+      "expect": {
+        "binders": { "b1": { "own": 0, "deck": [["d1", "sol", 1]] } },
+        "noBinder": { "own": 0, "deck": [["d1", "sol", 3]] }
+      }
+    },
+    {
+      "name": "a binder that's gone, the Wishlist, another wishlist and the pile itself: No binder",
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [] },
+        { "id": "w2", "type": "WISHLIST", "entries": [] },
+        { "id": "wishlist", "type": "WISHLIST", "entries": [] },
+        { "id": "unsorted", "type": "OWNED", "entries": [] }
+      ],
+      "decks": [{ "id": "d1", "cards": [{ "id": "sol", "qty": 5, "binders": [{ "id": "gone", "qty": 1 }, { "id": "wishlist", "qty": 1 }, { "id": "w2", "qty": 1 }, { "id": "unsorted", "qty": 1 }, { "id": "b1", "qty": 1 }] }] }],
+      "expect": {
+        "binders": { "b1": { "own": 0, "deck": [["d1", "sol", 1]] } },
+        "noBinder": { "own": 0, "deck": [["d1", "sol", 4]] }
+      }
+    },
+    {
+      "name": "a ref of no copies is skipped; the same binder twice is one",
+      "collections": [
+        { "id": "b1", "type": "OWNED", "entries": [] },
+        { "id": "b2", "type": "OWNED", "entries": [] },
+        { "id": "b3", "type": "OWNED", "entries": [] }
+      ],
+      "decks": [{ "id": "d1", "cards": [
+        { "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 0 }, { "id": "b2", "qty": -1 }, { "id": "b3", "qty": 1 }] },
+        { "id": "bolt", "qty": 2, "binders": [{ "id": "b1", "qty": 1 }, { "id": "b1", "qty": 1 }] }
+      ] }],
+      "expect": {
+        "binders": { "b1": { "own": 0, "deck": [["d1", "bolt", 2]] }, "b2": { "own": 0, "deck": [] }, "b3": { "own": 0, "deck": [["d1", "sol", 1]] } },
+        "noBinder": { "own": 0, "deck": [] }
+      }
+    },
+    {
+      "name": "a proxy deck: only the real copies swapped in, never its proxies",
+      "collections": [{ "id": "b1", "type": "OWNED", "entries": [] }],
+      "decks": [{ "id": "d1", "ownership": "PROXY", "cards": [
+        { "id": "sol", "qty": 3, "proxies": 1, "binders": [{ "id": "b1", "qty": 3 }] },
+        { "id": "bolt", "qty": 2, "binders": [{ "id": "b1", "qty": 2 }] },
+        { "id": "path", "qty": 2, "proxies": 0 }
+      ] }],
+      "expect": {
+        "binders": { "b1": { "own": 0, "deck": [["d1", "sol", 2]] } },
+        "noBinder": { "own": 0, "deck": [["d1", "path", 2]] }
+      }
+    },
+    {
+      "name": "a physical deck's marked proxies stay out",
+      "collections": [{ "id": "b1", "type": "OWNED", "entries": [] }],
+      "decks": [{ "id": "d1", "ownership": "PHYSICAL", "cards": [
+        { "id": "sol", "qty": 3, "proxies": 2 },
+        { "id": "bolt", "qty": 2, "proxies": 2, "binders": [{ "id": "b1", "qty": 2 }] }
+      ] }],
+      "expect": {
+        "binders": { "b1": { "own": 0, "deck": [] } },
+        "noBinder": { "own": 0, "deck": [["d1", "sol", 1]] }
+      }
+    },
+    {
+      "name": "virtual, prototype, cube and sample decks never show, sorted or not",
+      "collections": [{ "id": "b1", "type": "OWNED", "entries": [{ "id": "sol", "qty": 1 }] }],
+      "decks": [
+        { "id": "virtual", "ownership": "VIRTUAL", "cards": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }, { "id": "bolt", "qty": 1 }] },
+        { "id": "prototype", "ownership": "PROTOTYPE", "cards": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }, { "id": "bolt", "qty": 1 }] },
+        { "id": "cube", "ownership": "VIRTUAL", "gameMode": "CUBE", "cards": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }, { "id": "bolt", "qty": 1 }] },
+        { "id": "physicalCube", "ownership": "PHYSICAL", "gameMode": "CUBE", "cards": [{ "id": "bolt", "qty": 1 }] },
+        { "id": "sample", "ownership": "PHYSICAL", "sample": true, "cards": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }, { "id": "bolt", "qty": 1 }] }
+      ],
+      "expect": {
+        "binders": { "b1": { "own": 1, "deck": [] } },
+        "noBinder": { "own": 0, "deck": [] }
+      }
+    },
+    {
+      "name": "two decks in one binder, decks in order",
+      "collections": [
+        { "id": "unsorted", "type": "OWNED", "entries": [{ "id": "sol", "qty": 1 }] },
+        { "id": "b1", "type": "OWNED", "entries": [{ "id": "sol", "qty": 1 }] }
+      ],
+      "decks": [
+        { "id": "d1", "cards": [{ "id": "sol", "qty": 1, "binders": [{ "id": "b1", "qty": 1 }] }] },
+        { "id": "d2", "ownership": "PROXY", "cards": [{ "id": "sol", "qty": 1, "proxies": 0, "binders": [{ "id": "b1", "qty": 1 }] }, { "id": "bolt", "qty": 1, "proxies": 0 }] }
+      ],
+      "expect": {
+        "binders": { "b1": { "own": 1, "deck": [["d1", "sol", 1], ["d2", "sol", 1]] } },
+        "noBinder": { "own": 1, "deck": [["d2", "bolt", 1]] }
+      }
+    },
+    {
+      "name": "taken out of every binder (an empty list): No binder",
+      "collections": [{ "id": "b1", "type": "OWNED", "entries": [] }],
+      "decks": [{ "id": "d1", "cards": [{ "id": "sol", "qty": 1, "binders": [] }] }],
+      "expect": {
+        "binders": { "b1": { "own": 0, "deck": [] } },
+        "noBinder": { "own": 0, "deck": [["d1", "sol", 1]] }
+      }
+    }
+  ]
+}

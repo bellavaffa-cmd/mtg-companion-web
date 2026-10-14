@@ -367,7 +367,7 @@ function RecipeLayout({ start }: { start: SortRecipe }) {
     if (p.key === 'S:DECKS') return 'For their decks'
     if (p.key === 'S:BINDER') return 'Into its binder'
     const to = pileGoesTo(draft, p)
-    return to === BY_RULE ? 'Place whose rules fit' : to ? places.find((x) => x.id === to)?.name ?? 'No place' : 'Unsorted'
+    return to === BY_RULE ? 'Place whose rules fit' : to ? places.find((x) => x.id === to)?.name ?? 'No place' : 'No binder'
   }
   const begin = () => {
     if (!isTemplate(draft) && JSON.stringify(sortRecipe(start)) !== JSON.stringify(draft)) changeStorage((c) => saveRecipe(c, draft))
@@ -414,7 +414,7 @@ function RecipeLayout({ start }: { start: SortRecipe }) {
       {placing && (
         <Dialog title={`Where pile ${placing.number} goes`} onDismiss={() => setPlacing(null)}>
           <div className="recipe-list">
-            {[{ id: BY_RULE, name: 'The place whose rules fit' }, { id: '', name: 'No place (Unsorted)' }, ...placeTree(places).map((n) => ({ id: n.place.id, name: `${'  '.repeat(n.depth)}${n.place.name}` }))].map((o) => (
+            {[{ id: BY_RULE, name: 'The place whose rules fit' }, { id: '', name: 'No place · No binder' }, ...placeTree(places).map((n) => ({ id: n.place.id, name: `${'  '.repeat(n.depth)}${n.place.name}` }))].map((o) => (
               <button key={o.id || 'none'} type="button" className={`recipe-card${pileGoesTo(draft, placing) === o.id ? ' mine' : ''}`}
                 onClick={() => { setDraft(withGoTo(draft, placing.key, o.id)); setPlacing(null) }}
               ><span className="txt"><b>{o.name}</b></span></button>
@@ -616,7 +616,7 @@ function fileLine(recipe: SortRecipe, piles: RecipePile[], scans: { pile: number
       parts.push(`${p.number} to the ${binders.join(' and ')} ${binders.length === 1 ? 'binder' : 'binders'} with page and slot`)
     } else if (p.key === 'S:DECKS') parts.push(`${p.number} with no place, for the decks' pull lists`)
     else if (to && to !== BY_RULE) parts.push(`${p.number} to ${places.find((x) => x.id === to)?.name ?? 'its place'}`)
-    else if (!to) parts.push(`${p.number} to Unsorted`)
+    else if (!to) parts.push(`${p.number} to No binder`)
   }
   return parts.length > 0 ? `${parts.join('; ')}.` : 'Everything here is filed already.'
 }

@@ -259,7 +259,7 @@ export function DeckVersionPage() {
     const pull = deck.ownership === 'PHYSICAL' && r.incoming > 0
     const parts = [
       pull ? `Its pull list has the ${r.incoming} ${r.incoming === 1 ? 'card' : 'cards'} coming back.` : '',
-      r.out > 0 ? `The ${r.out} ${r.out === 1 ? 'card' : 'cards'} taken out ${r.out === 1 ? 'is' : 'are'} on the Unsorted pile.` : '',
+      r.out > 0 ? `The ${r.out} ${r.out === 1 ? 'card' : 'cards'} taken out ${r.out === 1 ? 'is' : 'are'} in No binder.` : '',
       r.missing > 0 ? `${r.missing} ${r.missing === 1 ? 'card' : 'cards'} couldn't be found, so ${r.missing === 1 ? "it's" : "they're"} left out.` : '',
       "Today's list is in the history, so you can go back to it.",
     ].filter(Boolean)

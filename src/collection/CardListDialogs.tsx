@@ -164,7 +164,7 @@ export function ImportCardsDialog({ collection, onDismiss, onCreated, startInNew
     return (
       <Dialog title="Import finished" onDismiss={onDismiss} actions={<button type="button" className="btn gold" onClick={onDismiss}>Done</button>}>
         <p style={{ marginTop: 0 }}>
-          Added <b>{stage.added}</b> {stage.added === 1 ? 'card' : 'cards'}{stage.foils > 0 ? ` (${stage.foils} foil)` : ''} to {collection?.name ?? (newBinder ? name.trim() || 'Imported' : 'your collection (Unsorted)')}.
+          Added <b>{stage.added}</b> {stage.added === 1 ? 'card' : 'cards'}{stage.foils > 0 ? ` (${stage.foils} foil)` : ''} to {collection?.name ?? (newBinder ? name.trim() || 'Imported' : 'your collection (No binder)')}.
         </p>
         {stage.result.missing.length > 0 && (
           <>
@@ -200,7 +200,7 @@ export function ImportCardsDialog({ collection, onDismiss, onCreated, startInNew
         </div>
       )}
       {!collection && !newBinder && (
-        <p className="dim" style={{ marginTop: 0 }}>Cards go into Unsorted, on the Collection page. Move them into binders whenever you like.</p>
+        <p className="dim" style={{ marginTop: 0 }}>Cards go into No binder, on the Collection page. Move them into binders whenever you like.</p>
       )}
       {!collection && newBinder && (
         <>

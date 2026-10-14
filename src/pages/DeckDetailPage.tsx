@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { allIntoBinder, assignedCopies, cardBindersLine, sortingBinderIds, sortingBinders, withCardBinders } from '../collection/binderViews'
+import { BinderPickDialog } from '../collection/BinderViewsUi'
+import { countsAsOwned, ownedCopies } from '../collection/ownedCopies'
 import { SamplesBar } from '../onboarding/GetStarted'
 import { allUserTags, userTagsOf } from '../collection/userTags'
 import { PrintingPicker, printingName } from '../components/PrintingPicker'
@@ -82,7 +85,7 @@ export function DeckDetailPage() {
     decks, collections, setCardQuantity, removeCardFromDeck, setCommander, setPartnerCommander, deleteDeck, addToWishlist,
     setDeckOwnership, swapInProxy, changeDeckPrinting, stopConsidering, considerIntoDeck, setCardTags, setReplaceable, recordUndo,
     moveToConsidering, swapConsidered, importIntoDeck, setSideboardQuantity, moveToSideboard, moveToMain,
-    addCardToDeck, importIntoCollection,
+    addCardToDeck, importIntoCollection, changeDeckBinders,
   } = useSync()
   const addCardTo = useAddCardTo()
   const confirmAdd = useAddCheck()
@@ -167,6 +170,23 @@ export function DeckDetailPage() {
   // "Who has it?", buying, and the Wishlist. Copies in another deck of yours count.
   const missing = useMemo(() => (deck ? missingCards(deck, collections, decks) : []), [deck, collections, decks])
   const [notice, setNotice] = useState<string | null>(null)
+  // Which binder a card's real copies are kept in (collection/binderViews.ts): the card whose binder is
+  // being picked, and "Put all cards in a binder…". Physical and Proxy decks only.
+  const sorting = useMemo(() => sortingBinders(collections), [collections])
+  const binderNames = useMemo(() => new Map(sorting.map((b) => [b.id, b.name])), [sorting])
+  const [binderFor, setBinderFor] = useState<DeckCardEntry | null>(null)
+  const [puttingAllInBinder, setPuttingAllInBinder] = useState(false)
+  /** Every real copy of [entry] this deck owns into binder [binderId]; null: into none (it shows in No binder). */
+  const setCardBinder = (entry: DeckCardEntry, binderId: string | null) => {
+    if (!deck) return
+    changeDeckBinders((d) => {
+      if (d.id !== deck.id) return d
+      const e = d.cards.find((c) => c.scryfallId === entry.scryfallId)
+      if (!e) return d
+      const owned = ownedCopies(d, e)
+      return withCardBinders(d, e.scryfallId, binderId === null || owned <= 0 ? [] : [{ id: binderId, qty: owned }])
+    })
+  }
   // "Only cards I own" on the Suggestions tab: suggestions and budget swaps limited to cards in the
   // user's binders (the Unsorted pile too, not the Wishlist, and not copies in decks).
   const [ownedOnly, setOwnedOnly] = useState(false)
@@ -333,6 +353,11 @@ export function DeckDetailPage() {
       onClick: () => setCategoriesFor(entry),
     })
     actions.push({ label: 'Change printing', icon: 'swap_horiz', detail: 'Another art or set — the copies stay', section: inDeck, onClick: () => setChangingPrinting(entry) })
+    // Which binder its real copies are kept in; they stay in the deck (collection/binderViews.ts).
+    if (countsAsOwned(deck!) && ownedCopies(deck!, entry) > 0) {
+      const line = cardBindersLine(assignedCopies(deck!, entry), binderNames)
+      actions.push({ label: line ? `${line} · change` : 'Add to binder…', icon: 'collections', detail: "Where it's kept when it's out of the deck — it stays in the deck", section: inDeck, onClick: () => setBinderFor(entry) })
+    }
     // Elsewhere: the card itself, away from the deck.
     actions.push({ label: 'View card', icon: 'visibility', section: 'Elsewhere', onClick: () => setZoomId(entry.scryfallId) })
     // Last, set apart, in the danger style.
@@ -870,6 +895,37 @@ export function DeckDetailPage() {
         </div>
       )}
 
+      {binderFor && (() => {
+        const owned = ownedCopies(deck, binderFor)
+        const current = assignedCopies(deck, binderFor).filter((r) => binderNames.has(r.id))
+        const one = owned === 1
+        return (
+          <BinderPickDialog
+            title={current.length === 0 ? `Add ${binderFor.name} to a binder` : `Change ${binderFor.name}'s binder`}
+            binders={sorting}
+            note={`Its ${one ? 'copy stays' : `${owned} copies stay`} in this deck; the binder shows ${one ? 'it' : 'them'}, and it's where ${one ? "it goes when it's" : "they go when they're"} out.`}
+            onNone={current.length === 0 ? undefined : () => { setCardBinder(binderFor, null); setBinderFor(null) }}
+            onPick={(b) => { setCardBinder(binderFor, b.id); setNotice(`${binderFor.name} · Binder: ${b.name}`); setBinderFor(null) }}
+            onDismiss={() => setBinderFor(null)}
+          />
+        )
+      })()}
+      {puttingAllInBinder && (
+        <BinderPickDialog
+          title="Put all cards in a binder"
+          binders={sorting}
+          note="Every real card here that isn't in a binder yet. They stay in the deck; the binder shows them. Proxies never go in a binder."
+          onPick={(b) => {
+            setPuttingAllInBinder(false)
+            const valid = sortingBinderIds(collections)
+            const [, n] = allIntoBinder(deck, b.id, valid)
+            changeDeckBinders((d) => (d.id === deck.id ? allIntoBinder(d, b.id, valid)[0] : d))
+            setNotice(n === 0 ? 'Every card is already in a binder' : `${n} ${n === 1 ? 'card' : 'cards'} put in ${b.name}`)
+          }}
+          onDismiss={() => setPuttingAllInBinder(false)}
+        />
+      )}
+
       {changingPrinting && (
         <PrintingPicker
           name={changingPrinting.name}
@@ -911,6 +967,10 @@ export function DeckDetailPage() {
                 : []),
             ...(holdsCards(deck) && deck.cards.some((c) => c.quantity - proxyCopies(deck, c) > 0)
               ? [{ label: 'Take apart', icon: 'move_down', detail: 'A list to put its cards back where they go', onClick: () => navigate(`/decks/${deck.id}/put-back`) }]
+              : []),
+            // Where its real copies are kept when they're out (collection/binderViews.ts): Physical and Proxy decks.
+            ...(countsAsOwned(deck) && deck.cards.some((c) => ownedCopies(deck, c) > 0)
+              ? [{ label: 'Put all cards in a binder…', icon: 'collections', detail: 'Every card not in one yet — they stay in the deck', onClick: () => setPuttingAllInBinder(true) }]
               : []),
             { label: 'Print proxies…', icon: 'print', detail: 'Nine to a page at real size, to cut out', onClick: () => setPrintingProxies(true) },
             { label: 'Who has it?', icon: 'person_search', detail: "Friends who own the cards you're missing", onClick: () => setWhoHas(true) },
@@ -984,7 +1044,7 @@ export function DeckDetailPage() {
           >
             {real > 0 && (
               <p style={{ margin: '0 0 8px' }}>
-                “{deck.name}” holds {real} of your cards. <b>Delete deck, keep cards</b> puts them in Unsorted; <b>Delete deck and cards</b> takes them out of your collection with the deck.
+                “{deck.name}” holds {real} of your cards. <b>Delete deck, keep cards</b> puts them in No binder; <b>Delete deck and cards</b> takes them out of your collection with the deck.
               </p>
             )}
             <p className="muted" style={{ margin: 0 }}>{real > 0 ? 'The deck' : `“${deck.name}”`} will be removed here and, if you're signed in, from your other devices too.</p>
@@ -1320,7 +1380,7 @@ function DeckDetails({ deck, onDelete }: { deck: Deck; onDelete: () => void }) {
             }
           >
             <p style={{ margin: 0 }}>
-              “{deck.name}” holds {realCards} of your cards, and a {DECK_OWNERSHIP_LABELS[leaving].toLowerCase()} deck doesn't count its cards as yours. <b>Keep cards</b> puts them in Unsorted; <b>Remove the cards</b> takes them out of your collection.
+              “{deck.name}” holds {realCards} of your cards, and a {DECK_OWNERSHIP_LABELS[leaving].toLowerCase()} deck doesn't count its cards as yours. <b>Keep cards</b> puts them in No binder; <b>Remove the cards</b> takes them out of your collection.
             </p>
           </Dialog>
         )}

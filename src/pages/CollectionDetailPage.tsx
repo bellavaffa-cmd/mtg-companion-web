@@ -42,6 +42,8 @@ import { biggerImageUrl } from '../types/scryfall'
 import { CopyDetailsButton } from '../collection/CopyDetails'
 import { CopyBadge } from '../components/CopyBadge'
 import { conditionName, copyBadges, languageName } from '../collection/copyDetails'
+import { assignedCopies, binderView, deckCopyRows, inDecksBadge, inDecksOf, movedRefs, shownName, sortingBinderIds, sortingBinders, withCardBinders, type DeckCopyRow } from '../collection/binderViews'
+import { BinderPickDialog, DeckCopyCardRow } from '../collection/BinderViewsUi'
 
 // The same order as localeCompare, one collator reused.
 const byName = new Intl.Collator()
@@ -58,7 +60,7 @@ export function CollectionDetailPage({ embeddedId, externalQuery }: { embeddedId
   const back = useBack('/collections?tab=binders')
   const {
     collections, decks, setEntryQuantities, setEntryPriceAlert, setEntryPriceAlerts, setEntryPriceAlertAbove, setEntryCopyDetails, removeEntryFromCollection, removeEntriesFromCollection, moveEntries,
-    notInterested, wantAgain, changeEntryPrinting, setCardTags, addCardToDeck, addCardsToDeck, recordUndo,
+    notInterested, wantAgain, changeEntryPrinting, setCardTags, addCardToDeck, addCardsToDeck, recordUndo, changeDeckBinders,
   } = useSync()
   const addCardTo = useAddCardTo()
   const confirmAdd = useAddCheck()
@@ -142,6 +144,23 @@ export function CollectionDetailPage({ embeddedId, externalQuery }: { embeddedId
   const placeMap = useMemo(() => new Map(placesOf(collections).map((p) => [p.id, p])), [collections])
   const lentMap = useMemo(() => lentByEntry(lentCopies(collections, decks)), [collections, decks])
   const [puttingAway, setPuttingAway] = useState<CollectionEntry | null>(null)
+  // The deck copies this binder shows (collection/binderViews.ts), one row a printing; a wishlist shows none.
+  const binderShows = useMemo(() => (collection && collection.type !== 'WISHLIST' ? binderView(collection.id, collections, decks) : null), [collection, collections, decks])
+  const allDeckRows = useMemo(() => deckCopyRows(binderShows?.deckCopies ?? []), [binderShows])
+  const deckRows = useMemo(() => allDeckRows.filter((r) => matchesNameOrTag(r.name, tagsOf(roleTags, r.name), q)), [allDeckRows, roleTags, q])
+  const [movingDeckRow, setMovingDeckRow] = useState<DeckCopyRow | null>(null)
+  /**
+   * [row]'s deck copies shown here moved into binder [to] — or, with [to] null, taken out of this binder
+   * (they then show in No binder). Only where the copies show changes: they stay in their decks.
+   */
+  const moveDeckCopies = (row: DeckCopyRow, to: string | null) => {
+    const valid = sortingBinderIds(collections)
+    const from = collection && isUnsorted(collection) ? null : collection?.id ?? null
+    changeDeckBinders((d) => row.copies.filter((c) => c.deckId === d.id).reduce((acc, c) => {
+      const e = acc.cards.find((x) => x.scryfallId === c.entry.scryfallId)
+      return e ? withCardBinders(acc, e.scryfallId, movedRefs(assignedCopies(acc, e), from, to, c.qty, valid)) : acc
+    }, d))
+  }
 
   if (!collection) {
     if (embedded) return <div className="dim">Your wishlist is loading…</div>
@@ -174,9 +193,11 @@ export function CollectionDetailPage({ embeddedId, externalQuery }: { embeddedId
     if (rest.length > 0) removeEntriesFromCollection(collection.id, rest)
   }
 
+  const inDecks = binderShows ? inDecksOf(binderShows) : 0
   const summary = (
     <div className="stats rise" style={{ ...rise(1), maxWidth: size === 'phone' ? undefined : 720 }}>
       <StatFigure value={cards} label="Cards" />
+      {inDecks > 0 && <StatFigure value={inDecks} label="In decks" />}
       <StatFigure value={foils} label="Foils" />
       <StatFigure value={collection.entries.length} label="Unique" />
     </div>
@@ -246,7 +267,7 @@ export function CollectionDetailPage({ embeddedId, externalQuery }: { embeddedId
       ? { message: doneMessage(verb, label(going.length > 0 ? going : cards), deckPlace(target.name, target.considering)), undo }
       : { message: `${target.name} already has ${cards.length === 1 ? 'it' : 'them'}` })
   }
-  const entryList = collection.entries.length === 0 ? (
+  const entryList = collection.entries.length === 0 && allDeckRows.length === 0 ? (
     unsorted
       ? <EmptyState icon="inbox" text="All sorted — every card is in a binder." />
       : wishlist
@@ -256,7 +277,7 @@ export function CollectionDetailPage({ embeddedId, externalQuery }: { embeddedId
     <>
       {unsorted && (
         <p className="muted rise" style={{ ...rise(2), margin: '14px 0 0' }}>
-          Cards you own that aren't in a binder yet. Use <Icon name="more_vert" style={{ fontSize: 16, verticalAlign: -3 }} /> → <b>Move to…</b> on a card to sort it — into a binder or deck you have, or a new one.
+          Cards you own that aren't in a binder yet, loose or in your decks. Use <Icon name="more_vert" style={{ fontSize: 16, verticalAlign: -3 }} /> → <b>Move to…</b> on a loose card to sort it — into a binder or deck you have, or a new one; a deck's card goes in a binder from its <Icon name="more_vert" style={{ fontSize: 16, verticalAlign: -3 }} />.
         </p>
       )}
       <div className="rise" style={{ ...rise(2), marginTop: 14, maxWidth: size === 'phone' ? undefined : 480 }}>
@@ -288,7 +309,7 @@ export function CollectionDetailPage({ embeddedId, externalQuery }: { embeddedId
               onMore={() => setSheet(entry)}
             />
           ))}
-          {shown.length === 0 && <div className="empty-state">Nothing in this binder matches “{filter}”.</div>}
+          {shown.length === 0 && deckRows.length === 0 && <div className="empty-state">Nothing in this binder matches “{filter}”.</div>}
         </div>
       ) : (
       <div className="list wide-list" style={{ marginTop: 14 }}>
@@ -320,10 +341,33 @@ export function CollectionDetailPage({ embeddedId, externalQuery }: { embeddedId
             }}
           />
         ))}
-        {shown.length === 0 && <div className="empty-state">Nothing in this binder matches “{filter}”.</div>}
+        {shown.length === 0 && deckRows.length === 0 && <div className="empty-state">Nothing in this binder matches “{filter}”.</div>}
       </div>
       )}
       {list.more && <div ref={list.ref} className="list-more dim">Showing {list.count} of {shown.length}…</div>}
+      {/* The deck copies shown here: in their decks, sorted into this binder. */}
+      {deckRows.length > 0 && (
+        <>
+          <div className="eyebrow" style={{ marginTop: 18 }}>IN DECKS · {deckRows.reduce((n, r) => n + r.qty, 0)}</div>
+          <p className="dim" style={{ margin: '4px 0 0' }}>
+            {selecting ? "Cards in decks aren't picked — change them from their row's menu."
+              : unsorted ? 'In your decks and in no binder. Each stays in its deck; put it in a binder to see it there.'
+              : "In your decks, and kept in this binder when they're out. Counts, selling and lending here are for the loose cards."}
+          </p>
+          <div className="list wide-list" style={{ marginTop: 10 }}>
+            {deckRows.map((row) => (
+              <DeckCopyCardRow
+                key={row.scryfallId}
+                row={row}
+                inNoBinder={unsorted}
+                onOpenDeck={(deckId) => navigate(`/decks/${deckId}`)}
+                onMove={() => setMovingDeckRow(row)}
+                onTakeOut={() => moveDeckCopies(row, null)}
+              />
+            ))}
+          </div>
+        </>
+      )}
       {wishlist && (
         <div className="wishlist-foot">
           <button type="button" className="btn line" onClick={() => setSettingAll(true)}>Set targets for all…</button>
@@ -365,7 +409,7 @@ export function CollectionDetailPage({ embeddedId, externalQuery }: { embeddedId
   )
   return (
     <>
-      {!embedded && <TopBar title={collection.name} onBack={back} progress={titleProgress} actions={headerActions} />}
+      {!embedded && <TopBar title={shownName(collection)} onBack={back} progress={titleProgress} actions={headerActions} />}
       <div className={embedded ? undefined : 'content-scroll'}>
         {embedded ? (
           <div className="row" style={{ alignItems: 'center', gap: 8 }}>
@@ -379,7 +423,7 @@ export function CollectionDetailPage({ embeddedId, externalQuery }: { embeddedId
           <div className="binder-head rise" style={rise(0)}>
             <div className="eyebrow">{unsorted ? 'Not in a binder yet' : collection.type === 'WISHLIST' ? 'Wishlist' : 'Binder'}</div>
             <div className="row" style={{ alignItems: 'baseline', gap: 12 }}>
-              <h1 style={{ flex: 1, minWidth: 0 }}>{collection.name}</h1>
+              <h1 style={{ flex: 1, minWidth: 0 }}>{shownName(collection)}</h1>
               {/* What the Wishlist would cost today. */}
               {wishlist && total != null && <span className="wishlist-total" aria-label={`All of it: ${formatUsd(total)}`}>{money.format(total, true)}</span>}
             </div>
@@ -464,6 +508,16 @@ export function CollectionDetailPage({ embeddedId, externalQuery }: { embeddedId
               : { label: 'Remove from binder', icon: 'delete', tone: 'danger' as const, onClick: () => setRemoving(sheet) },
           ]}
           onClose={() => setSheet(null)}
+        />
+      )}
+
+      {movingDeckRow && (
+        <BinderPickDialog
+          title={unsorted ? `Put ${movingDeckRow.name} in a binder` : `Move ${movingDeckRow.name} to another binder`}
+          binders={sortingBinders(collections).filter((b) => b.id !== collection.id)}
+          note={`It stays in ${inDecksBadge(movingDeckRow.decks.map((d) => d[1])).replace(/^In /, '')}; the binder shows it.`}
+          onPick={(b) => { const row = movingDeckRow; setMovingDeckRow(null); moveDeckCopies(row, b.id) }}
+          onDismiss={() => setMovingDeckRow(null)}
         />
       )}
 

@@ -17,6 +17,7 @@ import { refsOf } from '../tags/tagPass'
 import { backupSummary, parseBackup, restoredMessage, summaryLines, type BackupFile, type RestoreMode } from '../sync/backupFile'
 import { download, makeBackup, restoreExtras } from '../sync/backupIo'
 import { ResetCollectionPanel } from './ResetCollectionPanel'
+import { readBeforeBinders } from '../sync/beforeBinders'
 
 const when = (ms: number) => new Date(ms).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
@@ -100,6 +101,24 @@ export function DataAndSpeedSection() {
     }
   }
 
+  // The backup made by itself before the binders update (sync/beforeBinders.ts), offered like any other.
+  const [beforeBinders, setBeforeBinders] = useState(false)
+  useEffect(() => {
+    let live = true
+    void readBeforeBinders().then((read) => { if (live) setBeforeBinders(read != null) })
+    return () => { live = false }
+  }, [])
+  const openBeforeBinders = async () => {
+    setBusy('Reading the backup…')
+    try {
+      const read = await readBeforeBinders()
+      if (!read) setProblem("That backup isn't in this browser any more.")
+      else if (read.ok) { setMode('merge'); setPending(read.backup) } else setProblem(read.message)
+    } finally {
+      setBusy(null)
+    }
+  }
+
   const summary = pending ? backupSummary(pending) : null
   return (
     <>
@@ -121,6 +140,7 @@ export function DataAndSpeedSection() {
           <button type="button" className="btn gold" disabled={!!busy} onClick={() => { void save() }}>Save a backup</button>
           <button type="button" className="btn soft" disabled={!!busy} onClick={() => picker.current?.click()}>Restore</button>
         </div>
+        {beforeBinders && <button type="button" className="link" disabled={!!busy} onClick={() => { void openBeforeBinders() }}>Restore from before the binders update</button>}
         <input ref={picker} type="file" accept=".json,application/json" hidden onChange={(e) => { void open(e.target.files?.[0]) }} />
         {busy && <p className="dim backup-status" role="status">{busy}</p>}
         {notice && (

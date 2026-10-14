@@ -5,7 +5,7 @@ import { PrintingPicker } from './PrintingPicker'
 import { useSync } from '../sync/SyncContext'
 import { kindDetail, printingLine, sheetTitle, type AddVerb, type TargetKind } from '../collection/addTo'
 import { hasSideboard, sideboardChoice, sideboardChoiceHint } from '../decks/sideboard'
-import { GAME_MODES, GAME_MODE_LABELS, isUnsorted, UNSORTED_COLLECTION_ID, type Collection, type GameMode } from '../types/models'
+import { GAME_MODES, GAME_MODE_LABELS, isUnsorted, shownName, UNSORTED_COLLECTION_ID, type Collection, type GameMode } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 import { activeDecks } from '../decks/deckFolders'
 import { useModalFocus } from './useModalFocus'
@@ -106,7 +106,7 @@ export function AddToSheet({
     onClose()
     onPick(target)
   }
-  const toBinder = (c: { id: string; name: string }) => pick({ kind: 'binder', id: c.id, name: c.name, quantity: copies, foil: isFoil, ...otherPrinting })
+  const toBinder = (c: { id: string; name: string }) => pick({ kind: 'binder', id: c.id, name: shownName(c), quantity: copies, foil: isFoil, ...otherPrinting })
   const toDeck = (d: { id: string; name: string; gameMode: string }) =>
     pick({ kind: 'deck', id: d.id, name: d.name, gameMode: d.gameMode, quantity: copies, considering, ...(intoSideboard && hasSideboard(d.gameMode) ? { sideboard: true } : {}), ...otherPrinting })
   const makeBinder = () => {
@@ -178,8 +178,8 @@ export function AddToSheet({
               {unsorted && (
                 // Cards you own but haven't sorted yet: they go in as they are, to be sorted later.
                 <Row
-                  icon="inbox" tone="gold" label="Unsorted" detail="Into your collection, to sort into binders later"
-                  onClick={() => pick({ kind: 'binder', id: UNSORTED_COLLECTION_ID, name: 'Unsorted', quantity: copies, foil: isFoil })}
+                  icon="inbox" tone="gold" label="No binder" detail="Into your collection, to sort into binders later"
+                  onClick={() => pick({ kind: 'binder', id: UNSORTED_COLLECTION_ID, name: 'No binder', quantity: copies, foil: isFoil })}
                 />
               )}
               {offersBinders && <Row icon="collections" label="A binder" detail={kindDetail('binder', binderList.length)} onClick={() => setStep('binder')} />}
@@ -189,7 +189,7 @@ export function AddToSheet({
 
           {step === 'binder' && (
             <>
-              {asksFirst && back('kinds', unsorted ? 'Unsorted, a binder or a deck' : 'A binder or a deck')}
+              {asksFirst && back('kinds', unsorted ? 'No binder, a binder or a deck' : 'A binder or a deck')}
               {create && <Row icon="add" tone="gold" label="New binder…" onClick={() => startNew('new-binder')} />}
               {binderList.map((c) => (
                 <Row
@@ -206,7 +206,7 @@ export function AddToSheet({
 
           {step === 'deck' && (
             <>
-              {asksFirst && back('kinds', unsorted ? 'Unsorted, a binder or a deck' : 'A binder or a deck')}
+              {asksFirst && back('kinds', unsorted ? 'No binder, a binder or a deck' : 'A binder or a deck')}
               {create && !intoSideboard && <Row icon="add" tone="gold" label="New deck…" onClick={() => startNew('new-deck')} />}
               {decksShown.map((d) => (
                 <Row

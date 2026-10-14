@@ -1,4 +1,5 @@
 import type { Collection, CollectionEntry, Deck, DeckCardEntry, StoragePlace } from '../types/models'
+import { NO_BINDER_TITLE, UNSORTED_COLLECTION_ID } from '../types/models'
 import type { ScryfallCard } from '../types/scryfall'
 import { cardColours } from './limited'
 import { proxyCopies } from './proxies'
@@ -640,7 +641,7 @@ export interface CubeCardStatus {
   elsewhere: number
   proxies: number
   state: CubeCardState
-  /** Where the copies outside the box are: "Red box ×2 · No place (Unsorted) ×1"; "" for none. */
+  /** Where the copies outside the box are: "Red box ×2 · No place (No binder) ×1"; "" for none. */
   where: string
 }
 
@@ -675,7 +676,7 @@ export function cubeStatus(cube: Deck, collections: Collection[]): CubeCardStatu
     const loose = copies - placed
     if (loose > 0) {
       h.elsewhere += loose
-      const label = `No place (${c.name})`
+      const label = `No place (${c.id === UNSORTED_COLLECTION_ID ? NO_BINDER_TITLE : c.name})`
       h.where.set(label, (h.where.get(label) ?? 0) + loose)
     }
   }

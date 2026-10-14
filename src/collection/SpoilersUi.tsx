@@ -117,7 +117,7 @@ export function OpeningPacksPage() {
           ) : (
             <>
               <p className="muted" style={{ marginTop: 0 }}>
-                {set?.name ?? code.toUpperCase()}: the cards you want from it. Tick one off as it comes out of a pack — it goes into your Unsorted pile and you want one fewer.
+                {set?.name ?? code.toUpperCase()}: the cards you want from it. Tick one off as it comes out of a pack — it goes into No binder and you want one fewer.
               </p>
               {list.length === 0 && <EmptyState icon="inventory_2" text="Nothing wanted from this set yet. Mark cards Want on the set's page." />}
               <div className="list">

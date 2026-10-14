@@ -15,7 +15,7 @@ import type { FindChip } from './findAnything'
 import { gradedOf } from './graded'
 import { forSaleOf } from './selling'
 import { lentByEntry, lentCopies, lentOf, lentTag, placeAndInside, placedCopies, placesOf } from './storagePlaces'
-import { realCopiesOf } from './unsorted'
+import { ownedCopies } from './ownedCopies'
 import { deckTitle } from './upkeep'
 
 /** The Collection's four tabs, in order; the key is ?tab= and what's remembered. */
@@ -169,7 +169,8 @@ const nameKey = (name: string) => name.trim().toLowerCase()
 
 /**
  * Every owned printing's chips, by scryfallId, in one walk over the library: a chip per place and
- * section its binder copies are in, per physical deck holding real copies (less those lent from it),
+ * section its binder copies are in, per deck holding real owned copies (ownedCopies: a physical deck's,
+ * a proxy deck's swapped-in ones; less those lent from it),
  * per loan, copies tagged "lent", and the copies with no place yet. The same rules as Where it is and
  * Find anything, a printing at a time. Graded copies are kept apart and have none.
  */
@@ -189,11 +190,14 @@ export function locationIndex(collections: Collection[], decks: Deck[]): Map<str
     const k = `${l.card.deckId}|${l.card.scryfallId}|${nameKey(l.card.name)}`
     fromDeck.set(k, (fromDeck.get(k) ?? 0) + l.qty)
   }
-  for (const d of decks) for (const e of realCopiesOf(d)) {
+  // A deck's real owned copies (ownedCopies): a physical deck's, and the real copies swapped into a proxy deck.
+  for (const d of decks) for (const e of d.cards) {
+    const real = ownedCopies(d, e)
+    if (real <= 0) continue
     const k = `${d.id}|${e.scryfallId}|${nameKey(e.name)}`
     const less = fromDeck.get(k) ?? 0
     fromDeck.delete(k)
-    of(e.scryfallId).add({ kind: 'deck', qty: e.quantity - less, deck: d.name, deckId: d.id })
+    of(e.scryfallId).add({ kind: 'deck', qty: real - less, deck: d.name, deckId: d.id })
   }
   for (const l of lent) of(l.card.scryfallId).add({ kind: 'lent', qty: l.qty, loanTo: l.loan.to, loanId: l.loan.id })
   return new Map([...out].map(([id, b]) => [id, b.list()]))

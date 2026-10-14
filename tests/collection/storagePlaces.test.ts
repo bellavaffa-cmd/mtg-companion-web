@@ -142,7 +142,7 @@ test('putting away: a copy with no place first, the Unsorted pile before binders
   const collections = [binder('b1', [entry('bolt', 1)]), pile([entry('bolt', 1)], PLACES)]
   const out = putAway(collections, { id: 'bolt', name: 'bolt' }, { placeId: 'red', section: 'Red' }, newEntry('bolt'))
   assert.equal(out.result, 'placed')
-  assert.equal(out.label, 'moved from Unsorted')
+  assert.equal(out.label, 'moved from No binder')
   assert.deepEqual(out.collections[1].entries[0].places, [at('red', 1, { section: 'Red' })])
   assert.equal(out.collections[0].entries[0].places, undefined)
   // Undo takes the place away again.

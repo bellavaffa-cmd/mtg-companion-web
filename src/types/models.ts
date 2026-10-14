@@ -46,10 +46,10 @@ export interface DeckCardEntry {
    */
   categories?: string[]
   /**
-   * Which binders this card's real copies are sorted into, by binder (Collection) id and count. Main
-   * deck cards only, never Considering or the sideboard. Written by the phone; this app only keeps it
-   * (decks/binderRefs.ts). Absent until first set, then kept as [] when none. Merged as one value,
-   * whoever changed it, not line by line. The phone's DeckCardEntry.binders.
+   * Which binders this card's real copies are sorted into, by binder (Collection) id and count. Set on
+   * main deck cards; only those show in a binder (collection/binderViews.ts). Kept through edits, sync
+   * and backups (decks/binderRefs.ts). Absent until first set, then kept as [] when none. Merged as one
+   * value, whoever changed it, not line by line. The phone's DeckCardEntry.binders.
    */
   binders?: { id: string; qty: number }[] | null
 }
@@ -636,6 +636,11 @@ export interface Loan {
  */
 export const UNSORTED_COLLECTION_ID = 'unsorted'
 export const UNSORTED_COLLECTION_NAME = 'Unsorted'
+/** What the Unsorted pile is called wherever it shows (its id and name stay as they are): collection/binderViews.ts. */
+export const NO_BINDER_TITLE = 'No binder'
 
 /** Whether [c] is the Unsorted pile — owned cards, but not a binder itself. */
 export const isUnsorted = (c: Collection): boolean => c.id === UNSORTED_COLLECTION_ID
+
+/** A binder's name as shown: the Unsorted pile is "No binder" (collection/binderViews.ts). */
+export const shownName = (c: { id: string; name: string }): string => (c.id === UNSORTED_COLLECTION_ID ? NO_BINDER_TITLE : c.name)

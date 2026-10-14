@@ -19,6 +19,7 @@ import type { Account } from './supabaseAuth'
 import type { Library } from './cloudSync'
 import { onStorageFull, saveToStorage } from './storage'
 import { libraryCounts, withBackupAdded } from './libraryBackup'
+import { saveBeforeBinders } from './beforeBinders'
 import { restoreLibrary, type BackupFile, type RestoreMode } from './backupFile'
 import { applyCollectionChanges, type CollectionChange } from '../social/tradeLogic'
 import { dropPushOnSignOut } from '../social/push'
@@ -207,6 +208,11 @@ interface SyncContextValue {
   setCardQuantity: (deckId: string, scryfallId: string, quantity: number) => void
   /** Flags a deck card as a cut candidate, or takes the flag off. */
   setReplaceable: (deckId: string, scryfallId: string, replaceable: boolean) => void
+  /**
+   * Which binders decks' cards' copies are sorted into (collection/binderViews.ts): [change] gets each
+   * deck and answers it with its cards' binders changed. Where a copy shows, not an edit of the list.
+   */
+  changeDeckBinders: (change: (deck: Deck) => Deck) => void
   setCommander: (deckId: string, entry: DeckCardEntry | null) => void
   setPartnerCommander: (deckId: string, entry: DeckCardEntry | null) => void
   setGameMode: (deckId: string, mode: GameMode) => void
@@ -356,6 +362,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   // The library as of the latest change, updated synchronously (React state catches up on the next
   // render), so a sync pass never starts from a copy that's missing an edit.
   const libraryRef = useRef(library)
+  // The first time this version runs: a backup of the library as it was before binders showed deck
+  // cards (sync/beforeBinders.ts). Nothing writes a deck card's binders by itself, so it's as it was.
+  useEffect(() => { void saveBeforeBinders(libraryRef.current) }, [])
   // The stored library this tab last wrote or read. When localStorage holds something else, another
   // tab changed it.
   const storedLibrary = useRef<string | null>(localStorage.getItem(LIBRARY_KEY))
@@ -898,7 +907,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const createDeckWithCards = useCallback(
     (name: string, cards: DeckCardEntry[], commander: DeckCardEntry | null = null, partnerCommander: DeckCardEntry | null = null, gameMode: GameMode = 'COMMANDER'): Deck => {
       const deck: Deck = {
-        id: crypto.randomUUID(), name, commander, partnerCommander, cards,
+        // A new deck's copies aren't in any of this user's binders yet (a friend's deck, copied, names theirs).
+        id: crypto.randomUUID(), name, commander, partnerCommander, cards: cards.map(({ binders: _binders, ...c }) => c),
         gameMode, createdAt: Date.now(), tags: [], gameResults: [], ownership: DECK_OWNERSHIP_DEFAULT,
       }
       updateLibrary((lib) => ({ ...lib, decks: [...lib.decks, deck] }))
@@ -1136,6 +1146,16 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       )
     },
     [updateLibrary, mapDeck, pileFollows],
+  )
+
+  const changeDeckBinders = useCallback(
+    (change: (deck: Deck) => Deck) => {
+      updateLibrary((lib) => {
+        const decks = lib.decks.map(change)
+        return decks.every((d, i) => d === lib.decks[i]) ? lib : { ...lib, decks }
+      })
+    },
+    [updateLibrary],
   )
 
   const setReplaceable = useCallback(
@@ -1605,6 +1625,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       removeCardFromDeck,
       setCardQuantity,
       setReplaceable,
+      changeDeckBinders,
       setCommander,
       setPartnerCommander,
       setGameMode,
@@ -1652,7 +1673,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [
       library, account, cloud, mergePrompt, resolveMerge, libraryBackup, restoreLibraryBackup, restoreBackup, resetCollection, pendingReset, undoReset, commitReset, discardLibraryBackup, passwordRecovery, linkNotice, storageFullNotice, signIn, signUp, signOut,
       signInWithToken, syncNow, refresh, updatePassword, createDeck, createDeckWithCards, deleteDeck, addCardToDeck, removeCardFromDeck, setCardQuantity,
-      setReplaceable, setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, setCardTags, addGameResult,
+      setReplaceable, changeDeckBinders, setCommander, setPartnerCommander, setGameMode, setDeckOwnership, setDeckTags, setCardTags, addGameResult,
       addCardsToDeck, stopConsidering, considerIntoDeck, moveToConsidering, swapConsidered, importIntoDeck, addCardToSideboard, setSideboardQuantity, moveToSideboard, moveToMain, removeGameResult, createCollection, deleteCollection, addEntryToCollection, removeEntryFromCollection, changeEntryPrinting, changeDeckPrinting, changePrintingEverywhere, gatherIntoBinder, removeFromCollection, notInterested, addToWishlist, wantAgain, swapInProxy,
       setEntryQuantities, setEntryPriceAlert, setEntryPriceAlerts, setEntryPriceAlertAbove, setEntryCopyDetails, changeCollections, changeStorage, changeDecksAndStorage, importIntoCollection, moveEntries, recordUndo, removeEntriesFromCollection,
     ],

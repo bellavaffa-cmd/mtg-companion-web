@@ -21,9 +21,10 @@ import { useCollectionValue } from '../collection/valueHistory'
 import { placesOf } from '../collection/storagePlaces'
 import { useUpkeep } from '../collection/useUpkeep'
 import {
-  collectionRoute, COLLECTION_TABS, groupByOf, keptInPlacesLine, lastTab, needsAttentionLabel, placesUsed, quickOf, rememberTab, startTab, TAB_LABELS,
+  collectionRoute, COLLECTION_TABS, groupByOf, lastTab, needsAttentionLabel, placesUsed, quickOf, rememberTab, startTab, TAB_LABELS,
   type CollectionTab,
 } from '../collection/collectionLayout'
+import { binderView, deckCopiesByBinder, inDecksOf, keptInPlacesAndDecksLine, NO_BINDER_TITLE, noBinderLine, ownCopiesOf, unsortedView, viewDecks, viewTotal, type BinderView } from '../collection/binderViews'
 import { useMoney } from '../money/currency'
 import { FilterButton } from '../collection/CardsFilterControls'
 import { cardsFilterCount, STORAGE_FILTER_KEY } from '../collection/placeFilter'
@@ -273,10 +274,13 @@ export function CollectionsPage() {
 function BindersTab({ query, onImport, onNewBinder, onMore, onSearchEverywhere }: {
   query: string; onImport: () => void; onNewBinder: () => void; onMore: (c: Collection) => void; onSearchEverywhere: () => void
 }) {
-  const { collections } = useSync()
+  const { collections, decks } = useSync()
   const navigate = useNavigate()
   const wide = useLayoutSize() !== 'phone'
   const q = query.trim().toLowerCase()
+  // What each binder shows: its own cards and the deck copies sorted into it (collection/binderViews.ts).
+  const views = useMemo(() => deckCopiesByBinder(collections, decks), [collections, decks])
+  const noBinder = unsortedView(collections, decks, views)
   const known = useMemo(() => new Set(placesOf(collections).map((p) => p.id)), [collections])
   // The Unsorted pile counts as owned cards, but isn't listed or counted as a binder. Like the
   // Wishlist (a tab of its own) it's always there, even empty — it's where a loose card goes.
@@ -300,11 +304,11 @@ function BindersTab({ query, onImport, onNewBinder, onMore, onSearchEverywhere }
           <button type="button" className="brow press unsorted-row" onClick={() => navigate(`/collections/${unsorted.id}`)}>
             <div className="icon-tile"><Icon name="inbox" /></div>
             <div style={{ minWidth: 0 }}>
-              <div className="brow-name">Unsorted</div>
+              <div className="brow-name">{NO_BINDER_TITLE}</div>
               <div className="brow-meta">
-                {unsortedCards > 0
-                  ? <span><b>{unsortedCards}</b>{unsortedCards === 1 ? 'card' : 'cards'} not in a binder yet — open to sort them</span>
-                  : <span>Empty — for cards you own that aren't in a binder or a deck</span>}
+                {viewTotal(noBinder) > 0
+                  ? <span>{noBinderLine(noBinder)}</span>
+                  : <span>Empty — for cards you own that aren't in a binder</span>}
               </div>
             </div>
             <Icon name="chevron_right" style={{ color: 'var(--t2)' }} />
@@ -330,16 +334,20 @@ function BindersTab({ query, onImport, onNewBinder, onMore, onSearchEverywhere }
         <div className="dim">No binders match “{query.trim()}”.</div>
       ) : (
         <div className="list wide-list">
-          {binders.map((c, i) => (
+          {binders.map((c, i) => {
+            const view = binderView(c.id, collections, decks, views)
+            return (
             <BinderRow
               key={c.id}
               collection={c}
               index={i}
-              kept={keptInPlacesLine(placesUsed(c, known), c.entries.reduce((n, e) => n + e.quantity + e.foilQuantity, 0))}
+              view={view}
+              kept={keptInPlacesAndDecksLine(placesUsed(c, known), ownCopiesOf(view), viewDecks(view))}
               onOpen={() => navigate(`/collections/${c.id}`)}
               onMore={() => onMore(c)}
             />
-          ))}
+            )
+          })}
         </div>
       )}
       {!q && <TagBindersSection />}
@@ -349,7 +357,7 @@ function BindersTab({ query, onImport, onNewBinder, onMore, onSearchEverywhere }
   )
 }
 
-function BinderRow({ collection, index, kept, onOpen, onMore }: { collection: Collection; index: number; kept: string; onOpen: () => void; onMore: () => void }) {
+function BinderRow({ collection, index, kept, view, onOpen, onMore }: { collection: Collection; index: number; kept: string; view?: BinderView; onOpen: () => void; onMore: () => void }) {
   // The row takes the pointer; its name is the keyboard button, since the row holds the actions button.
   const { role, tabIndex, onKeyDown, ...pointer } = useLongPress({ onLongPress: onMore, onClick: onOpen })
   const total = collection.entries.reduce((s, e) => s + e.quantity + e.foilQuantity, 0)
@@ -366,7 +374,10 @@ function BinderRow({ collection, index, kept, onOpen, onMore }: { collection: Co
         <div className="brow-meta">
           {isWishlist(collection)
             ? <><span>Cards you want</span><span><b>{total}</b>{total === 1 ? 'card' : 'cards'}</span><span>not counted as owned</span></>
-            : <><span><b>{total}</b>cards</span><span><b>{collection.entries.length}</b>unique</span>{kept && <span>{kept}</span>}</>}
+            // With deck copies sorted into it: "84 cards · 12 in decks" (collection/binderViews.ts).
+            : view && inDecksOf(view) > 0
+              ? <><span><b>{viewTotal(view)}</b>cards</span><span><b>{inDecksOf(view)}</b>in decks</span>{kept && <span>{kept}</span>}</>
+              : <><span><b>{total}</b>cards</span><span><b>{collection.entries.length}</b>unique</span>{kept && <span>{kept}</span>}</>}
         </div>
       </div>
       <button

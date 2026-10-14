@@ -158,7 +158,7 @@ export function PutBackPage() {
         <Dialog title="Taken apart" onDismiss={() => { setDone(null); back() }} actions={<button type="button" className="btn gold" onClick={() => { setDone(null); back() }}>Done</button>}>
           <p className="muted" style={{ margin: 0 }}>
             {done.placed > 0 && `${done.placed} ${done.placed === 1 ? 'card is' : 'cards are'} back in their places. `}
-            {done.unplaced > 0 && `${done.unplaced} ${done.unplaced === 1 ? 'is' : 'are'} in Unsorted with no place yet. `}
+            {done.unplaced > 0 && `${done.unplaced} ${done.unplaced === 1 ? 'is' : 'are'} in No binder with no place yet. `}
             {deck.name} is a virtual deck now.
           </p>
         </Dialog>

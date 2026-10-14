@@ -29,12 +29,12 @@ export const RESET_SCOPES: { id: ResetScope; title: string; detail: string }[] =
   {
     id: 'cards',
     title: 'Cards only',
-    detail: 'Empties every binder and the Unsorted pile. Your binders, storage places, Wishlist, decks, cubes, sealed product, graded cards, gear, loans, goals and what the scanner learned stay.',
+    detail: 'Empties every binder and No binder. Your binders, storage places, Wishlist, decks, cubes, sealed product, graded cards, gear, loans, goals and what the scanner learned stay.',
   },
   {
     id: 'collection',
     title: 'Collection',
-    detail: 'Every card and binder, storage places, sealed product, graded cards, gear, loans, goals, what the scanner learned from your corrections, and your copies’ photos and history. The Unsorted pile and Wishlist stay, empty. Decks, cubes and card prices stay.',
+    detail: 'Every card and binder, storage places, sealed product, graded cards, gear, loans, goals, what the scanner learned from your corrections, and your copies’ photos and history. No binder and the Wishlist stay, empty. Decks, cubes and card prices stay.',
   },
   {
     id: 'everything',

@@ -255,7 +255,7 @@ export function ScanPage() {
     const fromPlace = row.step?.from ? placesNow.find((p) => p.id === row.step!.from!.placeId) : undefined
     const here = { id: target.id, name: [target.name, row.spot.section].filter(Boolean).join(' › ') }
     if (row.result === 'new') recordMoves([addedMove(Date.now(), { name: card.name, scryfallId: card.id }, 1, here, 'by scanning')])
-    else if (row.result !== 'here') recordMoves([putAwayMove(Date.now(), { name: card.name, scryfallId: card.id }, 1, here, fromPlace ? { id: fromPlace.id, name: fromPlace.name } : row.step?.collectionId === UNSORTED_COLLECTION_ID ? { id: '', name: 'Unsorted' } : null, 'by scanning')])
+    else if (row.result !== 'here') recordMoves([putAwayMove(Date.now(), { name: card.name, scryfallId: card.id }, 1, here, fromPlace ? { id: fromPlace.id, name: fromPlace.name } : row.step?.collectionId === UNSORTED_COLLECTION_ID ? { id: '', name: 'No binder' } : null, 'by scanning')])
     setSession((list) => [row, ...list])
     sayCard(`${card.name} — ${row.label}`, card)
   }
