@@ -9,6 +9,11 @@
 //    a binder that's gone, No binder — each to the spot it came from (Deck.cameFrom) while that place is
 //    still there. The card's refs are cut to what it still holds.
 //  - A binder deleted: its own copies go with it; deck copies stay in their decks, now in No binder.
+//  - From one deck to another (sendDeckCard): into a deck that holds its cards (Physical or Proxy, its
+//    main list) a move takes the real copies with their binders and spots; a copy, or the copies a move
+//    doesn't bring, come out of No binder (a Physical deck) and the rest are marked to pull — never made
+//    up. A sideboard, a Considering list, or a deck that doesn't hold its cards (Virtual, Prototype, a
+//    cube, a sample) only lists the card: a move's real copies go back the usual way.
 // No copy is made or lost: what's owned and what it's worth (ownedCopies.ts) never change, and the views
 // still add up to All cards' real copies. Mirrors the Android app's data/BinderFlows.kt (shared cases:
 // tests/collection/returnToBinderVectors.json).
@@ -16,11 +21,12 @@
 import { UNSORTED_COLLECTION_ID, ownershipOf, type CameFrom, type Collection, type CollectionEntry, type CopyPlace, type Deck, type DeckCardEntry } from '../types/models'
 import { binderRef, foilsOf, type BinderRef } from '../decks/binderRefs'
 import { proxyCopies } from '../decks/proxies'
-import { assignedCopies, sortingBinderIds } from './binderCore'
+import { assignedCopies, sortingBinderIds, sortsInto } from './binderCore'
 import { countsAsOwned, ownedCopies } from './ownedCopies'
 import { cameFromLine, tidyCameFrom } from './pullList'
 import { copyKey, copyPlace, moveCopies, placeCopies, placesOf, sameCardName, splitPlaces, tidied } from './storagePlaces'
-import { pileEntryOf, withUnsortedPile } from './unsorted'
+import { holdsOwnCopies, pileEntryOf, takenFromUnsorted, withUnsortedPile } from './unsorted'
+import { movedToSideboard, withSideboardCopies, type DeckPart } from '../decks/sideboard'
 
 const nameKey = (name: string) => name.trim().toLowerCase()
 const sum = (refs: BinderRef[]) => refs.reduce((n, r) => n + r.qty, 0)
@@ -313,3 +319,180 @@ export function sendToDeck(collections: Collection[], deck: Deck, from: string, 
 /** "2 cards in decks stay in their decks." — said when a binder that lists deck copies is deleted; '' when none. */
 export const deckCopiesStayLine = (n: number): string =>
   n <= 0 ? '' : `${n.toLocaleString('en-GB')} ${n === 1 ? 'card' : 'cards'} in decks stay in their decks.`
+
+// ---- Between decks, and in and out of the sideboard ----
+
+/** [entry] as a new card for another deck or list: no binders, no proxies, not a cut candidate. */
+function freshCard(entry: DeckCardEntry, quantity: number): DeckCardEntry {
+  const { binders: _b, proxyQuantity: _p, replaceable: _r, ...rest } = entry
+  return { ...rest, quantity }
+}
+
+/** [deck] with its main-deck card [next] put in place of the one with its id, or added. */
+function withMainCard(deck: Deck, next: DeckCardEntry): Deck {
+  const has = deck.cards.some((c) => c.scryfallId === next.scryfallId)
+  return { ...deck, cards: has ? deck.cards.map((c) => (c.scryfallId === next.scryfallId ? next : c)) : [...deck.cards, next] }
+}
+
+/** [deck] with its main-deck card [scryfallId] down to [quantity] copies; gone at 0, as its commander too. */
+function withoutCopies(deck: Deck, scryfallId: string, quantity: number): Deck {
+  const after = withCardCount(deck, scryfallId, quantity)
+  if (quantity > 0) return after
+  return {
+    ...after,
+    commander: deck.commander?.scryfallId === scryfallId ? null : deck.commander,
+    partnerCommander: deck.partnerCommander?.scryfallId === scryfallId ? null : deck.partnerCommander,
+  }
+}
+
+/** [deck] with [entry] on its Considering list (once: it's a list of candidates). */
+function withConsidered(deck: Deck, entry: DeckCardEntry): Deck {
+  const list = deck.considering ?? []
+  return list.some((c) => c.scryfallId === entry.scryfallId) ? deck : { ...deck, considering: [...list, freshCard(entry, 1)] }
+}
+
+/** What [withCopiesToPull] did. */
+export interface ToPull {
+  collections: Collection[]
+  deck: Deck
+  /** Loose copies taken out of No binder. */
+  taken: number
+  /** Copies the deck is short, marked to pull (its proxies until they're pulled). */
+  toPull: number
+}
+
+/**
+ * [deck] with [n] more copies of [entry] in its main list that aren't coming with real copies — a card
+ * copied from another deck, moved there from a deck that didn't hold it, or back from the sideboard. No
+ * copy is made up: a deck that holds its cards takes loose copies out of No binder (a Physical deck, as
+ * adding by hand does) and marks the rest to pull — its proxies until the pull list fetches them. Any
+ * other deck just lists them.
+ */
+export function withCopiesToPull(collections: Collection[], deck: Deck, entry: DeckCardEntry, n: number): ToPull {
+  if (n <= 0) return { collections, deck, taken: 0, toPull: 0 }
+  const base = deck.cards.find((c) => c.scryfallId === entry.scryfallId) ?? freshCard(entry, 0)
+  if (!countsAsOwned(deck)) return { collections, deck: withMainCard(deck, { ...base, quantity: base.quantity + n }), taken: 0, toPull: 0 }
+  let taken = 0
+  const cols = !holdsOwnCopies(deck) ? collections : collections.map((c) => {
+    if (c.id !== UNSORTED_COLLECTION_ID) return c
+    const out = takenFromUnsorted(c.entries, entry.scryfallId, entry.name, n)
+    taken = out.taken
+    return out.taken > 0 ? { ...c, entries: out.entries } : c
+  })
+  const toPull = n - taken
+  const proxies = proxyCopies(deck, base) + toPull
+  const next: DeckCardEntry = { ...base, quantity: base.quantity + n, ...(proxies > 0 || ownershipOf(deck) === 'PROXY' ? { proxyQuantity: proxies } : {}) }
+  return { collections: cols, deck: tidiedRefs(withMainCard(deck, next), new Set([entry.scryfallId])), taken, toPull }
+}
+
+/** Where a deck's card is sent: another deck's main list, sideboard or Considering list, or a binder (the Unsorted pile is No binder). */
+export type SendTo = { deck: Deck; part: DeckPart } | { binder: string }
+
+/** What [sendDeckCard] did. */
+export interface DeckCardSent {
+  collections: Collection[]
+  /** The deck the card came from, after. */
+  from: Deck
+  /** The deck it went to, after; null for a binder. */
+  to: Deck | null
+  /** Real copies that went with it: into the other deck, into the binder, or (a copy to a binder) listed there. */
+  real: number
+  /** Loose copies taken out of No binder for the other deck. */
+  taken: number
+  /** Copies the other deck is short, marked to pull. */
+  toPull: number
+  /** New copies put in a binder: the card of a deck that holds none of its own, sent to a binder — an add. */
+  added: number
+}
+
+/**
+ * [quantity] copies of [from]'s main-deck card [scryfallId] sent [to] another deck or a binder — moved
+ * ([keep] false: out of [from]) or copied. No copy is made or lost (ownedCopies.ts):
+ *  - Into a deck that holds its cards (its main list): a move takes the real copies leaving [from] with
+ *    it, their binders and the spots they came from too; the rest — a copy's, or a move's proxies — come
+ *    out of No binder or are marked to pull (withCopiesToPull).
+ *  - Into a sideboard, a Considering list, or a deck that doesn't hold its cards: only the card is
+ *    listed. A move's real copies go back to their binders, the rest to No binder (returnCopies).
+ *  - Into a binder: a move's real copies go into it as its own copies (proxies are no card at all); a
+ *    copy can't be in two places, so a copy lists the deck's real copies that are in no binder in that
+ *    one (sorts them into it). A deck that holds none of its cards adds the card to the binder, as from
+ *    search. A wishlist only lists the card: a move's real copies go back the usual way.
+ */
+export function sendDeckCard(collections: Collection[], from: Deck, scryfallId: string, quantity: number, to: SendTo, keep: boolean): DeckCardSent {
+  const entry = from.cards.find((c) => c.scryfallId === scryfallId)
+  const target = 'deck' in to ? to.deck : null
+  const nothing: DeckCardSent = { collections, from, to: target, real: 0, taken: 0, toPull: 0, added: 0 }
+  if (!entry || entry.quantity <= 0) return nothing
+  const q = Math.max(1, Math.min(quantity, entry.quantity))
+  const valid = sortingBinderIds(collections)
+  // On a move [from]'s card goes down by q: the real copies leaving are the ones that go (returnCopies' chunks).
+  const left = keep ? null : returnCopies(collections, from, withoutCopies(from, scryfallId, entry.quantity - q))
+  const src = left?.deck ?? from
+  const leaving = left ? copiesBack(left) : 0
+
+  if (!('deck' in to)) {
+    const binder = collections.find((c) => c.id === to.binder)
+    const holds = to.binder === UNSORTED_COLLECTION_ID || (binder !== undefined && sortsInto(binder))
+    if (!holds || !countsAsOwned(from)) {
+      // A wishlist, or a deck that holds none of its cards: the card is listed / added there; a move's real copies go back.
+      const back = left?.collections ?? collections
+      const cols = to.binder === UNSORTED_COLLECTION_ID ? withUnsortedPile(back) : back
+      const add: CopiesBack = { collectionId: to.binder, entry, plain: q, foil: 0, spots: [] }
+      return { ...nothing, collections: cols.map((c) => (c.id !== to.binder ? c : { ...c, entries: intoCollection(c.entries, add) })), from: src, added: holds ? q : 0 }
+    }
+    if (left) {
+      // Moved: its real copies go in the binder as the binder's own, plain and foil as they were.
+      const plain = left.back.reduce((n, b) => n + b.plain, 0)
+      const foil = left.back.reduce((n, b) => n + b.foil, 0)
+      if (plain + foil <= 0) return { ...nothing, from: src }
+      const cols = to.binder === UNSORTED_COLLECTION_ID ? withUnsortedPile(collections) : collections
+      const add: CopiesBack = { collectionId: to.binder, entry, plain, foil, spots: [] }
+      return { ...nothing, collections: cols.map((c) => (c.id !== to.binder ? c : { ...c, entries: intoCollection(c.entries, add) })), from: src, real: plain + foil }
+    }
+    // Copied: a copy can't be in two places, so the deck's real copies in no binder are listed in this
+    // one instead (sorted into it); one already in a binder stays where it is.
+    if (to.binder === UNSORTED_COLLECTION_ID) return nothing
+    const refs = assignedCopies(from, entry).filter((r) => valid.has(r.id))
+    const n = Math.min(q, ownedCopies(from, entry) - sum(refs))
+    if (n <= 0) return nothing
+    return { ...nothing, from: tidiedRefs(withMainCard(from, { ...entry, binders: withRef(refs, binderRef(to.binder, n)) }), new Set([scryfallId])), real: n }
+  }
+
+  const deck = to.deck
+  if (to.part !== 'main' || !countsAsOwned(deck)) {
+    // Only the card is listed there: the copies a move takes out of [from] go back to their binders, the rest to No binder.
+    const listed = to.part === 'sideboard' ? withSideboardCopies(deck, freshCard(entry, q))
+      : to.part === 'considering' ? withConsidered(deck, entry)
+      : withCopiesToPull(collections, deck, entry, q).deck
+    return { ...nothing, collections: left?.collections ?? collections, from: src, to: listed }
+  }
+  // Into a deck that holds its cards: the real copies leaving go with the card, their binders and spots too.
+  let into = deck
+  for (const b of left?.back ?? []) into = withCopiesFromBinder(into, { ...entry, quantity: b.plain + b.foil }, b.collectionId, b.foil, [], valid)
+  if (left && left.used.length > 0) into = { ...into, cameFrom: tidyCameFrom([...(into.cameFrom ?? []), ...left.used]) }
+  const rest = withCopiesToPull(collections, into, entry, q - leaving)
+  return { ...nothing, collections: rest.collections, from: src, to: rest.deck, real: leaving, taken: rest.taken, toPull: rest.toPull }
+}
+
+/**
+ * [deck]'s main-deck card [scryfallId] moved to its sideboard. The sideboard only lists a card, so its
+ * real copies go back to their binders, the rest to No binder (returnCopies). Unchanged for a card not
+ * in the main deck, or a commander.
+ */
+export function toSideboard(collections: Collection[], deck: Deck, scryfallId: string): { collections: Collection[]; deck: Deck; back: number } {
+  const after = movedToSideboard(deck, scryfallId)
+  if (after === deck) return { collections, deck, back: 0 }
+  const r = returnCopies(collections, deck, after)
+  return { collections: r.collections, deck: r.deck!, back: copiesBack(r) }
+}
+
+/**
+ * [deck]'s sideboard card [scryfallId] moved into its main deck: into a deck that holds its cards, loose
+ * copies out of No binder, the rest to pull (withCopiesToPull) — the sideboard held none.
+ */
+export function toMain(collections: Collection[], deck: Deck, scryfallId: string): ToPull {
+  const entry = (deck.sideboard ?? []).find((c) => c.scryfallId === scryfallId)
+  if (!entry) return { collections, deck, taken: 0, toPull: 0 }
+  const without = { ...deck, sideboard: (deck.sideboard ?? []).filter((c) => c.scryfallId !== scryfallId) }
+  return withCopiesToPull(collections, without, entry, entry.quantity)
+}

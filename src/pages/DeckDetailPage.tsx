@@ -419,8 +419,11 @@ export function DeckDetailPage() {
     // Asked first when the sideboard would go past its 15 cards.
     const ok = await confirmAdd(deck, [entry], (e) => ({ scryfallId: e.scryfallId, name: e.name, quantity: e.quantity, toSideboard: true }), { moving: true })
     if (!ok) return
+    // The sideboard only lists a card: the real copies go back to their binders (or No binder).
+    const back = countsAsOwned(deck) ? ownedCopies(deck, entry) : 0
     const undo = recordUndo(() => moveToSideboard(deck.id, entry.scryfallId))
-    showUndo({ message: doneMessage('move', copiesOf(entry), deckPlace(deck.name, false, true, limited)), undo })
+    const note = back > 0 ? ` · ${back === 1 ? 'Your copy is' : `Your ${back} copies are`} back in ${assignedCopies(deck, entry).length === 0 ? 'No binder' : back === 1 ? 'its binder' : 'their binders'}` : ''
+    showUndo({ message: doneMessage('move', copiesOf(entry), deckPlace(deck.name, false, true, limited)) + note, undo })
   }
   const toMain = (entry: DeckCardEntry) => {
     const undo = recordUndo(() => moveToMain(deck.id, entry.scryfallId))

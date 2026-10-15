@@ -97,7 +97,7 @@ function SharedDeck({ item, withComments }: { item: api.SharedItem; withComments
   const [commentCount, setCommentCount] = useState(0)
   const tabs = withComments && commentsReady
   const onComments = tabs && params.get('tab') === 'comments'
-  const { account, createDeckWithCards, setGameMode, changeDecksAndStorage } = useSync()
+  const { account, createDeckWithCards, changeDecksAndStorage } = useSync()
   const deck = normalizeDeck({ ...(item.data as Partial<Deck>), id: String(item.data.id ?? ''), name: String(item.data.name ?? 'Deck') })
   const { one: changeDeck } = useDeckChange()
   const [zoom, setZoom] = useState<DeckCardEntry | null>(null)
@@ -122,8 +122,8 @@ function SharedDeck({ item, withComments }: { item: api.SharedItem; withComments
       setCopied(mine.id)
       return
     }
-    const mine = createDeckWithCards(`${deck.name}`, deck.cards.map((c) => ({ ...c })), deck.commander, deck.partnerCommander)
-    if (deck.gameMode !== 'COMMANDER') setGameMode(mine.id, deck.gameMode as GameMode)
+    // Their list, not your cards: Virtual (no proxies of theirs either), so nothing is counted as owned until you build it.
+    const mine = createDeckWithCards(`${deck.name}`, deck.cards.map(({ proxyQuantity: _p, ...c }) => c), deck.commander, deck.partnerCommander, deck.gameMode as GameMode, 'VIRTUAL')
     // The primer comes along: it's how the deck is meant to play.
     const primer = tidyDescription(deck.description ?? '')
     if (primer) changeDeck(mine.id, (d) => ({ ...d, description: primer }))

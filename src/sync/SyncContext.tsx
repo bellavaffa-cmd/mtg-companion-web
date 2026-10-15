@@ -29,7 +29,7 @@ import {
   saveCloudState, saveRescue, UnauthorizedError,
 } from './cloudSync'
 import { holdsOwnCopies, takenFromUnsorted, withUnsortedPile } from '../collection/unsorted'
-import { applyReturned, returnCopies, sendToDeck, tidiedRefs, withCardCount } from '../collection/binderFlows'
+import { applyReturned, returnCopies, sendToDeck, tidiedRefs, toMain, toSideboard, withCardCount } from '../collection/binderFlows'
 import { ownedCopies } from '../collection/ownedCopies'
 import { withDeckPrinting, withEntryPrinting } from '../collection/printings'
 import { WISHLIST_ID, withWantedCards, withWishlist, withWishlistCardWantedAgain, withoutWishlistCard, type WantedCard } from '../collection/wishlist'
@@ -38,7 +38,7 @@ import { withSwapIn } from '../decks/swapIn'
 import { canPair } from '../decks/pairing'
 import { moveToConsidering as movedToConsidering, swapConsidered as swappedConsidered } from '../decks/considering'
 import { entryFromCard } from '../decks/newDeck'
-import { movedToMain, movedToSideboard, withSideboardCopies, withSideboardQuantity } from '../decks/sideboard'
+import { withSideboardCopies, withSideboardQuantity } from '../decks/sideboard'
 import { takeCopies } from '../collection/addTo'
 import { splitPlaces } from '../collection/storagePlaces'
 import { changeBetween, isNoChange, undoChange } from './undo'
@@ -198,7 +198,11 @@ interface SyncContextValue {
    * Creates a deck already holding [cards] — importing a precon, or a new deck that starts with its
    * commanders. [gameMode] is Commander unless said otherwise.
    */
-  createDeckWithCards: (name: string, cards: DeckCardEntry[], commander?: DeckCardEntry | null, partnerCommander?: DeckCardEntry | null, gameMode?: GameMode) => Deck
+  /**
+   * A new deck with [cards]. [ownership] Physical unless said: a copy of another deck — an earlier
+   * version of one, a friend's — is Virtual, so the same cards aren't counted as owned twice.
+   */
+  createDeckWithCards: (name: string, cards: DeckCardEntry[], commander?: DeckCardEntry | null, partnerCommander?: DeckCardEntry | null, gameMode?: GameMode, ownership?: DeckOwnership) => Deck
   /** Deletes a deck; with [keepCards], its real copies go back to their binders first, the rest to No binder (see returnCopies). */
   deleteDeck: (deckId: string, keepCards?: boolean) => void
   /** Returns a warning if the resulting copy count breaks the deck's format rules (singleton, max
@@ -257,9 +261,9 @@ interface SyncContextValue {
   addCardToSideboard: (deckId: string, card: ScryfallCard, quantity?: number) => string | null
   /** The sideboard's copies of a card; zero takes it off the sideboard. */
   setSideboardQuantity: (deckId: string, scryfallId: string, quantity: number) => void
-  /** Every main-deck copy of a card onto the sideboard. The Unsorted pile is left alone. */
+  /** Every main-deck copy of a card onto the sideboard, which only lists it: its real copies go back to their binders, the rest to No binder. */
   moveToSideboard: (deckId: string, scryfallId: string) => void
-  /** Every sideboard copy of a card into the main deck. The Unsorted pile is left alone. */
+  /** Every sideboard copy of a card into the main deck: loose copies out of No binder, the rest to pull (a deck that holds its cards). */
   moveToMain: (deckId: string, scryfallId: string) => void
   removeGameResult: (deckId: string, resultId: string) => void
 
@@ -915,11 +919,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   )
 
   const createDeckWithCards = useCallback(
-    (name: string, cards: DeckCardEntry[], commander: DeckCardEntry | null = null, partnerCommander: DeckCardEntry | null = null, gameMode: GameMode = 'COMMANDER'): Deck => {
+    (name: string, cards: DeckCardEntry[], commander: DeckCardEntry | null = null, partnerCommander: DeckCardEntry | null = null, gameMode: GameMode = 'COMMANDER', ownership: DeckOwnership = DECK_OWNERSHIP_DEFAULT): Deck => {
       const deck: Deck = {
         // A new deck's copies aren't in any of this user's binders yet (a friend's deck, copied, names theirs).
         id: crypto.randomUUID(), name, commander, partnerCommander, cards: cards.map(({ binders: _binders, ...c }) => c),
-        gameMode, createdAt: Date.now(), tags: [], gameResults: [], ownership: DECK_OWNERSHIP_DEFAULT,
+        gameMode, createdAt: Date.now(), tags: [], gameResults: [], ownership,
       }
       updateLibrary((lib) => ({ ...lib, decks: [...lib.decks, deck] }))
       countAction('deck_created')
@@ -1117,20 +1121,31 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     [updateLibrary, mapDeck],
   )
 
-  // Moving between the main deck and the sideboard leaves the Unsorted pile alone: the copies stay
-  // with the deck either way (the phone's DeckDetailViewModel does the same).
+  // The sideboard only lists a card, as Considering does (collection/binderFlows.ts toSideboard /
+  // toMain): a card going to it sends its real copies back to their binders (the rest to No binder);
+  // one coming back takes loose copies out of No binder, the rest to pull. The phone does the same.
   const moveToSideboard = useCallback(
     (deckId: string, scryfallId: string) => {
-      updateLibrary((lib) => mapDeck(lib, deckId, (d) => movedToSideboard(d, scryfallId)))
+      updateLibrary((lib) => {
+        const deck = lib.decks.find((d) => d.id === deckId)
+        if (!deck) return lib
+        const r = toSideboard(lib.collections, deck, scryfallId)
+        return { ...lib, collections: r.collections, decks: lib.decks.map((d) => (d.id === deckId ? r.deck : d)) }
+      })
     },
-    [updateLibrary, mapDeck],
+    [updateLibrary],
   )
 
   const moveToMain = useCallback(
     (deckId: string, scryfallId: string) => {
-      updateLibrary((lib) => mapDeck(lib, deckId, (d) => movedToMain(d, scryfallId)))
+      updateLibrary((lib) => {
+        const deck = lib.decks.find((d) => d.id === deckId)
+        if (!deck) return lib
+        const r = toMain(lib.collections, deck, scryfallId)
+        return { ...lib, collections: r.collections, decks: lib.decks.map((d) => (d.id === deckId ? r.deck : d)) }
+      })
     },
-    [updateLibrary, mapDeck],
+    [updateLibrary],
   )
 
   const setCardQuantity = useCallback(

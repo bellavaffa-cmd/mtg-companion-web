@@ -1,0 +1,1549 @@
+{
+  "about": "Cards sent between decks and in and out of a sideboard (src/collection/binderFlows.ts sendDeckCard, toSideboard, toMain; the Android app's data/BinderFlows.kt). No copy is made or lost: All cards' real copies are the same after, less 'added' (a deck that holds none of its cards sending a card to a binder adds it, as from search), and the binder views and No binder add up to them. Into a deck that holds its cards (Physical or Proxy) a move takes the real copies with their binders and spots; a copy, or what a move doesn't bring, comes out of No binder (Physical only) and the rest is to pull (proxies). A sideboard, a Considering list or a deck that doesn't hold its cards only lists the card; a move's real copies go back to their binders, the rest to No binder. Run by tests/collection/moveFlows.test.ts and the Android app's MoveFlowsTest.kt. Shapes as in returnToBinderVectors.json, with several 'decks' (each may have 'sideboard' and 'considering': [{ id, qty }]). 'do': send { from, card, qty, to: { deck, part: main|sideboard|considering } | { binder }, keep } (keep: a copy), toSideboard { deck, card }, toMain { deck, card }. expect.collections: every collection but wishlists; expect.decks: each deck after (sideboard / considering checked when given); expect.sent: what sendDeckCard said it did.",
+  "cases": [
+    {
+      "name": "move a card between physical decks: its real copies go with it, binders and spots too",
+      "places": [
+        "box"
+      ],
+      "collections": [
+        {
+          "id": "b1",
+          "type": "OWNED",
+          "entries": []
+        },
+        {
+          "id": "unsorted",
+          "type": "OWNED",
+          "entries": []
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "cards": [
+            {
+              "id": "sol",
+              "name": "Sol Ring",
+              "qty": 2,
+              "binders": [
+                {
+                  "id": "b1",
+                  "qty": 1
+                }
+              ]
+            }
+          ],
+          "cameFrom": [
+            {
+              "name": "Sol Ring",
+              "placeId": "box",
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "id": "d2",
+          "cards": []
+        }
+      ],
+      "do": {
+        "flow": "send",
+        "from": "d1",
+        "card": "sol",
+        "qty": 2,
+        "to": {
+          "deck": "d2",
+          "part": "main"
+        },
+        "keep": false
+      },
+      "expect": {
+        "collections": {
+          "b1": [],
+          "unsorted": []
+        },
+        "decks": {
+          "d1": {
+            "cards": [],
+            "cameFrom": []
+          },
+          "d2": {
+            "cards": [
+              {
+                "id": "sol",
+                "qty": 2,
+                "binders": [
+                  {
+                    "id": "b1",
+                    "qty": 1
+                  }
+                ]
+              }
+            ],
+            "cameFrom": [
+              {
+                "name": "Sol Ring",
+                "placeId": "box",
+                "qty": 1
+              }
+            ]
+          }
+        },
+        "sent": {
+          "real": 2,
+          "taken": 0,
+          "toPull": 0,
+          "added": 0
+        }
+      }
+    },
+    {
+      "name": "move part of a card between physical decks: the copies in no binder go first, the binder's stay",
+      "places": [],
+      "collections": [
+        {
+          "id": "b1",
+          "type": "OWNED",
+          "entries": []
+        },
+        {
+          "id": "unsorted",
+          "type": "OWNED",
+          "entries": []
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "cards": [
+            {
+              "id": "sol",
+              "qty": 3,
+              "binders": [
+                {
+                  "id": "b1",
+                  "qty": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "d2",
+          "cards": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ]
+        }
+      ],
+      "do": {
+        "flow": "send",
+        "from": "d1",
+        "card": "sol",
+        "qty": 2,
+        "to": {
+          "deck": "d2",
+          "part": "main"
+        },
+        "keep": false
+      },
+      "expect": {
+        "collections": {
+          "b1": [],
+          "unsorted": []
+        },
+        "decks": {
+          "d1": {
+            "cards": [
+              {
+                "id": "sol",
+                "qty": 1,
+                "binders": [
+                  {
+                    "id": "b1",
+                    "qty": 1
+                  }
+                ]
+              }
+            ]
+          },
+          "d2": {
+            "cards": [
+              {
+                "id": "sol",
+                "qty": 3,
+                "binders": [
+                  {
+                    "id": "b1",
+                    "qty": 1
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "sent": {
+          "real": 2,
+          "taken": 0,
+          "toPull": 0,
+          "added": 0
+        }
+      }
+    },
+    {
+      "name": "move from a physical deck to a virtual one: only the card is listed there, the copies go back to their binder",
+      "places": [],
+      "collections": [
+        {
+          "id": "b1",
+          "type": "OWNED",
+          "entries": []
+        },
+        {
+          "id": "unsorted",
+          "type": "OWNED",
+          "entries": []
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "cards": [
+            {
+              "id": "sol",
+              "qty": 2,
+              "binders": [
+                {
+                  "id": "b1",
+                  "qty": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "d2",
+          "ownership": "VIRTUAL",
+          "cards": []
+        }
+      ],
+      "do": {
+        "flow": "send",
+        "from": "d1",
+        "card": "sol",
+        "qty": 2,
+        "to": {
+          "deck": "d2",
+          "part": "main"
+        },
+        "keep": false
+      },
+      "expect": {
+        "collections": {
+          "b1": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ],
+          "unsorted": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ]
+        },
+        "decks": {
+          "d1": {
+            "cards": []
+          },
+          "d2": {
+            "cards": [
+              {
+                "id": "sol",
+                "qty": 2
+              }
+            ]
+          }
+        },
+        "sent": {
+          "real": 0,
+          "taken": 0,
+          "toPull": 0,
+          "added": 0
+        }
+      }
+    },
+    {
+      "name": "move from a physical deck to a prototype one: the same",
+      "places": [],
+      "collections": [
+        {
+          "id": "b1",
+          "type": "OWNED",
+          "entries": []
+        },
+        {
+          "id": "unsorted",
+          "type": "OWNED",
+          "entries": []
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "cards": [
+            {
+              "id": "sol",
+              "qty": 1,
+              "binders": [
+                {
+                  "id": "b1",
+                  "qty": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "d2",
+          "ownership": "PROTOTYPE",
+          "cards": []
+        }
+      ],
+      "do": {
+        "flow": "send",
+        "from": "d1",
+        "card": "sol",
+        "qty": 1,
+        "to": {
+          "deck": "d2",
+          "part": "main"
+        },
+        "keep": false
+      },
+      "expect": {
+        "collections": {
+          "b1": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ],
+          "unsorted": []
+        },
+        "decks": {
+          "d1": {
+            "cards": []
+          },
+          "d2": {
+            "cards": [
+              {
+                "id": "sol",
+                "qty": 1
+              }
+            ]
+          }
+        },
+        "sent": {
+          "real": 0,
+          "taken": 0,
+          "toPull": 0,
+          "added": 0
+        }
+      }
+    },
+    {
+      "name": "copy from a physical deck to a virtual one: nothing leaves",
+      "places": [],
+      "collections": [
+        {
+          "id": "b1",
+          "type": "OWNED",
+          "entries": []
+        },
+        {
+          "id": "unsorted",
+          "type": "OWNED",
+          "entries": []
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "cards": [
+            {
+              "id": "sol",
+              "qty": 2,
+              "binders": [
+                {
+                  "id": "b1",
+                  "qty": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "d2",
+          "ownership": "VIRTUAL",
+          "cards": []
+        }
+      ],
+      "do": {
+        "flow": "send",
+        "from": "d1",
+        "card": "sol",
+        "qty": 2,
+        "to": {
+          "deck": "d2",
+          "part": "main"
+        },
+        "keep": true
+      },
+      "expect": {
+        "collections": {
+          "b1": [],
+          "unsorted": []
+        },
+        "decks": {
+          "d1": {
+            "cards": [
+              {
+                "id": "sol",
+                "qty": 2,
+                "binders": [
+                  {
+                    "id": "b1",
+                    "qty": 1
+                  }
+                ]
+              }
+            ]
+          },
+          "d2": {
+            "cards": [
+              {
+                "id": "sol",
+                "qty": 2
+              }
+            ]
+          }
+        },
+        "sent": {
+          "real": 0,
+          "taken": 0,
+          "toPull": 0,
+          "added": 0
+        }
+      }
+    },
+    {
+      "name": "copy between physical decks: a loose copy out of No binder, the rest to pull — never counted twice",
+      "places": [],
+      "collections": [
+        {
+          "id": "b1",
+          "type": "OWNED",
+          "entries": []
+        },
+        {
+          "id": "unsorted",
+          "type": "OWNED",
+          "entries": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ]
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "cards": [
+            {
+              "id": "sol",
+              "qty": 2
+            }
+          ]
+        },
+        {
+          "id": "d2",
+          "cards": []
+        }
+      ],
+      "do": {
+        "flow": "send",
+        "from": "d1",
+        "card": "sol",
+        "qty": 2,
+        "to": {
+          "deck": "d2",
+          "part": "main"
+        },
+        "keep": true
+      },
+      "expect": {
+        "collections": {
+          "b1": [],
+          "unsorted": []
+        },
+        "decks": {
+          "d1": {
+            "cards": [
+              {
+                "id": "sol",
+                "qty": 2
+              }
+            ]
+          },
+          "d2": {
+            "cards": [
+              {
+                "id": "sol",
+                "qty": 2,
+                "proxies": 1
+              }
+            ]
+          }
+        },
+        "sent": {
+          "real": 0,
+          "taken": 1,
+          "toPull": 1,
+          "added": 0
+        }
+      }
+    },
+    {
+      "name": "copy into a physical deck that has the card: the copies to pull add to it",
+      "places": [],
+      "collections": [
+        {
+          "id": "b1",
+          "type": "OWNED",
+          "entries": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "id": "unsorted",
+          "type": "OWNED",
+          "entries": []
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "cards": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "id": "d2",
+          "cards": [
+            {
+              "id": "sol",
+              "qty": 1,
+              "binders": [
+                {
+                  "id": "b1",
+                  "qty": 1
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "do": {
+        "flow": "send",
+        "from": "d1",
+        "card": "sol",
+        "qty": 1,
+        "to": {
+          "deck": "d2",
+          "part": "main"
+        },
+        "keep": true
+      },
+      "expect": {
+        "collections": {
+          "b1": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ],
+          "unsorted": []
+        },
+        "decks": {
+          "d1": {
+            "cards": [
+              {
+                "id": "sol",
+                "qty": 1
+              }
+            ]
+          },
+          "d2": {
+            "cards": [
+              {
+                "id": "sol",
+                "qty": 2,
+                "proxies": 1,
+                "binders": [
+                  {
+                    "id": "b1",
+                    "qty": 1
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "sent": {
+          "real": 0,
+          "taken": 0,
+          "toPull": 1,
+          "added": 0
+        }
+      }
+    },
+    {
+      "name": "copy into a proxy deck: proxies, nothing taken",
+      "places": [],
+      "collections": [
+        {
+          "id": "b1",
+          "type": "OWNED",
+          "entries": []
+        },
+        {
+          "id": "unsorted",
+          "type": "OWNED",
+          "entries": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ]
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "cards": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "id": "d2",
+          "ownership": "PROXY",
+          "cards": []
+        }
+      ],
+      "do": {
+        "flow": "send",
+        "from": "d1",
+        "card": "sol",
+        "qty": 1,
+        "to": {
+          "deck": "d2",
+          "part": "main"
+        },
+        "keep": true
+      },
+      "expect": {
+        "collections": {
+          "b1": [],
+          "unsorted": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ]
+        },
+        "decks": {
+          "d1": {
+            "cards": [
+              {
+                "id": "sol",
+                "qty": 1
+              }
+            ]
+          },
+          "d2": {
+            "cards": [
+              {
+                "id": "sol",
+                "qty": 1,
+                "proxies": 1
+              }
+            ]
+          }
+        },
+        "sent": {
+          "real": 0,
+          "taken": 0,
+          "toPull": 1,
+          "added": 0
+        }
+      }
+    },
+    {
+      "name": "move from a proxy deck: its real copy goes with its binder, the proxy is to pull",
+      "places": [],
+      "collections": [
+        {
+          "id": "b1",
+          "type": "OWNED",
+          "entries": []
+        },
+        {
+          "id": "unsorted",
+          "type": "OWNED",
+          "entries": []
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "ownership": "PROXY",
+          "cards": [
+            {
+              "id": "sol",
+              "qty": 2,
+              "proxies": 1,
+              "binders": [
+                {
+                  "id": "b1",
+                  "qty": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "d2",
+          "cards": []
+        }
+      ],
+      "do": {
+        "flow": "send",
+        "from": "d1",
+        "card": "sol",
+        "qty": 2,
+        "to": {
+          "deck": "d2",
+          "part": "main"
+        },
+        "keep": false
+      },
+      "expect": {
+        "collections": {
+          "b1": [],
+          "unsorted": []
+        },
+        "decks": {
+          "d1": {
+            "cards": []
+          },
+          "d2": {
+            "cards": [
+              {
+                "id": "sol",
+                "qty": 2,
+                "proxies": 1,
+                "binders": [
+                  {
+                    "id": "b1",
+                    "qty": 1
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "sent": {
+          "real": 1,
+          "taken": 0,
+          "toPull": 1,
+          "added": 0
+        }
+      }
+    },
+    {
+      "name": "move from a virtual deck to a physical one: a loose copy out of No binder",
+      "places": [],
+      "collections": [
+        {
+          "id": "b1",
+          "type": "OWNED",
+          "entries": []
+        },
+        {
+          "id": "unsorted",
+          "type": "OWNED",
+          "entries": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ]
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "ownership": "VIRTUAL",
+          "cards": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "id": "d2",
+          "cards": []
+        }
+      ],
+      "do": {
+        "flow": "send",
+        "from": "d1",
+        "card": "sol",
+        "qty": 1,
+        "to": {
+          "deck": "d2",
+          "part": "main"
+        },
+        "keep": false
+      },
+      "expect": {
+        "collections": {
+          "b1": [],
+          "unsorted": []
+        },
+        "decks": {
+          "d1": {
+            "ownership": "VIRTUAL",
+            "cards": []
+          },
+          "d2": {
+            "cards": [
+              {
+                "id": "sol",
+                "qty": 1
+              }
+            ]
+          }
+        },
+        "sent": {
+          "real": 0,
+          "taken": 1,
+          "toPull": 0,
+          "added": 0
+        }
+      }
+    },
+    {
+      "name": "move to another deck's sideboard: the sideboard only lists it, the copy goes back to its binder",
+      "places": [],
+      "collections": [
+        {
+          "id": "b1",
+          "type": "OWNED",
+          "entries": []
+        },
+        {
+          "id": "unsorted",
+          "type": "OWNED",
+          "entries": []
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "cards": [
+            {
+              "id": "sol",
+              "qty": 1,
+              "binders": [
+                {
+                  "id": "b1",
+                  "qty": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "d2",
+          "cards": []
+        }
+      ],
+      "do": {
+        "flow": "send",
+        "from": "d1",
+        "card": "sol",
+        "qty": 1,
+        "to": {
+          "deck": "d2",
+          "part": "sideboard"
+        },
+        "keep": false
+      },
+      "expect": {
+        "collections": {
+          "b1": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ],
+          "unsorted": []
+        },
+        "decks": {
+          "d1": {
+            "cards": []
+          },
+          "d2": {
+            "cards": [],
+            "sideboard": [
+              {
+                "id": "sol",
+                "qty": 1
+              }
+            ]
+          }
+        },
+        "sent": {
+          "real": 0,
+          "taken": 0,
+          "toPull": 0,
+          "added": 0
+        }
+      }
+    },
+    {
+      "name": "copy to another deck's Considering list: nothing leaves",
+      "places": [],
+      "collections": [
+        {
+          "id": "b1",
+          "type": "OWNED",
+          "entries": []
+        },
+        {
+          "id": "unsorted",
+          "type": "OWNED",
+          "entries": []
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "cards": [
+            {
+              "id": "sol",
+              "qty": 2
+            }
+          ]
+        },
+        {
+          "id": "d2",
+          "cards": []
+        }
+      ],
+      "do": {
+        "flow": "send",
+        "from": "d1",
+        "card": "sol",
+        "qty": 2,
+        "to": {
+          "deck": "d2",
+          "part": "considering"
+        },
+        "keep": true
+      },
+      "expect": {
+        "collections": {
+          "b1": [],
+          "unsorted": []
+        },
+        "decks": {
+          "d1": {
+            "cards": [
+              {
+                "id": "sol",
+                "qty": 2
+              }
+            ]
+          },
+          "d2": {
+            "cards": [],
+            "considering": [
+              {
+                "id": "sol",
+                "qty": 1
+              }
+            ]
+          }
+        },
+        "sent": {
+          "real": 0,
+          "taken": 0,
+          "toPull": 0,
+          "added": 0
+        }
+      }
+    },
+    {
+      "name": "main deck to its own sideboard: the real copies go back to their binder, the rest to No binder",
+      "places": [],
+      "collections": [
+        {
+          "id": "b1",
+          "type": "OWNED",
+          "entries": []
+        },
+        {
+          "id": "unsorted",
+          "type": "OWNED",
+          "entries": []
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "cards": [
+            {
+              "id": "sol",
+              "qty": 2,
+              "binders": [
+                {
+                  "id": "b1",
+                  "qty": 1
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "do": {
+        "flow": "toSideboard",
+        "deck": "d1",
+        "card": "sol"
+      },
+      "expect": {
+        "collections": {
+          "b1": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ],
+          "unsorted": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ]
+        },
+        "decks": {
+          "d1": {
+            "cards": [],
+            "sideboard": [
+              {
+                "id": "sol",
+                "qty": 2
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "sideboard back to the main deck: a loose copy out of No binder, the rest to pull",
+      "places": [],
+      "collections": [
+        {
+          "id": "b1",
+          "type": "OWNED",
+          "entries": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "id": "unsorted",
+          "type": "OWNED",
+          "entries": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ]
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "cards": [],
+          "sideboard": [
+            {
+              "id": "sol",
+              "qty": 2
+            }
+          ]
+        }
+      ],
+      "do": {
+        "flow": "toMain",
+        "deck": "d1",
+        "card": "sol"
+      },
+      "expect": {
+        "collections": {
+          "b1": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ],
+          "unsorted": []
+        },
+        "decks": {
+          "d1": {
+            "cards": [
+              {
+                "id": "sol",
+                "qty": 2,
+                "proxies": 1
+              }
+            ],
+            "sideboard": []
+          }
+        }
+      }
+    },
+    {
+      "name": "a virtual deck's sideboard back to its main deck: just listed",
+      "places": [],
+      "collections": [
+        {
+          "id": "b1",
+          "type": "OWNED",
+          "entries": []
+        },
+        {
+          "id": "unsorted",
+          "type": "OWNED",
+          "entries": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ]
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "ownership": "VIRTUAL",
+          "cards": [],
+          "sideboard": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ]
+        }
+      ],
+      "do": {
+        "flow": "toMain",
+        "deck": "d1",
+        "card": "sol"
+      },
+      "expect": {
+        "collections": {
+          "b1": [],
+          "unsorted": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ]
+        },
+        "decks": {
+          "d1": {
+            "ownership": "VIRTUAL",
+            "cards": [
+              {
+                "id": "sol",
+                "qty": 1
+              }
+            ],
+            "sideboard": []
+          }
+        }
+      }
+    },
+    {
+      "name": "move from a physical deck to a binder: its real copies go in it, plain and foil as they were",
+      "places": [],
+      "collections": [
+        {
+          "id": "b1",
+          "type": "OWNED",
+          "entries": []
+        },
+        {
+          "id": "b2",
+          "type": "OWNED",
+          "entries": []
+        },
+        {
+          "id": "unsorted",
+          "type": "OWNED",
+          "entries": []
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "cards": [
+            {
+              "id": "sol",
+              "qty": 2,
+              "binders": [
+                {
+                  "id": "b1",
+                  "qty": 1,
+                  "foil": 1
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "do": {
+        "flow": "send",
+        "from": "d1",
+        "card": "sol",
+        "qty": 2,
+        "to": {
+          "binder": "b2"
+        },
+        "keep": false
+      },
+      "expect": {
+        "collections": {
+          "b1": [],
+          "b2": [
+            {
+              "id": "sol",
+              "qty": 1,
+              "foil": 1
+            }
+          ],
+          "unsorted": []
+        },
+        "decks": {
+          "d1": {
+            "cards": []
+          }
+        },
+        "sent": {
+          "real": 2,
+          "taken": 0,
+          "toPull": 0,
+          "added": 0
+        }
+      }
+    },
+    {
+      "name": "move a proxy deck's proxy to a binder: a proxy is no card, nothing goes",
+      "places": [],
+      "collections": [
+        {
+          "id": "b2",
+          "type": "OWNED",
+          "entries": []
+        },
+        {
+          "id": "unsorted",
+          "type": "OWNED",
+          "entries": []
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "ownership": "PROXY",
+          "cards": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ]
+        }
+      ],
+      "do": {
+        "flow": "send",
+        "from": "d1",
+        "card": "sol",
+        "qty": 1,
+        "to": {
+          "binder": "b2"
+        },
+        "keep": false
+      },
+      "expect": {
+        "collections": {
+          "b2": [],
+          "unsorted": []
+        },
+        "decks": {
+          "d1": {
+            "ownership": "PROXY",
+            "cards": []
+          }
+        },
+        "sent": {
+          "real": 0,
+          "taken": 0,
+          "toPull": 0,
+          "added": 0
+        }
+      }
+    },
+    {
+      "name": "copy from a physical deck to a binder: its copy in no binder is listed there, the one in a binder stays",
+      "places": [],
+      "collections": [
+        {
+          "id": "b1",
+          "type": "OWNED",
+          "entries": []
+        },
+        {
+          "id": "b2",
+          "type": "OWNED",
+          "entries": []
+        },
+        {
+          "id": "unsorted",
+          "type": "OWNED",
+          "entries": []
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "cards": [
+            {
+              "id": "sol",
+              "qty": 2,
+              "binders": [
+                {
+                  "id": "b1",
+                  "qty": 1
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "do": {
+        "flow": "send",
+        "from": "d1",
+        "card": "sol",
+        "qty": 2,
+        "to": {
+          "binder": "b2"
+        },
+        "keep": true
+      },
+      "expect": {
+        "collections": {
+          "b1": [],
+          "b2": [],
+          "unsorted": []
+        },
+        "decks": {
+          "d1": {
+            "cards": [
+              {
+                "id": "sol",
+                "qty": 2,
+                "binders": [
+                  {
+                    "id": "b1",
+                    "qty": 1
+                  },
+                  {
+                    "id": "b2",
+                    "qty": 1
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "sent": {
+          "real": 1,
+          "taken": 0,
+          "toPull": 0,
+          "added": 0
+        }
+      }
+    },
+    {
+      "name": "move from a virtual deck to a binder: the card is added to the binder, as from search",
+      "places": [],
+      "collections": [
+        {
+          "id": "b2",
+          "type": "OWNED",
+          "entries": []
+        },
+        {
+          "id": "unsorted",
+          "type": "OWNED",
+          "entries": []
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "ownership": "VIRTUAL",
+          "cards": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ]
+        }
+      ],
+      "do": {
+        "flow": "send",
+        "from": "d1",
+        "card": "sol",
+        "qty": 1,
+        "to": {
+          "binder": "b2"
+        },
+        "keep": false
+      },
+      "expect": {
+        "collections": {
+          "b2": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ],
+          "unsorted": []
+        },
+        "decks": {
+          "d1": {
+            "ownership": "VIRTUAL",
+            "cards": []
+          }
+        },
+        "sent": {
+          "real": 0,
+          "taken": 0,
+          "toPull": 0,
+          "added": 1
+        }
+      }
+    },
+    {
+      "name": "move from a physical deck to the wishlist: only listed there, the copy goes back to its binder",
+      "places": [],
+      "collections": [
+        {
+          "id": "b1",
+          "type": "OWNED",
+          "entries": []
+        },
+        {
+          "id": "wish",
+          "type": "WISHLIST",
+          "entries": []
+        },
+        {
+          "id": "unsorted",
+          "type": "OWNED",
+          "entries": []
+        }
+      ],
+      "decks": [
+        {
+          "id": "d1",
+          "cards": [
+            {
+              "id": "sol",
+              "qty": 1,
+              "binders": [
+                {
+                  "id": "b1",
+                  "qty": 1
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "do": {
+        "flow": "send",
+        "from": "d1",
+        "card": "sol",
+        "qty": 1,
+        "to": {
+          "binder": "wish"
+        },
+        "keep": false
+      },
+      "expect": {
+        "collections": {
+          "b1": [
+            {
+              "id": "sol",
+              "qty": 1
+            }
+          ],
+          "unsorted": []
+        },
+        "decks": {
+          "d1": {
+            "cards": []
+          }
+        },
+        "sent": {
+          "real": 0,
+          "taken": 0,
+          "toPull": 0,
+          "added": 0
+        }
+      }
+    }
+  ]
+}

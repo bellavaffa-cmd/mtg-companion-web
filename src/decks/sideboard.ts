@@ -1,9 +1,11 @@
 // A deck's sideboard: up to fifteen cards beside the main deck, for formats that have one
 // (hasSideboard). Kept in Deck.sideboard — out of the main list, so stats, size, price and combos never
 // see it — and merged by the sync exactly like the Considering list. Its copies don't count as cards
-// the deck holds: adding to it or moving cards in and out of it leaves the Unsorted pile alone. The
-// changes here are plain functions on a Deck so they can be tested. Mirrors the Android app's
-// data/Sideboard.kt.
+// the deck holds: like Considering it only lists a card, so a sideboard card is in no binder and has no
+// proxies. Moving a card out of the main deck into it sends the real copies back to their binders, and
+// moving it back takes loose copies out of No binder, the rest to pull (collection/binderFlows.ts
+// toSideboard / toMain). The changes here are plain functions on a Deck so they can be tested. Mirrors
+// the Android app's data/Sideboard.kt.
 
 import type { ListSection } from '../collection/cardListText'
 import { GAME_MODES_USING_COMMANDER, type Deck, type DeckCardEntry, type GameMode } from '../types/models'
@@ -65,9 +67,9 @@ export function plusCopies(entries: DeckCardEntry[], entry: DeckCardEntry): Deck
     : [...entries, entry]
 }
 
-/** A sideboard card is never a cut candidate. */
+/** A sideboard card is never a cut candidate, and only lists the card: no binders, no proxies. */
 function sided(entry: DeckCardEntry): DeckCardEntry {
-  const { replaceable: _dropped, ...rest } = entry
+  const { replaceable: _dropped, binders: _binders, proxyQuantity: _proxies, ...rest } = entry
   return rest
 }
 

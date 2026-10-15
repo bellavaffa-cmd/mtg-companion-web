@@ -236,7 +236,8 @@ export function DeckVersionPage() {
     const fresh = plan.deck.cards.map((e) => ({ ...e, proxyQuantity: undefined, replaceable: false }))
     const commander = plan.deck.commander ? fresh.find((e) => e.scryfallId === plan.deck.commander!.scryfallId) ?? null : null
     const partner = plan.deck.partnerCommander ? fresh.find((e) => e.scryfallId === plan.deck.partnerCommander!.scryfallId) ?? null : null
-    const made = createDeckWithCards(`${deck.name} (${day})`, fresh, commander, partner, deck.gameMode as GameMode)
+    // A copy of the list, not of the cards: Virtual, so the deck's copies aren't counted as owned twice.
+    const made = createDeckWithCards(`${deck.name} (${day})`, fresh, commander, partner, deck.gameMode as GameMode, 'VIRTUAL')
     navigate(`/decks/${made.id}`)
   }
 
@@ -316,7 +317,7 @@ export function DeckVersionPage() {
               )}
             </>
           )}
-          <p className="muted hist-foot">Going back keeps today's list in the history too, so you can always return to it. Physical decks get a pull list for the cards that change.</p>
+          <p className="muted hist-foot">Going back keeps today's list in the history too, so you can always return to it. Physical decks get a pull list for the cards that change. A copy as a new deck is Virtual: the cards are still this deck's — make it Physical to build it from your binders.</p>
         </div>
       </div>
       <div className="pull-bar">
