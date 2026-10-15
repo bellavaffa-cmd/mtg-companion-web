@@ -105,3 +105,10 @@ test('adding a card warns about copies already in the sideboard', () => {
   const deck = modern([card('bolt', 2)], [card('bolt', 2)])
   assert.ok(duplicateWarning(deck, scry('bolt', 'Lightning Bolt'))!.includes("you'll have 5"))
 })
+
+test('the sideboard only lists a card: no binders, no proxies (its copies go back — binderFlows.ts toSideboard)', () => {
+  const deck = normalizeDeck({ id: 'd', name: 'A', gameMode: 'MODERN', cards: [{ ...card('bolt', 2), binders: [{ id: 'b1', qty: 1 }], proxyQuantity: 1 }] })
+  const side = movedToSideboard(deck, 'bolt').sideboard![0]
+  assert.equal(side.binders, undefined)
+  assert.equal(side.proxyQuantity, undefined)
+})
